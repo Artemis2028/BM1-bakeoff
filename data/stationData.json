@@ -1,0 +1,6590 @@
+{
+  "schema": "bm2.station-data.v1",
+  "version": "20260713-station-prune-v1",
+  "stations": [
+    {
+      "id": "0-9",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 89,
+      "condition": 100,
+      "offset": {
+        "x": -2000,
+        "y": -2000
+      },
+      "legacyValue5": 0,
+      "rotation": -35,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Alpha Array"
+    },
+    {
+      "id": "0-3",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 71,
+      "condition": 100,
+      "offset": {
+        "x": 670,
+        "y": 320
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          130,
+          114,
+          120,
+          121,
+          126,
+          119
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          25,
+          9,
+          15,
+          16,
+          21,
+          14
+        ]
+      },
+      "name": "Daystrom Institute"
+    },
+    {
+      "id": "0-8",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 1130,
+        "y": -2100
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [
+          84
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Galaxy Living"
+    },
+    {
+      "id": "0-6",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": 1000,
+        "y": -2000
+      },
+      "legacyValue5": 0,
+      "rotation": -15,
+      "stock": {
+        "rawIds": [
+          106,
+          113
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          1,
+          8
+        ]
+      },
+      "name": "Joe's Repair"
+    },
+    {
+      "id": "0-7",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 950,
+        "y": -1800
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Kirk's Pub"
+    },
+    {
+      "id": "0-5",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 74,
+      "condition": 100,
+      "offset": {
+        "x": -250,
+        "y": -300
+      },
+      "legacyValue5": 0,
+      "rotation": -20,
+      "stock": {
+        "rawIds": [
+          1,
+          5,
+          6,
+          7,
+          34,
+          36
+        ],
+        "shipIds": [
+          1,
+          5,
+          6,
+          7,
+          34,
+          36,
+          103,
+          104
+        ],
+        "weaponIds": []
+      },
+      "name": "McKinley"
+    },
+    {
+      "id": "0-16",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 838,
+        "y": -2120
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-095"
+    },
+    {
+      "id": "0-11",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -577,
+        "y": 90
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-102"
+    },
+    {
+      "id": "0-13",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 300,
+        "y": 350
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-102"
+    },
+    {
+      "id": "0-12",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -421,
+        "y": 250
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-254"
+    },
+    {
+      "id": "0-17",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 795,
+        "y": 360
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-548"
+    },
+    {
+      "id": "0-14",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 250,
+        "y": 150
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-874"
+    },
+    {
+      "id": "0-15",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 345,
+        "y": -250
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-884"
+    },
+    {
+      "id": "0-2",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 70,
+      "condition": 100,
+      "offset": {
+        "x": 600,
+        "y": 400
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          70,
+          73,
+          74,
+          71,
+          38,
+          151
+        ],
+        "shipIds": [
+          38
+        ],
+        "weaponIds": [
+          46
+        ]
+      },
+      "name": "Stardock Alpha"
+    },
+    {
+      "id": "0-10",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 860,
+        "y": -1895
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "The Safe Harbor"
+    },
+    {
+      "id": "0-4",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 725,
+        "y": 550
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          36,
+          37,
+          38,
+          35,
+          33,
+          2
+        ],
+        "shipIds": [
+          36,
+          37,
+          38,
+          35,
+          33,
+          2,
+          103,
+          105
+        ],
+        "weaponIds": []
+      },
+      "name": "Utopia Planitia"
+    },
+    {
+      "id": "1-18",
+      "systemNumber": 2,
+      "systemIndex": 1,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -500,
+        "y": 300
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [
+          106,
+          105,
+          45,
+          46,
+          47
+        ],
+        "shipIds": [
+          45,
+          46,
+          47
+        ],
+        "weaponIds": [
+          1
+        ]
+      },
+      "name": "Dabo Palace"
+    },
+    {
+      "id": "2-19",
+      "systemNumber": 3,
+      "systemIndex": 2,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 1000,
+        "y": 1500
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Isla Asylum"
+    },
+    {
+      "id": "3-30",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 979,
+        "y": -411
+      },
+      "legacyValue5": 0,
+      "rotation": 30,
+      "stock": {
+        "rawIds": [
+          8,
+          14,
+          4,
+          2,
+          38,
+          3
+        ],
+        "shipIds": [
+          8,
+          14,
+          4,
+          2,
+          38,
+          3,
+          104
+        ],
+        "weaponIds": []
+      },
+      "name": "Alpha Yard"
+    },
+    {
+      "id": "3-27",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 74,
+      "condition": 100,
+      "offset": {
+        "x": 1339,
+        "y": -440
+      },
+      "legacyValue5": 0,
+      "rotation": -20,
+      "stock": {
+        "rawIds": [
+          39,
+          3,
+          2,
+          11,
+          14,
+          5
+        ],
+        "shipIds": [
+          39,
+          3,
+          2,
+          11,
+          14,
+          5,
+          103
+        ],
+        "weaponIds": []
+      },
+      "name": "Beta Yard"
+    },
+    {
+      "id": "3-31",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 71,
+      "condition": 100,
+      "offset": {
+        "x": 955,
+        "y": -161
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          106,
+          109,
+          115,
+          111,
+          116,
+          113
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          1,
+          4,
+          10,
+          6,
+          11,
+          8
+        ]
+      },
+      "name": "LaForge Institute"
+    },
+    {
+      "id": "3-35",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -3757,
+        "y": 1455
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          1,
+          6,
+          106,
+          142
+        ],
+        "shipIds": [
+          1,
+          6
+        ],
+        "weaponIds": [
+          1,
+          37
+        ]
+      },
+      "name": "Nelix Station"
+    },
+    {
+      "id": "3-34",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -3491,
+        "y": 1550
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Park Place"
+    },
+    {
+      "id": "3-29",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 1109,
+        "y": -575
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-002"
+    },
+    {
+      "id": "3-33",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -3628,
+        "y": 1782
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-354"
+    },
+    {
+      "id": "3-23",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -1782,
+        "y": -742
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-475"
+    },
+    {
+      "id": "3-22",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -1978,
+        "y": -989
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-548"
+    },
+    {
+      "id": "3-24",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -1982,
+        "y": -561
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-978"
+    },
+    {
+      "id": "3-21",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -2215,
+        "y": -815
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-987"
+    },
+    {
+      "id": "3-25",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": -1286,
+        "y": -400
+      },
+      "legacyValue5": 0,
+      "rotation": -50,
+      "stock": {
+        "rawIds": [
+          114,
+          115
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          9,
+          10
+        ]
+      },
+      "name": "Repair Yard 1"
+    },
+    {
+      "id": "3-20",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 70,
+      "condition": 100,
+      "offset": {
+        "x": -2000,
+        "y": -750
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          73,
+          74,
+          86,
+          87,
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Stardock Prime"
+    },
+    {
+      "id": "3-32",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -3821,
+        "y": 1937
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          59
+        ],
+        "shipIds": [
+          59,
+          114
+        ],
+        "weaponIds": []
+      },
+      "name": "The Arboretum"
+    },
+    {
+      "id": "3-28",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": 1241,
+        "y": -572
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "TS-001"
+    },
+    {
+      "id": "3-26",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 1070,
+        "y": -795
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          33,
+          38,
+          35,
+          37,
+          36,
+          1
+        ],
+        "shipIds": [
+          33,
+          38,
+          35,
+          37,
+          36,
+          1,
+          103
+        ],
+        "weaponIds": []
+      },
+      "name": "Xiang Yard"
+    },
+    {
+      "id": "4-163",
+      "systemNumber": 5,
+      "systemIndex": 4,
+      "stationTypeId": 70,
+      "condition": 100,
+      "offset": {
+        "x": 10000,
+        "y": 10000
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          49
+        ],
+        "shipIds": [
+          49
+        ],
+        "weaponIds": []
+      },
+      "name": "X-Base"
+    },
+    {
+      "id": "4-36",
+      "systemNumber": 5,
+      "systemIndex": 4,
+      "stationTypeId": 78,
+      "condition": 10,
+      "offset": {
+        "x": -1195,
+        "y": 1901
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "XR-12 (abandoned)"
+    },
+    {
+      "id": "4-37",
+      "systemNumber": 5,
+      "systemIndex": 4,
+      "stationTypeId": 78,
+      "condition": 10,
+      "offset": {
+        "x": 214,
+        "y": 107
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "XR-51 (abandoned)"
+    },
+    {
+      "id": "4-38",
+      "systemNumber": 5,
+      "systemIndex": 4,
+      "stationTypeId": 78,
+      "condition": 10,
+      "offset": {
+        "x": -834,
+        "y": 4090
+      },
+      "legacyValue5": 0,
+      "rotation": 50,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "XR-57 (abandoned)"
+    },
+    {
+      "id": "5-40",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 77,
+        "y": 52
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Defense 01"
+    },
+    {
+      "id": "5-41",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -56,
+        "y": 76
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Defense 02"
+    },
+    {
+      "id": "5-44",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -484,
+        "y": 453
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Defense 03"
+    },
+    {
+      "id": "5-45",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 340,
+        "y": -310
+      },
+      "legacyValue5": 0,
+      "rotation": 15,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          106,
+          110,
+          116,
+          119
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          1,
+          5,
+          11,
+          14
+        ]
+      },
+      "name": "Free Swiss Exchange"
+    },
+    {
+      "id": "5-43",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -354,
+        "y": 583
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          1,
+          105,
+          119
+        ],
+        "shipIds": [
+          1
+        ],
+        "weaponIds": [
+          14
+        ]
+      },
+      "name": "Kathy's Pub"
+    },
+    {
+      "id": "5-42",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -562,
+        "y": 603
+      },
+      "legacyValue5": 0,
+      "rotation": -15,
+      "stock": {
+        "rawIds": [
+          104,
+          12,
+          11,
+          10,
+          116,
+          106
+        ],
+        "shipIds": [
+          12,
+          11,
+          10
+        ],
+        "weaponIds": [
+          11,
+          1
+        ]
+      },
+      "name": "Swiss Miss"
+    },
+    {
+      "id": "5-39",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -39,
+        "y": -89
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Swiss Orbital"
+    },
+    {
+      "id": "6-46",
+      "systemNumber": 7,
+      "systemIndex": 6,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -168,
+        "y": -223
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          106,
+          112,
+          136,
+          119
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          1,
+          7,
+          31,
+          14
+        ]
+      },
+      "name": "The Black Skull"
+    },
+    {
+      "id": "7-208",
+      "systemNumber": 8,
+      "systemIndex": 7,
+      "stationTypeId": 70,
+      "condition": 100,
+      "offset": {
+        "x": 500,
+        "y": -500
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          70,
+          71,
+          73,
+          74,
+          89
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "SB-524"
+    },
+    {
+      "id": "8-52",
+      "systemNumber": 9,
+      "systemIndex": 8,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 2753,
+        "y": 1581
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "HD-22"
+    },
+    {
+      "id": "8-48",
+      "systemNumber": 9,
+      "systemIndex": 8,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -657,
+        "y": -935
+      },
+      "legacyValue5": 0,
+      "rotation": -20,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "HS-29"
+    },
+    {
+      "id": "8-50",
+      "systemNumber": 9,
+      "systemIndex": 8,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": 2965,
+        "y": 1653
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "HS-39"
+    },
+    {
+      "id": "8-49",
+      "systemNumber": 9,
+      "systemIndex": 8,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -708,
+        "y": -732
+      },
+      "legacyValue5": 0,
+      "rotation": 35,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "PS-885"
+    },
+    {
+      "id": "8-51",
+      "systemNumber": 9,
+      "systemIndex": 8,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 2595,
+        "y": 1526
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "The Rock"
+    },
+    {
+      "id": "8-47",
+      "systemNumber": 9,
+      "systemIndex": 8,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -117,
+        "y": 17
+      },
+      "legacyValue5": 0,
+      "rotation": 10,
+      "stock": {
+        "rawIds": [
+          59
+        ],
+        "shipIds": [
+          59
+        ],
+        "weaponIds": []
+      },
+      "name": "TS-293"
+    },
+    {
+      "id": "10-54",
+      "systemNumber": 11,
+      "systemIndex": 10,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 8,
+        "y": 192
+      },
+      "legacyValue5": 0,
+      "rotation": 50,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          16,
+          15
+        ],
+        "shipIds": [
+          16,
+          15
+        ],
+        "weaponIds": []
+      },
+      "name": "Ga'Ick"
+    },
+    {
+      "id": "10-53",
+      "systemNumber": 11,
+      "systemIndex": 10,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -113,
+        "y": 256
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Gi'k-91"
+    },
+    {
+      "id": "11-59",
+      "systemNumber": 12,
+      "systemIndex": 11,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": 125,
+        "y": 135
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "J'lin Center"
+    },
+    {
+      "id": "11-55",
+      "systemNumber": 12,
+      "systemIndex": 11,
+      "stationTypeId": 72,
+      "condition": 100,
+      "offset": {
+        "x": 86,
+        "y": -157
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          140,
+          145,
+          146
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          35,
+          40,
+          41
+        ]
+      },
+      "name": "U of Vulcan"
+    },
+    {
+      "id": "11-56",
+      "systemNumber": 12,
+      "systemIndex": 11,
+      "stationTypeId": 74,
+      "condition": 100,
+      "offset": {
+        "x": -345,
+        "y": -6
+      },
+      "legacyValue5": 0,
+      "rotation": 50,
+      "stock": {
+        "rawIds": [
+          25,
+          26,
+          47
+        ],
+        "shipIds": [
+          25,
+          26,
+          47,
+          114
+        ],
+        "weaponIds": []
+      },
+      "name": "V'Pek Tar"
+    },
+    {
+      "id": "11-58",
+      "systemNumber": 12,
+      "systemIndex": 11,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 353,
+        "y": 591
+      },
+      "legacyValue5": 0,
+      "rotation": -15,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "VSU Dorms"
+    },
+    {
+      "id": "11-57",
+      "systemNumber": 12,
+      "systemIndex": 11,
+      "stationTypeId": 72,
+      "condition": 100,
+      "offset": {
+        "x": 157,
+        "y": 721
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          148,
+          155,
+          47
+        ],
+        "shipIds": [
+          47,
+          114
+        ],
+        "weaponIds": [
+          43,
+          50
+        ]
+      },
+      "name": "Vulcan South U"
+    },
+    {
+      "id": "12-60",
+      "systemNumber": 13,
+      "systemIndex": 12,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 83,
+        "y": -167
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          104,
+          84
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Paxis Route"
+    },
+    {
+      "id": "12-63",
+      "systemNumber": 13,
+      "systemIndex": 12,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 309,
+        "y": 73
+      },
+      "legacyValue5": 0,
+      "rotation": -35,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Rainbow's End"
+    },
+    {
+      "id": "12-61",
+      "systemNumber": 13,
+      "systemIndex": 12,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -62,
+        "y": 163
+      },
+      "legacyValue5": 0,
+      "rotation": -20,
+      "stock": {
+        "rawIds": [
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "The Fuzzy Bunny"
+    },
+    {
+      "id": "12-62",
+      "systemNumber": 13,
+      "systemIndex": 12,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -351,
+        "y": -252
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "The Happy House"
+    },
+    {
+      "id": "13-66",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -240,
+        "y": -261
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          157
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          52
+        ]
+      },
+      "name": "Contracts End"
+    },
+    {
+      "id": "13-67",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -544,
+        "y": 311
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Greed Central"
+    },
+    {
+      "id": "13-64",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 217,
+        "y": -351
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Sharp Tooth"
+    },
+    {
+      "id": "13-68",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 151,
+        "y": 600
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          104,
+          137
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          32
+        ]
+      },
+      "name": "Snuff This"
+    },
+    {
+      "id": "13-65",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -315,
+        "y": -399
+      },
+      "legacyValue5": 0,
+      "rotation": -35,
+      "stock": {
+        "rawIds": [
+          138,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          33
+        ]
+      },
+      "name": "The Big Ear"
+    },
+    {
+      "id": "13-69",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": 863,
+        "y": 184
+      },
+      "legacyValue5": 0,
+      "rotation": -35,
+      "stock": {
+        "rawIds": [
+          12,
+          18,
+          19,
+          40,
+          13,
+          47
+        ],
+        "shipIds": [
+          12,
+          18,
+          19,
+          40,
+          13,
+          47,
+          17
+        ],
+        "weaponIds": []
+      },
+      "name": "Zek's Used Ships"
+    },
+    {
+      "id": "14-70",
+      "systemNumber": 15,
+      "systemIndex": 14,
+      "stationTypeId": 70,
+      "condition": 10,
+      "offset": {
+        "x": 1469,
+        "y": 978
+      },
+      "legacyValue5": 0,
+      "rotation": 35,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "SB-203 (abandoned)"
+    },
+    {
+      "id": "15-72",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -27,
+        "y": -146
+      },
+      "legacyValue5": 0,
+      "rotation": 35,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "D-37"
+    },
+    {
+      "id": "15-74",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -134,
+        "y": 35
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "D-48"
+    },
+    {
+      "id": "15-77",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 120,
+        "y": 54
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "D-56"
+    },
+    {
+      "id": "15-75",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -94,
+        "y": 94
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "D-65"
+    },
+    {
+      "id": "15-76",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 21,
+        "y": 114
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "D-82"
+    },
+    {
+      "id": "15-73",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -116,
+        "y": -86
+      },
+      "legacyValue5": 0,
+      "rotation": 35,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "D-87"
+    },
+    {
+      "id": "15-71",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 32,
+        "y": -36
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          11,
+          141,
+          102
+        ],
+        "shipIds": [
+          11
+        ],
+        "weaponIds": [
+          36
+        ]
+      },
+      "name": "Nausica Orbital"
+    },
+    {
+      "id": "17-209",
+      "systemNumber": 18,
+      "systemIndex": 17,
+      "stationTypeId": 106,
+      "condition": 100,
+      "offset": {
+        "x": 268,
+        "y": -318
+      },
+      "legacyValue5": 0,
+      "rotation": -14,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          99,
+          121,
+          109
+        ],
+        "shipIds": [
+          67,
+          20,
+          68,
+          99
+        ],
+        "weaponIds": [
+          16,
+          4
+        ]
+      },
+      "name": "First Web Citadel"
+    },
+    {
+      "id": "17-80",
+      "systemNumber": 18,
+      "systemIndex": 17,
+      "stationTypeId": 107,
+      "condition": 100,
+      "offset": {
+        "x": -154,
+        "y": 472
+      },
+      "legacyValue5": 0,
+      "rotation": 117,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          110
+        ],
+        "shipIds": [
+          67,
+          20,
+          68
+        ],
+        "weaponIds": [
+          5
+        ]
+      },
+      "name": "Tholian Cargo Yard"
+    },
+    {
+      "id": "17-79",
+      "systemNumber": 18,
+      "systemIndex": 17,
+      "stationTypeId": 108,
+      "condition": 100,
+      "offset": {
+        "x": 575,
+        "y": 212
+      },
+      "legacyValue5": 0,
+      "rotation": -31,
+      "stock": {
+        "rawIds": [
+          99,
+          68,
+          20,
+          110,
+          121
+        ],
+        "shipIds": [
+          99,
+          68,
+          20
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Tholian Heavy Yard"
+    },
+    {
+      "id": "17-78",
+      "systemNumber": 18,
+      "systemIndex": 17,
+      "stationTypeId": 107,
+      "condition": 100,
+      "offset": {
+        "x": -486,
+        "y": -168
+      },
+      "legacyValue5": 0,
+      "rotation": 72,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          110
+        ],
+        "shipIds": [
+          67,
+          20,
+          68
+        ],
+        "weaponIds": [
+          5
+        ]
+      },
+      "name": "Tholian Light Yard"
+    },
+    {
+      "id": "18-81",
+      "systemNumber": 19,
+      "systemIndex": 18,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -255,
+        "y": 25
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          84
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Newgrounds Pub"
+    },
+    {
+      "id": "19-202",
+      "systemNumber": 20,
+      "systemIndex": 19,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Oce nu Drinking Establishment"
+    },
+    {
+      "id": "20-203",
+      "systemNumber": 21,
+      "systemIndex": 20,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Koann Klub"
+    },
+    {
+      "id": "22-84",
+      "systemNumber": 23,
+      "systemIndex": 22,
+      "stationTypeId": 71,
+      "condition": 10,
+      "offset": {
+        "x": -2663,
+        "y": 1098
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Bio-Lab (abandoned)"
+    },
+    {
+      "id": "22-85",
+      "systemNumber": 23,
+      "systemIndex": 22,
+      "stationTypeId": 72,
+      "condition": 100,
+      "offset": {
+        "x": -80,
+        "y": 88
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          145,
+          146,
+          147,
+          148,
+          72
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          40,
+          41,
+          42,
+          43
+        ]
+      },
+      "name": "Delpi State U"
+    },
+    {
+      "id": "22-82",
+      "systemNumber": 23,
+      "systemIndex": 22,
+      "stationTypeId": 77,
+      "condition": 100,
+      "offset": {
+        "x": 175,
+        "y": 75
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          77
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Splash-Planet"
+    },
+    {
+      "id": "22-83",
+      "systemNumber": 23,
+      "systemIndex": 22,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -172,
+        "y": -127
+      },
+      "legacyValue5": 0,
+      "rotation": -35,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          106,
+          21,
+          23
+        ],
+        "shipIds": [
+          21,
+          23
+        ],
+        "weaponIds": [
+          1
+        ]
+      },
+      "name": "Xiang Center"
+    },
+    {
+      "id": "24-86",
+      "systemNumber": 25,
+      "systemIndex": 24,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": -105,
+        "y": 309
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          15,
+          10,
+          9,
+          52
+        ],
+        "shipIds": [
+          15,
+          10,
+          9,
+          52,
+          120
+        ],
+        "weaponIds": []
+      },
+      "name": "Antenna Yard"
+    },
+    {
+      "id": "24-89",
+      "systemNumber": 25,
+      "systemIndex": 24,
+      "stationTypeId": 77,
+      "condition": 100,
+      "offset": {
+        "x": -105,
+        "y": 400
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Blues Waterpark"
+    },
+    {
+      "id": "24-87",
+      "systemNumber": 25,
+      "systemIndex": 24,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -219,
+        "y": -160
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "GHD-DS"
+    },
+    {
+      "id": "24-88",
+      "systemNumber": 25,
+      "systemIndex": 24,
+      "stationTypeId": 72,
+      "condition": 100,
+      "offset": {
+        "x": 233,
+        "y": 42
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          147
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          42
+        ]
+      },
+      "name": "U of Andoria"
+    },
+    {
+      "id": "26-90",
+      "systemNumber": 27,
+      "systemIndex": 26,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -223,
+        "y": -57
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          1,
+          9,
+          10,
+          47,
+          45
+        ],
+        "shipIds": [
+          1,
+          9,
+          10,
+          47,
+          45
+        ],
+        "weaponIds": []
+      },
+      "name": "The Spot"
+    },
+    {
+      "id": "27-94",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -747,
+        "y": -44
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Crusher"
+    },
+    {
+      "id": "27-92",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 284,
+        "y": -463
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Die"
+    },
+    {
+      "id": "27-95",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -888,
+        "y": -64
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Protector 1"
+    },
+    {
+      "id": "27-96",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -785,
+        "y": 64
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Protector 2"
+    },
+    {
+      "id": "27-98",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -81,
+        "y": 404
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Protector 3"
+    },
+    {
+      "id": "27-93",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": 406,
+        "y": -133
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Scum"
+    },
+    {
+      "id": "27-91",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 71,
+      "condition": 100,
+      "offset": {
+        "x": 385,
+        "y": -351
+      },
+      "legacyValue5": 0,
+      "rotation": -20,
+      "stock": {
+        "rawIds": [
+          112,
+          128,
+          129,
+          131,
+          111,
+          116
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          7,
+          23,
+          24,
+          26,
+          6,
+          11
+        ]
+      },
+      "name": "The Blacksmith"
+    },
+    {
+      "id": "27-97",
+      "systemNumber": 28,
+      "systemIndex": 27,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -261,
+        "y": 433
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          86,
+          87,
+          75,
+          118,
+          123,
+          142
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          13,
+          18,
+          37
+        ]
+      },
+      "name": "The Depot"
+    },
+    {
+      "id": "29-164",
+      "systemNumber": 30,
+      "systemIndex": 29,
+      "stationTypeId": 90,
+      "condition": 100,
+      "offset": {
+        "x": -6000,
+        "y": 6000
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          53
+        ],
+        "shipIds": [
+          53
+        ],
+        "weaponIds": []
+      },
+      "name": "Reman Starbase"
+    },
+    {
+      "id": "30-100",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -88,
+        "y": 189
+      },
+      "legacyValue5": 0,
+      "rotation": 5,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "G1"
+    },
+    {
+      "id": "30-105",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": 323,
+        "y": -1150
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "G32"
+    },
+    {
+      "id": "30-102",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 78,
+      "condition": 10,
+      "offset": {
+        "x": 1871,
+        "y": -3731
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "GX1 (abandoned)"
+    },
+    {
+      "id": "30-106",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -2869,
+        "y": 3211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Kpec Prison"
+    },
+    {
+      "id": "30-99",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 90,
+      "condition": 100,
+      "offset": {
+        "x": 78,
+        "y": 151
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          156,
+          90
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          51
+        ]
+      },
+      "name": "Praetor Center"
+    },
+    {
+      "id": "30-103",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 355,
+        "y": -1331
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Rinsu"
+    },
+    {
+      "id": "30-104",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -591,
+        "y": -1295
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Tuansu"
+    },
+    {
+      "id": "30-101",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": -252,
+        "y": -213
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          27,
+          28,
+          109,
+          111,
+          112,
+          127
+        ],
+        "shipIds": [
+          27,
+          28
+        ],
+        "weaponIds": [
+          4,
+          6,
+          7,
+          22
+        ]
+      },
+      "name": "Waryard"
+    },
+    {
+      "id": "32-165",
+      "systemNumber": 33,
+      "systemIndex": 32,
+      "stationTypeId": 85,
+      "condition": 100,
+      "offset": {
+        "x": 5000,
+        "y": -5000
+      },
+      "legacyValue5": 52,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "X-8"
+    },
+    {
+      "id": "34-107",
+      "systemNumber": 35,
+      "systemIndex": 34,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": 132,
+        "y": 151
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [
+          106,
+          119,
+          1,
+          4
+        ],
+        "shipIds": [
+          1,
+          4
+        ],
+        "weaponIds": [
+          1,
+          14
+        ]
+      },
+      "name": "Gato Station"
+    },
+    {
+      "id": "34-110",
+      "systemNumber": 35,
+      "systemIndex": 34,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -1138,
+        "y": -126
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "P012"
+    },
+    {
+      "id": "34-108",
+      "systemNumber": 35,
+      "systemIndex": 34,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -1048,
+        "y": 59
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Picards Place"
+    },
+    {
+      "id": "34-109",
+      "systemNumber": 35,
+      "systemIndex": 34,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -1138,
+        "y": -257
+      },
+      "legacyValue5": 0,
+      "rotation": 15,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Star Park"
+    },
+    {
+      "id": "35-111",
+      "systemNumber": 36,
+      "systemIndex": 35,
+      "stationTypeId": 80,
+      "condition": 100,
+      "offset": {
+        "x": -197,
+        "y": 32
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [
+          40,
+          41,
+          12
+        ],
+        "shipIds": [
+          40,
+          41,
+          12,
+          118
+        ],
+        "weaponIds": []
+      },
+      "name": "K'Klep"
+    },
+    {
+      "id": "35-116",
+      "systemNumber": 36,
+      "systemIndex": 35,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -347,
+        "y": 116
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K24"
+    },
+    {
+      "id": "35-112",
+      "systemNumber": 36,
+      "systemIndex": 35,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -93,
+        "y": 124
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K39"
+    },
+    {
+      "id": "35-114",
+      "systemNumber": 36,
+      "systemIndex": 35,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": 83,
+        "y": -199
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K48"
+    },
+    {
+      "id": "35-115",
+      "systemNumber": 36,
+      "systemIndex": 35,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": -170,
+        "y": -92
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K74"
+    },
+    {
+      "id": "35-113",
+      "systemNumber": 36,
+      "systemIndex": 35,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 89,
+        "y": 86
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K84"
+    },
+    {
+      "id": "36-119",
+      "systemNumber": 37,
+      "systemIndex": 36,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 583,
+        "y": -736
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          40
+        ],
+        "shipIds": [
+          40,
+          118
+        ],
+        "weaponIds": []
+      },
+      "name": "B'lech"
+    },
+    {
+      "id": "36-121",
+      "systemNumber": 37,
+      "systemIndex": 36,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -988,
+        "y": 1026
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Juhad"
+    },
+    {
+      "id": "36-118",
+      "systemNumber": 37,
+      "systemIndex": 36,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 185,
+        "y": 98
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K178"
+    },
+    {
+      "id": "36-117",
+      "systemNumber": 37,
+      "systemIndex": 36,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -133,
+        "y": -135
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K94"
+    },
+    {
+      "id": "36-120",
+      "systemNumber": 37,
+      "systemIndex": 36,
+      "stationTypeId": 80,
+      "condition": 100,
+      "offset": {
+        "x": 282,
+        "y": -594
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          39,
+          41
+        ],
+        "shipIds": [
+          39,
+          41,
+          118
+        ],
+        "weaponIds": []
+      },
+      "name": "Tupok"
+    },
+    {
+      "id": "36-201",
+      "systemNumber": 37,
+      "systemIndex": 36,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Worf's Bar"
+    },
+    {
+      "id": "37-127",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 606,
+        "y": 1790
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Flek"
+    },
+    {
+      "id": "37-131",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": -1061,
+        "y": 131
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Hu'kel"
+    },
+    {
+      "id": "37-129",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 81,
+      "condition": 100,
+      "offset": {
+        "x": 842,
+        "y": 2093
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          124,
+          117,
+          130,
+          42,
+          43,
+          40
+        ],
+        "shipIds": [
+          42,
+          43,
+          40,
+          118
+        ],
+        "weaponIds": [
+          19,
+          12,
+          25
+        ]
+      },
+      "name": "K'Jak"
+    },
+    {
+      "id": "37-123",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -223,
+        "y": 58
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K38"
+    },
+    {
+      "id": "37-126",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 284,
+        "y": -28
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          152,
+          105
+        ],
+        "shipIds": [
+          118
+        ],
+        "weaponIds": [
+          47
+        ]
+      },
+      "name": "Kempek"
+    },
+    {
+      "id": "37-125",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 9,
+        "y": -273
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          79
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "KTanga"
+    },
+    {
+      "id": "37-133",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -2,
+        "y": -1953
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Plax"
+    },
+    {
+      "id": "37-122",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": -143,
+        "y": 171
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          111
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          6
+        ]
+      },
+      "name": "Plek"
+    },
+    {
+      "id": "37-134",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 400,
+        "y": -1746
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Plex"
+    },
+    {
+      "id": "37-130",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 1283,
+        "y": 1898
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Praxis"
+    },
+    {
+      "id": "37-124",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 89,
+      "condition": 100,
+      "offset": {
+        "x": -2000,
+        "y": -2000
+      },
+      "legacyValue5": 0,
+      "rotation": -90,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Qonos Array"
+    },
+    {
+      "id": "37-132",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -1244,
+        "y": 339
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Tar'jel"
+    },
+    {
+      "id": "37-128",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 80,
+      "condition": 100,
+      "offset": {
+        "x": 933,
+        "y": 1861
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          39,
+          40,
+          41,
+          111,
+          117,
+          112
+        ],
+        "shipIds": [
+          39,
+          40,
+          41,
+          118
+        ],
+        "weaponIds": [
+          6,
+          12,
+          7
+        ]
+      },
+      "name": "Targ"
+    },
+    {
+      "id": "38-204",
+      "systemNumber": 39,
+      "systemIndex": 38,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Xonok Pub"
+    },
+    {
+      "id": "39-205",
+      "systemNumber": 40,
+      "systemIndex": 39,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Kises Bar"
+    },
+    {
+      "id": "40-135",
+      "systemNumber": 41,
+      "systemIndex": 40,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": -3813,
+        "y": -2546
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Empok Nor"
+    },
+    {
+      "id": "41-142",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 5369,
+        "y": -3577
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K21"
+    },
+    {
+      "id": "41-136",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": 514,
+        "y": 520
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K28"
+    },
+    {
+      "id": "41-139",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -1558,
+        "y": -118
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K283"
+    },
+    {
+      "id": "41-141",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 5476,
+        "y": -3738
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K298"
+    },
+    {
+      "id": "41-137",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 338,
+        "y": 626
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K384"
+    },
+    {
+      "id": "41-138",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -1784,
+        "y": -49
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K93"
+    },
+    {
+      "id": "41-140",
+      "systemNumber": 42,
+      "systemIndex": 41,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 5529,
+        "y": -3563
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          139,
+          127,
+          121,
+          131,
+          129,
+          123
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          34,
+          22,
+          16,
+          26,
+          24,
+          18
+        ]
+      },
+      "name": "The Sludge"
+    },
+    {
+      "id": "42-146",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 80,
+      "condition": 100,
+      "offset": {
+        "x": -2226,
+        "y": 794
+      },
+      "legacyValue5": 0,
+      "rotation": -15,
+      "stock": {
+        "rawIds": [
+          39,
+          40
+        ],
+        "shipIds": [
+          39,
+          40,
+          118
+        ],
+        "weaponIds": []
+      },
+      "name": "Fuki"
+    },
+    {
+      "id": "42-148",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": -1914,
+        "y": 1171
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K'fort"
+    },
+    {
+      "id": "42-144",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 80,
+      "condition": 100,
+      "offset": {
+        "x": -1526,
+        "y": 493
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [
+          39,
+          40
+        ],
+        "shipIds": [
+          39,
+          40,
+          118
+        ],
+        "weaponIds": []
+      },
+      "name": "Kempek"
+    },
+    {
+      "id": "42-143",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 203,
+        "y": -162
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "KPlex"
+    },
+    {
+      "id": "42-147",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 81,
+      "condition": 100,
+      "offset": {
+        "x": -1807,
+        "y": 797
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "stock": {
+        "rawIds": [
+          106,
+          109,
+          111,
+          117
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          1,
+          4,
+          6,
+          12
+        ]
+      },
+      "name": "Krap"
+    },
+    {
+      "id": "42-149",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 1152,
+        "y": 801
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "L'fort"
+    },
+    {
+      "id": "42-151",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 79,
+      "condition": 100,
+      "offset": {
+        "x": 1152,
+        "y": 801
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "L'fort"
+    },
+    {
+      "id": "42-145",
+      "systemNumber": 43,
+      "systemIndex": 42,
+      "stationTypeId": 81,
+      "condition": 100,
+      "offset": {
+        "x": -2217,
+        "y": 494
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          43,
+          42
+        ],
+        "shipIds": [
+          43,
+          42,
+          118
+        ],
+        "weaponIds": []
+      },
+      "name": "Prax"
+    },
+    {
+      "id": "43-207",
+      "systemNumber": 44,
+      "systemIndex": 43,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Nayobek orbital Bar"
+    },
+    {
+      "id": "44-150",
+      "systemNumber": 45,
+      "systemIndex": 44,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -130,
+        "y": -219
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "K38"
+    },
+    {
+      "id": "45-206",
+      "systemNumber": 46,
+      "systemIndex": 45,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Kahless Club"
+    },
+    {
+      "id": "46-152",
+      "systemNumber": 47,
+      "systemIndex": 46,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": 212,
+        "y": -113
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Borj"
+    },
+    {
+      "id": "46-153",
+      "systemNumber": 47,
+      "systemIndex": 46,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 3,
+        "y": -240
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Tempe"
+    },
+    {
+      "id": "46-154",
+      "systemNumber": 47,
+      "systemIndex": 46,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": -465,
+        "y": 284
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          125,
+          23,
+          142
+        ],
+        "shipIds": [
+          23,
+          115
+        ],
+        "weaponIds": [
+          20,
+          37
+        ]
+      },
+      "name": "Terok Nor"
+    },
+    {
+      "id": "48-155",
+      "systemNumber": 49,
+      "systemIndex": 48,
+      "stationTypeId": 84,
+      "condition": 100,
+      "offset": {
+        "x": -203,
+        "y": -54
+      },
+      "legacyValue5": 0,
+      "rotation": -30,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Iceland"
+    },
+    {
+      "id": "49-161",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -1935,
+        "y": 689
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "C329"
+    },
+    {
+      "id": "49-162",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": 933,
+        "y": -2556
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "C382"
+    },
+    {
+      "id": "49-156",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": -199,
+        "y": -205
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          88,
+          153
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          48
+        ]
+      },
+      "name": "Clak Nor"
+    },
+    {
+      "id": "49-157",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": 117,
+        "y": 215
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Duek Nor"
+    },
+    {
+      "id": "49-159",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 387,
+        "y": -290
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Dukat Pub"
+    },
+    {
+      "id": "49-158",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 471,
+        "y": -78
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          108,
+          124,
+          125
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          3,
+          19,
+          20
+        ]
+      },
+      "name": "Pex Outpost"
+    },
+    {
+      "id": "49-160",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": -1597,
+        "y": 989
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          31,
+          32
+        ],
+        "shipIds": [
+          31,
+          32
+        ],
+        "weaponIds": []
+      },
+      "name": "Turok Nor"
+    },
+    {
+      "id": "50-0",
+      "systemNumber": 51,
+      "systemIndex": 50,
+      "stationTypeId": 82,
+      "condition": 100,
+      "offset": {
+        "x": -4000,
+        "y": 0
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          82,
+          85,
+          110
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          5
+        ]
+      },
+      "name": "Dyson Base"
+    },
+    {
+      "id": "50-1",
+      "systemNumber": 51,
+      "systemIndex": 50,
+      "stationTypeId": 85,
+      "condition": 100,
+      "offset": {
+        "x": 4000,
+        "y": -2300
+      },
+      "legacyValue5": 34,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "FHG-293-A"
+    },
+    {
+      "id": "51-166",
+      "systemNumber": 52,
+      "systemIndex": 51,
+      "stationTypeId": 85,
+      "condition": 100,
+      "offset": {
+        "x": 500,
+        "y": -500
+      },
+      "legacyValue5": 33,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "The Slip"
+    },
+    {
+      "id": "52-176",
+      "systemNumber": 53,
+      "systemIndex": 52,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 548,
+        "y": 398
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Sona Defence 1"
+    },
+    {
+      "id": "52-186",
+      "systemNumber": 53,
+      "systemIndex": 52,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -159,
+        "y": 183
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Sonata Bar"
+    },
+    {
+      "id": "52-177",
+      "systemNumber": 53,
+      "systemIndex": 52,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 309,
+        "y": -37
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Sonata Orbital Defence"
+    },
+    {
+      "id": "53-188",
+      "systemNumber": 54,
+      "systemIndex": 53,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 236,
+        "y": -562
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Iritum Workers Bar"
+    },
+    {
+      "id": "53-187",
+      "systemNumber": 54,
+      "systemIndex": 53,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -234,
+        "y": 345
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Mining Platform A"
+    },
+    {
+      "id": "54-198",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": 236,
+        "y": -562
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          58,
+          44
+        ],
+        "shipIds": [
+          58,
+          44
+        ],
+        "weaponIds": []
+      },
+      "name": "Josh's Maitenance"
+    },
+    {
+      "id": "54-180",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -115,
+        "y": 489
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          33,
+          34,
+          36,
+          37,
+          64,
+          95
+        ],
+        "shipIds": [
+          33,
+          34,
+          36,
+          37,
+          64,
+          95
+        ],
+        "weaponIds": []
+      },
+      "name": "Nova Bar"
+    },
+    {
+      "id": "54-167",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 70,
+      "condition": 100,
+      "offset": {
+        "x": 600,
+        "y": 400
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          70,
+          73,
+          74,
+          71,
+          38,
+          151
+        ],
+        "shipIds": [
+          38
+        ],
+        "weaponIds": [
+          46
+        ]
+      },
+      "name": "Nova Base"
+    },
+    {
+      "id": "54-175",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 140,
+        "y": 140
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Nova Defence Alpha"
+    },
+    {
+      "id": "54-172",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -140,
+        "y": 140
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Nova Defence Beta"
+    },
+    {
+      "id": "54-174",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -140,
+        "y": -140
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Nova Defence Delta"
+    },
+    {
+      "id": "54-173",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 140,
+        "y": -140
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Nova Defence Gamma"
+    },
+    {
+      "id": "54-179",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -178,
+        "y": 341
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          126,
+          136,
+          141,
+          97
+        ],
+        "shipIds": [
+          97,
+          105
+        ],
+        "weaponIds": [
+          21,
+          31,
+          36
+        ]
+      },
+      "name": "Nova Trade Out Post"
+    },
+    {
+      "id": "54-178",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 71,
+      "condition": 100,
+      "offset": {
+        "x": -84,
+        "y": 403
+      },
+      "legacyValue5": 0,
+      "rotation": 90,
+      "stock": {
+        "rawIds": [
+          71,
+          144,
+          107,
+          113,
+          114,
+          116
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          39,
+          2,
+          8,
+          9,
+          11
+        ]
+      },
+      "name": "Nova Weapon Research"
+    },
+    {
+      "id": "54-168",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 979,
+        "y": -411
+      },
+      "legacyValue5": 0,
+      "rotation": 30,
+      "stock": {
+        "rawIds": [
+          8,
+          14,
+          4,
+          2,
+          38,
+          3
+        ],
+        "shipIds": [
+          8,
+          14,
+          4,
+          2,
+          38,
+          3,
+          104
+        ],
+        "weaponIds": []
+      },
+      "name": "Nova Yard Alpha"
+    },
+    {
+      "id": "54-169",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 640,
+        "y": -382
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          33,
+          34,
+          35,
+          37,
+          23,
+          61
+        ],
+        "shipIds": [
+          33,
+          34,
+          35,
+          37,
+          23,
+          61,
+          103
+        ],
+        "weaponIds": []
+      },
+      "name": "Nova Yard Beta"
+    },
+    {
+      "id": "54-171",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": 800,
+        "y": -550
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [
+          95,
+          93,
+          97,
+          99,
+          101,
+          102
+        ],
+        "shipIds": [
+          95,
+          93,
+          97,
+          99
+        ],
+        "weaponIds": []
+      },
+      "name": "Nova Yard Defence"
+    },
+    {
+      "id": "54-170",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 74,
+      "condition": 100,
+      "offset": {
+        "x": 800,
+        "y": -700
+      },
+      "legacyValue5": 0,
+      "rotation": 50,
+      "stock": {
+        "rawIds": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          11
+        ],
+        "shipIds": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          104
+        ],
+        "weaponIds": []
+      },
+      "name": "Nova Yard Gamma"
+    },
+    {
+      "id": "55-189",
+      "systemNumber": 56,
+      "systemIndex": 55,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 657,
+        "y": 341
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Tarrelia Trading"
+    },
+    {
+      "id": "57-184",
+      "systemNumber": 58,
+      "systemIndex": 57,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": -195,
+        "y": 129
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          60,
+          48,
+          103
+        ],
+        "shipIds": [
+          60,
+          48,
+          117
+        ],
+        "weaponIds": []
+      },
+      "name": "Brea Bar"
+    },
+    {
+      "id": "57-185",
+      "systemNumber": 58,
+      "systemIndex": 57,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -263,
+        "y": 449
+      },
+      "legacyValue5": 0,
+      "rotation": 45,
+      "stock": {
+        "rawIds": [
+          163,
+          88,
+          103
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          58
+        ]
+      },
+      "name": "Brea Base"
+    },
+    {
+      "id": "57-182",
+      "systemNumber": 58,
+      "systemIndex": 57,
+      "stationTypeId": 86,
+      "condition": 100,
+      "offset": {
+        "x": -259,
+        "y": 289
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Brea complex Defence"
+    },
+    {
+      "id": "58-breen-station",
+      "systemNumber": 58,
+      "systemIndex": 57,
+      "stationTypeId": 112,
+      "condition": 100,
+      "offset": {
+        "x": 380,
+        "y": -332
+      },
+      "legacyValue5": 0,
+      "rotation": 18,
+      "stock": {
+        "rawIds": [
+          100,
+          101,
+          62,
+          107,
+          121,
+          128
+        ],
+        "shipIds": [
+          100,
+          101,
+          62
+        ],
+        "weaponIds": [
+          2,
+          16,
+          23
+        ]
+      },
+      "name": "Brea Cryo Anchorage",
+      "faction": "breen"
+    },
+    {
+      "id": "57-181",
+      "systemNumber": 58,
+      "systemIndex": 57,
+      "stationTypeId": 87,
+      "condition": 100,
+      "offset": {
+        "x": 440,
+        "y": -46
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Brea Defence Platform"
+    },
+    {
+      "id": "58-191",
+      "systemNumber": 59,
+      "systemIndex": 58,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": -765,
+        "y": 454
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          16,
+          31,
+          32,
+          88
+        ],
+        "shipIds": [
+          16,
+          31,
+          32
+        ],
+        "weaponIds": []
+      },
+      "name": "Domin Nor"
+    },
+    {
+      "id": "58-190",
+      "systemNumber": 59,
+      "systemIndex": 58,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 564,
+        "y": -435
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105,
+          30,
+          48,
+          60
+        ],
+        "shipIds": [
+          30,
+          48,
+          60,
+          117
+        ],
+        "weaponIds": []
+      },
+      "name": "Dominica Check Point"
+    },
+    {
+      "id": "59-dominion-starbase",
+      "systemNumber": 59,
+      "systemIndex": 58,
+      "stationTypeId": 109,
+      "condition": 100,
+      "offset": {
+        "x": 346,
+        "y": -356
+      },
+      "legacyValue5": 0,
+      "rotation": 8,
+      "stock": {
+        "rawIds": [
+          1,
+          30,
+          60,
+          48,
+          65,
+          108,
+          121,
+          124
+        ],
+        "shipIds": [
+          1,
+          30,
+          60,
+          48,
+          65,
+          117
+        ],
+        "weaponIds": [
+          3,
+          16,
+          19
+        ]
+      },
+      "name": "Dominion Command Starbase",
+      "faction": "dominion"
+    },
+    {
+      "id": "59-192",
+      "systemNumber": 60,
+      "systemIndex": 59,
+      "stationTypeId": 70,
+      "condition": 100,
+      "offset": {
+        "x": 500,
+        "y": -500
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          70,
+          71,
+          73,
+          74,
+          89
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "SB-534"
+    },
+    {
+      "id": "60-193",
+      "systemNumber": 61,
+      "systemIndex": 60,
+      "stationTypeId": 90,
+      "condition": 100,
+      "offset": {
+        "x": -700,
+        "y": -600
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          29,
+          28,
+          27,
+          156,
+          90
+        ],
+        "shipIds": [
+          29,
+          28,
+          27
+        ],
+        "weaponIds": [
+          51
+        ]
+      },
+      "name": "New romulus Base"
+    },
+    {
+      "id": "62-197",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 76,
+      "condition": 100,
+      "offset": {
+        "x": 89,
+        "y": 86
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Josh's Bar"
+    },
+    {
+      "id": "62-196",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 83,
+      "condition": 100,
+      "offset": {
+        "x": 1000,
+        "y": -2000
+      },
+      "legacyValue5": 0,
+      "rotation": -15,
+      "stock": {
+        "rawIds": [
+          106,
+          113
+        ],
+        "shipIds": [],
+        "weaponIds": [
+          1,
+          8
+        ]
+      },
+      "name": "Josh's Repair"
+    },
+    {
+      "id": "62-194",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 1283,
+        "y": 1898
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          104,
+          105
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Orilla Vanilla"
+    },
+    {
+      "id": "62-195",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 77,
+      "condition": 100,
+      "offset": {
+        "x": 175,
+        "y": 75
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          77
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "Splash-Planet"
+    },
+    {
+      "id": "69-dominion-shipyard",
+      "systemNumber": 69,
+      "systemIndex": 68,
+      "stationTypeId": 110,
+      "condition": 100,
+      "offset": {
+        "x": 418,
+        "y": 194
+      },
+      "legacyValue5": 0,
+      "rotation": 72,
+      "stock": {
+        "rawIds": [
+          1,
+          30,
+          60,
+          48,
+          108,
+          124
+        ],
+        "shipIds": [
+          1,
+          30,
+          60,
+          48,
+          117
+        ],
+        "weaponIds": [
+          3,
+          19
+        ]
+      },
+      "name": "Vortara Dominion Shipyard",
+      "faction": "dominion"
+    },
+    {
+      "id": "69-200",
+      "systemNumber": 70,
+      "systemIndex": 69,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          102,
+          103
+        ],
+        "shipIds": [
+          115
+        ],
+        "weaponIds": []
+      },
+      "name": "Vortara cloning Facility"
+    },
+    {
+      "id": "71-dominion-shipyard",
+      "systemNumber": 71,
+      "systemIndex": 70,
+      "stationTypeId": 110,
+      "condition": 100,
+      "offset": {
+        "x": -434,
+        "y": -236
+      },
+      "legacyValue5": 0,
+      "rotation": 292,
+      "stock": {
+        "rawIds": [
+          1,
+          30,
+          60,
+          48,
+          108,
+          124
+        ],
+        "shipIds": [
+          1,
+          30,
+          60,
+          48,
+          117
+        ],
+        "weaponIds": [
+          3,
+          19
+        ]
+      },
+      "name": "JemHadar Relay Shipyard",
+      "faction": "dominion"
+    },
+    {
+      "id": "70-199",
+      "systemNumber": 71,
+      "systemIndex": 70,
+      "stationTypeId": 78,
+      "condition": 100,
+      "offset": {
+        "x": -355,
+        "y": 211
+      },
+      "legacyValue5": 0,
+      "rotation": 0,
+      "stock": {
+        "rawIds": [
+          78
+        ],
+        "shipIds": [],
+        "weaponIds": []
+      },
+      "name": "New Bajor Ore Processing"
+    },
+    {
+      "id": "73-dominion-heavy-yard",
+      "systemNumber": 73,
+      "systemIndex": 72,
+      "stationTypeId": 111,
+      "condition": 100,
+      "offset": {
+        "x": 536,
+        "y": 266
+      },
+      "legacyValue5": 0,
+      "rotation": 44,
+      "stock": {
+        "rawIds": [
+          30,
+          60,
+          48,
+          65,
+          108,
+          121,
+          124
+        ],
+        "shipIds": [
+          30,
+          60,
+          48,
+          65,
+          117
+        ],
+        "weaponIds": [
+          3,
+          16,
+          19
+        ]
+      },
+      "name": "Founders Heavy Shipyard",
+      "faction": "dominion"
+    },
+    {
+      "id": "75-dominion-starbase",
+      "systemNumber": 75,
+      "systemIndex": 74,
+      "stationTypeId": 109,
+      "condition": 100,
+      "offset": {
+        "x": -368,
+        "y": 318
+      },
+      "legacyValue5": 0,
+      "rotation": 188,
+      "stock": {
+        "rawIds": [
+          1,
+          30,
+          60,
+          108,
+          121
+        ],
+        "shipIds": [
+          1,
+          30,
+          60,
+          117
+        ],
+        "weaponIds": [
+          3,
+          16
+        ]
+      },
+      "name": "T-Rogoran Dominion Starbase",
+      "faction": "dominion"
+    },
+    {
+      "id": "95-tholian-research",
+      "systemNumber": 95,
+      "systemIndex": 94,
+      "stationTypeId": 113,
+      "condition": 100,
+      "offset": {
+        "x": -258,
+        "y": -426
+      },
+      "legacyValue5": 0,
+      "rotation": 24,
+      "stock": {
+        "rawIds": [
+          67,
+          68,
+          20,
+          99,
+          110,
+          121
+        ],
+        "shipIds": [
+          67,
+          68,
+          20,
+          99
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Crystal Research Lattice",
+      "faction": "tholian"
+    },
+    {
+      "id": "94-210",
+      "systemNumber": 95,
+      "systemIndex": 94,
+      "stationTypeId": 106,
+      "condition": 100,
+      "offset": {
+        "x": 92,
+        "y": -348
+      },
+      "legacyValue5": 0,
+      "rotation": -47,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          99,
+          121,
+          109
+        ],
+        "shipIds": [
+          67,
+          20,
+          68,
+          99
+        ],
+        "weaponIds": [
+          16,
+          4
+        ]
+      },
+      "name": "Loom Bastion"
+    },
+    {
+      "id": "94-215",
+      "systemNumber": 95,
+      "systemIndex": 94,
+      "stationTypeId": 108,
+      "condition": 100,
+      "offset": {
+        "x": -512,
+        "y": 96
+      },
+      "legacyValue5": 0,
+      "rotation": 82,
+      "stock": {
+        "rawIds": [
+          99,
+          68,
+          20,
+          110,
+          121
+        ],
+        "shipIds": [
+          99,
+          68,
+          20
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Loom Heavy Shipyard"
+    },
+    {
+      "id": "94-216",
+      "systemNumber": 95,
+      "systemIndex": 94,
+      "stationTypeId": 107,
+      "condition": 100,
+      "offset": {
+        "x": 374,
+        "y": 286
+      },
+      "legacyValue5": 0,
+      "rotation": 18,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          110
+        ],
+        "shipIds": [
+          67,
+          20,
+          68
+        ],
+        "weaponIds": [
+          5
+        ]
+      },
+      "name": "Loom Light Yard"
+    },
+    {
+      "id": "95-211",
+      "systemNumber": 96,
+      "systemIndex": 95,
+      "stationTypeId": 106,
+      "condition": 100,
+      "offset": {
+        "x": -338,
+        "y": 248
+      },
+      "legacyValue5": 0,
+      "rotation": 34,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          99,
+          121,
+          109
+        ],
+        "shipIds": [
+          67,
+          20,
+          68,
+          99
+        ],
+        "weaponIds": [
+          16,
+          4
+        ]
+      },
+      "name": "Webheart Bastion"
+    },
+    {
+      "id": "96-tholian-research",
+      "systemNumber": 96,
+      "systemIndex": 95,
+      "stationTypeId": 113,
+      "condition": 100,
+      "offset": {
+        "x": 292,
+        "y": 374
+      },
+      "legacyValue5": 0,
+      "rotation": 116,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          110,
+          121
+        ],
+        "shipIds": [
+          67,
+          20,
+          68
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Webheart Research Spire",
+      "faction": "tholian"
+    },
+    {
+      "id": "95-217",
+      "systemNumber": 96,
+      "systemIndex": 95,
+      "stationTypeId": 108,
+      "condition": 100,
+      "offset": {
+        "x": 448,
+        "y": -292
+      },
+      "legacyValue5": 0,
+      "rotation": -64,
+      "stock": {
+        "rawIds": [
+          99,
+          68,
+          20,
+          110,
+          121
+        ],
+        "shipIds": [
+          99,
+          68,
+          20
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Webheart War Yard"
+    },
+    {
+      "id": "96-212",
+      "systemNumber": 97,
+      "systemIndex": 96,
+      "stationTypeId": 106,
+      "condition": 100,
+      "offset": {
+        "x": 316,
+        "y": -206
+      },
+      "legacyValue5": 0,
+      "rotation": -18,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          99,
+          68,
+          121,
+          109
+        ],
+        "shipIds": [
+          67,
+          20,
+          99,
+          68
+        ],
+        "weaponIds": [
+          16,
+          4
+        ]
+      },
+      "name": "Lattice Bastion"
+    },
+    {
+      "id": "96-218",
+      "systemNumber": 97,
+      "systemIndex": 96,
+      "stationTypeId": 107,
+      "condition": 100,
+      "offset": {
+        "x": -438,
+        "y": 118
+      },
+      "legacyValue5": 0,
+      "rotation": 69,
+      "stock": {
+        "rawIds": [
+          67,
+          68,
+          20,
+          110
+        ],
+        "shipIds": [
+          67,
+          68,
+          20
+        ],
+        "weaponIds": [
+          5
+        ]
+      },
+      "name": "Lattice Cargo Yard"
+    },
+    {
+      "id": "97-213",
+      "systemNumber": 98,
+      "systemIndex": 97,
+      "stationTypeId": 106,
+      "condition": 100,
+      "offset": {
+        "x": -164,
+        "y": -356
+      },
+      "legacyValue5": 0,
+      "rotation": -62,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          99,
+          121,
+          109
+        ],
+        "shipIds": [
+          67,
+          20,
+          68,
+          99
+        ],
+        "weaponIds": [
+          16,
+          4
+        ]
+      },
+      "name": "Spindle Bastion"
+    },
+    {
+      "id": "97-219",
+      "systemNumber": 98,
+      "systemIndex": 97,
+      "stationTypeId": 107,
+      "condition": 100,
+      "offset": {
+        "x": 386,
+        "y": 72
+      },
+      "legacyValue5": 0,
+      "rotation": 42,
+      "stock": {
+        "rawIds": [
+          67,
+          20,
+          68,
+          110
+        ],
+        "shipIds": [
+          67,
+          20,
+          68
+        ],
+        "weaponIds": [
+          5
+        ]
+      },
+      "name": "Spindle Patrol Yard"
+    },
+    {
+      "id": "98-214",
+      "systemNumber": 99,
+      "systemIndex": 98,
+      "stationTypeId": 106,
+      "condition": 100,
+      "offset": {
+        "x": 132,
+        "y": 396
+      },
+      "legacyValue5": 0,
+      "rotation": 28,
+      "stock": {
+        "rawIds": [
+          68,
+          20,
+          67,
+          99,
+          121,
+          109
+        ],
+        "shipIds": [
+          68,
+          20,
+          67,
+          99
+        ],
+        "weaponIds": [
+          16,
+          4
+        ]
+      },
+      "name": "Facet Gate Bastion"
+    },
+    {
+      "id": "99-tholian-research",
+      "systemNumber": 99,
+      "systemIndex": 98,
+      "stationTypeId": 113,
+      "condition": 100,
+      "offset": {
+        "x": 418,
+        "y": -312
+      },
+      "legacyValue5": 0,
+      "rotation": 288,
+      "stock": {
+        "rawIds": [
+          68,
+          20,
+          67,
+          99,
+          110,
+          121
+        ],
+        "shipIds": [
+          68,
+          20,
+          67,
+          99
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Facet Research Array",
+      "faction": "tholian"
+    },
+    {
+      "id": "98-220",
+      "systemNumber": 99,
+      "systemIndex": 98,
+      "stationTypeId": 107,
+      "condition": 100,
+      "offset": {
+        "x": -496,
+        "y": -88
+      },
+      "legacyValue5": 0,
+      "rotation": -73,
+      "stock": {
+        "rawIds": [
+          68,
+          20,
+          67,
+          110,
+          121
+        ],
+        "shipIds": [
+          68,
+          20,
+          67
+        ],
+        "weaponIds": [
+          5,
+          16
+        ]
+      },
+      "name": "Facet Slipway"
+    },
+    {
+      "id": "13-grand-nagus-casino",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 119,
+      "condition": 100,
+      "offset": {
+        "x": -620,
+        "y": 420
+      },
+      "legacyValue5": 0,
+      "rotation": 15,
+      "faction": "ferengi",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          17,
+          18,
+          19
+        ],
+        "weaponIds": [
+          8,
+          33
+        ]
+      },
+      "name": "Grand Nagus Casino"
+    },
+    {
+      "id": "88-lappa-casino-exchange",
+      "systemNumber": 89,
+      "systemIndex": 88,
+      "stationTypeId": 119,
+      "condition": 100,
+      "offset": {
+        "x": 420,
+        "y": -380
+      },
+      "legacyValue5": 0,
+      "rotation": -20,
+      "faction": "ferengi",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          17,
+          18,
+          19
+        ],
+        "weaponIds": [
+          8
+        ]
+      },
+      "name": "Lappa Casino Exchange"
+    },
+    {
+      "id": "89-hupyrian-casino-port",
+      "systemNumber": 90,
+      "systemIndex": 89,
+      "stationTypeId": 119,
+      "condition": 100,
+      "offset": {
+        "x": -380,
+        "y": -460
+      },
+      "legacyValue5": 0,
+      "rotation": 25,
+      "faction": "ferengi",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          17,
+          18,
+          19
+        ],
+        "weaponIds": [
+          8
+        ]
+      },
+      "name": "Hupyrian Casino Port"
+    },
+    {
+      "id": "9-gorn-muster-dock",
+      "systemNumber": 10,
+      "systemIndex": 9,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 360,
+        "y": -280
+      },
+      "legacyValue5": 0,
+      "rotation": 10,
+      "faction": "gorn",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          132,
+          131
+        ],
+        "weaponIds": [
+          3
+        ]
+      },
+      "name": "Gorn Muster Dock"
+    },
+    {
+      "id": "99-hirogen-trophy-exchange",
+      "systemNumber": 100,
+      "systemIndex": 99,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -320,
+        "y": 300
+      },
+      "legacyValue5": 0,
+      "rotation": -15,
+      "faction": "hirogen",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          147,
+          133,
+          134
+        ],
+        "weaponIds": [
+          3,
+          19
+        ]
+      },
+      "name": "Hirogen Trophy Exchange"
+    },
+    {
+      "id": "100-suliban-cell-dock",
+      "systemNumber": 101,
+      "systemIndex": 100,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 340,
+        "y": 260
+      },
+      "legacyValue5": 0,
+      "rotation": 20,
+      "faction": "suliban",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          138,
+          139,
+          137
+        ],
+        "weaponIds": [
+          2,
+          14
+        ]
+      },
+      "name": "Suliban Cell Dock"
+    },
+    {
+      "id": "egg-shipyard-andorian-1",
+      "systemNumber": 25,
+      "systemIndex": 24,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 931,
+        "y": 1018
+      },
+      "legacyValue5": 0,
+      "rotation": -42,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          120
+        ],
+        "weaponIds": []
+      },
+      "name": "Andorian Export Yard",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "andorian"
+    },
+    {
+      "id": "egg-shipyard-bajoran-1",
+      "systemNumber": 47,
+      "systemIndex": 46,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 479,
+        "y": 1395
+      },
+      "legacyValue5": 0,
+      "rotation": -19,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          115
+        ],
+        "weaponIds": []
+      },
+      "name": "Bajoran Solar-Sail Exchange",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "bajoran"
+    },
+    {
+      "id": "egg-shipyard-borg-1",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 82,
+      "condition": 100,
+      "offset": {
+        "x": -124,
+        "y": 1565
+      },
+      "legacyValue5": 0,
+      "rotation": 5,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          116,
+          141
+        ],
+        "weaponIds": []
+      },
+      "name": "Silent Collective Reclamation Node",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "borg"
+    },
+    {
+      "id": "egg-shipyard-breen-1",
+      "systemNumber": 58,
+      "systemIndex": 57,
+      "stationTypeId": 112,
+      "condition": 100,
+      "offset": {
+        "x": -648,
+        "y": 1218
+      },
+      "legacyValue5": 0,
+      "rotation": 28,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          100,
+          62,
+          101
+        ],
+        "weaponIds": []
+      },
+      "name": "Breen Cryo Reserve",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "breen"
+    },
+    {
+      "id": "egg-shipyard-cardassian-1",
+      "systemNumber": 50,
+      "systemIndex": 49,
+      "stationTypeId": 88,
+      "condition": 100,
+      "offset": {
+        "x": -1155,
+        "y": 918
+      },
+      "legacyValue5": 0,
+      "rotation": 52,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          16,
+          31,
+          32
+        ],
+        "weaponIds": []
+      },
+      "name": "Obsidian Reserve Yard",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "cardassian"
+    },
+    {
+      "id": "egg-shipyard-delpin-1",
+      "systemNumber": 23,
+      "systemIndex": 22,
+      "stationTypeId": 77,
+      "condition": 100,
+      "offset": {
+        "x": 1060,
+        "y": 1159
+      },
+      "legacyValue5": 0,
+      "rotation": -42,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          22,
+          21,
+          51
+        ],
+        "weaponIds": []
+      },
+      "name": "Delpin Diplomatic Slip",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "delpin"
+    },
+    {
+      "id": "egg-shipyard-dominion-1",
+      "systemNumber": 59,
+      "systemIndex": 58,
+      "stationTypeId": 111,
+      "condition": 100,
+      "offset": {
+        "x": 448,
+        "y": 1305
+      },
+      "legacyValue5": 0,
+      "rotation": -19,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          1,
+          30,
+          117,
+          60,
+          48,
+          65
+        ],
+        "weaponIds": []
+      },
+      "name": "Founder Reserve Hatchery",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "dominion"
+    },
+    {
+      "id": "egg-shipyard-ferengi-1",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 119,
+      "condition": 100,
+      "offset": {
+        "x": -117,
+        "y": 1470
+      },
+      "legacyValue5": 0,
+      "rotation": 5,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          18,
+          19,
+          17
+        ],
+        "weaponIds": []
+      },
+      "name": "Grand Nagus Private Lot",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "ferengi"
+    },
+    {
+      "id": "egg-shipyard-gorn-1",
+      "systemNumber": 10,
+      "systemIndex": 9,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -738,
+        "y": 1386
+      },
+      "legacyValue5": 0,
+      "rotation": 28,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          132,
+          131
+        ],
+        "weaponIds": []
+      },
+      "name": "Gorn Hegemony Clutch Yard",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "gorn"
+    },
+    {
+      "id": "egg-shipyard-hirogen-1",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -1233,
+        "y": -1035
+      },
+      "legacyValue5": 0,
+      "rotation": 130,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          147,
+          133,
+          134
+        ],
+        "weaponIds": []
+      },
+      "name": "Hirogen Trophy Dock",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "hirogen"
+    },
+    {
+      "id": "egg-shipyard-independent-1",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 995,
+        "y": 1088
+      },
+      "legacyValue5": 0,
+      "rotation": -42,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          127
+        ],
+        "weaponIds": []
+      },
+      "name": "Free Swiss Reserve Exchange",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "neutral"
+    },
+    {
+      "id": "egg-shipyard-klingon-1",
+      "systemNumber": 38,
+      "systemIndex": 37,
+      "stationTypeId": 81,
+      "condition": 100,
+      "offset": {
+        "x": 510,
+        "y": 1485
+      },
+      "legacyValue5": 0,
+      "rotation": -19,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          39,
+          41,
+          40,
+          118,
+          43,
+          135,
+          42
+        ],
+        "weaponIds": []
+      },
+      "name": "Klingon House Reserve Yard",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "klingon"
+    },
+    {
+      "id": "egg-shipyard-neutral-1",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -1598,
+        "y": 195
+      },
+      "legacyValue5": 0,
+      "rotation": 83,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          10,
+          47,
+          44,
+          55,
+          12,
+          3,
+          8,
+          13
+        ],
+        "weaponIds": []
+      },
+      "name": "Independent Salvage Vault Alpha",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "neutral"
+    },
+    {
+      "id": "egg-shipyard-neutral-2",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 169,
+        "y": -1928
+      },
+      "legacyValue5": 0,
+      "rotation": -175,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          45,
+          11,
+          57,
+          56,
+          64,
+          148
+        ],
+        "weaponIds": []
+      },
+      "name": "Independent Salvage Vault Beta",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "neutral"
+    },
+    {
+      "id": "egg-shipyard-pirate-1",
+      "systemNumber": 16,
+      "systemIndex": 15,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -1229,
+        "y": 977
+      },
+      "legacyValue5": 0,
+      "rotation": 52,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          9,
+          91
+        ],
+        "weaponIds": []
+      },
+      "name": "Nausican Chop Shop",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "pirate"
+    },
+    {
+      "id": "egg-shipyard-promelli-1",
+      "systemNumber": 94,
+      "systemIndex": 93,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 931,
+        "y": 1018
+      },
+      "legacyValue5": 0,
+      "rotation": -42,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          92,
+          93
+        ],
+        "weaponIds": []
+      },
+      "name": "Promelli Relic Broker",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "promelli"
+    },
+    {
+      "id": "egg-shipyard-romulan-1",
+      "systemNumber": 31,
+      "systemIndex": 30,
+      "stationTypeId": 90,
+      "condition": 100,
+      "offset": {
+        "x": 479,
+        "y": 1395
+      },
+      "legacyValue5": 0,
+      "rotation": -19,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          29,
+          28,
+          136,
+          27,
+          53,
+          126
+        ],
+        "weaponIds": []
+      },
+      "name": "Tal Shiar Ghost Yard",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "romulan"
+    },
+    {
+      "id": "egg-shipyard-sona-1",
+      "systemNumber": 53,
+      "systemIndex": 52,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -124,
+        "y": 1565
+      },
+      "legacyValue5": 0,
+      "rotation": 5,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          102,
+          63,
+          69
+        ],
+        "weaponIds": []
+      },
+      "name": "Son'a Private Hangar",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "sona"
+    },
+    {
+      "id": "egg-shipyard-suliban-1",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": 2057,
+        "y": -234
+      },
+      "legacyValue5": 0,
+      "rotation": -96,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          138,
+          139,
+          137
+        ],
+        "weaponIds": []
+      },
+      "name": "Suliban Cabal Slip",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "suliban"
+    },
+    {
+      "id": "egg-shipyard-tarellian-1",
+      "systemNumber": 56,
+      "systemIndex": 55,
+      "stationTypeId": 75,
+      "condition": 100,
+      "offset": {
+        "x": -1155,
+        "y": 918
+      },
+      "legacyValue5": 0,
+      "rotation": 52,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          50,
+          52,
+          54
+        ],
+        "weaponIds": []
+      },
+      "name": "Tarellian Long-Range Exchange",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "tarellian"
+    },
+    {
+      "id": "egg-shipyard-terran-1",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 1060,
+        "y": 1159
+      },
+      "legacyValue5": 0,
+      "rotation": -42,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          7,
+          23,
+          95,
+          123,
+          143,
+          153,
+          154,
+          5
+        ],
+        "weaponIds": []
+      },
+      "name": "Imperial Mothball Vault Alpha",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "terran"
+    },
+    {
+      "id": "egg-shipyard-terran-2",
+      "systemNumber": 21,
+      "systemIndex": 20,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 448,
+        "y": 1305
+      },
+      "legacyValue5": 0,
+      "rotation": -19,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          6,
+          130,
+          24,
+          104,
+          149,
+          34,
+          105,
+          97
+        ],
+        "weaponIds": []
+      },
+      "name": "Imperial Mothball Vault Beta",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "terran"
+    },
+    {
+      "id": "egg-shipyard-terran-3",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": -117,
+        "y": 1470
+      },
+      "legacyValue5": 0,
+      "rotation": 5,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          103,
+          96,
+          14,
+          58,
+          4,
+          46,
+          61,
+          36
+        ],
+        "weaponIds": []
+      },
+      "name": "Imperial Mothball Vault Gamma",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "terran"
+    },
+    {
+      "id": "egg-shipyard-terran-4",
+      "systemNumber": 60,
+      "systemIndex": 59,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": -738,
+        "y": 1386
+      },
+      "legacyValue5": 0,
+      "rotation": 28,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          121,
+          124,
+          125,
+          129,
+          144,
+          146,
+          33,
+          15
+        ],
+        "weaponIds": []
+      },
+      "name": "Imperial Mothball Vault Delta",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "terran"
+    },
+    {
+      "id": "egg-shipyard-terran-5",
+      "systemNumber": 76,
+      "systemIndex": 75,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": -1080,
+        "y": 859
+      },
+      "legacyValue5": 0,
+      "rotation": 52,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          37,
+          98,
+          122,
+          128,
+          145,
+          150,
+          151,
+          35
+        ],
+        "weaponIds": []
+      },
+      "name": "Imperial Mothball Vault Epsilon",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "terran"
+    },
+    {
+      "id": "egg-shipyard-terran-6",
+      "systemNumber": 4,
+      "systemIndex": 3,
+      "stationTypeId": 73,
+      "condition": 100,
+      "offset": {
+        "x": 995,
+        "y": 1088
+      },
+      "legacyValue5": 0,
+      "rotation": -42,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          66,
+          38,
+          49,
+          142,
+          2
+        ],
+        "weaponIds": []
+      },
+      "name": "Imperial Mothball Vault Zeta",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "terran"
+    },
+    {
+      "id": "egg-shipyard-tholian-1",
+      "systemNumber": 18,
+      "systemIndex": 17,
+      "stationTypeId": 108,
+      "condition": 100,
+      "offset": {
+        "x": 510,
+        "y": 1485
+      },
+      "legacyValue5": 0,
+      "rotation": -19,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          67,
+          68,
+          20,
+          99
+        ],
+        "weaponIds": []
+      },
+      "name": "Tholian Lattice Reserve",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "tholian"
+    },
+    {
+      "id": "egg-shipyard-vulcan-1",
+      "systemNumber": 12,
+      "systemIndex": 11,
+      "stationTypeId": 72,
+      "condition": 100,
+      "offset": {
+        "x": -109,
+        "y": 1376
+      },
+      "legacyValue5": 0,
+      "rotation": 5,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [
+          25,
+          114,
+          59,
+          140,
+          26
+        ],
+        "weaponIds": []
+      },
+      "name": "Vulcan Surplus Annex",
+      "note": "Easter egg ship broker added so every starship manifest entry is purchasable somewhere.",
+      "brokerFaction": "vulcan"
+    },
+    {
+      "id": "import-200-59",
+      "systemNumber": 60,
+      "systemIndex": 59,
+      "stationTypeId": 200,
+      "condition": 100,
+      "offset": {
+        "x": -520,
+        "y": -380
+      },
+      "legacyValue5": 0,
+      "rotation": -12,
+      "faction": "terran",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": [
+          11,
+          15,
+          25
+        ]
+      },
+      "name": "Andreas Command Outpost"
+    },
+    {
+      "id": "import-201-5",
+      "systemNumber": 6,
+      "systemIndex": 5,
+      "stationTypeId": 201,
+      "condition": 100,
+      "offset": {
+        "x": 420,
+        "y": -520
+      },
+      "legacyValue5": 0,
+      "rotation": 18,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": [
+          23,
+          24
+        ]
+      },
+      "name": "Swiss Relay Array"
+    },
+    {
+      "id": "import-202-54",
+      "systemNumber": 55,
+      "systemIndex": 54,
+      "stationTypeId": 202,
+      "condition": 100,
+      "offset": {
+        "x": -720,
+        "y": 260
+      },
+      "legacyValue5": 0,
+      "rotation": 7,
+      "faction": "terran",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": [
+          11,
+          15,
+          18,
+          25
+        ]
+      },
+      "name": "Terra Nova Bastion"
+    },
+    {
+      "id": "import-203-0",
+      "systemNumber": 1,
+      "systemIndex": 0,
+      "stationTypeId": 203,
+      "condition": 100,
+      "offset": {
+        "x": 610,
+        "y": 430
+      },
+      "legacyValue5": 0,
+      "rotation": -24,
+      "faction": "terran",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": [
+          10,
+          15
+        ]
+      },
+      "name": "K-Series Fleet Yard"
+    },
+    {
+      "id": "import-204-13",
+      "systemNumber": 14,
+      "systemIndex": 13,
+      "stationTypeId": 204,
+      "condition": 100,
+      "offset": {
+        "x": -420,
+        "y": 500
+      },
+      "legacyValue5": 0,
+      "rotation": 32,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": [
+          15,
+          23
+        ]
+      },
+      "name": "T19 Trade Ring"
+    },
+    {
+      "id": "import-205-62",
+      "systemNumber": 63,
+      "systemIndex": 62,
+      "stationTypeId": 205,
+      "condition": 100,
+      "offset": {
+        "x": 520,
+        "y": 260
+      },
+      "legacyValue5": 0,
+      "rotation": -8,
+      "faction": "neutral",
+      "stock": {
+        "rawIds": [],
+        "shipIds": [],
+        "weaponIds": [
+          24
+        ]
+      },
+      "name": "Orilla Biodome"
+    }
+  ]
+}

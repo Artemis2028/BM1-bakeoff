@@ -1,0 +1,28 @@
+{
+  "generatedFrom": "clean mod manifest",
+  "assetFolder": "assets/game/pods",
+  "pods": [
+    {
+      "id": 94,
+      "name": "Escape Pod",
+      "description": "An Escape Pod.",
+      "assetType": "pod",
+      "trafficEligible": false,
+      "mass": 1,
+      "antimatterUse": 1,
+      "cargoCapacity": 1,
+      "hull": 5,
+      "shields": 5,
+      "topSpeed": 10,
+      "turnRate": 5,
+      "cost": 1200,
+      "image": "assets/game/pods/94.png",
+      "trimBounds": {
+        "sx": 58,
+        "sy": 26,
+        "sw": 1132,
+        "sh": 1154
+      }
+    }
+  ]
+}

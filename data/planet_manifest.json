@@ -1,0 +1,848 @@
+{
+  "source": "clean mod manifest",
+  "planetSpriteSymbol": "DefineSprite_1422",
+  "surfaceTypeField": 4,
+  "modelCount": 36,
+  "models": [
+    {
+      "id": 1,
+      "image": "assets/game/planet-models/1.png"
+    },
+    {
+      "id": 2,
+      "image": "assets/game/planet-models/2.png"
+    },
+    {
+      "id": 3,
+      "image": "assets/game/planet-models/3.png"
+    },
+    {
+      "id": 4,
+      "image": "assets/game/planet-models/4.png"
+    },
+    {
+      "id": 5,
+      "image": "assets/game/planet-models/5.png"
+    },
+    {
+      "id": 6,
+      "image": "assets/game/planet-models/6.png"
+    },
+    {
+      "id": 7,
+      "image": "assets/game/planet-models/7.png"
+    },
+    {
+      "id": 8,
+      "image": "assets/game/planet-models/8.png"
+    },
+    {
+      "id": 9,
+      "image": "assets/game/planet-models/9.png"
+    },
+    {
+      "id": 10,
+      "image": "assets/game/planet-models/10.png"
+    },
+    {
+      "id": 11,
+      "image": "assets/game/planet-models/11.png"
+    },
+    {
+      "id": 12,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "id": 13,
+      "image": "assets/game/planet-models/13.png"
+    },
+    {
+      "id": 14,
+      "image": "assets/game/planet-models/14.png"
+    },
+    {
+      "id": 15,
+      "image": "assets/game/planet-models/15.png"
+    },
+    {
+      "id": 16,
+      "image": "assets/game/planet-models/16.png"
+    },
+    {
+      "id": 17,
+      "image": "assets/game/planet-models/17.png"
+    },
+    {
+      "id": 18,
+      "image": "assets/game/planet-models/18.png"
+    },
+    {
+      "id": 19,
+      "image": "assets/game/planet-models/19.png"
+    },
+    {
+      "id": 20,
+      "image": "assets/game/planet-models/20.png"
+    },
+    {
+      "id": 21,
+      "image": "assets/game/planet-models/21.png"
+    },
+    {
+      "id": 22,
+      "image": "assets/game/planet-models/22.png"
+    },
+    {
+      "id": 23,
+      "image": "assets/game/planet-models/23.png"
+    },
+    {
+      "id": 24,
+      "image": "assets/game/planet-models/24.png"
+    },
+    {
+      "id": 25,
+      "image": "assets/game/planet-models/25.png"
+    },
+    {
+      "id": 26,
+      "image": "assets/game/planet-models/26.png"
+    },
+    {
+      "id": 27,
+      "image": "assets/game/planet-models/27.png"
+    },
+    {
+      "id": 28,
+      "image": "assets/game/planet-models/28.png"
+    },
+    {
+      "id": 29,
+      "image": "assets/game/planet-models/29.png"
+    },
+    {
+      "id": 30,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "id": 31,
+      "image": "assets/game/planet-models/31.png"
+    },
+    {
+      "id": 32,
+      "image": "assets/game/planet-models/32.png"
+    },
+    {
+      "id": 33,
+      "image": "assets/game/planet-models/33.png"
+    },
+    {
+      "id": 34,
+      "image": "assets/game/planet-models/34.png"
+    },
+    {
+      "id": 35,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "id": 36,
+      "image": "assets/game/planet-models/36.png"
+    }
+  ],
+  "planets": [
+    {
+      "index": 1,
+      "name": "Earth",
+      "surfaceType": 1,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/1.png"
+    },
+    {
+      "index": 2,
+      "name": "Orion",
+      "surfaceType": 35,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 3,
+      "name": "Lik Prime",
+      "surfaceType": 28,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/28.png"
+    },
+    {
+      "index": 4,
+      "name": "Alpha Centauri",
+      "surfaceType": 8,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/8.png"
+    },
+    {
+      "index": 5,
+      "name": "Paso",
+      "surfaceType": 5,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/5.png"
+    },
+    {
+      "index": 6,
+      "name": "New Switzerland",
+      "surfaceType": 27,
+      "originalSurfaceType": 7,
+      "image": "assets/game/planet-models/27.png"
+    },
+    {
+      "index": 7,
+      "name": "Trey",
+      "surfaceType": 29,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/29.png"
+    },
+    {
+      "index": 8,
+      "name": "Epsilon",
+      "surfaceType": 30,
+      "originalSurfaceType": 1,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 9,
+      "name": "Quintus",
+      "surfaceType": 18,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/18.png"
+    },
+    {
+      "index": 10,
+      "name": "Gorn",
+      "surfaceType": 12,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 11,
+      "name": "Rigel",
+      "surfaceType": 23,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/23.png"
+    },
+    {
+      "index": 12,
+      "name": "Vulcan",
+      "surfaceType": 25,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/25.png"
+    },
+    {
+      "index": 13,
+      "name": "Opusab",
+      "surfaceType": 3,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/3.png"
+    },
+    {
+      "index": 14,
+      "name": "Ferenginar",
+      "surfaceType": 32,
+      "originalSurfaceType": 7,
+      "image": "assets/game/planet-models/32.png"
+    },
+    {
+      "index": 15,
+      "name": "Lysia",
+      "surfaceType": 2,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/2.png"
+    },
+    {
+      "index": 16,
+      "name": "Nausica",
+      "surfaceType": 30,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 17,
+      "name": "Denmark",
+      "surfaceType": 11,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/11.png"
+    },
+    {
+      "index": 18,
+      "name": "Tholia",
+      "surfaceType": 4,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/4.png"
+    },
+    {
+      "index": 19,
+      "name": "Flash",
+      "surfaceType": 36,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/36.png"
+    },
+    {
+      "index": 20,
+      "name": "Oce Nu",
+      "surfaceType": 36,
+      "originalSurfaceType": 1,
+      "image": "assets/game/planet-models/36.png"
+    },
+    {
+      "index": 21,
+      "name": "Koann",
+      "surfaceType": 29,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/29.png"
+    },
+    {
+      "index": 22,
+      "name": "Biakisch",
+      "surfaceType": 16,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/16.png"
+    },
+    {
+      "index": 23,
+      "name": "Delpi",
+      "surfaceType": 3,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/3.png"
+    },
+    {
+      "index": 24,
+      "name": "Iconia",
+      "surfaceType": 4,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/4.png"
+    },
+    {
+      "index": 25,
+      "name": "Andoria",
+      "surfaceType": 26,
+      "originalSurfaceType": 7,
+      "image": "assets/game/planet-models/26.png"
+    },
+    {
+      "index": 26,
+      "name": "Konael",
+      "surfaceType": 10,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/10.png"
+    },
+    {
+      "index": 27,
+      "name": "Trill",
+      "surfaceType": 12,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 28,
+      "name": "Tepos",
+      "surfaceType": 2,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/2.png"
+    },
+    {
+      "index": 29,
+      "name": "Blender",
+      "surfaceType": 3,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/3.png"
+    },
+    {
+      "index": 30,
+      "name": "Remus",
+      "surfaceType": 31,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/31.png"
+    },
+    {
+      "index": 31,
+      "name": "Romulus",
+      "surfaceType": 30,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 32,
+      "name": "Harman",
+      "surfaceType": 30,
+      "originalSurfaceType": 8,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 33,
+      "name": "Kardon",
+      "surfaceType": 28,
+      "originalSurfaceType": 1,
+      "image": "assets/game/planet-models/28.png"
+    },
+    {
+      "index": 34,
+      "name": "Vex",
+      "surfaceType": 25,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/25.png"
+    },
+    {
+      "index": 35,
+      "name": "Lameu",
+      "surfaceType": 25,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/25.png"
+    },
+    {
+      "index": 36,
+      "name": "Batos",
+      "surfaceType": 36,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/36.png"
+    },
+    {
+      "index": 37,
+      "name": "Worf",
+      "surfaceType": 12,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 38,
+      "name": "Qonos",
+      "surfaceType": 29,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/29.png"
+    },
+    {
+      "index": 39,
+      "name": "Xonok",
+      "surfaceType": 3,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/3.png"
+    },
+    {
+      "index": 40,
+      "name": "Qem-Kis",
+      "surfaceType": 8,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/8.png"
+    },
+    {
+      "index": 41,
+      "name": "Anorez",
+      "surfaceType": 34,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/34.png"
+    },
+    {
+      "index": 42,
+      "name": "Du'Qot",
+      "surfaceType": 35,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 43,
+      "name": "Hof-Maso",
+      "surfaceType": 10,
+      "originalSurfaceType": 8,
+      "image": "assets/game/planet-models/10.png"
+    },
+    {
+      "index": 44,
+      "name": "Nyoabek",
+      "surfaceType": 25,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/25.png"
+    },
+    {
+      "index": 45,
+      "name": "Hos'Ichu",
+      "surfaceType": 35,
+      "originalSurfaceType": 1,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 46,
+      "name": "Kah'Less",
+      "surfaceType": 10,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/10.png"
+    },
+    {
+      "index": 47,
+      "name": "Bajora",
+      "surfaceType": 12,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 48,
+      "name": "Noron",
+      "surfaceType": 30,
+      "originalSurfaceType": 1,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 49,
+      "name": "Erasariel",
+      "surfaceType": 12,
+      "originalSurfaceType": 8,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 50,
+      "name": "Cardassia",
+      "surfaceType": 36,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/36.png"
+    },
+    {
+      "index": 51,
+      "name": "Dyson",
+      "surfaceType": 7,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/7.png"
+    },
+    {
+      "index": 52,
+      "name": "Pirates haven",
+      "surfaceType": 33,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/33.png"
+    },
+    {
+      "index": 53,
+      "name": "Sonata",
+      "surfaceType": 28,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/28.png"
+    },
+    {
+      "index": 54,
+      "name": "Iritum",
+      "surfaceType": 11,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/11.png"
+    },
+    {
+      "index": 55,
+      "name": "Terra  Nova",
+      "surfaceType": 12,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 56,
+      "name": "Tarellia",
+      "surfaceType": 23,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/23.png"
+    },
+    {
+      "index": 57,
+      "name": "Promelus",
+      "surfaceType": 30,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 58,
+      "name": "Brea",
+      "surfaceType": 21,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/21.png"
+    },
+    {
+      "index": 59,
+      "name": "Dominica",
+      "surfaceType": 5,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/5.png"
+    },
+    {
+      "index": 60,
+      "name": "Andreas",
+      "surfaceType": 36,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/36.png"
+    },
+    {
+      "index": 61,
+      "name": "New Romulus",
+      "surfaceType": 35,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 62,
+      "name": "Astron",
+      "surfaceType": 4,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/4.png"
+    },
+    {
+      "index": 63,
+      "name": "Orilla",
+      "surfaceType": 7,
+      "originalSurfaceType": 7,
+      "image": "assets/game/planet-models/7.png"
+    },
+    {
+      "index": 64,
+      "name": "Aldnas",
+      "surfaceType": 34,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/34.png"
+    },
+    {
+      "index": 65,
+      "name": "Elderea",
+      "surfaceType": 23,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/23.png"
+    },
+    {
+      "index": 66,
+      "name": "Xindus",
+      "surfaceType": 14,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/14.png"
+    },
+    {
+      "index": 67,
+      "name": "Sato",
+      "surfaceType": 8,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/8.png"
+    },
+    {
+      "index": 68,
+      "name": "Nexus",
+      "surfaceType": 35,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 69,
+      "name": "Vortara",
+      "surfaceType": 12,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 70,
+      "name": "New Bajor",
+      "surfaceType": 29,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/29.png"
+    },
+    {
+      "index": 71,
+      "name": "JemHadar Relay",
+      "surfaceType": 33,
+      "originalSurfaceType": 9,
+      "image": "assets/game/planet-models/33.png"
+    },
+    {
+      "index": 72,
+      "name": "Karemma Exchange",
+      "surfaceType": 35,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 73,
+      "name": "Founders Watch",
+      "surfaceType": 11,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/11.png"
+    },
+    {
+      "index": 74,
+      "name": "Dosi Gate",
+      "surfaceType": 36,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/36.png"
+    },
+    {
+      "index": 75,
+      "name": "T-Rogoran Annex",
+      "surfaceType": 25,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/25.png"
+    },
+    {
+      "index": 76,
+      "name": "Proxima Yard",
+      "surfaceType": 21,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/21.png"
+    },
+    {
+      "index": 77,
+      "name": "Tellar",
+      "surfaceType": 12,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 78,
+      "name": "P'Jem",
+      "surfaceType": 14,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/14.png"
+    },
+    {
+      "index": 79,
+      "name": "T'Khut",
+      "surfaceType": 33,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/33.png"
+    },
+    {
+      "index": 80,
+      "name": "Rator",
+      "surfaceType": 11,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/11.png"
+    },
+    {
+      "index": 81,
+      "name": "Virinat",
+      "surfaceType": 30,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/30.png"
+    },
+    {
+      "index": 82,
+      "name": "Chaltok",
+      "surfaceType": 12,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/12.png"
+    },
+    {
+      "index": 83,
+      "name": "Lakarian",
+      "surfaceType": 16,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/16.png"
+    },
+    {
+      "index": 84,
+      "name": "Arawath",
+      "surfaceType": 21,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/21.png"
+    },
+    {
+      "index": 85,
+      "name": "Monac",
+      "surfaceType": 31,
+      "originalSurfaceType": 2,
+      "image": "assets/game/planet-models/31.png"
+    },
+    {
+      "index": 86,
+      "name": "Ty'Gokor",
+      "surfaceType": 33,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/33.png"
+    },
+    {
+      "index": 87,
+      "name": "Boreth",
+      "surfaceType": 31,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/31.png"
+    },
+    {
+      "index": 88,
+      "name": "Narendra",
+      "surfaceType": 29,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/29.png"
+    },
+    {
+      "index": 89,
+      "name": "Lappa",
+      "surfaceType": 27,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/27.png"
+    },
+    {
+      "index": 90,
+      "name": "Hupyrian",
+      "surfaceType": 32,
+      "originalSurfaceType": 3,
+      "image": "assets/game/planet-models/32.png"
+    },
+    {
+      "index": 91,
+      "name": "Breen Anchorage",
+      "surfaceType": 34,
+      "originalSurfaceType": 4,
+      "image": "assets/game/planet-models/34.png"
+    },
+    {
+      "index": 92,
+      "name": "Goralis",
+      "surfaceType": 32,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/32.png"
+    },
+    {
+      "index": 93,
+      "name": "Tarellian Reach",
+      "surfaceType": 14,
+      "originalSurfaceType": 6,
+      "image": "assets/game/planet-models/14.png"
+    },
+    {
+      "index": 94,
+      "name": "Promelli Drift",
+      "surfaceType": 35,
+      "originalSurfaceType": 5,
+      "image": "assets/game/planet-models/35.png"
+    },
+    {
+      "index": 95,
+      "name": "Crystal Loom",
+      "surfaceType": 15,
+      "originalSurfaceType": 15,
+      "image": "assets/game/planet-models/15.png"
+    },
+    {
+      "index": 96,
+      "name": "Webheart",
+      "surfaceType": 17,
+      "originalSurfaceType": 17,
+      "image": "assets/game/planet-models/17.png"
+    },
+    {
+      "index": 97,
+      "name": "Lattice Hold",
+      "surfaceType": 24,
+      "originalSurfaceType": 24,
+      "image": "assets/game/planet-models/24.png"
+    },
+    {
+      "index": 98,
+      "name": "Spindle Reach",
+      "surfaceType": 27,
+      "originalSurfaceType": 27,
+      "image": "assets/game/planet-models/27.png"
+    },
+    {
+      "index": 99,
+      "name": "Facet Gate",
+      "surfaceType": 33,
+      "originalSurfaceType": 33,
+      "image": "assets/game/planet-models/33.png"
+    }
+  ],
+  "earthModelReservedFor": "Model 1 is Earth and is reserved for Earth / Sol only. Earth-like model 2 may be used by other systems."
+}

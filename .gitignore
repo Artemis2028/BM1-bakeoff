@@ -1,0 +1,14 @@
+.DS_Store
+Thumbs.db
+
+node_modules/
+npm-debug.log*
+
+dist/
+dist-chrome-extension/
+tmp/
+asset-backups/
+
+*.zip
+*.tar
+*.tar.gz

@@ -1,0 +1,649 @@
+{
+  "schema": "bm2.game_items.v1",
+  "version": "20260710-cutting-beam-v1",
+  "settings": {
+    "weaponInventoryLimit": 9,
+    "factionFlags": {
+      "basePrice": 1800,
+      "marketMultiplier": 175,
+      "blockedFactions": [
+        "pirate",
+        "borg"
+      ]
+    },
+    "weaponCooldowns": {
+      "powerReductionCap": 0.08,
+      "classFactorMin": 0.68,
+      "classFactorMax": 1.25,
+      "typeFactors": {
+        "default": 1,
+        "beam": 1,
+        "cannon": 1.04,
+        "turret": 1.08,
+        "torpedo": 1.18,
+        "heavy": 1.25
+      },
+      "minimumsMs": {
+        "default": 300,
+        "beam": 360,
+        "cannon": 360,
+        "turret": 360,
+        "torpedo": 760,
+        "heavy": 1400,
+        "device": 900
+      }
+    },
+    "devices": {
+      "cloak": {
+        "durationMs": 12000,
+        "fadeMs": 900
+      },
+      "engineDisruptor": {
+        "disableMs": 30000,
+        "waveMs": 3000
+      },
+      "thaleronGenerator": {
+        "cloudMs": 5600
+      },
+      "tractorBeam": {
+        "holdMs": 1350,
+        "rangeGrace": 1.22,
+        "towFactor": 0.92,
+        "anchorStrength": 0.16,
+        "sourceHalfWidth": 4,
+        "targetHalfWidth": 34
+      }
+    }
+  },
+  "tradeGoods": [
+    "Medical Supplies",
+    "Beer",
+    "Romulan Ale",
+    "Food Stuffs",
+    "Hyposprays",
+    "Tricorders",
+    "Orion Slaves",
+    "Mugs",
+    "Warp Coils",
+    "Computers",
+    "Art",
+    "Old Paintings",
+    "Xiang's Brand Vodka",
+    "Dead Cats",
+    "Pencils",
+    "Beetlesnuff",
+    "Grey Paint",
+    "PADDs",
+    "Feminine Products",
+    "Staplers",
+    "Historic Books",
+    "Magazines",
+    "Clocks",
+    "Fertilizer",
+    "Corpses",
+    "Prostitutes",
+    "Ramscoops",
+    "Warp Cores",
+    "Impulse Engines",
+    "Equipment",
+    "Metal",
+    "Dilithium",
+    "Deuranium",
+    "Raw Latinum",
+    "Rare Birds",
+    "Korean Dogs",
+    "Dinner Napkins",
+    "Isolinear Chips",
+    "Magnets",
+    "Flags",
+    "Old Photos",
+    "Pillows",
+    "15 Yr Old Scotch"
+  ],
+  "weapons": [
+    {
+      "id": 1,
+      "name": "Type X Phaser",
+      "type": "Beam",
+      "damage": 33,
+      "cooldown": 520,
+      "range": 820,
+      "speed": 18,
+      "price": 3000,
+      "minMass": 1,
+      "color": "#ff9a3d",
+      "icon": "typex.gif",
+      "stockFactions": [
+        "terran",
+        "neutral"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Particle Beam",
+      "type": "Beam",
+      "damage": 68,
+      "cooldown": 820,
+      "range": 900,
+      "speed": 17,
+      "price": 9000,
+      "minMass": 2,
+      "color": "#9ce8ff",
+      "icon": "singlepulse.gif",
+      "stockFactions": [
+        "dominion",
+        "delpin"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Polaron Phaser",
+      "type": "Beam",
+      "damage": 33,
+      "cooldown": 640,
+      "range": 860,
+      "speed": 18,
+      "price": 5000,
+      "minMass": 1,
+      "color": "#d95b5b",
+      "icon": "polaronphsaer.gif",
+      "stockFactions": [
+        "dominion",
+        "cardassian"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Plasma Phaser",
+      "type": "Beam",
+      "damage": 19,
+      "cooldown": 300,
+      "range": 720,
+      "speed": 18,
+      "price": 3800,
+      "minMass": 1,
+      "color": "#51e85a",
+      "icon": "romphaser.gif",
+      "stockFactions": [
+        "romulan",
+        "vulcan"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Cutting Beam",
+      "type": "Beam",
+      "damage": 47,
+      "cooldown": 260,
+      "range": 720,
+      "speed": 20,
+      "price": 30000,
+      "minMass": 4,
+      "color": "#39ff3f",
+      "icon": "cuttingbeam.gif",
+      "stockFactions": [
+        "tholian",
+        "ferengi"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Disruptor Cannon",
+      "type": "Cannon",
+      "damage": 19,
+      "cooldown": 240,
+      "range": 760,
+      "speed": 14,
+      "price": 3000,
+      "minMass": 2,
+      "color": "#ff9a64",
+      "icon": "dualdisrupt.gif",
+      "stockFactions": [
+        "klingon",
+        "romulan",
+        "cardassian"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Disruptor Cannon",
+      "type": "Cannon",
+      "damage": 19,
+      "cooldown": 240,
+      "range": 720,
+      "speed": 14,
+      "price": 1500,
+      "minMass": 0,
+      "color": "#ff9a64",
+      "icon": "singledisrupt.gif",
+      "stockFactions": [
+        "klingon",
+        "romulan",
+        "cardassian"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Quantum Pulse Cannon",
+      "type": "Cannon",
+      "damage": 40,
+      "cooldown": 240,
+      "range": 760,
+      "speed": 15,
+      "price": 2000,
+      "minMass": 1,
+      "color": "#a7f4ff",
+      "icon": "quantumpulse.gif",
+      "stockFactions": [
+        "terran",
+        "teposian"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Dual Pulse Phasers",
+      "type": "Cannon",
+      "damage": 26,
+      "cooldown": 240,
+      "range": 760,
+      "speed": 15,
+      "price": 7500,
+      "minMass": 1,
+      "color": "#ffc254",
+      "icon": "dualpulse.gif",
+      "stockFactions": [
+        "terran",
+        "ferengi"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Phaser Cannon",
+      "type": "Cannon",
+      "damage": 19,
+      "cooldown": 300,
+      "range": 720,
+      "speed": 15,
+      "price": 1300,
+      "minMass": 0,
+      "color": "#ffc254",
+      "icon": "singlepulse.gif",
+      "stockFactions": [
+        "terran",
+        "neutral"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Pulse Turret",
+      "type": "Turret",
+      "damage": 26,
+      "cooldown": 240,
+      "range": 840,
+      "speed": 14,
+      "price": 8500,
+      "minMass": 3,
+      "color": "#ffd66e",
+      "icon": "pulseturrent.gif",
+      "stockFactions": [
+        "terran",
+        "cardassian"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Disruptor Turret",
+      "type": "Turret",
+      "damage": 33,
+      "cooldown": 240,
+      "range": 840,
+      "speed": 14,
+      "price": 7800,
+      "minMass": 3,
+      "color": "#ffba68",
+      "icon": "disturrent.gif",
+      "stockFactions": [
+        "klingon",
+        "cardassian"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Gravimetric Torpedo",
+      "type": "Torpedo",
+      "damage": 47,
+      "cooldown": 520,
+      "range": 1080,
+      "speed": 10.5,
+      "price": 9000,
+      "minMass": 3,
+      "color": "#6d9cff",
+      "icon": "gravtorp.gif",
+      "stockFactions": [
+        "vulcan",
+        "romulan"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Type VII Phaser",
+      "type": "Turret",
+      "damage": 26,
+      "cooldown": 300,
+      "range": 790,
+      "speed": 15,
+      "price": 1500,
+      "minMass": 2,
+      "color": "#ff9a3d",
+      "icon": "typex.gif",
+      "stockFactions": [
+        "terran",
+        "vulcan"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Photon Torpedo",
+      "type": "Torpedo",
+      "damage": 33,
+      "cooldown": 1200,
+      "range": 980,
+      "speed": 10,
+      "price": 2500,
+      "minMass": 1,
+      "color": "#ffffff",
+      "icon": "tachyon.gif",
+      "stockFactions": [
+        "terran",
+        "neutral"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Quantum Torpedo",
+      "type": "Torpedo",
+      "damage": 33,
+      "cooldown": 940,
+      "range": 1040,
+      "speed": 10.5,
+      "price": 6700,
+      "minMass": 3,
+      "color": "#8ffff2",
+      "icon": "quantumpulse.gif",
+      "stockFactions": [
+        "terran",
+        "dominion"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Plasma Torpedo",
+      "type": "Torpedo",
+      "damage": 54,
+      "cooldown": 1800,
+      "range": 980,
+      "speed": 9.5,
+      "price": 7200,
+      "minMass": 3,
+      "color": "#79ffae",
+      "icon": "romphaser.gif",
+      "stockFactions": [
+        "romulan",
+        "vulcan"
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Transphasic Torpedo",
+      "type": "Torpedo",
+      "damage": 160,
+      "cooldown": 3200,
+      "range": 1160,
+      "speed": 8.5,
+      "price": 12500,
+      "minMass": 4,
+      "color": "#ffffff",
+      "icon": "transphasic.gif",
+      "stockFactions": [
+        "terran",
+        "vulcan"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Polaron Torpedo",
+      "type": "Torpedo",
+      "damage": 33,
+      "cooldown": 940,
+      "range": 1040,
+      "speed": 10,
+      "price": 5300,
+      "minMass": 2,
+      "color": "#b979ff",
+      "icon": "polaronphsaer.gif",
+      "stockFactions": [
+        "dominion",
+        "cardassian"
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Cloaking Device",
+      "type": "Device",
+      "damage": 0,
+      "cooldown": 1800,
+      "range": 620,
+      "speed": 16,
+      "price": 13500,
+      "minMass": 2,
+      "color": "#9fb2d0",
+      "icon": "enginedis.gif",
+      "stockFactions": [
+        "romulan",
+        "klingon"
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Engine Disruptor",
+      "type": "Device",
+      "damage": 0,
+      "cooldown": 3600,
+      "range": 1800,
+      "speed": 16,
+      "price": 5000,
+      "minMass": 1,
+      "color": "#b46cff",
+      "icon": "enginedis.gif",
+      "stockFactions": [
+        "ferengi",
+        "pirate"
+      ]
+    },
+    {
+      "id": 24,
+      "name": "Tachyon Field Generator",
+      "type": "Device",
+      "damage": 0,
+      "cooldown": 2600,
+      "range": 820,
+      "speed": 16,
+      "price": 8000,
+      "minMass": 2,
+      "color": "#8ffff2",
+      "icon": "tachyon.gif",
+      "stockFactions": [
+        "vulcan",
+        "terran"
+      ]
+    },
+    {
+      "id": 25,
+      "name": "Tractor Beam",
+      "type": "Device",
+      "damage": 0,
+      "cooldown": 1100,
+      "range": 700,
+      "speed": 18,
+      "price": 3400,
+      "minMass": 1,
+      "color": "#5df2ff",
+      "icon": "enginedis.gif",
+      "stockFactions": [
+        "terran",
+        "ferengi"
+      ]
+    },
+    {
+      "id": 26,
+      "name": "Thaleron Generator",
+      "type": "Heavy",
+      "damage": 112,
+      "cooldown": 3600,
+      "range": 980,
+      "speed": 8.5,
+      "price": 15500,
+      "minMass": 4,
+      "color": "#80ff73",
+      "icon": "thaleron.gif",
+      "stockFactions": [
+        "romulan",
+        "reman"
+      ]
+    },
+    {
+      "id": 27,
+      "name": "Magnetorp Launcher",
+      "type": "Torpedo",
+      "damage": 33,
+      "cooldown": 360,
+      "range": 980,
+      "speed": 11,
+      "price": 1200,
+      "minMass": 4,
+      "color": "#ffffff",
+      "icon": "gravtorp.gif",
+      "stockFactions": [
+        "terran",
+        "neutral"
+      ]
+    },
+    {
+      "id": 28,
+      "name": "Biobeam",
+      "type": "Beam",
+      "damage": 82,
+      "cooldown": 940,
+      "range": 830,
+      "speed": 18,
+      "price": 10000,
+      "minMass": 3,
+      "color": "#80ff73",
+      "icon": "cuttingbeam.gif",
+      "stockFactions": [
+        "sona",
+        "promelli"
+      ]
+    },
+    {
+      "id": 29,
+      "name": "Tesla Beam",
+      "type": "Beam",
+      "damage": 68,
+      "cooldown": 940,
+      "range": 880,
+      "speed": 18,
+      "price": 12000,
+      "minMass": 3,
+      "color": "#5df2ff",
+      "icon": "quantumpulse.gif",
+      "stockFactions": [
+        "sona",
+        "terran"
+      ]
+    },
+    {
+      "id": 30,
+      "name": "Subspace Torpedo",
+      "type": "Torpedo",
+      "damage": 140,
+      "cooldown": 2300,
+      "range": 1280,
+      "speed": 8,
+      "price": 30000,
+      "minMass": 5,
+      "color": "#ff77d9",
+      "icon": "transphasic.gif",
+      "stockFactions": [
+        "sona",
+        "vulcan"
+      ]
+    },
+    {
+      "id": 38,
+      "name": "Proton Beam",
+      "type": "Beam",
+      "damage": 54,
+      "cooldown": 940,
+      "range": 860,
+      "speed": 18,
+      "price": 16500,
+      "minMass": 3,
+      "color": "#ff77d9",
+      "icon": "singlepulse.gif",
+      "stockFactions": [
+        "nausican",
+        "pirate"
+      ]
+    },
+    {
+      "id": 39,
+      "name": "Gatling Pulse Turret",
+      "type": "Turret",
+      "damage": 26,
+      "cooldown": 180,
+      "range": 760,
+      "speed": 15,
+      "price": 35600,
+      "minMass": 4,
+      "color": "#ffd66e",
+      "icon": "pulseturrent.gif",
+      "stockFactions": [
+        "sona",
+        "terran"
+      ]
+    },
+    {
+      "id": 44,
+      "name": "Wave Pulse",
+      "type": "Turret",
+      "damage": 82,
+      "cooldown": 360,
+      "range": 840,
+      "speed": 14,
+      "price": 24000,
+      "minMass": 3,
+      "color": "#8ffff2",
+      "icon": "dualpulse.gif",
+      "stockFactions": [
+        "promelli"
+      ]
+    },
+    {
+      "id": 45,
+      "name": "Vortex Ray",
+      "type": "Beam",
+      "damage": 47,
+      "cooldown": 640,
+      "range": 900,
+      "speed": 18,
+      "price": 35400,
+      "minMass": 3,
+      "color": "#b979ff",
+      "icon": "polaronphsaer.gif",
+      "stockFactions": [
+        "promelli"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1126 @@
+{
+  "count": 56,
+  "symbols": [
+    {
+      "symbol": "Symbol 106",
+      "matches": [
+        "on (release) {",
+        "if (_root.pause != 1) {",
+        "if (getProperty(\"../\", _xscale)>75) {",
+        "} else if (x == 0) {",
+        "if (_root.mycargo+gain>_root.totcargo) {",
+        "gain = _root.totcargo-_root.mycargo;",
+        "if (gain == 0) {",
+        "_root.beam.start();",
+        "_root.mydeuranium += gain;",
+        "if (((_root.planetStrengths[_root.myplanet]>0 or _root.planetPops[_root.myplanet]>0) and _root.planetGovts[_root.myplanet] != 16) and _root.asteroidpass != 1) {",
+        "_root.localprestige[_root.myplanet] -= 1;",
+        "_root.updatemenu();",
+        "if (r == undefined) {",
+        "if (_root.speed != 0) {",
+        "_x += _root.locx;",
+        "_y += _root.locy;",
+        "if (_x>800 or _x<-200 or _y>650 or _y<-200) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 112",
+      "matches": [
+        "_yscale /= _root.zoom;",
+        "if (xshift == undefined) {",
+        "xshift = (random(20)-random(20))/_root.zoom;",
+        "yshift = (random(20)-random(20))/_root.zoom;",
+        "if (dy<0) {",
+        "if (fire == undefined) {",
+        "_root.attachMovie(\"explosionmini\", \"explosion\" add _root.level, _root.level);",
+        "set(\"../explosion\" add _root.level add \":mytarget\", mytarget);",
+        "set(\"../explosion\" add _root.level add \":xshift\", xshift);",
+        "set(\"../explosion\" add _root.level add \":yshift\", yshift);",
+        "_root.level++;",
+        "if (timer == undefined) {",
+        "if (_x>-50 and _y>-50 and _y<550 and _x<700) {",
+        "_root.beamphaser.start();",
+        "if (phastech>1) {",
+        "if (timer<0) {",
+        "_root.domphas.start();",
+        "_root.polbeam.start();",
+        "_root.romphas.start();",
+        "_root.cuttingbeam.start();",
+        "if (timer>0) {",
+        "_root.tractor.start();"
+      ]
+    },
+    {
+      "symbol": "Symbol 116",
+      "matches": [
+        "if (random(2) == 1) {",
+        ">_xscale/=_root.zoom;",
+        "_yscale/=_root.zoom;",
+        "if (_root.pause != 1) {",
+        "if (timer == undefined) {",
+        "if (_x>-50 and _y>-50 and _y<550 and _x<700) {",
+        "_root.etorpedo.start();",
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "if (timer<0) {",
+        "if (this.hitTest(\"../\" add mytarget)) {",
+        "if (r2>360) {",
+        "if (r2>180) {",
+        "if (r2<180) {",
+        "_x += Math.sin(_rotation*(Math.PI/180))*((30+speed)/_root.zoom);",
+        "_y += Math.cos(_rotation*(Math.PI/180))*((30+speed)/_root.zoom)*-1;",
+        "if (_root.speed != 0 and _root.pause!=1) {",
+        "_root.quantum.start();",
+        "if(_root.pause!=1){",
+        "_root.romtorp.start();",
+        "if (_root.speed != 0 and _root.pause != 1) {",
+        "_root.rompulse.start();",
+        "if (timer<25) {",
+        "_root.disruptor.start();",
+        "if (timer<20) {",
+        "_root.pulse2.start();",
+        "_x += Math.sin(_rotation*(Math.PI/180))*((5+speed)/_root.zoom);",
+        "_y += Math.cos(_rotation*(Math.PI/180))*((5+speed)/_root.zoom)*-1;",
+        "_root.pulse.start();",
+        "_root.fedpulse.start();",
+        "_root.typevii.start();",
+        "_x += Math.sin(_rotation*(Math.PI/180))*((50+speed)/_root.zoom);",
+        "_y += Math.cos(_rotation*(Math.PI/180))*((50+speed)/_root.zoom)*-1;",
+        "if (timer<40) {",
+        "if (timer>130) {",
+        "if (timer<130) {",
+        "if (_alpha<=0) {",
+        "_x += Math.sin(_rotation*(Math.PI/180))*((10+speed)/_root.zoom);",
+        "_y += Math.cos(_rotation*(Math.PI/180))*((10+speed)/_root.zoom)*-1;"
+      ]
+    },
+    {
+      "symbol": "Symbol 12",
+      "matches": [
+        "myText = _root.trdTxtArray[random(73)];",
+        "myName = _root.shipnamesArray[0];",
+        "if (mytype<=69) {",
+        "sellgoods = _root.tradegoodsArray[random(42)];",
+        "buygoods = _root.tradegoodsArray[random(42)];",
+        "if (mytype>=70) {",
+        "tradegoods = _root.tradegoodsArray[random(42)];",
+        "tradeplanet = _root.planetsArray[p];",
+        "merchantArray[((i-1)*2)+2] = _root.tradegoodsArray[random(42)];",
+        "if (sellgoods == _root.cargoArray[((i-1)*4)+2]) {",
+        "if (_parent.cloak != 1) {",
+        "if (_parent.myselect == 1) {",
+        "_root.gamedata = _parent.mytarget;",
+        "on (release) {",
+        "if (_parent.myselect == 0) {",
+        "if (eval(\"../../\" add _parent.mytarget add \".cloak\") != 1) {",
+        "_root.deselectobject();",
+        "_root.myselect = _parent.myself;",
+        "_root.selectobject();",
+        "} else if (_parent.myselect == 1) {",
+        "if (Key.isDown(Key.SHIFT)) {",
+        "_root.comm.start();",
+        "_root.hail();",
+        "if (_root.pause != 1) {",
+        "if (_parent.mytarget == \"player\") {",
+        "if (_root.shipsgovt[_parent.myslot] == 16) {",
+        "if (_parent.mytarget == \"player\" and _root.shipsgovt[_parent.myslot] != 16) {",
+        "if ((_parent.mystrength/_parent.totstrength)*100<5) {",
+        "if (fade == 1) {",
+        "if (fade == 2) {",
+        "if (_alpha<=0) {",
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "if (speed == undefined) {",
+        "if (random(5000) == 1 and _root.itemdescArray[((mytype-1)*16)+16] == 1 and _root.shipsgovt[myslot] != 16) {",
+        "if (mytype == 94) {",
+        "if (myx>-50 and myy>-50 and myy<550 and myx<700) {",
+        "_root.enterwarp.start();",
+        "if (xArray2 == undefined) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 145",
+      "matches": [
+        "if (_parent.hitTest(\"../player\") == true and getProperty(\"../\", _xscale)<100) {",
+        "if (getProperty(\"../\", _xscale) == 20) {",
+        "_root.wormholeopen.start();",
+        "} else if (_parent.hitTest(\"../player\") == false and getProperty(\"../\", _xscale)>20) {",
+        "on (release) {",
+        "if (_root.expnav<200) {",
+        "_root.loadcomm();",
+        "if (_parent._xscale>50) {",
+        "_root.dist = 0;",
+        "if (_root.myplanet == 47) {",
+        "_root.planetclick = 51;",
+        "if (_root.myplanet == 51) {",
+        "_root.planetclick = 47;",
+        "_root.mapclick();",
+        "if (_root.speed != 0) {",
+        "setProperty(\"\", _x, _x+_root.locx);",
+        "setProperty(\"\", _y, _y+_root.locy);"
+      ]
+    },
+    {
+      "symbol": "Symbol 146",
+      "matches": [
+        "_root.scanship();",
+        "_root.hail();",
+        "if (mymenu == undefined) {",
+        "if (mymenu == 1 and _y>410) {",
+        "if (mymenu == 0 and _y<500) {",
+        "if (_y<410 and mymenu == 1) {",
+        "if (_y>500 and mymenu == 0) {",
+        "setProperty(\"strengthbar\", _xscale, 100-(eval(\"../\"+_root.myselect+\".mystrength\")/eval(\"../\"+_root.myselect+\".totstrength\"))*100);",
+        "if (((eval(\"../\"+_root.myselect+\".mystrength\")/eval(\"../\"+_root.myselect+\".totstrength\"))*100)<5) {",
+        "targetx = getProperty(\"../\" add _root.myselect, _x);",
+        "targety = getProperty(\"../\" add _root.myselect, _y);",
+        "if (targetx == undefined) {",
+        "_root.deselect();"
+      ]
+    },
+    {
+      "symbol": "Symbol 147",
+      "matches": [
+        "fif (_root.speed != 0) {",
+        "setProperty(\"\", _x, _x+_root.locx);",
+        "setProperty(\"\", _y, _y+_root.locy);"
+      ]
+    },
+    {
+      "symbol": "Symbol 150",
+      "matches": [
+        "?if (damage == undefined) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 159",
+      "matches": [
+        "setProperty(\"\", _x, _x+_root.locx);",
+        "setProperty(\"\", _y, _y+_root.locy);"
+      ]
+    },
+    {
+      "symbol": "Symbol 16",
+      "matches": [
+        "if (size == undefined) {",
+        "if (fade == undefined) {",
+        "if (fade == 1) {",
+        "if (_alpha<10) {",
+        "if (fade == 0) {",
+        "if (_alpha>90) {",
+        "if (mytype == undefined) {",
+        "if (getProperty(\"../\" add mytarget, _x) == undefined) {",
+        "_root.deselectobject;"
+      ]
+    },
+    {
+      "symbol": "Symbol 160",
+      "matches": [
+        "if (_alpha<=0) {",
+        "setProperty(\"\", _x, _x+_root.locx+y);",
+        "setProperty(\"\", _y, _y+_root.locy+y);"
+      ]
+    },
+    {
+      "symbol": "Symbol 17",
+      "matches": [
+        "FScrollBarClass = function()",
+        "if (this._height==4) {",
+        "if ( this._targetInstanceName.length > 0 ) {",
+        "FScrollBarClass.prototype.setHorizontal = function(flag)",
+        "if (this.horizontal && !flag) {",
+        "} else if (flag && !this.horizontal) {",
+        "FScrollBarClass.prototype.setScrollProperties = function(pSize, mnPos, mxPos)",
+        "if (!this.enable) {",
+        "if (this.maxPos-this.minPos<=0) { // turn it off",
+        "this.upArrow_mc.gotoAndStop(3);",
+        "this.downArrow_mc.gotoAndStop(3);",
+        "this.upArrow_mc.gotoAndStop(1);",
+        "this.downArrow_mc.gotoAndStop(1);",
+        "FScrollBarClass.prototype.getScrollPosition = function ()",
+        "FScrollBarClass.prototype.setScrollPosition = function(pos)",
+        "if (this.scrollThumb_mc!=undefined) {",
+        "FScrollBarClass.prototype.setLargeScroll = function(lScroll)",
+        "FScrollBarClass.prototype.setSmallScroll = function(sScroll)",
+        "FScrollBarClass.prototype.setEnabled = function(enabledFlag)",
+        "if (enabledFlag && !wasEnabled) {",
+        "if (this.textField!=undefined) {",
+        "} else if (!enabledFlag && wasEnabled) {",
+        "if (this.clickFilter==undefined) {",
+        "FScrollBarClass.prototype.setSize = function(hgt)",
+        "if (this._height==1) return;",
+        "if (this.upArrow_mc==undefined) {",
+        "FScrollBarClass.prototype.scrollIt = function (inc, mode)",
+        "if (inc!=\"one\") {",
+        "if (newPos>this.maxPos) {",
+        "} else if (newPos<this.minPos) {",
+        "FScrollBarClass.prototype.startDragThumb = function()",
+        "FScrollBarClass.prototype.dragThumb = function()",
+        "if (this.scrollMove<this.controller.scrollTop) {",
+        "else if (this.scrollMove>this.controller.scrollBot) {",
+        "FScrollBarClass.prototype.stopDragThumb = function()",
+        "FScrollBarClass.prototype.startTrackScroller = function()",
+        "FScrollBarClass.prototype.scrollInterval = function(inc,mode)",
+        "if (inc==\"page\") {",
+        "FScrollBarClass.prototype.trackScroller = function()",
+        "if (this.scrollThumb_mc._y+this.thumbHeight<this._ymouse) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 171",
+      "matches": [
+        "gotoAndPlay(_root.race);"
+      ]
+    },
+    {
+      "symbol": "Symbol 199",
+      "matches": [
+        "_root.gamedata2 = _width+\" \"+_height;",
+        "aon (release) {",
+        "set(\"../player\" add \":playershiptype\" add \":repair\", 0);"
+      ]
+    },
+    {
+      "symbol": "Symbol 2",
+      "matches": [
+        "playershiptype",
+        "_root.weapon1timer = 0;",
+        "_root.weapon2timer = 0;",
+        "_root.weapon3timer = 0;",
+        "on (release) {",
+        "_root.updatemenu();",
+        "if (Key.isDown(Key.UP) and (_root.speed*-1)<(_root.totspeed)) {",
+        "_root.speed -= 2;",
+        "if (_root.speed<-25) {",
+        "_root.speed -= 5;",
+        "if (_root.speed<-100) {",
+        "_root.speed = -100;",
+        "if (Key.isDown(Key.DOWN)) {",
+        "_root.speed += 1;",
+        "_root.speed += 5;",
+        "if (_root.speed>0) {",
+        "_root.speed = 0;",
+        "if (Key.isDown(Key.LEFT)) {",
+        "setProperty(\"../\", _rotation, rotation-_root.totturn/2);",
+        "if (_root.speed>=-25) {",
+        "setProperty(\"../\", _rotation, rotation-_root.totturn);",
+        "if (Key.isDown(Key.RIGHT)) {",
+        "setProperty(\"../\", _rotation, rotation+_root.totturn/2);",
+        "setProperty(\"../\", _rotation, rotation+_root.totturn);",
+        "if (Key.isDown(Key.SPACE) and _root.weapon1timer<=0 and _root.speed>=-25 and _root.myselect != undefined) {",
+        "w = Number(_root.itemdescArray[((mytype-1)*13)+11]);",
+        "_root.weapontype = _root.weapontypes[w];",
+        "if (w<=5) {",
+        "_root.firephaser();",
+        "if (w>=6) {",
+        "_root.firedisruptor();",
+        "if (Key.isDown(Key.CAPSLOCK) and _root.weapon2timer<=0 and _root.myselect != undefined) {",
+        "_root.firetorpedo();",
+        "if (hit>0) {",
+        "if (_root.myshields>0) {",
+        "_root.myshields -= hit;",
+        "} else if (_root.myshields == 0) {",
+        "_root.myhull -= hit;",
+        "if (_root.myshields<0) {",
+        "_root.myshields = 0;"
+      ]
+    },
+    {
+      "symbol": "Symbol 224",
+      "matches": [
+        "on (release) {",
+        "_root.loadcomm();",
+        "events += \"This incomplete station is a \"+_root.itemdescArray[((mytype-1)*16)+1];",
+        "Dif (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "Sif (_root.speed != 0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 232",
+      "matches": [
+        "if (_alpha<=5) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 252",
+      "matches": [
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "if (_xscale>100) {",
+        "if (_alpha<10) {",
+        "if (x == undefined or x>_root.xArray0) {",
+        "x = _root.numstations+1;",
+        "if (this.hitTest(\"../\" add _root.otherships[x])) {",
+        "set(\"../\" add _root.otherships[x] add \":enginefail\", 200);",
+        "Sif (_root.speed != 0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 254",
+      "matches": [
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "if (_xscale>150) {",
+        "if (_alpha<1) {",
+        "if ((x == undefined or x>_root.xArray0) and _xscale>20) {",
+        "if (this.hitTest(\"../\" add _root.otherships[x])) {",
+        "set(\"../\" add _root.otherships[x] add \":hit\", 100);",
+        "_root.localPrestige[_root.myplanet] -= 1;",
+        "if (this.hitTest(\"../player\")) {",
+        "Sif (_root.speed != 0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 255",
+      "matches": [
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "if (_xscale>100) {",
+        "if (_alpha<1) {",
+        "if (x == undefined or x>_root.xArray0) {",
+        "if (this.hitTest(\"../\" add _root.otherships[x])) {",
+        "set(\"../\" add _root.otherships[x] add \":cloak\", 0);",
+        "Sif (_root.speed != 0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 280",
+      "matches": [
+        "Ovar x = (_root.myhull/_root.tothull*100)/20;"
+      ]
+    },
+    {
+      "symbol": "Symbol 282",
+      "matches": [
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;",
+        "if (_xscale>maxsize) {",
+        "if (_alpha<10) {",
+        "Sif (_root.speed != 0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 285",
+      "matches": [
+        "if (mytype == undefined) {",
+        "if (_root.myplanet<20) {",
+        "if (_root.myplanet>=20 and _root.myplanet<40) {",
+        "if (_root.myplanet>=40 and _root.myplanet<50) {",
+        "if (_root.myplanet>=50) {",
+        "if (_global.background == 0) {",
+        "gotoAndStop(mytype);"
+      ]
+    },
+    {
+      "symbol": "Symbol 286",
+      "matches": [
+        "if (_root.speed != 0) {",
+        "_x = _x+_root.locx/20;",
+        "_y = _y+_root.locy/20;",
+        "if (mytype == undefined) {",
+        "if (_global.background == 0) {",
+        "gotoAndStop(mytype);"
+      ]
+    },
+    {
+      "symbol": "Symbol 287",
+      "matches": [
+        "if (this._parent.loadReady) {",
+        "} else if (this._name != \"loadContent\") {",
+        "function FScrollPaneClass()",
+        "if (this.hScroll==undefined) {",
+        "function boolToString(str)",
+        "if (str==\"false\") return false;",
+        "if (str==\"true\") return true;",
+        "if (this.scrollContent!=\"\") {",
+        "FScrollPaneClass.prototype.getScrollContent = function()",
+        "FScrollPaneClass.prototype.getPaneWidth = function()",
+        "FScrollPaneClass.prototype.getPaneHeight = function()",
+        "FScrollPaneClass.prototype.getScrollPosition = function()",
+        "FScrollPaneClass.prototype.setScrollContent = function(target)",
+        "if ( this.content_mc != undefined ) {",
+        "if (target!=this.content_mc) {",
+        "if (typeof(target)==\"string\") {",
+        "} else if (target==undefined) {",
+        "FScrollPaneClass.prototype.setSize = function(w, h)",
+        "if (arguments.length<2 || isNaN(w) || isNaN(h)) return;",
+        "if (this.mask_mc==undefined) {",
+        "FScrollPaneClass.prototype.setScrollPosition = function(x,y)",
+        "FScrollPaneClass.prototype.refreshPane = function()",
+        "FScrollPaneClass.prototype.loadScrollContent = function(url, handler, location)",
+        "this.contentLoaded = function()",
+        "FScrollPaneClass.prototype.setHScroll = function(prop)",
+        "FScrollPaneClass.prototype.setVScroll = function(prop)",
+        "FScrollPaneClass.prototype.setDragContent = function(dragFlag)",
+        "if (dragFlag) {",
+        "this.boundingBox_mc.onPress = function()",
+        "this.boundingBox_mc.onRelease = this.boundingBox_mc.onReleaseOutside = function()",
+        "FScrollPaneClass.prototype.setSmallScroll = function(x,y)",
+        "FScrollPaneClass.prototype.setHandV = function()",
+        "if ( (this.contentHeight-this.height>2 && this.vScroll!=false) || this.vScroll==true ) {",
+        "if ((this.contentWidth-this.width>2 && this.hScroll!=false) || this.hScroll==true ) {",
+        "FScrollPaneClass.prototype.startDragLoop = function()",
+        "this.onMouseMove = function() {",
+        "if (this.scrollXMove< this.hScrollBar_mc.maxPos && this.scrollXMove>this.hScrollBar_mc.minPos) {",
+        "if (this.scrollYMove< this.vScrollBar_mc.maxPos && this.scrollYMove>this.vScrollBar_mc.minPos) {",
+        "FScrollPaneClass.prototype.initScrollBars = function()",
+        "FScrollPaneClass.prototype.onScroll = function(component)"
+      ]
+    },
+    {
+      "symbol": "Symbol 3",
+      "matches": [
+        "on (release) {",
+        "if (cheattext == \"maxlat\") {",
+        "_root.mylatinum = 999999;",
+        "if (cheattext == \"inclat\") {",
+        "_root.mylatinum += 1000;",
+        "if (cheattext == \"maxdur\") {",
+        "_root.mydeuranium = 999999;",
+        "if (cheattext == \"imgood\") {",
+        "_root.localPrestige[_root.myplanet] = 100;",
+        "if (cheattext == \"imbad\") {",
+        "_root.localPrestige[_root.myplanet] = -100;",
+        "if (cheattext == \"youhateme\") {",
+        "_root.localPrestige[i] = -100;",
+        "if (cheattext == \"ilovetocheat\") {",
+        "_root.expnav = 1000;",
+        "_root.expat = 1000;",
+        "_root.expeng = 1000;",
+        "_root.exptac = 1000;",
+        "if (cheattext == \"getinthebooth\") {",
+        "_root.planetGovts[i] = 1;",
+        "if (cheattext == \"youloveme\") {",
+        "_root.localPrestige[i] = 100;",
+        "if (cheattext == \"urmine\") {",
+        "_root.planetGovts[_root.myplanet] = 16;",
+        "if (cheattext == \"allknowing\") {",
+        "if (cheattext == \"byebyeklingons\") {",
+        "if (_root.planetGovts[i] == 2) {",
+        "_root.planetgovtArray[i] = 6;",
+        "_root.planetGovts[i] = 0;",
+        "_root.localprestige[i] = 0;",
+        "if (cheattext == \"everyonelovesme\") {",
+        "_root.localprestige[i] = 110;",
+        "if (cheattext == \"earthownsall\") {",
+        "_root.planetgovtArray[i] = 2;",
+        "_root.planetgovtArray[17] = 6;",
+        "_root.planetGovts[17] = 0;",
+        "if (tradetons>0 and neg == undefined) {",
+        "_root.expneg += (random(2)+1)*.1;",
+        "_root.rep[2] = Number(_root.rep[2])+1;",
+        "neg = Math.floor(_root.expneg);"
+      ]
+    },
+    {
+      "symbol": "Symbol 311",
+      "matches": [
+        "if (_x == 0 or _x == undefined) {",
+        "if (fade == undefined) {",
+        "if (fade == 1) {",
+        "if (_alpha<10) {",
+        "if (fade == 0) {",
+        "if (_alpha>90) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 312",
+      "matches": [
+        "if (_root.plugtrdtxt != undefined) {",
+        "_root.trdtxt = _root.plugtrdtxt;",
+        "_root.plugtrdtxt = undefined;",
+        "if (_root.plugshipnames != undefined) {",
+        "_root.shipnames = _root.plugshipnames;",
+        "_root.plugshipnames = undefined;",
+        "if (_root.plugitemtext != undefined) {",
+        "_root.itemtext = _root.plugitemtext;",
+        "_root.plugitemtext = undefined;",
+        "if (_root.plugstationdata != undefined) {",
+        "_root.stationdata = _root.plugstationdata;",
+        "_root.plugstationdata = undefined;",
+        "if (_root.plugmapnames != undefined) {",
+        "_root.mapnames = _root.plugmapnames;",
+        "_root.plugmapnames = undefined;",
+        "if (_root.plugmissions != undefined) {",
+        "_root.missions = _root.plugmissions;",
+        "_root.plugmissions = undefined;",
+        "if (_root.plugweaponinfo != undefined) {",
+        "_root.weaponinfo = _root.plugweaponinfo;",
+        "_root.plugweaponinfo = undefined;",
+        "if (_root.plugplanetData != undefined) {",
+        "_root.planetData = _root.plugplanetData;",
+        "_root.plugplanetData = undefined;",
+        "if (_root.plugdefaults != undefined) {",
+        "_root.defaults = _root.plugdefaults;",
+        "_root.plugdefaults = undefined;"
+      ]
+    },
+    {
+      "symbol": "Symbol 324",
+      "matches": [
+        "mytype = _root.planetgovtArray[mydest];",
+        "var temp = _root.planetDataArray[mydest-1].split(\";\");",
+        "var planetlocs = _root.planetDataArray[_root.myplanet-1].split(\";\");",
+        "if (_root.planetgovtArray[_root.myplanet] != 7 and (Math.abs(x-planetlocs[23])<70 and Math.abs(y-planetlocs[24])<70) and _parent._alpha == 0) {",
+        "if (_root.planetgovtArray[_root.myplanet] != 7 and (Math.abs(x-planetlocs[23])<55 and Math.abs(y-planetlocs[24])<55) and _parent._alpha<75) {",
+        "if (_root.planetgovtArray[_root.myplanet] != 7 and (Math.abs(x-planetlocs[23])<40 and Math.abs(y-planetlocs[24])<40) and _parent._alpha<100) {",
+        "on (release) {",
+        "if (_parent._alpha>0) {",
+        "_root.commpanel.gotosystem(mydest);",
+        "_root.commpanel.systeminfo(mydest);",
+        "_root.commpanel.currentinfo();"
+      ]
+    },
+    {
+      "symbol": "Symbol 325",
+      "matches": [
+        "setProperty(\"\", _x, getProperty(\"../planet\" add _root.myplanet, _x));",
+        "setProperty(\"\", _y, getProperty(\"../planet\" add _root.myplanet, _y));",
+        "if (i == undefined) {",
+        "while (i<=_root.num_planets) {",
+        "if (_root.planetstrengths[i] == undefined or _root.planetstrengths[i]>-9999) {",
+        "var planetArrayTemp = _root.planetDataArray[i-1].split(\";\");",
+        "if (planetArrayTemp[17] == 1) {",
+        "attachMovie(\"mapasteroid\", \"mapast\" add i, _root.level++);",
+        "if (planetArrayTemp[16] != 0) {",
+        "attachMovie(\"mapnebula\", \"mapneb\" add i, _root.level++);",
+        "attachMovie(\"mapbutton\", \"planet\" add i, _root.level++);",
+        "if (_root.planetgovtArray[i] != 7) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 326",
+      "matches": [
+        "Yif (_x != 0) {",
+        "_xscale = ((_x-_root._xmouse)*-1);",
+        "_yscale = ((_y-_root._ymouse)*-1);"
+      ]
+    },
+    {
+      "symbol": "Symbol 329",
+      "matches": [
+        "on (release) {",
+        "if (_root.playership == 35) {",
+        "var i = _root.numstations+1;",
+        "if (_root.otherships[i] == undefined) {",
+        "_root.xArray = i;",
+        "while (_root.myfleet[((i-1)*4)+1] != undefined) {",
+        "var buyshipname = _root.myname+\" Saucer\";",
+        "_root.myfleet[((i-1)*4)+1] = _root.myplanet;",
+        "_root.myfleet[((i-1)*4)+2] = buyshiptype;",
+        "_root.myfleet[((i-1)*4)+3] = buyshipname;",
+        "_root.myfleet[((i-1)*4)+4] = undefined;",
+        "_root.createalliedship(buyshiptype, buyshipname);",
+        "_root.updatemenu();",
+        "_root.shiplaunch.start();",
+        "_root.playership = 67;",
+        "_root.myshields = undefined;",
+        "_root.loadplayer();",
+        "} else if (_root.playership == 67) {",
+        "if (_root.myfleet[((i-1)*4)+2] == 66) {",
+        "while (x<=_root.xArray0) {",
+        "var xcoor = getProperty(\"../../\" add _root.otherships[x], _x);",
+        "var ycoor = getProperty(\"../../\" add _root.otherships[x], _y);",
+        "if (eval(\"../../\" add _root.otherships[x] add \".myname\") == _root.myfleet[((i-1)*4)+3] and (Math.abs(xcoor-298)<75 and Math.abs(ycoor-195)<75)) {",
+        "var type = eval(\"../../\" add _root.otherships[x] add \".mytype\");",
+        "var name = eval(\"../../\" add _root.otherships[x] add \".myname\");",
+        "while (_root.myfleet[((i2-1)*4)+1] != undefined) {",
+        "if (_root.myfleet[((i2-1)*4)+1] == _root.myplanet and _root.myfleet[((i2-1)*4)+2] == type and _root.myfleet[((i2-1)*4)+3] == name) {",
+        "_root.myfleet[((i2-1)*4)+1] = 0;",
+        "removeMovieClip(\"../../\" add _root.otherships[x]);",
+        "_root.playership = 35;",
+        "if (_root.playership == 67) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 330",
+      "matches": [
+        "on (release) {",
+        "while (_root.myfleet[((i-1)*4)+1] != undefined) {",
+        "if (_root.myfleet[((i-1)*4)+2] == 66) {",
+        "while (_root.otherships[x] != undefined) {",
+        "var xcoor = getProperty(\"../../\" add _root.otherships[x], _x);",
+        "var ycoor = getProperty(\"../../\" add _root.otherships[x], _y);",
+        "if (eval(\"../../\" add _root.otherships[x] add \".myname\") == _root.myfleet[((i-1)*4)+3] and (Math.abs(xcoor-298)<75 and Math.abs(ycoor-195)<75)) {",
+        "var type = eval(\"../../\" add _root.otherships[x] add \".mytype\");",
+        "var name = eval(\"../../\" add _root.otherships[x] add \".myname\");",
+        "while (_root.myfleet[((i2-1)*4)+1] != undefined) {",
+        "if (_root.myfleet[((i2-1)*4)+1] == _root.myplanet and _root.myfleet[((i2-1)*4)+2] == type and _root.myfleet[((i2-1)*4)+3] == name) {",
+        "_root.myfleet[((i2-1)*4)+1] = 0;",
+        "removeMovieClip(\"../../\" add _root.otherships[x]);",
+        "_root.updatemenu();",
+        "_root.playership = 35;",
+        "_root.myshields = undefined;",
+        "_root.loadplayer();"
+      ]
+    },
+    {
+      "symbol": "Symbol 331",
+      "matches": [
+        "Kif (x != undefined) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 341",
+      "matches": [
+        "on (release) {",
+        "if (_root.selectedfleet[i] != undefined) {",
+        "set(\"../\" add _root.selectedfleet[i] add \":orders\", 3);",
+        "set(\"../\" add _root.selectedfleet[i] add \":alert\", 1);",
+        "set(\"../\" add _root.selectedfleet[i] add \":mytarget\", \"planet\");",
+        "set(\"../\" add _root.selectedfleet[i] add \":orders\", 2);",
+        "set(\"../\" add _root.selectedfleet[i] add \":mytarget\", \"player\");",
+        "set(\"../\" add _root.selectedfleet[i] add \":orders\", 1);",
+        "set(\"../\" add _root.selectedfleet[i] add \":orders\", 4);",
+        "set(\"../\" add _root.selectedfleet[i] add \":alert\", 3);",
+        "set(\"../\" add _root.selectedfleet[i] add \":mytarget\", _root.myselect);",
+        "if (_root.itemdescArray[((_root.playership-1)*13)+3]>=5) {",
+        "while (_root.myfleet[((i2-1)*4)+1] != undefined) {",
+        "var xloc = getProperty(\"../\" add _root.selectedfleet[i], _x);",
+        "var yloc = getProperty(\"../\" add _root.selectedfleet[i], _y);",
+        "if (_root.myfleet[((i2-1)*4)+2] == eval(\"../\" add _root.selectedfleet[i] add \".mytype\") and _root.myfleet[((i2-1)*4)+3] == eval(\"../\" add _root.selectedfleet[i] add \".myname\") and _root.myfleet[((i2-1)*4)+1] == _root.myplanet) {",
+        "if (xloc<650 and xloc>0 and yloc<500 and yloc>0 and _root.itemdescArray[((_root.myfleet[((i2-1)*4)+2]-1)*13)+3]<=1) {",
+        "_root.myfleet[((i2-1)*4)+1] = -1;",
+        "_root.shipsgovt[eval(\"../\" add _root.selectedfleet[i] add \".myslot\")] = undefined;",
+        "_root.otherships[eval(\"../\" add _root.selectedfleet[i] add \".myslot\")] = undefined;",
+        "removeMovieClip(\"../\" add _root.selectedfleet[i]);",
+        "_root.selectedfleet[i] = undefined;",
+        "while (_root.myfleet[((i-1)*4)+1] != undefined) {",
+        "if (_root.myfleet[((i-1)*4)+1] == -1) {",
+        "_root.myfleet[((i-1)*4)+1]=_root.myplanet;",
+        "_root.createalliedship(_root.myfleet[((i-1)*4)+2], _root.myfleet[((i-1)*4)+3]);",
+        "_root.myfleet[((i-1)*4)+4] = 2;",
+        "_root.myfleet[((i-1)*4)+4] = 1;"
+      ]
+    },
+    {
+      "symbol": "Symbol 371",
+      "matches": [
+        "_root.play();",
+        "_root.stop())",
+        "EPercentLoaded = _root.getBytesLoaded() / _root.getBytesTotal()  * 100"
+      ]
+    },
+    {
+      "symbol": "Symbol 375",
+      "matches": [
+        "on (release) {",
+        "_root.checkcolonize();",
+        "_root.loadcomm();",
+        "_root.hail();"
+      ]
+    },
+    {
+      "symbol": "Symbol 376",
+      "matches": [
+        "function FListBoxClass()",
+        "this.boundingBox_mc.gotoAndStop(1);",
+        "if (this.changeHandler.length>0) {",
+        "FListBoxClass.prototype.getSelectedIndices = function()",
+        "FListBoxClass.prototype.getSelectedItems = function()",
+        "FListBoxClass.prototype.getSelectMultiple = function()",
+        "FListBoxClass.prototype.getRowCount = function()",
+        "FListBoxClass.prototype.setSelectedIndices = function(indexArray)",
+        "FListBoxClass.prototype.setSelectMultiple = function(flag)",
+        "FListBoxClass.prototype.setRowCount = function(count)",
+        "FListBoxClass.prototype.setWidth = function(wdt)",
+        "FListBoxClass.prototype.setSize = function(w,h)",
+        "if (!this.enable) {",
+        "FListBoxClass.prototype.removeItemAt = function(index)",
+        "FListBoxClass.prototype.selectionHandler = function(itemNum)",
+        "if (this.clickFilter) {",
+        "if (this.getItemAt(index)==undefined) {",
+        "if ( ( !this.selectMultiple && !Key.isDown(Key.CONTROL) ) || ( !Key.isDown(Key.SHIFT) && !Key.isDown(Key.CONTROL) ) )  {",
+        "else if ( Key.isDown(Key.SHIFT) && this.selectMultiple) {",
+        "if (this.lastSelected==-1) {",
+        "if (i>=this.topDisplayed && i<this.topDisplayed+this.numDisplayed) {",
+        "else if (key.isDown(Key.CONTROL)) {",
+        "if (!this.selectMultiple) {",
+        "if (!(!this.selectMultiple && selectedFlag)) {",
+        "FListBoxClass.prototype.moveSelBy = function(itemNum)"
+      ]
+    },
+    {
+      "symbol": "Symbol 377",
+      "matches": [
+        "function FListItemClass()"
+      ]
+    },
+    {
+      "symbol": "Symbol 378",
+      "matches": [
+        "_global.FLabelClass = function()",
+        "if (this.hostComponent==undefined) {",
+        "if (this.customTextStyle==undefined) {",
+        "if (this.hostComponent.textStyle==undefined) {",
+        "FLabelClass.prototype.setLabel = function(label)",
+        "if (val!=undefined) {",
+        "FLabelClass.prototype.setSize = function(width) // note that height is textFormat-based.",
+        "FLabelClass.prototype.setEnabled = function(enable)",
+        "if (tmpColor==undefined) {",
+        "FLabelClass.prototype.getLabel = function()",
+        "FLabelClass.prototype.setColor = function(col)"
+      ]
+    },
+    {
+      "symbol": "Symbol 379",
+      "matches": [
+        "function FSelectableItemClass()",
+        "FSelectableItemClass.prototype.init = function()",
+        "if (this._name!=\"itemAsset\") {",
+        "FSelectableItemClass.prototype.drawItem = function(itmObj, selected)",
+        "if ( (this.highlighted!=selected) || ((this.controller.focused!=this.oldFocus) && selected) ) {",
+        "FSelectableItemClass.prototype.setSize = function(width, height)",
+        "this.highlight_mc.onPress = function()",
+        "if (this.controller.enable) {",
+        "this.highlight_mc.onDragOver = function()",
+        "if (this.controller.controller.focused) {",
+        "FSelectableItemClass.prototype.setEnabled = function(enabledFlag)",
+        "this.highlight_mc.gotoAndStop( (enabledFlag) ? \"unfocused\" : \"disabled\" );",
+        "FSelectableItemClass.prototype.layoutContent = function(width)",
+        "FSelectableItemClass.prototype.displayContent = function(itmObj, selected)",
+        "if (itmObj.label!=undefined) {",
+        "if (typeof(itmObj)==\"object\") {",
+        "if (i!=\"__ID__\") {",
+        "if (this.fLabel_mc.labelField.text!=tmpLabel) {",
+        "if (clr==undefined) {",
+        "FSelectableItemClass.prototype.getItemIndex = function()",
+        "FSelectableItemClass.prototype.getItemModel = function()",
+        "FSelectableItemClass.prototype.getHostDataProvider = function()",
+        "FSelectableItemClass.prototype.setHighlighted = function(flag)",
+        "if (fade==undefined || fade==0 || !flag){",
+        "this.onEnterFrame = function()",
+        "if (this.fadeX>this.fadeN) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 382",
+      "matches": [
+        "function FScrollSelectListClass()",
+        "FScrollSelectListClass.prototype.getScrollPosition = function()",
+        "FScrollSelectListClass.prototype.setScrollPosition = function(pos)",
+        "if (this.enable) {",
+        "FScrollSelectListClass.prototype.setAutoHideScrollBar = function(flag)",
+        "FScrollSelectListClass.prototype.setEnabled = function(enabledFlag)",
+        "FScrollSelectListClass.prototype.setSize = function(w,h)",
+        "if (this.scrollBar_mc!=undefined) {",
+        "FScrollSelectListClass.prototype.modelChanged = function(eventObj)",
+        "FScrollSelectListClass.prototype.initScrollBar = function()",
+        "if (!this.permaScrollBar && this.getLength()<=this.numDisplayed) {",
+        "if (this.removed) {",
+        "if (this.scrollBar_mc==undefined) {",
+        "FScrollSelectListClass.prototype.scrollHandler = function(scrollBar)",
+        "if (this.lastPosition!=pos) {",
+        "FScrollSelectListClass.prototype.clickHandler = function(itmNum)",
+        "if (this.dragScrolling==undefined && this.scrollBar_mc!=undefined) {",
+        "FScrollSelectListClass.prototype.releaseHandler = function()",
+        "FScrollSelectListClass.prototype.dragScroll = function()",
+        "if (this.container_mc._ymouse<0) {",
+        "else if (this.container_mc._ymouse>(this.itmHgt-2)*this.numDisplayed) {",
+        "FScrollSelectListClass.prototype.myOnKeyDown= function()",
+        "if (this.focused) {",
+        "if (Key.isDown(this.keyCodes[i])) {",
+        "FScrollSelectListClass.prototype.findInputText = function()",
+        "if (tmpCode>=33 && tmpCode<=126) {",
+        "FScrollSelectListClass.prototype.findString = function(str)",
+        "if (this.getLength()==0) return;",
+        "if (str==itmStr || str.toUpperCase()==itmStr.toUpperCase()) {",
+        "if (i>=this.getLength()-1) {",
+        "if (jump!=0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 383",
+      "matches": [
+        "function FSelectableListClass()",
+        "FSelectableListClass.prototype.init = function()",
+        "if (this._name!=undefined) {",
+        "FSelectableListClass.prototype.addItemAt = function(index, label, data)",
+        "if (index<0 || !this.enable) return;",
+        "FSelectableListClass.prototype.addItem = function(label, data)",
+        "if (!this.enable) return;",
+        "FSelectableListClass.prototype.removeItemAt = function(index)",
+        "FSelectableListClass.prototype.removeAll = function()",
+        "FSelectableListClass.prototype.replaceItemAt = function(index, newLabel, newData)",
+        "FSelectableListClass.prototype.sortItemsBy = function(fieldName, order)",
+        "FSelectableListClass.prototype.getLength = function()",
+        "FSelectableListClass.prototype.getSelectedIndex = function()",
+        "if (tmpInd!=undefined) {",
+        "FSelectableListClass.prototype.getSelectedItem = function()",
+        "FSelectableListClass.prototype.getItemAt = function(index)",
+        "FSelectableListClass.prototype.getEnabled = function()",
+        "FSelectableListClass.prototype.getValue = function()",
+        "FSelectableListClass.prototype.setSelectedIndex = function(index, flag)",
+        "if (index>=0 && index<this.getLength() && this.enable) {",
+        "if (flag!=false) {",
+        "FSelectableListClass.prototype.setDataProvider = function(obj)",
+        "if (obj instanceof Array) {",
+        "FSelectableListClass.prototype.setItemSymbol = function(linkID)",
+        "FSelectableListClass.prototype.setEnabled = function(enabledFlag)",
+        "this.boundingBox_mc.gotoAndStop( (this.enable) ? \"enabled\" : \"disabled\" );",
+        "if (this.enable) {",
+        "FSelectableListClass.prototype.updateControl = function()",
+        "FSelectableListClass.prototype.setSize = function(w, h)",
+        "FSelectableListClass.prototype.modelChanged = function(eventObj)",
+        "if (event==\"addRows\") {",
+        "if (this.selected[i].sIndex!=undefined && this.selected[i].sIndex>=firstRow) {",
+        "} else if (event==\"deleteRows\") {",
+        "if (firstRow==lastRow) {",
+        "if (this.selectHolder==index) {",
+        "if (this.topDisplayed+this.numDisplayed>=this.getLength() && this.topDisplayed>0) {",
+        "if (this.selectionDeleted && index-1>=0) {",
+        "} else if (this.selectionDeleted) {",
+        "if ( ( index==len-1 && len>1  || index>len/2)) {",
+        "if (this.selected[i].sIndex>firstRow) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 384",
+      "matches": [
+        "_global.DataProviderClass = function()",
+        "DataProviderClass.prototype.init = function()",
+        "DataProviderClass.prototype.addView = function(viewRef)",
+        "DataProviderClass.prototype.addItemAt = function(index, value)",
+        "if (index<this.getLength()) {",
+        "if (typeof(value)==\"object\") {",
+        "DataProviderClass.prototype.addItem = function(value)",
+        "DataProviderClass.prototype.removeItemAt = function(index)",
+        "DataProviderClass.prototype.removeAll = function()",
+        "DataProviderClass.prototype.replaceItemAt = function(index, itemObj)",
+        "if (index<0 || index>=this.getLength()) {",
+        "if (typeof(itemObj)==\"object\") {",
+        "DataProviderClass.prototype.getLength = function()",
+        "DataProviderClass.prototype.getItemAt = function(index)",
+        "DataProviderClass.prototype.getItemID = function(index)",
+        "DataProviderClass.prototype.sortItemsBy = function(fieldName, order)",
+        "if (order==\"DESC\") {",
+        "DataProviderClass.prototype.updateViews = function(eventObj)"
+      ]
+    },
+    {
+      "symbol": "Symbol 386",
+      "matches": [
+        "function FComboBoxClass()",
+        "_global._popUpLevel = (_global._popUpLevel==undefined) ? 20000 : _global._popUpLevel+1;",
+        "// Testing for _root's existence?",
+        "this.superHolder = _root.createEmptyMovieClip(\"superHolder\" + _popUpLevel, _popUpLevel);",
+        "if (testBox._name==undefined) {",
+        "// _root doesn't exist.",
+        "if (this.rowCount==undefined) {",
+        "this.proxyBox_mc.gotoAndStop(1);",
+        "if (this.changeHandler.length>0) {",
+        "this.onUnload = function()",
+        "FComboBoxClass.prototype.modelChanged = function(eventObj)",
+        "if (event==\"addRows\" || event==\"deleteRows\") {",
+        "if (this.rowCount>lenBefore || this.rowCount>len) {",
+        "if (this.getSelectedIndex()==undefined) {",
+        "} else if (event==\"updateAll\") {",
+        "FComboBoxClass.prototype.removeAll = function()",
+        "if (!this.enable) {",
+        "if (this.editable) this.value=\"\";",
+        "FComboBoxClass.prototype.setSize = function(w)",
+        "if (w==undefined || typeof(w)!=\"number\" || w<=0 || !this.enable) {",
+        "if (this.numDisplayed<3) {",
+        "FComboBoxClass.prototype.setDataProvider = function(dp)",
+        "FComboBoxClass.prototype.getValue = function()",
+        "if (this.editable) {",
+        "FComboBoxClass.prototype.getRowCount = function()",
+        "FComboBoxClass.prototype.setRowCount = function(count)",
+        "if (len-this.getScrollPosition()<this.rowCount) {",
+        "FComboBoxClass.prototype.setEditable = function(editableFlag)",
+        "if (!this.enable) return;",
+        "if (!this.editable) {",
+        "this.fLabel_txt.onKillFocus = function()",
+        "this.fLabel_txt.onChanged = function() {",
+        "FComboBoxClass.prototype.setEnabled = function(enabledFlag)",
+        "this.proxyBox_mc.gotoAndStop( (this.enable) ? \"enabled\" : \"disabled\");",
+        "this.downArrow.gotoAndStop( (this.enable) ? 1 : 3);",
+        "} else if (enabledFlag) {",
+        "FComboBoxClass.prototype.setSelectedIndex = function(index, flag)",
+        "FComboBoxClass.prototype.setValue = function(value)",
+        "FComboBoxClass.prototype.pressHandler = function()",
+        "if (this.enable) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 387",
+      "matches": [
+        "function FComboBoxItemClass()",
+        "FComboBoxItemClass.prototype.setSize = function(w, h)",
+        "this.highlight_mc.onRollOver = function()"
+      ]
+    },
+    {
+      "symbol": "Symbol 397",
+      "matches": [
+        "on (release) {",
+        "_root.loadweapon(mytype, slot, x);",
+        "set(\"../../playerpanel\" add \":infotext\", \"Load \"+_root.weaponstats[((mytype-105-1)*9)+1]+\" into firing slot \"+slot+\"...\");",
+        "if (mytype>=70 and mytype<100) {",
+        "set(\"../../playerpanel\" add \":infotext\", \"Build a \"+_root.itemdescArray[((mytype-1)*16)+1]+\" at this location. Shift-Click to delete this plan.\");"
+      ]
+    },
+    {
+      "symbol": "Symbol 400",
+      "matches": [
+        "attachMovie(\"stationtextbox\", \"stationtextbox\", _root.level++);"
+      ]
+    },
+    {
+      "symbol": "Symbol 403",
+      "matches": [
+        "if (i == undefined) {",
+        "_x = _root._xmouse;",
+        "_y = _root._ymouse;",
+        "if (i == 20 and Math.abs(_x-_root._xmouse)<10 and Math.abs(_y-_root._ymouse)<10) {",
+        "if (i<=0) {",
+        "if (_root._ymouse<50) {",
+        "if (_root._xmouse>480) {",
+        "(_x = _root._xmouse;"
+      ]
+    },
+    {
+      "symbol": "Symbol 404",
+      "matches": [
+        "_root.speed=-30;"
+      ]
+    },
+    {
+      "symbol": "Symbol 413",
+      "matches": [
+        "if (mytype == undefined) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 5",
+      "matches": [
+        "if (_root.planetArray[18]>0) {",
+        "attachMovie(\"rings\", \"rings\", _root.level++);",
+        "set(\"rings\" add \":mytype\", _root.planetArray[18]);",
+        "setProperty(\"rings\", _rotation, _root.planetArray[19]);",
+        "_root.planetArray[18] = 0;",
+        "if (_root.planetArray[20]>0) {",
+        "while (_root.planetArray[20]>0) {",
+        "attachMovie(\"moon1\", \"moon\" add _root.planetArray[20], _root.level++);",
+        "setProperty(\"moon\" add _root.planetArray[20], _x, random(300)-random(300));",
+        "setProperty(\"moon\" add _root.planetArray[20], _y, random(300)-random(300));",
+        "_root.planetArray[20]--;",
+        "var x = _root.planetstrengths[_root.myplanet];",
+        "if (x<0) {",
+        "if (_root.speed != 0 and _root.pause!=1) {",
+        "_x = _x+_root.locx;",
+        "_y = _y+_root.locy;"
+      ]
+    },
+    {
+      "symbol": "Symbol 6",
+      "matches": [
+        "if (eval(\"../playerpanel.mymenu\") == 0) {",
+        "_root.comp2.start();",
+        "_root.updatemenu();",
+        "if ((_xmouse<-160 or _xmouse>160 or _ymouse<5) and eval(\"../playerpanel.mymenu\") != 0) {",
+        "_root.comp1.start();",
+        "myrace=_root.race;",
+        "playership",
+        "on (release) {",
+        "set(\"../../playerpanel\" add \":infotext\", \"Load \"+_root.weaponstats[((mytype-105-1)*9)+1]+\" into firing slot \"+slot+\"...\");",
+        "if (mytype>=70 and mytype<100) {",
+        "set(\"../../playerpanel\" add \":infotext\", \"Build a \"+_root.itemdescArray[((mytype-1)*16)+1]+\" at this location. Shift-Click to delete this plan.\");",
+        "set(\"../../playerpanel\" add \":infotext\", \"Load \"+_root.weaponstats[((mytype-105-1)*7)+1]+\" into firing slot \"+slot+\"...\");",
+        "if (Number(_root.cargoArray[((1-1)*4)+1]) != 0) {",
+        "_root.attachMovie(\"cargopod\", \"cargopod\" add _root.level, _root.level);",
+        "setProperty(\"../cargopod\" add _root.level, _x, 298);",
+        "setProperty(\"../cargopod\" add _root.level, _y, 195);",
+        "_root.cargoArray[((1-1)*4)+1] = 0;",
+        "_root.cargoArray[((1-1)*4)+2] = \"Nothing\";",
+        "_root.cargoArray[((1-1)*4)+3] = undefined;",
+        "if (Number(_root.cargoArray[((2-1)*3)+1]) != 0) {",
+        "_root.cargoArray[((2-1)*4)+1] = 0;",
+        "_root.cargoArray[((2-1)*4)+2] = \"Nothing\";",
+        "_root.cargoArray[((2-1)*4)+3] = undefined;",
+        "if (Number(_root.cargoArray[((3-1)*3)+1]) != 0) {",
+        "_root.cargoArray[((3-1)*4)+1] = 0;",
+        "_root.cargoArray[((3-1)*4)+2] = \"Nothing\";",
+        "_root.cargoArray[((3-1)*4)+3] = undefined;",
+        "if (Number(_root.cargoArray[((4-1)*3)+1]) != 0) {",
+        "_root.cargoArray[((4-1)*4)+1] = 0;",
+        "_root.cargoArray[((4-1)*4)+2] = \"Nothing\";",
+        "_root.cargoArray[((4-1)*4)+3] = undefined;",
+        "if (Number(_root.cargoArray[((5-1)*3)+1]) != 0) {",
+        "_root.cargoArray[((5-1)*4)+1] = 0;",
+        "_root.cargoArray[((5-1)*4)+2] = \"Nothing\";",
+        "_root.cargoArray[((5-1)*4)+3] = undefined;",
+        "if (Number(_root.cargoArray[((6-1)*3)+1]) != 0) {",
+        "_root.cargoArray[((6-1)*4)+1] = 0;",
+        "_root.cargoArray[((6-1)*4)+2] = \"Nothing\";",
+        "_root.cargoArray[((6-1)*4)+3] = undefined;",
+        "if (Number(_root.cargoArray[((7-1)*3)+1]) != 0) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 7",
+      "matches": [
+        "Aif (mytype == undefined) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 78",
+      "matches": [
+        "function FUIComponentClass()",
+        "FUIComponentClass.prototype.init = function()",
+        "if (_global.globalStyleFormat==undefined) {",
+        "_global.globalStyleFormat = new FStyleFormat();",
+        "_global._focusControl = new Object();",
+        "_global._focusControl.onSetFocus = function(oldFocus, newFocus)",
+        "Selection.addListener(_global._focusControl);",
+        "if (this._name!=undefined) {",
+        "if (this.hostStyle==undefined) {",
+        "this.keyListener.onKeyDown = function()",
+        "this.keyListener.onKeyUp = function()",
+        "FUIComponentClass.prototype.setEnabled = function(enabledFlag)",
+        "if (!this.enable && this.focused) {",
+        "FUIComponentClass.prototype.getEnabled = function()",
+        "FUIComponentClass.prototype.setSize = function(w, h)",
+        "FUIComponentClass.prototype.setChangeHandler = function(chng,obj)",
+        "FUIComponentClass.prototype.invalidate = function(methodName)",
+        "FUIComponentClass.prototype.cleanUI = function()",
+        "if (this.methodTable.setSize) {",
+        "FUIComponentClass.prototype.cleanUINotSize = function()",
+        "FUIComponentClass.prototype.drawRect = function(x, y, w, h)",
+        "if (inner==undefined) {",
+        "if (outer==undefined) {",
+        "FUIComponentClass.prototype.pressFocus = function()",
+        "FUIComponentClass.prototype.drawFocusRect = function()",
+        "FUIComponentClass.prototype.myOnSetFocus = function()",
+        "if (this.tabFocused) {",
+        "FUIComponentClass.prototype.myOnKillFocus = function()",
+        "FUIComponentClass.prototype.executeCallBack = function()",
+        "FUIComponentClass.prototype.updateStyleProperty = function(styleFormat, propName)",
+        "FUIComponentClass.prototype.setStyleProperty = function(propName, value, isGlobal)",
+        "if (value==\"\") return;",
+        "if (!isNaN(tmpValue)) {",
+        "if (this.styleTable[propName]==undefined) {",
+        "if (this.styleTable[propName].useGlobal || !global) {",
+        "if (this.setCustomStyleProperty(propName, value)) {",
+        "} else if (propName == \"embedFonts\") {",
+        "else if (propName.subString(0,4)==\"text\") {",
+        "if (this.textStyle==undefined) {",
+        "if (this.styleTable[propName].value==undefined) {"
+      ]
+    },
+    {
+      "symbol": "Symbol 90",
+      "matches": [
+        "jif (xdist<494 or ydist<372 or xdist>590 or ydist>440) {"
+      ]
+    }
+  ]
+}
