@@ -4582,16 +4582,18 @@ In 2357 they launched the first attack. Most of the systems surrounding Earth we
     mytech1: 49,
   },
   dominion: {
-    label: 'Dominion Patrol',
-    desc: 'Remnant of the annihilated Dominion, isolated in the Blender sector.',
+    label: 'Dominion Remnant',
+    desc: "Vorta commander of an isolated Jem'Hadar remnant, starting in Blender.",
     loreTitle: 'Dominion Vorta',
-    profile: "Vorta: Servants of the Dominion, typically cloned and genetically bred to be perfect ship commanders. Physically weak, but well protected by their Jem'Hadar warriors.",
-    lore: `Violent and dangerous, but with their Dominion government annihilated by the humans, the Jem'Hadar are isolated in the Blender sector.
+    profile: "Vorta: Commanders and administrators of the Dominion, relying on the discipline and strength of their Jem'Hadar crews.",
+    lore: `Earth's campaigns shattered the Dominion's foothold in this region. In Blender, surviving Vorta and Jem'Hadar hold an isolated outpost while the war between Earth and the Klingons consumes the surrounding powers.
 
-No one would miss them if they were wiped out completely. In this era the Dominion is a remnant, not the invading armada of later years.`,
+You begin in Blender commanding a small Jem'Hadar patrol with limited resources and little outside support. Find supplies, choose your allies carefully, and decide what future to pursue for the remnant.
+
+The fate of the wider Dominion is uncertain. Rumors of distant strength offer hope, but here in Blender, survival comes first.`,
     faction: 'dominion',
     playership: 30,
-    myplanet: 59,
+    myplanet: 29,
     myantimatter: 8,
     mylatinum: 1600,
     mytech1: 48,
