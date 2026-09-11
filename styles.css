@@ -3289,6 +3289,55 @@ button:disabled {
 .in-game-option-list .start-toggle small {
   font-size: 11px;
 }
+.security-panel {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 14px solid var(--lcars-orange);
+  border-radius: 18px 6px 6px 18px;
+  background: rgba(0, 0, 0, 0.48);
+}
+.security-row,
+.security-holding-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.security-row > span,
+.security-holding-head > span {
+  color: var(--lcars-cream);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.security-holding {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.security-holding.inactive {
+  opacity: 0.78;
+}
+.security-roe-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.security-roe-row button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 14px 4px 4px 14px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--lcars-muted);
+}
+.security-roe-row button.active {
+  background: var(--lcars-cyan);
+  color: #000;
+}
 .start-copy-panel {
   display: grid;
   gap: 10px;
