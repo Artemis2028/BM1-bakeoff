@@ -1,8 +1,8 @@
 # BM1 bake-off status
 
 Repo: https://github.com/Artemis2028/BM1-bakeoff  
-Updated: `2026-09-11T13:51:56Z` (Asia/Dubai `2026-09-11T17:51:56+04:00`)  
-Head: `bf11cd9` on `main`
+Updated: `2026-09-11T14:22:15Z` (Asia/Dubai `2026-09-11T18:22:15+04:00`)  
+Head: `bf11cd9` on `main` (Referee-scored)
 
 Sibling of `BM1-remastered-work` for a **blind** Cloud Agent bake-off. Implement from `docs/` only. Do **not** crib the guided stack on `Artemis2028/BM1-remastered-work` PR #1 (answer key for scoring).
 
@@ -37,19 +37,19 @@ No Playwright `behavior-probe` / Chromium suite on this repo yet. `bf11cd9` is d
 - **Number Four** — engine/combat (done for Phase 1 slice)
 - **Number 2** — doctrine wiring (done for v0.2.1 loader slice)
 - **Number Three** — probe / merge gate
-- **Referee** — MD fidelity scoring (docs only; peek at guided PR only when scoring)
+- **Referee** — MD fidelity scoring (docs only; peek at guided PR only when scoring) — **Pass** on `bf11cd9` (see Version history)
 
 ## Next (optional)
 
-1. Referee fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/`.
+1. Referee fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` — **Pass** (see Version history).
 2. Combined Chromium behavioral probe (parity with guided stack’s Playwright suite).
 3. Later phases (ROE / holding zones / etc.) only when Tenth scopes them — still bake-off-only unless directed otherwise.
 
 ## Version history
 
-Newest first. Pending rows are placeholders — do not invent scores or results.
+Newest first.
 
-- **pending** — **Referee** MD-fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` — **not scored yet** (do not invent a number)
+- **Referee** — `2026-09-11T14:22:15Z` (Asia/Dubai `2026-09-11T18:22:15+04:00`) — **Pass** — Phase 1 + doctrine-loader high fidelity to plan §2–§3 / DESIGN Phase 1 (offline gates only; no Chromium probe; pack-load vs DESIGN_ONLY noted as intentional). Head scored: [`bf11cd9`](https://github.com/Artemis2028/BM1-bakeoff/commit/bf11cd9)
 - [`bf11cd9`](https://github.com/Artemis2028/BM1-bakeoff/commit/bf11cd9) — `2026-09-11T13:51:56Z` (Asia/Dubai `2026-09-11T17:51:56+04:00`) — Status MD added (`docs/BAKEOFF-STATUS.md`)
 - [`f684e0b`](https://github.com/Artemis2028/BM1-bakeoff/commit/f684e0b) — `2026-09-11T13:49:24Z` (Asia/Dubai `2026-09-11T17:49:24+04:00`) — Merge [PR #1](https://github.com/Artemis2028/BM1-bakeoff/pull/1) doctrine runtime wiring. Post-merge gates: `test:phase1` 17/17; `test:doctrine` validate 59/59 + adapter 79/79
 - [`4c399da`](https://github.com/Artemis2028/BM1-bakeoff/commit/4c399da) — `2026-09-11T13:44:09Z` (Asia/Dubai `2026-09-11T17:44:09+04:00`) — Merge [PR #2](https://github.com/Artemis2028/BM1-bakeoff/pull/2) engine / combat (Phase 1 attribution, pursuit≠fire, political authority)
