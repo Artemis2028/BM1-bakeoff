@@ -3,7 +3,7 @@ import {
   applyPhase1RelationContract,
   factionsAreAligned as factionsAreAlignedByContract,
   factionsAreOpposed as factionsAreOpposedByContract,
-  getDeclaredRelations,
+  getDeclaredRelations as getDeclaredRelationsByContract,
   getNpcPursuitRange as resolveNpcPursuitRange,
   getPlayerCommandIdentity,
   grantsPlayerCombatCredit,
@@ -14,6 +14,12 @@ import {
   resolveBaseSystemFaction,
   shouldPreserveNpcIdentity,
 } from './phase1-authority.js';
+import {
+  DOCTRINE_PACK_SRC,
+  deriveLiveFireFacts,
+  getDoctrineRuntime,
+  loadFactionDoctrine,
+} from './doctrine.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -517,6 +523,9 @@ const state = {
   factionSystemOverrides: {},
   factionStanding: {},
   feats: {},
+  doctrine: null,
+  locationIdentity: null,
+  doctrineDominionFlags: { centralAuthority: false, scenarioActivated: false, ordersReceived: false },
   power: { energy: 200, dist: { reserve: 5, engines: 5, weapons: 5, shields: 5 } },
   destroyedStations: {},
   npcShips: [],
@@ -1232,7 +1241,9 @@ function pickSeededPoolItem(pool = [], seedValue = 1, salt = 'pool') {
 
 function getNpcShipId(seedValue) {
   const pool = state.npcShipIds?.length ? state.npcShipIds : FALLBACK_NPC_SHIP_IDS;
-  return pickSeededPoolItem(pool, seedValue, 'npc-any-ship') || pool[0];
+  const allowed = pool.filter((id) => doctrineAllowsFactionGenerator(getShipFaction(id), 'traffic', { requireBudget: false }));
+  const use = allowed.length ? allowed : pool;
+  return pickSeededPoolItem(use, seedValue, 'npc-any-ship') || use[0];
 }
 
 function getNpcShipIdForFaction(faction = 'neutral', seedValue = 1) {
@@ -1394,7 +1405,7 @@ function createNpcShip({
     y: state.systemPlanet.y + (seeded(seed + 4) - 0.5) * 420,
   };
   const flight = getNpcFlightProfile(shipId, seed);
-  return {
+  const ship = {
     id,
     x: spawn.x,
     y: spawn.y,
@@ -1425,6 +1436,7 @@ function createNpcShip({
     fleetId,
     attackId,
   };
+  return stampDoctrineOnActor(ship, { runtimeFaction: faction, requestedRole: role });
 }
 
 function getTrafficScaleMultiplier(seedValue) {
@@ -2310,10 +2322,12 @@ function ensureSystemState(systemIndex) {
   const destinations = getTrafficDestinations(stations, planet, star, wormhole, base);
   const npcCount = getSystemTrafficCount(stations, base);
   const localFaction = getSystemFaction(systemIndex);
-  const localPatrolCount = localFaction === 'neutral' ? 0 : Math.min(2, npcCount);
-  const localTrafficCount = localFaction === 'neutral'
-    ? 0
-    : Math.min(npcCount, Math.max(localPatrolCount, Math.ceil(npcCount * 0.65)));
+  const localPatrolAllowed = localFaction !== 'neutral' && doctrineAllowsFactionGenerator(localFaction, 'patrol');
+  const localTrafficAllowed = localFaction !== 'neutral' && doctrineAllowsFactionGenerator(localFaction, 'traffic');
+  const localPatrolCount = localPatrolAllowed ? Math.min(2, npcCount) : 0;
+  const localTrafficCount = localTrafficAllowed
+    ? Math.min(npcCount, Math.max(localPatrolCount, Math.ceil(npcCount * 0.65)))
+    : localPatrolCount;
   const npcShips = Array.from({ length: npcCount }, (_, i) => {
     const shipSeed = base * 97 + i * 31;
     const from = pickTrafficDestination(destinations, shipSeed + 1);
@@ -2381,17 +2395,22 @@ function applySystemState(systemIndex) {
   state.systemBodies = (s.bodies || []).map((body) => ({ ...body }));
   state.systemFaction = getSystemFaction(systemIndex);
   state.systemAttitude = getSystemAttitude(systemIndex);
+  state.locationIdentity = currentLocationIdentity(systemIndex);
   state.systemHasNebula = Boolean(s.hasNebula);
   state.systemNebulaColor = s.nebulaColor || getNebulaColor(systemIndex + 1);
   state.asteroids = s.asteroids;
   state.wormhole = s.wormhole ? { ...s.wormhole } : null;
   state.station = s.station ? { ...s.station } : null;
-  state.stations = (s.stations || []).map((station) => ({
+  state.stations = (s.stations || []).map((station) => stampDoctrineOnActor({
     ...station,
     faction: station.faction || state.systemFaction,
     attitude: station.attitude || state.systemAttitude,
     hostile: Boolean(station.hostile),
     destroyed: Boolean(station.destroyed),
+  }, {
+    runtimeFaction: station.faction || state.systemFaction,
+    requestedRole: 'defender',
+    identity: state.locationIdentity,
   }));
   const trafficShips = s.npcShips.map((ship, index) => {
     const keepIdentity = Boolean(ship.identityLocked) || shouldPreserveNpcIdentity({
@@ -2436,7 +2455,12 @@ function applySystemState(systemIndex) {
       role: realized.role,
       identityLocked: true,
     });
-    return realized;
+    return stampDoctrineOnActor(realized, {
+      runtimeFaction: faction,
+      requestedRole: realized.role,
+      identity: state.locationIdentity,
+      assignCulture: realized.role === 'localTraffic' || realized.role === 'patrol',
+    });
   });
   state.npcShips = [
     ...trafficShips,
@@ -2823,9 +2847,40 @@ async function loadGameItemsData() {
   state.tradeGoodsArray = normalizeTradeGoods(data);
 }
 
+async function loadFactionDoctrinePack() {
+  const doctrine = await loadFactionDoctrine({
+    fetchJson: (src) => fetchJsonOrNull(src),
+    src: `${DOCTRINE_PACK_SRC}?v=${SOURCE_DATA_VERSION}`,
+    baseRelations: factionRelations,
+    warn: (message) => console.warn(message),
+  });
+  if (!doctrine?.loaded) {
+    state.doctrine = null;
+    setLog('Faction doctrine pack was not loaded.');
+    return doctrine;
+  }
+  for (const key of Object.keys(factionRelations)) delete factionRelations[key];
+  Object.assign(factionRelations, doctrine.appliedRelations);
+  state.doctrine = {
+    version: doctrine.version,
+    src: doctrine.src,
+    warnings: [...doctrine.warnings],
+    smoke: doctrine.smoke,
+    huntClock: doctrine.huntObjective?.clock || null,
+    searchClock: doctrine.searchObjective?.clock || null,
+  };
+  globalThis.BM1Doctrine = doctrine;
+  if (doctrine.smoke?.failed?.length) {
+    console.warn('Doctrine runtime smoke failed', doctrine.smoke.failed);
+  }
+  setLog(`Faction doctrine ${doctrine.version} loaded (${Object.keys(doctrine.pack.profiles).length} profiles).`);
+  return doctrine;
+}
+
 async function loadSourceData() {
   try {
     await loadGameItemsData();
+    await loadFactionDoctrinePack();
     const [mapData, planetData, stationData, itemData] = await Promise.all([
       fetchModdableJson('mapnames.json', `data/mapnames.json?v=${SOURCE_DATA_VERSION}`),
       fetchModdableJson('planetData.json', `data/planetData.json?v=${SOURCE_DATA_VERSION}`),
@@ -3982,11 +4037,114 @@ function warnUnknownFactionRelation(message) {
 }
 
 function getFactionRelationEntry(faction) {
-  return getDeclaredRelations(factionRelations, faction, { warn: warnUnknownFactionRelation });
+  const doctrine = getDoctrineRuntime();
+  if (doctrine?.loaded) return doctrine.getRelations(faction);
+  return getDeclaredRelationsByContract(factionRelations, faction, { warn: warnUnknownFactionRelation });
 }
 
 function getPlayerSide() {
   return getPlayerCommandIdentity(state.playerSide, state.playerFaction);
+}
+
+function doctrineGeneratorFlags(extra = {}) {
+  return {
+    assignmentExists: true,
+    budgetExists: true,
+    rosterEnabled: true,
+    ...(state.doctrineDominionFlags || {}),
+    ...extra,
+  };
+}
+
+function doctrineAllowsFactionGenerator(faction, generator, extra = {}) {
+  const doctrine = getDoctrineRuntime();
+  if (!doctrine?.loaded) return true;
+  return doctrine.allowsRoutineGenerator(faction, generator, doctrineGeneratorFlags(extra));
+}
+
+function currentLocationIdentity(systemIndex = state.currentPlanet) {
+  const doctrine = getDoctrineRuntime();
+  const planet = state.planets[systemIndex] || {};
+  const row = state.systemData?.[systemIndex] || [];
+  if (!doctrine?.loaded) {
+    return {
+      locationId: planet.name ? `system:${String(planet.name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : `system:${systemIndex}`,
+      kind: 'system',
+      cultureId: null,
+      sovereignId: null,
+      controllerId: null,
+      jurisdictionId: null,
+      legacyGovernmentId: Number(planet.governmentId ?? row[1]),
+    };
+  }
+  return doctrine.locationIdentity({
+    name: planet.name,
+    index: systemIndex,
+    governmentId: planet.governmentId ?? row[1],
+    controllerFaction: getSystemFaction(systemIndex),
+    map: planet.map || null,
+    dominionFlags: state.doctrineDominionFlags || {},
+  });
+}
+
+function stampDoctrineOnActor(actor, extras = {}) {
+  const doctrine = getDoctrineRuntime();
+  if (!doctrine?.loaded || !actor) return actor;
+  return doctrine.attachActor(actor, {
+    runtimeFaction: extras.runtimeFaction || actor.faction || 'neutral',
+    identity: extras.identity || state.locationIdentity || null,
+    assignCulture: extras.assignCulture === true,
+    dominionFlags: extras.dominionFlags || state.doctrineDominionFlags || {},
+    requestedRole: extras.requestedRole || actor.role,
+  });
+}
+
+function consultDoctrineFire(npc, target, targetType, now = performance.now()) {
+  const doctrine = getDoctrineRuntime();
+  if (!doctrine?.loaded || !npc) return null;
+  const targetFaction = targetType === 'player'
+    ? state.playerFaction
+    : (target?.faction || 'neutral');
+  const nativeRole = npc.doctrineNativeRole || npc.role;
+  const civilianTarget = targetType === 'ship' && (target?.role === 'traffic' || target?.role === 'localTraffic');
+  const raid = Boolean(npc.attackId) || npc.role === 'fleetAttack';
+  const occupying = npc.role === 'occupationFleet';
+  const escorting = npc.role === 'playerEscort' && npc.fleetId;
+  const defending = String(npc.destinationName || '').startsWith('defend:');
+  const aggro = Boolean(npc.playerAggroUntil && npc.playerAggroUntil > now);
+  const hunter = npc.doctrineRole === 'hunter' || npc.doctrineDefaultObjective === 'hunt';
+  const pirateRaid = raid && normalizeFactionKey(npc.faction) === 'pirate';
+  const facts = deriveLiveFireFacts({
+    engagementObjectiveActive: true,
+    liveWeaponTrack: targetType !== 'player' || !isPlayerCloaked(now),
+    weaponUsable: true,
+    weaponReady: true,
+    insideEquippedRange: true,
+    targetActionable: !target?.destroyed,
+    identityKnown: Boolean(targetType === 'player' || targetFaction),
+    attackOnSelf: aggro && (targetType === 'player' || target?.id === npc.lastAttackerId),
+    attackOnProtected: escorting || defending,
+    defenseObligation: escorting || defending || isNpcSystemDefender(npc),
+    warOrder: raid || occupying,
+    warTarget: (raid || occupying) && !civilianTarget,
+    predationOrder: pirateRaid,
+    predationAttackPhase: pirateRaid,
+    credibleCargoIntel: pirateRaid,
+    valuableTarget: pirateRaid,
+    huntOrder: hunter && (raid || aggro),
+    worthyHunt: hunter && Boolean(target),
+    contactDetected: true,
+    localDanger: aggro || raid || defending,
+  });
+  const inspection = doctrine.inspectFire(npc.doctrineProfile, nativeRole, facts, state.doctrineDominionFlags || {});
+  npc.doctrineShadow = {
+    at: now,
+    operation: 'fire',
+    targetType,
+    objective: hunter ? 'hunt' : (npc.doctrineDefaultObjective || null),
+    ...inspection,
+  };
+  return inspection;
 }
 
 const shipHailLines = {
@@ -4115,7 +4273,7 @@ function applyKillStanding(victimFaction, baseDelta) {
   adjustFactionStanding(victim, baseDelta);
   for (const key of Object.keys(factionRelations)) {
     if (key === victim) continue;
-    const rel = factionRelations[key] || {};
+    const rel = getFactionRelationEntry(key);
     if ((rel.hostile || []).includes(victim)) adjustFactionStanding(key, Math.ceil(Math.abs(baseDelta) / 2), { silent: true });
     else if ((rel.friendly || []).includes(victim)) adjustFactionStanding(key, -1, { silent: true });
   }
@@ -11959,6 +12117,7 @@ function processHeldWeaponInputs() {
 }
 
 function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player', now = performance.now()) {
+  consultDoctrineFire(npc, target, targetType, now);
   const weaponId = getDefaultWeaponId(npc.shipId, npc.faction, true);
   const weapon = getWeapon(weaponId);
   const targetPoint = targetType === 'player' ? playerWorldPosition() : target;
@@ -12469,18 +12628,41 @@ function getNpcHuntRange(npc) {
 }
 
 function shouldNpcTargetPlayer(npc, playerDistance, stationTarget, now = performance.now()) {
-  if (isPlayerCloaked(now)) return false;
-  if (isSpawnProtected(now)) return false;
-  const huntRange = getNpcHuntRange(npc);
-  if (getFactionStanding(npc.faction) <= -50) return playerDistance <= huntRange;
-  if (normalizeFactionKey(npc.faction) === 'pirate' && (state.shields < 35 || state.hull < 50)) {
-    return playerDistance <= huntRange;
+  const doctrine = getDoctrineRuntime();
+  let pursue = true;
+  if (isPlayerCloaked(now)) pursue = false;
+  else if (isSpawnProtected(now)) pursue = false;
+  else {
+    const huntRange = getNpcHuntRange(npc);
+    if (getFactionStanding(npc.faction) <= -50) pursue = playerDistance <= huntRange;
+    else if (normalizeFactionKey(npc.faction) === 'pirate' && (state.shields < 35 || state.hull < 50)) {
+      pursue = playerDistance <= huntRange;
+    } else if (npc.playerAggroUntil && npc.playerAggroUntil > now) {
+      pursue = playerDistance <= huntRange;
+    } else if (!stationTarget) {
+      pursue = playerDistance <= huntRange;
+    } else if (playerDistance <= NPC_PLAYER_INTERVENTION_RANGE * 0.58) {
+      pursue = true;
+    } else {
+      pursue = now - (state.lastPlayerShotAt || 0) < NPC_PLAYER_AGGRO_MS
+        && playerDistance <= NPC_PLAYER_INTERVENTION_RANGE;
+    }
   }
-  if (npc.playerAggroUntil && npc.playerAggroUntil > now) return playerDistance <= huntRange;
-  if (!stationTarget) return playerDistance <= huntRange;
-  if (playerDistance <= NPC_PLAYER_INTERVENTION_RANGE * 0.58) return true;
-  return now - (state.lastPlayerShotAt || 0) < NPC_PLAYER_AGGRO_MS
-    && playerDistance <= NPC_PLAYER_INTERVENTION_RANGE;
+  if (npc && (npc.doctrineRole === 'hunter' || npc.doctrineDefaultObjective === 'hunt' || npc.doctrineDefaultObjective === 'search')) {
+    npc.doctrineShadow = {
+      ...(npc.doctrineShadow || {}),
+      manhunt: {
+        at: now,
+        pursue,
+        playerDistance,
+        clock: npc.doctrineDefaultObjective === 'search'
+          ? doctrine?.searchObjective?.clock || 'tactical_seconds'
+          : doctrine?.huntObjective?.clock || 'tactical_seconds',
+        note: 'Doctrine hunt/search IDs are attached; pursuit/range math is unchanged.',
+      },
+    };
+  }
+  return pursue;
 }
 
 function getNpcCombatStandoff(npc, targetType = 'player') {
@@ -12549,6 +12731,7 @@ function chooseFleetAttackFaction(systemIndex = state.currentPlanet) {
     && faction !== localFaction
     && !(playerHolds && faction === commandSide)
     && (areFactionsOpposed(faction, localFaction) || (playerHolds && areFactionsOpposed(faction, commandSide)))
+    && doctrineAllowsFactionGenerator(faction, 'raid')
   ));
   if (candidates.length) {
     return candidates[Math.floor(seeded(performance.now() * 0.011 + systemIndex * 97) * candidates.length) % candidates.length];
@@ -12577,6 +12760,7 @@ function fleetAttackHerald(faction, systemIndex) {
 }
 function spawnFleetAttack(systemIndex = state.currentPlanet, attackerFaction = chooseFleetAttackFaction(systemIndex)) {
   if (state.activeFleetAttack || state.gameOver || !state.gameStarted || state.warp.active) return false;
+  if (!doctrineAllowsFactionGenerator(attackerFaction, 'raid')) return false;
   const localFaction = getSystemFaction(systemIndex);
   if (localFaction === 'neutral' && !state.controlledSystems.includes(Number(systemIndex))) return false;
   setLog(fleetAttackHerald(attackerFaction, systemIndex));
@@ -12688,6 +12872,7 @@ function updateFleetAttacks(now = performance.now()) {
     npc.attitude = getFactionAttitude(npc.faction);
     npc.role = 'occupationFleet';
     npc.attackId = null;
+    stampDoctrineOnActor(npc, { runtimeFaction: npc.faction, requestedRole: 'occupationFleet' });
   }
   state.activeFleetAttack = null;
   state.fleetAttackControlSince = 0;
@@ -12775,6 +12960,12 @@ function beginAmbientTrafficArrival(npc, now = performance.now()) {
       startedAt: now,
       endsAt: now + AMBIENT_TRAFFIC_WARP_IN_MS,
     },
+  });
+  stampDoctrineOnActor(npc, {
+    runtimeFaction: faction,
+    requestedRole: npc.role,
+    identity: state.locationIdentity,
+    assignCulture: npc.role === 'localTraffic',
   });
   syncAmbientTrafficVariant(npc);
 }

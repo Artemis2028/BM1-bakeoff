@@ -16,6 +16,7 @@ const includeNames = new Set([
   'offline-assets.json',
   'src',
   'data',
+  'docs',
   'assets'
 ]);
 
