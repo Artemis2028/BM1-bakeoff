@@ -4371,8 +4371,18 @@ function renderSecurityPanel() {
 }
 
 function ensureSecurityStores() {
-  state.securityZones = restoreSecurityZones(state.securityZones);
-  state.securityEncounters = restoreSecurityEncounters(state.securityEncounters);
+  if (!state.securityZones || state.securityZones.version !== 1 || !state.securityZones.systems) {
+    state.securityZones = restoreSecurityZones(state.securityZones);
+  }
+  if (!state.securityEncounters || state.securityEncounters.version !== 1 || !state.securityEncounters.systems) {
+    state.securityEncounters = restoreSecurityEncounters(state.securityEncounters);
+  }
+  if (!Number.isFinite(Number(state.securityZones.nextVisitorInstance))) {
+    state.securityZones.nextVisitorInstance = 1;
+  }
+  if (!Number.isFinite(Number(state.securityEncounters.nextEncounterId))) {
+    state.securityEncounters.nextEncounterId = 1;
+  }
   return {
     zones: state.securityZones,
     encounters: state.securityEncounters,
@@ -4906,6 +4916,10 @@ function maybeIssueVisitorOrder(zone, {
   if (hasValidClearance(ledger, instanceId, zone, visitor.entryEpisode)) return null;
   if (visitorKind === 'npc') {
     if (!isOrderableRole(npc?.role)) {
+      const already = findLatestOrderForVisitor(ledger, instanceId);
+      if (already && already.entryEpisode === visitor.entryEpisode && already.lifecycle === 'not_addressed') {
+        return already;
+      }
       const skipId = nextEncounterId();
       ledger.orders[skipId] = closeEncounter(createEncounterRecord({
         encounterId: skipId,
@@ -5049,7 +5063,14 @@ function updateSecurityIssuePhase(zone) {
     });
     const updated = updateVisitorBoundary(previous, distance, zone.geometry);
     ledger.visitors[entry.instanceId] = updated.visitor;
-    if ((updated.newEpisode || updated.alreadyInsideQualifies) && updated.visitor.inside) {
+    const latest = findLatestOrderForVisitor(ledger, entry.instanceId);
+    const sameEpisode = latest && Number(latest.entryEpisode) === Number(updated.visitor.entryEpisode);
+    const shouldIssue = updated.visitor.inside && (
+      updated.newEpisode
+      || updated.alreadyInsideQualifies
+      || (!sameEpisode && !hasValidClearance(ledger, entry.instanceId, zone, updated.visitor.entryEpisode))
+    );
+    if (shouldIssue) {
       maybeIssueVisitorOrder(zone, {
         instanceId: entry.instanceId,
         visitorKind: entry.visitorKind,
@@ -5381,8 +5402,23 @@ function reconcileSecurityParticipants(systemIndex = state.currentPlanet) {
       npc = (state.npcShips || []).find((ship) => String(ship.id) === String(snapshot.slotId));
     }
     if (!npc) {
-      if (liveOrder) terminateEncounter(liveOrder, 'checkpoint_unavailable', { detail: 'participant_missing' });
-      continue;
+      const restored = createNpcShip({
+        id: snapshot.slotId || `restored-${instanceId}`,
+        shipId: snapshot.shipId,
+        faction: snapshot.faction || 'neutral',
+        role: snapshot.role || 'traffic',
+        name: snapshot.name,
+        from: { x: snapshot.x, y: snapshot.y },
+        destination: snapshot.destination,
+        destinationName: snapshot.destinationName,
+      });
+      applyParticipantSnapshot(restored, snapshot, now);
+      state.npcShips.push(restored);
+      const systemState = state.systemStates[systemIndex];
+      if (systemState?.npcShips && !systemState.npcShips.some((ship) => ship.id === restored.id)) {
+        systemState.npcShips.push(restored);
+      }
+      npc = restored;
     }
     if (npc.securityInstanceId && npc.securityInstanceId !== instanceId) {
       if (liveOrder) terminateEncounter(liveOrder, 'checkpoint_unavailable', { detail: 'participant_missing' });
@@ -18763,6 +18799,8 @@ function probeSnapshot() {
     dominionHostile: [...(dominion.hostile || [])],
     locationIdentity: state.locationIdentity || null,
     doctrineLoaded: Boolean(doctrine?.loaded),
+    effectivePolicy: getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
+    checkpoint: checkpointUiSnapshot(),
   };
 }
 
@@ -19188,6 +19226,16 @@ function installBm1ProbeHarness() {
       return getVisitorAccessDecision(zone, contact, { factionsOpposed: (a, b) => areFactionsOpposed(a, b) });
     },
     checkpoint: () => checkpointUiSnapshot(),
+    orderFor(id) {
+      const ship = probeFindShip(id);
+      const instanceId = ship?.securityInstanceId || (id === 'player' ? PLAYER_INSTANCE_ID : null);
+      const orders = Object.values(ensureSystemLedger(state.currentPlanet).orders || {});
+      return orders.find((order) => (
+        order.npcId === id
+        || (instanceId && order.visitorInstanceId === instanceId)
+        || (ship?.securityObjective && order.encounterId === ship.securityObjective.encounterId)
+      )) || (id === 'player' ? getPlayerCheckpointOrder() : null);
+    },
     encounters: () => listCheckpointEncounters(state.currentPlanet),
     playerRespond: (action) => playerRespondToCheckpoint(action),
     operatorAct: (action, encounterId) => operatorActOnEncounter(action, encounterId),

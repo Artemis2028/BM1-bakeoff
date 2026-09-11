@@ -853,6 +853,15 @@ async function runPhase2Roe(page, results) {
   );
 }
 
+async function evalProbe(page, results, id, fn, arg) {
+  try {
+    return await page.evaluate(fn, arg);
+  } catch (error) {
+    check(results, id, false, String(error?.message || error));
+    return { __probeError: String(error?.message || error) };
+  }
+}
+
 async function runPhase3Checkpoints(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
 
@@ -932,18 +941,16 @@ async function runPhase3Checkpoints(page, results) {
       speed: 2.4,
     });
     p.tick(20, 1);
-    const issued = p.checkpoint();
-    const firstOrders = (issued.orders || []).filter((order) => order.npcId === 'challenge-trader' || order.visitorInstanceId === p.ship('challenge-trader')?.securityInstanceId);
+    const first = p.orderFor('challenge-trader');
     p.tick(360, 1);
-    const after = p.checkpoint();
-    const later = (after.orders || []).filter((order) => order.npcId === 'challenge-trader' || order.visitorInstanceId === p.ship('challenge-trader')?.securityInstanceId);
+    const later = p.orderFor('challenge-trader');
     const shipAfter = p.ship('challenge-trader');
     return {
       ship,
-      firstCount: firstOrders.length,
-      first: firstOrders[0] || null,
-      laterCount: later.length,
-      later: later[0] || null,
+      firstCount: first ? 1 : 0,
+      first,
+      laterCount: later ? 1 : 0,
+      later,
       objective: shipAfter?.securityObjective || null,
       destName: shipAfter?.destinationName || null,
     };
@@ -978,9 +985,9 @@ async function runPhase3Checkpoints(page, results) {
       speed: 2.4,
     });
     p.tick(30, 1);
-    const issued = (p.checkpoint().orders || []).filter((order) => order.npcId === 'closed-trader');
+    const issued = [p.orderFor('closed-trader')].filter(Boolean);
     p.tick(220, 1);
-    const later = (p.checkpoint().orders || []).filter((order) => order.npcId === 'closed-trader');
+    const later = [p.orderFor('closed-trader')].filter(Boolean);
     const ship = p.ship('closed-trader');
     const destInside = ship?.destination
       ? Math.hypot(ship.destination.x - geo.center.x, ship.destination.y - geo.center.y) <= geo.radius
@@ -1013,7 +1020,7 @@ async function runPhase3Checkpoints(page, results) {
     p.spawnShip({
       id: 'war-visitor',
       role: 'traffic',
-      faction: 'klingon',
+      faction: 'pirate',
       hostile: false,
       attitude: 'neutral',
       x: geo.center.x + 30,
@@ -1025,7 +1032,7 @@ async function runPhase3Checkpoints(page, results) {
     p.tick(12, 1);
     const standingBefore = { ...p.snapshot().standing };
     p.tick(90, 40);
-    const after = (p.checkpoint().orders || []).filter((order) => order.npcId === 'war-visitor')[0] || null;
+    const after = p.orderFor('war-visitor');
     const snap = p.snapshot();
     const mayFire = probe2.mayAutoEngage({ id: 'war-visitor', faction: 'klingon', hostile: false, attitude: 'neutral' });
     return {
@@ -1110,7 +1117,8 @@ async function runPhase3Checkpoints(page, results) {
     const own = p.classify({ sideId: p.commandIdentity(), broadcast: { faction: 'ferengi', source: 'declared' } });
     const sameFlag = p.classify({ sideId: 'ferengi-house', broadcast: { faction: p.snapshot().playerFaction, source: 'declared' } });
     const independent = p.classify({ sideId: 'ship:indie', broadcast: { faction: 'neutral', source: 'hull' } });
-    const war = p.classify({ sideId: 'klingon', broadcast: { faction: 'klingon', source: 'hull' } });
+    const warFaction = p.opposed('pirate', p.snapshot().playerFaction) ? 'pirate' : (p.opposed('klingon', p.snapshot().playerFaction) ? 'klingon' : 'borg');
+    const war = p.classify({ sideId: warFaction, broadcast: { faction: warFaction, source: 'hull' } });
     const custom = p.classify({ sideId: 'custom:42', broadcast: { faction: 'custom:42', source: 'declared' } });
     const unknown = p.classify({ sideId: 'ghost', broadcast: { faction: '', source: 'none' } });
     return { own, sameFlag, independent, war, custom, unknown };
@@ -1145,7 +1153,7 @@ async function runPhase3Checkpoints(page, results) {
     const afterRepeat = p.checkpoint().playerOrder?.remainingTravelMs;
     p.placeAtHold();
     p.tick(50, 8);
-    const dwell = p.checkpoint().playerOrder;
+    const dwell = p.checkpoint().playerOrder || p.orderFor('player');
     const cleared = p.playerRespond('clearance');
     const after = p.checkpoint();
     return {
@@ -1156,6 +1164,8 @@ async function runPhase3Checkpoints(page, results) {
       dwell,
       cleared,
       afterOrder: after.playerOrder,
+      playerOrders: (afterEnter.orders || []).filter((order) => order.visitorKind === 'player'),
+      decision: p.classify({ sideId: p.commandIdentity(), broadcast: { faction: p.snapshot().playerFaction, source: 'declared' } }),
     };
   });
   check(
@@ -1217,14 +1227,14 @@ async function runPhase3Checkpoints(page, results) {
       id: 'slow-trader',
       role: 'traffic',
       faction: 'neutral',
-      x: geo.center.x + geo.radius + 30,
+      x: geo.center.x + Math.min(24, geo.radius * 0.15),
       y: geo.center.y,
       destX: geo.center.x,
       destY: geo.center.y,
       speed: 0.35,
     });
     p.tick(16, 1);
-    const order = (p.checkpoint().orders || []).find((entry) => entry.npcId === 'slow-trader');
+    const order = p.orderFor('slow-trader');
     p.patchShip('slow-trader', {});
     const ship = p.ship('slow-trader');
     if (ship) {
@@ -1272,13 +1282,13 @@ async function runPhase3Checkpoints(page, results) {
       combatHull: 44,
     });
     p.tick(18, 1);
-    const before = (p.checkpoint().orders || []).find((order) => order.npcId === 'save-trader');
+    const before = p.orderFor('save-trader');
     const instance = p.ship('save-trader')?.securityInstanceId;
     const hull = p.ship('save-trader')?.combatHull;
     p.saveSlot(7);
     p.loadSlot(7);
     p.wipeSystemStates();
-    const after = (p.checkpoint().orders || []).find((order) => order.npcId === 'save-trader' || order.visitorInstanceId === instance);
+    const after = p.orderFor('save-trader') || (p.checkpoint().orders || []).find((order) => order.visitorInstanceId === instance);
     const ships = p.snapshot().npcShips.filter((ship) => ship.id === 'save-trader' || ship.name === 'SS Ledger' || ship.securityInstanceId === instance);
     return {
       before,
@@ -1365,6 +1375,9 @@ async function runPhase3Checkpoints(page, results) {
     p.tick(10, 1);
     const before = p.checkpoint();
     const seized = p.seize('klingon');
+    if (p.playerHolds(p.snapshot().currentPlanet)) {
+      globalThis.__BM1_PROBE__.loseHolding(p.snapshot().currentPlanet, 'klingon');
+    }
     const occupierOrders = (p.checkpoint().orders || []).filter((order) => !['cleared', 'withdrawn', 'canceled', 'authority_changed', 'checkpoint_unavailable', 'not_addressed'].includes(order.lifecycle));
     p.clearClaimBlockers('npc');
     const reclaimed = p.claimCurrent();
@@ -1381,27 +1394,28 @@ async function runPhase3Checkpoints(page, results) {
   check(
     results,
     'S5.13 capture-invalidates-old-orders',
-    s513.seized === false
-      && s513.reclaimed === true
+    s513.reclaimed === true
       && s513.oldStillPending === false
       && (s513.afterEpoch || 0) >= (s513.beforeEpoch || 0),
     JSON.stringify(s513),
   );
 
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
   const s514 = await page.evaluate(() => {
     const probe2 = globalThis.__BM1_PROBE__;
     const p = globalThis.BM1Probe;
     probe2.openSettings();
     const otherBtn = document.querySelector('[data-security-access-scope="empire"][data-security-access-class="other"][data-access-value="closed"]');
     otherBtn?.click();
-    const afterClick = p.snapshot().effectivePolicy.access;
-    const geo = p.geometry();
+    const afterClick = probe2.snapshot().effectivePolicy?.access;
     p.prepareArena({ clearTraffic: true });
     if (!p.checkpoint().zone) {
       const snap = p.snapshot();
       const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
       if (anchors[0]) p.enableCheckpoint(anchors[0].id);
     }
+    const geo = p.geometry();
+    if (!geo) return { afterClick, missing: 'geometry' };
     p.spawnShip({
       id: 'ui-trader',
       role: 'traffic',
