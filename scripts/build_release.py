@@ -19,6 +19,7 @@ INCLUDE_NAMES = {
     "offline-assets.json",
     "src",
     "data",
+    "docs",
     "assets",
 }
 

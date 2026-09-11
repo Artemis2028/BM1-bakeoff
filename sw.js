@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'bm2-pwa-20260911-dominion-blender-v1';
+const CACHE_VERSION = 'bm2-pwa-20260911-doctrine-v021';
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_ASSET_MANIFEST = './offline-assets.json';
@@ -9,6 +9,8 @@ const APP_SHELL = [
   './index.html',
   './styles.css',
   './src/main.js',
+  './src/doctrine.js',
+  './docs/doctrine/bm1-faction-doctrine.v0.2.1.json',
   './app.webmanifest',
   './data/audio_manifest.json',
   './data/fla_actions_index.json',
