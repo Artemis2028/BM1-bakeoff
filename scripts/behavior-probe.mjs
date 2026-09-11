@@ -934,7 +934,7 @@ async function runPhase3Checkpoints(page, results) {
       id: 'challenge-trader',
       role: 'traffic',
       faction: 'neutral',
-      x: geo.center.x + geo.radius + 40,
+      x: geo.center.x + Math.min(28, geo.radius * 0.12),
       y: geo.center.y,
       destX: geo.center.x,
       destY: geo.center.y,
@@ -1030,6 +1030,7 @@ async function runPhase3Checkpoints(page, results) {
       speed: 0.2,
     });
     p.tick(12, 1);
+    p.patchShip('war-visitor', { speed: 0, x: geo.center.x + 30, y: geo.center.y });
     const standingBefore = { ...p.snapshot().standing };
     p.tick(90, 40);
     const after = p.orderFor('war-visitor');
@@ -1182,6 +1183,8 @@ async function runPhase3Checkpoints(page, results) {
   const s59 = await page.evaluate(() => {
     const p = globalThis.BM1Probe;
     const vulcan = p.systemIndexByName('Vulcan');
+    const home = p.systemIndexByName('Ferenginar');
+    if (home >= 0) p.warpTo(home);
     p.warpTo(vulcan);
     p.placeAtApproach();
     const geo = p.geometry();
@@ -1233,7 +1236,9 @@ async function runPhase3Checkpoints(page, results) {
       destY: geo.center.y,
       speed: 0.35,
     });
-    p.tick(16, 1);
+    p.tick(2, 1);
+    const issued = p.orderFor('slow-trader');
+    p.tick(14, 1);
     const order = p.orderFor('slow-trader');
     p.patchShip('slow-trader', {});
     const ship = p.ship('slow-trader');
@@ -1253,7 +1258,7 @@ async function runPhase3Checkpoints(page, results) {
       after,
       expected,
       clockOk: Math.abs((after - before) - expected) < 2,
-      allowance: order?.remainingTravelMs || 0,
+      allowance: issued?.remainingTravelMs || order?.remainingTravelMs || 0,
       live,
     };
   });
@@ -1336,13 +1341,15 @@ async function runPhase3Checkpoints(page, results) {
     if (first) p.operatorAct('waive', first.encounterId);
     const replaced = p.beginAmbientReplacement('reuse-slot');
     p.tick(16, 1);
-    const second = (p.checkpoint().orders || []).filter((order) => order.npcId === 'reuse-slot');
+    const secondInstance = replaced?.securityInstanceId;
+    const second = (p.checkpoint().orders || []).filter((order) => order.visitorInstanceId === secondInstance);
+    const clearance = p.checkpoint().clearances?.[secondInstance];
     return {
       firstInstance,
-      secondInstance: replaced?.securityInstanceId,
+      secondInstance,
       firstClearance: first?.accessClearance,
       second,
-      inherited: second.some((order) => order.visitorInstanceId === firstInstance && order.accessClearance),
+      inherited: Boolean(clearance?.granted) || second.some((order) => order.accessClearance && order.visitorInstanceId === firstInstance),
     };
   });
   check(
