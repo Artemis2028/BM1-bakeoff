@@ -16,7 +16,7 @@ The proposal can be implemented without a rewrite. The ledger should copy the Ph
 | Visitor identity that survives `npc.id` reuse | `assignNpcSecurityInstance` / `nextSecurityInstanceId`. `beginAmbientTrafficArrival` force-news the instance. |
 | Encounter terminals to subscribe | `closeEncounter` / `terminateEncounter` in `src/phase3-checkpoints.js` + `src/main.js`. Lifecycles include `refused`, `expired`, `unable_to_comply`. |
 | Local clock | `advanceLocalElapsed` / `ensureSystemLedger(...).localElapsedMs` advanced from `tickSecurity` / `tick`. |
-| Reserved alerts | `ALERT_MODES`, `normalizeAlertMode`, merge/override already persist. `areAlertsActive(_policies)` **always returns `false`**. Security copy still says settings are reserved. Probe snapshot already exposes `alertsActive`. |
+| Reserved alerts | `ALERT_MODES`, `normalizeAlertMode`, merge/override already persist. `areAlertsActive(_policies)` **always returns `false`**. Security copy still says settings are reserved. Probe snapshot already exposes `alertsActive`. **S4-21** (`scripts/behavior-probe.mjs`) asserts `s4.alertsActive === false`. |
 | Single replaceable banner | `setLog` writes `state.log` and `.top-message`. `destroyNpcShip` logs witness then immediately logs salvage — FLASH must win that race. |
 | Kill-standing cascade | `applyKillStanding` then optional witness `-2` inside `destroyNpcShip`; stations use `-6`. `applyDestructionPayout` already zeroes NPC-only credit. |
 | ROE / aggression | `recordObservedAttack`, `hasAttributedAttackOnPlayerSide`, `hasMatchingActiveRaid`, `playerForceMayAutoEngage`. Phase 3 must not write these for access outcomes; Phase 4 must not start. |
@@ -29,15 +29,15 @@ Prefer a new `src/phase4-incidents.js` (pure records, tokens, alert gate, react 
 
 | Existing path | Required integration |
 | --- | --- |
-| `closeEncounter` / encounter terminate in `tickSecurity` | After a committed terminal, `linkEncounterToIncident`. Never from hail repeat or dwell ticks. |
+| `closeEncounter` / encounter terminate in `tickSecurity` | After a committed terminal, `linkEncounterToIncident`. Never from hail repeat or dwell ticks. `withdrawn`/`departed` after noncompliance: append history only — **no new FLASH** (S6.14). |
 | `destroyNpcShip` / `destroyStation` | After the existing standing/feat block, open `destruction` with `punishmentToken`. Do not move standing *into* the incident module. |
 | `applyKillStanding` / `adjustFactionStanding` | Export or wrap a “already charged?” check. Incident/report code must call the wrapper, not the raw adjuster, for destruction kinds. |
 | `recordAttackOnPlayerSide` / `recordObservedAttack` | Allow a `witnessed_aggression` incident from **existing** attack evidence only. Refuse writes whose only source is an encounter outcome. |
 | `setLog` | Add `pushFlash` / alert-mode gate. Reclassify the witness log vs salvage log in `destroyNpcShip`. |
-| `areAlertsActive` | Stop returning `false`. Return whether the *effective* mode is not `silent` for incident-class notices; keep a separate helper for “show background logs”. |
+| `areAlertsActive` | Stop returning `false`. Return whether the *effective* mode is not `silent` for incident-class notices; keep a separate helper for “show background logs”. **Required same-PR migration:** rewrite or retire probe **S4-21** (`alerts-are-reserved-not-notifying`, expects `alertsActive === false`). A green Phase 2 suite becomes a landmine the moment this helper is real. |
 | `renderSecurityPanel` | Alert buttons + incident list. Preserve ROE/access/checkpoint. Foreign checkpoint remains non-editable. |
 | `saveGame` / `loadGame` / `resetRunState` | Serialize `incidentLedger`. Load still wipes `systemStates` first; reconcile incidents after `reconcileSecurityParticipants`. |
-| `evaluateReact` / `stampDoctrineOnActor` | Build per-observer facts from observer copies. Enable acting only for listed responses and present ships. |
+| `evaluateReact` / `stampDoctrineOnActor` | Build per-observer facts from observer copies. Enable acting only for allowlisted responses. Fold pack `protect` (and similar) to `record_only` — S6.13. |
 | `updateNpcShips` / `applyNpcSecurityObjective` | New `incidentObjective` field, same preemption as security objectives. Do not collide `getNpcHailBlockReason` string matches. |
 | `beginAmbientTrafficArrival` | New instance must not inherit incident blame, observer copies or FLASH identity from the slot. |
 | Control transfer / capture / claim | Resolve jurisdiction-bound access incidents on epoch change (Phase 3 already bumps epochs). |
@@ -65,11 +65,21 @@ Witness `-2` is a second *existing* path on the same kill, not a Phase 4 inventi
 
 `engagement_authorized` must stay computed. Do not put it on the incident.
 
-`access_noncompliance` mapped to `border_breach` can match Vulcan/Tholian `protect` interest rules in the pack. The proposal forbids `protect` as an acting Phase 4 response. The adapter must **allowlist** `record_only` / `investigate` / `rescue` / `defer:*` / `ignore_unknown` and treat `protect`, `conceal`, `reroute`, etc. as `record_only` for this slice.
+`access_noncompliance` mapped to `border_breach` can match Vulcan/Tholian `protect` interest rules in the pack (`defend_assets` when `own_asset_affected`). **Locked:** `protect` and every other non-allowlisted response must fold to `record_only` (or non-acting). They must not become an acting weapons / intercept objective and must not set `attackId`, inject `engagement_authorized`, or make `evaluateFire` / `playerForceMayAutoEngage` true. **Gate:** S6.13. The adapter may log `packResponse: 'protect'` next to `appliedResponse: 'record_only'`. Allowlist remains `record_only` / `investigate` / `rescue` / `defer:*` / `ignore_unknown` only.
 
 ### 4. Alerts implemented as comments
 
 If `areAlertsActive` becomes `true` for every mode, or Security grows buttons that only `setLog`, S6.5 fails. Need three observable behaviors. `silent` must not skip `openIncident`.
+
+**S4-21 is a required probe migration, not optional cleanup.** Today:
+
+```js
+check(results, 'S4-21 alerts-are-reserved-not-notifying', s4.alertsActive === false);
+```
+
+in `scripts/behavior-probe.mjs` (with `alertsActive` taken from `__BM1_PROBE__.snapshot()`). Flipping `areAlertsActive` without rewriting or retiring S4-21 fails the existing 75-check probe even if S6 is green. In the same engine PR: change S4-21 to assert real mode behavior (or drop it and cover the reservation-lift in S6.5). Do not keep `=== false`.
+
+**FLASH vs append-only:** withdrawn-after-noncompliance must not call `pushFlash`. A second pulse would read as a second offense (S6.14).
 
 ### 5. Objective channel collisions
 
@@ -112,20 +122,22 @@ __BM1_PROBE__.incidents = {
 };
 ```
 
-Run, in order: existing `test:phase1`, `test:phase3`, `test:doctrine`, current `probe` (75), then new S6. A refusal case that changes `mayAutoEngage` from false to true is a blocker even if the journal looks right.
+Run, in order: existing `test:phase1`, `test:phase3`, `test:doctrine`, the **migrated** Phase 2/3 probe (S4-21 rewritten or retired in the same PR as `areAlertsActive`), then new S6. A refusal case that changes `mayAutoEngage` from false to true is a blocker even if the journal looks right.
 
-Suggested first Chromium trio (catches the three fatal integrations):
+Suggested first Chromium set (catches the fatal integrations):
 
 1. Vulcan + `return-fire` (or player holding + NPC) refuse → snapshot aggression fields + standing + shot count.
 2. Credited kill → standing once → deliver report → standing unchanged → FLASH still visible after salvage log.
 3. Same incident, Vulcan observer acts, Klingon `record_only`, `evaluateFire` unchanged.
+4. **S6.13:** observer whose pack match is `protect` on `border_breach` → `appliedResponse === 'record_only'`, no `attackId`, `engagement_authorized` not injected, fire gates unchanged.
+5. **S6.14:** refuse (one FLASH) then withdraw → same `incidentId`, history append only, flash-queue length / last FLASH id unchanged.
 
 ## Recommended implementation order (dependencies)
 
 1. Token wrapper around the existing kill cascade (no delta changes) + empty ledger save/load.
 2. Encounter-terminal feed (S6.1–S6.3) with explicit kind allowlist.
-3. FLASH / `areAlertsActive` / Security buttons (S6.5–S6.6).
-4. Observer copies + allowlisted `evaluateReact` acting (S6.7–S6.8).
+3. FLASH / `areAlertsActive` / Security buttons (S6.5–S6.6, S6.14) **and rewrite/retire S4-21 in the same PR**.
+4. Observer copies + allowlisted `evaluateReact` acting (S6.7–S6.8, **S6.13** `protect` → `record_only`).
 5. Caps, capture/reclaim, replacement identity (S6.9–S6.11).
 
 Skip acting (step 4) if steps 1–3 are not green. Acting is the only new movement; everything else is records and UI.

@@ -30,9 +30,10 @@ Exercise the same ledger in both directions:
 | Do refusal or `unable_to_comply` authorize force? | **No.** They remain non-aggression evidence. No raid, standing hit, `attackId`, hostility or fire gate. |
 | Can repeated refusal escalate to interception? | **No in Phase 4.** Repeat visits may raise watch/investigate. They never become weapons, raids or standing. |
 | When may doctrine responses act? | `record_only` always writes an observer copy. `investigate` and `rescue` may move a *present, eligible* local ship. They do not spawn fleets or authorize fire. |
-| What do alert modes do? | Activate the reserved Phase 2 `all` / `incidents` / `silent` values. Silent mutes display only. |
-| What is FLASH? | A priority incident-class notice that salvage and background `setLog` must not instantly overwrite. |
+| What do alert modes do? | Activate the reserved Phase 2 `all` / `incidents` / `silent` values. Silent mutes display only. **Required:** rewrite or retire live probe **S4-21** in the same engine PR (see §7.2). |
+| What is FLASH? | A priority notice for a **newly opened** FLASH-eligible incident. Append-only history (withdrawn-after-noncompliance, `access_notice`) does **not** pulse FLASH (see §7.3). |
 | How is standing applied? | Destruction still uses the existing `applyKillStanding` / witness path once. Phase 4 records that token and must not charge again. |
+| What if the pack returns `protect`? | **Not acting.** Fold to `record_only` (or non-acting). Never a weapons objective (S6.13). |
 
 These are recommendations for this phase, not new decisions attributed to the user. Locked bake-off constraints take precedence over older doctrine wording that left “repeated noncompliance → force” open.
 
@@ -44,6 +45,12 @@ The bake-off team locked these before this brief. Implementation and probes must
 2. **No double punishment** with the kill-standing cascade (`applyKillStanding` plus witness-patrol `-2`) or any other existing punishment path (latinum payout, feat unlocks, hostile-at-threshold log). An incident may *describe* a kill that already paid standing. It must not pay it again.
 3. **Doctrine `investigate` / `rescue` / `record_only` may become acting.** Acting still obeys (1) and (2). Investigation is search and reporting. Rescue is aid when survivors are actually known. `record_only` writes and continues. None of these three is a weapons order.
 4. **Proposal first**, then a bounded engine slice. This document plus the engine-dependency checklist are the Phase 3-shaped handoff. Do not implement from this text until Tenth scopes the engine lane.
+
+Tenth amend (docs, 11 September 2026) — **implementation locks**, not a change to gates 1–3:
+
+- **S4-21 migration:** making `areAlertsActive` real requires rewriting or retiring probe S4-21 in the same engine PR (§7.2).
+- **Pack `protect`:** non-allowlisted `border_breach` responses fold to `record_only` / non-acting; S6.13 forbids `attackId` / `engagement_authorized` / fire from that path (§6.2).
+- **FLASH vs append-only:** withdrawn-after-noncompliance and reserved `access_notice` history do not pulse a new FLASH offense (§7.3, S6.14).
 
 Also preserve, without reopening:
 
@@ -122,7 +129,7 @@ Keep **simulation truth** on the incident. Keep **observer evidence** on report/
 | --- | --- | --- | --- |
 | `access_noncompliance` | administrative | Encounter ends `refused` or `expired` | notice, watch, `record_only`, `investigate` (search only) |
 | `access_inability` | inability | Encounter ends `unable_to_comply` | notice, `record_only`. **Not an offense.** |
-| `access_notice` | administrative | Optional informational close (`withdrawn` after prior noncompliance, waiver, cancel). Default: **do not open** | none |
+| `access_notice` | administrative | **Do not open a new incident** for withdrawn-after-noncompliance, waiver, or cancel. Those events **append** to the existing `access_noncompliance` history when one exists. A new `access_notice` kind is reserved only if a later slice needs a distinct informational incident; default remains **do not open**. | none — and **no FLASH** (see §7.3) |
 | `destruction` | combat | Player or player-escort credited hull/station kill in this system | notice, `record_only`, `investigate`, `rescue` if survivors known |
 | `distress` | distress | Authored or locally observed survivor-capable distress (first slice: fixture or explicit probe inject) | notice, `rescue` if `survivors_known`, else `record_only` |
 | `witnessed_aggression` | combat | Existing attributable attack on the player’s side already recorded by Phase 2 | notice only; weapons stay on ROE |
@@ -197,7 +204,7 @@ Hook **after** a terminal lifecycle is committed on the encounter record (`close
 | --- | --- |
 | `refused`, `expired` | Open `access_noncompliance` once for this encounter. Keep encounter `outcome: 'noncompliant'`. |
 | `unable_to_comply` | Open `access_inability` once. Detail must include the blocking reason (tractor, engines, no safe route). **No offense flag.** |
-| `withdrawn` or `departed` after a recorded noncompliance | Append `departed` to the existing incident history. Do not open a second offense. Do not rewrite the original outcome as verified compliance. |
+| `withdrawn` or `departed` after a recorded noncompliance | **Append-only** `departed` (or `withdrawn`) on the existing `access_noncompliance` history. Do not open a second offense, do not open `access_notice`, do not rewrite the original outcome as verified compliance, and **do not fire a new FLASH** (see §7.3). |
 | `cleared`, `waived`, `canceled`, `policy_relaxed`, `zone_reconfigured` | No incident. Optional operator log line only. |
 | `not_addressed` | No incident. Military/patrol ignore remains non-blame, as Phase 3 specified. |
 | `contact_lost`, `checkpoint_unavailable`, `authority_changed` | No visitor-blame incident. If an access incident was already open, resolve it `jurisdiction_lost` / `contact_lost` without converting it to combat. |
@@ -247,8 +254,11 @@ Map incident kinds to event types for the first slice only:
 | --- | --- |
 | `destruction` | `asset_attack` if the observer knows an asset was attacked; otherwise treat as unmatched → `record_only` |
 | `distress` | `distress` |
-| `access_noncompliance` | `border_breach` **only as a known administrative event**. Interest rules may match `investigate` for evidence; they must not enable `protect` / war / predation fire facts. |
+| `access_noncompliance` | `border_breach` **only as a known administrative event**. Interest rules may match `investigate` for evidence. Pack `protect` (Vulcan/Tholian `defend_assets` and any similar non-allowlisted mapping) **must not** become acting; fold to `record_only` (S6.13). |
 | `access_inability` | Do not feed `border_breach`. Unmatched known → `record_only` or skip. |
+
+**Allowlist (acting):** `record_only`, `investigate`, `rescue`, `defer:investigate`, `defer:rescue`, `ignore_unknown`.  
+**Non-allowlisted (forced non-acting):** `protect`, `conceal`, `reroute`, `negotiate`, and any other `responseCatalog` key. The adapter records the pack’s raw match for the journal (`packResponse: 'protect'`) then stores `appliedResponse: 'record_only'`. That fold must not set `attackId`, `engagement_authorized`, `war_order_active`, `engagement_objective_active`, hostility, or a fire-capable `incidentObjective`.
 
 Authored contrast (playable, fixture-friendly):
 
@@ -309,6 +319,15 @@ Blame is not inferred from a disappearance. Unloading a ship is not a report.
 
 Phase 2 stored `alerts: 'all' | 'incidents' | 'silent'` and `areAlertsActive()` always returned `false`. Phase 3 left the Security copy as “Alert settings remain reserved.” Phase 4 activates **display only**.
 
+**Required S4-21 migration (landmine):** the live Chromium probe still asserts the Phase 2 reservation:
+
+```js
+// scripts/behavior-probe.mjs — S4-21
+check(results, 'S4-21 alerts-are-reserved-not-notifying', s4.alertsActive === false);
+```
+
+That check reads `snapshot().alertsActive` from `areAlertsActive(state.playerSecurity)`. The day Phase 4 makes `areAlertsActive` return a real mode gate, an otherwise green Phase 2 suite fails S4-21 and blocks `npm run probe`. The **same engine PR** that implements alerts must **rewrite or retire S4-21** — for example assert that the default/effective mode is one of `all` / `incidents` / `silent` and that `silent` still yields no FLASH, rather than asserting `alertsActive === false`. Do not leave S4-21 as a hidden Phase 2 landmine. S4-15 (stored enum) can stay; it already accepts all three modes.
+
 | Mode | Player sees | Ledger / orders / ROE |
 | --- | --- | --- |
 | `all` | Ordinary `setLog` traffic **and** FLASH incident notices | Unchanged |
@@ -329,9 +348,16 @@ Agreed meaning for this phase:
 
 | Band | Examples | May overwrite FLASH? |
 | --- | --- | --- |
-| 1 FLASH | New access_noncompliance, destruction attributed to player, acting investigate/rescue started, inability that an operator must see | Only another FLASH after hold |
+| 1 FLASH | **Newly opened** `access_noncompliance`, `access_inability` (operator must see the block), `destruction` attributed to the player, `distress`, or an acting `investigate`/`rescue` **start** | Only another FLASH after hold |
 | 2 operational | Checkpoint hail, “hold at marker”, power failure | No |
 | 3 background | Salvage latinum, jump-complete flavor, market chatter | No |
+| Not FLASH | Append-only history on an existing incident (`withdrawn` / `departed` after noncompliance); reserved `access_notice` rows; waiver/cancel operator notes; `record_only` without a new incident | n/a — do not pulse |
+
+**FLASH vs append-only / `access_notice` (locked):**
+
+> A FLASH pulse is tied to **opening a new FLASH-eligible incident** (or starting an allowlisted acting objective). Withdrawn-after-noncompliance, departed-after-noncompliance, and any reserved `access_notice` history are **append-only**. They must not open a second incident and must **not** fire a new FLASH offense pulse. The journal shows the extra history row; the banner stays on the original refusal/expiry FLASH (or clears only by acknowledge / hold / `silent`). The UI must not invent a second offense.
+
+If a later slice truly needs a distinct informational incident, it must be a new kind that this table lists as FLASH-eligible. Until then, default remains: append history, no pulse.
 
 Implementation sketch: `pushFlash(notice)` + `setLog` checks an `alerts` gate. Do not replace `setLog` globally in one sweep; wrap incident-class emitters first. Minimum FLASH hold: **4 local seconds** (simulation clock), then a newer FLASH may replace the banner. The queue retains the last 12 for the journal.
 
@@ -409,6 +435,8 @@ Keep all existing Phase 1 / S4 / S5 / doctrine gates green. Add S6 fixtures that
 | S6.10 Authority and ownership | Capture/reclaim uses real control paths. Old access incidents resolve `authority_changed`. Occupier cannot be commanded by retained player alerts. Same-flag foreign world still rejects player jurisdiction. Side/role/`fleetId` unchanged by acting responses. |
 | S6.11 Ledger caps and legacy | Invalid serialized incidents sanitize without attaching to the wrong instance. Empty legacy save. At cap, a new open is refused (`ledger_full`) rather than dropping a live record and blaming its visitor. |
 | S6.12 End-state isolation | Clearance, waiver, withdrawal, investigate complete and rescue complete end only their own demand/objective. Unrelated escort orders, war flags, legitimate kill attribution and Phase 3 docking rules remain. |
+| S6.13 Pack `protect` is not a weapons objective | Fixture a present Vulcan (or Tholian) observer whose pack interest on this `border_breach` / `access_noncompliance` would return `protect` (e.g. `defend_assets` with `own_asset_affected`). Adapter must apply `record_only` (or another non-acting fold), never an acting `protect` / intercept objective. Assert: no new `attackId`, `engagement_authorized` remains unset/uninjected, `evaluateFire` / `inspectFire` do not become true from this path, `playerForceMayAutoEngage` unchanged, no `incidentObjective` that is fire-capable. Journal may record `packResponse: 'protect'` beside `appliedResponse: 'record_only'`. Repeat the assert for any other non-allowlisted mapping (`conceal`, `reroute`, …). |
+| S6.14 Append-only withdrawal does not FLASH | Open `access_noncompliance` from a refusal (FLASH may fire once if alerts allow). Then the same visitor withdraws/departs. History appends `withdrawn`/`departed` on that same `incidentId`. No second incident, no new `access_notice` incident, **no second FLASH pulse**. Banner must not read as a new offense. |
 
 Each case may contain multiple assertions. Do not promise a final probe count before S6 is written. Include startup smoke and screenshots of Security (alert controls + incident list) and a FLASH banner.
 
@@ -434,8 +462,8 @@ Phase 4 will not:
 
 1. **Ledger and tokens.** Versioned `incidentLedger`, save/load, punishment tokens wired next to `destroyNpcShip` / `destroyStation` / `applyKillStanding` without changing their deltas. Prove reload and `systemStates` wipe.
 2. **Phase 3 feed.** Terminal encounter → at most one access-family incident. Prove S6.1–S6.3 before any acting AI.
-3. **Alerts and FLASH.** Implement `areAlertsActive` for real, Security controls, banner/queue priority. Prove S6.5–S6.6.
-4. **Doctrine acting (narrow).** Observer copies + `evaluateReact` for present ships only. Vulcan vs Klingon contrast. Dedicated `incidentObjective`. Prove S6.7–S6.8.
+3. **Alerts and FLASH.** Implement `areAlertsActive` for real, Security controls, banner/queue priority. **In the same PR, rewrite or retire S4-21** so `alertsActive === false` is not a landmine. Prove S6.5–S6.6 and S6.14 (no FLASH on append-only withdrawal).
+4. **Doctrine acting (narrow).** Observer copies + `evaluateReact` for present ships only. Vulcan vs Klingon contrast. Dedicated `incidentObjective`. Allowlist fold: `protect` → `record_only`. Prove S6.7–S6.8 and **S6.13**.
 5. **Independent review and S6 probe.** Keep engine and probe reviewable. Record the tested head. Do not merge on this proposal alone.
 
 If one model implements the slice, reserve a separate review pass. Fable can edit FLASH/journal copy after the paths work; lore expansion is not required to close Phase 4.
