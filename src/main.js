@@ -8642,6 +8642,7 @@ function losePlayerHolding(systemIndex = state.currentPlanet, occupierFaction = 
   state.controlledSystems = (state.controlledSystems || []).filter((entry) => Number(entry) !== index);
   state.playerSecurity = deactivateHoldingOverride(ensurePlayerSecurity(), index);
   noteAuthoritySide(index, occupierFaction || getSystemFaction(index));
+  resolveAccessIncidentsForEpoch(ensureIncidentLedger(), index, 'authority_changed');
   return {
     systemIndex: index,
     occupierFaction: occupierFaction || null,
@@ -19259,6 +19260,7 @@ function probeShipSummary(ship) {
     lastCombatCredit: ship.lastCombatCredit || null,
     securityInstanceId: ship.securityInstanceId || null,
     securityObjective: ship.securityObjective ? { ...ship.securityObjective } : null,
+    incidentObjective: ship.incidentObjective ? { ...ship.incidentObjective } : null,
     lastAggressionAt: ship.lastAggressionAt || 0,
     playerAggroUntil: ship.playerAggroUntil || 0,
     playerDistance: Math.hypot((ship.x || 0) - player.x, (ship.y || 0) - player.y),

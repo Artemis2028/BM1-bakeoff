@@ -2052,11 +2052,13 @@ async function runPhase4Incidents(page, results) {
       attitude: 'neutral',
     });
     const vulcan = p.ship('phase4-vulcan-relief');
+    const react = probe2.incidents.lastReact('phase4-vulcan-relief');
     return {
       fire,
       may,
       attackId: vulcan?.attackId || null,
       objective: vulcan?.incidentObjective || null,
+      react,
     };
   });
   check(
@@ -2065,7 +2067,8 @@ async function runPhase4Incidents(page, results) {
     s68.fire?.allowed !== true
       && s68.may === false
       && !s68.attackId
-      && s68.objective?.fireCapable === false,
+      && (s68.objective == null || s68.objective.fireCapable === false)
+      && (s68.react?.appliedResponse === 'rescue' || s68.react?.appliedResponse === 'investigate' || s68.react?.appliedResponse === 'record_only'),
     JSON.stringify(s68),
   );
 
@@ -2175,13 +2178,20 @@ async function runPhase4Incidents(page, results) {
       if (order) p.operatorAct('withdraw', order.encounterId);
       p.tick(40, 80);
     }
-    const before = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => row.kind === 'access_noncompliance' && row.status === 'open');
-    const lost = probe2.loseHolding(p.snapshot().currentPlanet, 'klingon');
+    const systemIndex = p.snapshot().currentPlanet;
+    const before = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => (
+      row.kind === 'access_noncompliance'
+      && row.status === 'open'
+      && Number(row.systemIndex) === Number(systemIndex)
+    ));
+    const lost = probe2.loseHolding(systemIndex, 'klingon');
     const after = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => before.some((open) => open.incidentId === row.incidentId));
     return {
       lost,
+      systemIndex,
       beforeCount: before.length,
-      resolved: after.every((row) => row.status === 'resolved' && row.resolveReason === 'authority_changed'),
+      afterStatus: after.map((row) => ({ id: row.incidentId, status: row.status, reason: row.resolveReason })),
+      resolved: after.length > 0 && after.every((row) => row.status === 'resolved' && row.resolveReason === 'authority_changed'),
     };
   });
   check(
