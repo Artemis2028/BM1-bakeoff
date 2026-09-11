@@ -1,3 +1,20 @@
+import {
+  applyPersonalArrivalProtection,
+  applyPhase1RelationContract,
+  factionsAreAligned as factionsAreAlignedByContract,
+  factionsAreOpposed as factionsAreOpposedByContract,
+  getDeclaredRelations,
+  getNpcPursuitRange as resolveNpcPursuitRange,
+  getPlayerCommandIdentity,
+  grantsPlayerCombatCredit,
+  isStationTransferableFromHolder,
+  isWithinFireRange,
+  playerHoldsSystem,
+  resolveActorCombatCredit,
+  resolveBaseSystemFaction,
+  shouldPreserveNpcIdentity,
+} from './phase1-authority.js';
+
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
 let ctx = gameCtx;
@@ -105,6 +122,7 @@ const SHIP_WEAPON_RELOAD_FACTORS = {
   battleship: 0.72,
 };
 const NPC_WEAPON_RANGE = 680;
+const NPC_PURSUIT_RANGE = 1600;
 const NPC_WEAPON_COOLDOWN_MS = 1550;
 const NPC_WEAPON_DAMAGE = 8;
 const NPC_WEAPON_DAMAGE_SCALE = 0.26;
@@ -532,6 +550,7 @@ const state = {
   myantimatter: 6,
   playership: 18,
   playerFaction: 'ferengi',
+  playerSide: 'ferengi',
   playerFlags: [],
   captainName: '',
   shipName: '',
@@ -2375,26 +2394,49 @@ function applySystemState(systemIndex) {
     destroyed: Boolean(station.destroyed),
   }));
   const trafficShips = s.npcShips.map((ship, index) => {
-    const patrolShipId = state.systemFaction !== 'neutral' && ship.role === 'patrol' && !ship.destroyed
-      ? getNpcShipIdForFaction(state.systemFaction, ship.seed + 10)
-      : ship.shipId;
-    const faction = getShipFaction(patrolShipId);
-    const attitude = getFactionAttitude(faction);
-    return {
+    const keepIdentity = Boolean(ship.identityLocked) || shouldPreserveNpcIdentity({
       ...ship,
-      shipId: patrolShipId,
-      name: ship.name
-        && Number(ship.shipId) === Number(patrolShipId)
+      faction: ship.identityLocked ? ship.faction : '',
+    }) && Boolean(ship.identityLocked || ship.fleetId || ship.attackId);
+    const shipId = keepIdentity
+      ? ship.shipId
+      : (state.systemFaction !== 'neutral' && ship.role === 'patrol' && !ship.destroyed
+        ? getNpcShipIdForFaction(state.systemFaction, ship.seed + 10)
+        : ship.shipId);
+    const faction = keepIdentity && ship.faction
+      ? ship.faction
+      : getShipFaction(shipId);
+    const attitude = getFactionAttitude(faction);
+    const keepName = keepIdentity && ship.name
+      ? ship.name
+      : (ship.name
+        && Number(ship.shipId) === Number(shipId)
         && !isSystemDerivedShipName(ship.name)
         && !isCrossFactionShipName(ship.name, faction)
         ? ship.name
-        : generateShipName({ shipId: patrolShipId, faction, seed: ship.seed, role: ship.role || (index < 2 ? 'patrol' : 'traffic'), id: ship.id }),
+        : generateShipName({ shipId, faction, seed: ship.seed, role: ship.role || (index < 2 ? 'patrol' : 'traffic'), id: ship.id }));
+    const realized = {
+      ...ship,
+      shipId,
+      name: keepName,
       faction,
+      role: ship.role || (index < 2 ? 'patrol' : 'traffic'),
+      identityLocked: true,
       attitude,
-      hostile: state.systemAttitude === 'hostile' && attitude !== 'friendly',
-      scale: getShipVisualScale(patrolShipId) * getTrafficScaleMultiplier(ship.seed + 11),
-      lastShotAt: now + 700 + seeded(ship.seed + 13) * 1500,
+      hostile: Boolean(ship.hostile) || Boolean(ship.attackId) || (state.systemAttitude === 'hostile' && attitude !== 'friendly'),
+      scale: getShipVisualScale(shipId) * getTrafficScaleMultiplier(ship.seed + 11),
+      lastShotAt: Number.isFinite(Number(ship.lastShotAt)) && Number(ship.lastShotAt) > 0
+        ? ship.lastShotAt
+        : now + 700 + seeded(ship.seed + 13) * 1500,
     };
+    Object.assign(ship, {
+      shipId: realized.shipId,
+      name: realized.name,
+      faction: realized.faction,
+      role: realized.role,
+      identityLocked: true,
+    });
+    return realized;
   });
   state.npcShips = [
     ...trafficShips,
@@ -3916,7 +3958,7 @@ const factionNames = {
   neutral: 'Independent',
 };
 
-const factionRelations = {
+const factionRelations = applyPhase1RelationContract({
   terran: { friendly: ['vulcan', 'andorian', 'bajoran'], hostile: ['dominion', 'cardassian', 'klingon', 'romulan', 'gorn', 'hirogen', 'suliban', 'borg'] },
   vulcan: { friendly: ['terran', 'andorian', 'bajoran'], hostile: ['dominion', 'cardassian', 'klingon', 'hirogen', 'borg'] },
   romulan: { friendly: ['klingon'], hostile: ['dominion', 'cardassian', 'terran', 'vulcan', 'andorian', 'borg'] },
@@ -3933,7 +3975,19 @@ const factionRelations = {
   suliban: { friendly: [], hostile: ['terran', 'tholian', 'borg'] },
   pirate: { friendly: [], hostile: ['terran', 'ferengi', 'vulcan', 'romulan', 'cardassian', 'klingon', 'dominion', 'tholian', 'andorian', 'gorn', 'hirogen', 'suliban'] },
   borg: { friendly: [], hostile: ['terran', 'ferengi', 'vulcan', 'romulan', 'cardassian', 'klingon', 'dominion', 'tholian', 'bajoran', 'breen', 'sona', 'delpin', 'tarellian', 'promelli', 'andorian', 'gorn', 'hirogen', 'suliban', 'neutral', 'pirate'] },
-};
+});
+
+function warnUnknownFactionRelation(message) {
+  if (typeof console !== 'undefined' && typeof console.warn === 'function') console.warn(message);
+}
+
+function getFactionRelationEntry(faction) {
+  return getDeclaredRelations(factionRelations, faction, { warn: warnUnknownFactionRelation });
+}
+
+function getPlayerSide() {
+  return getPlayerCommandIdentity(state.playerSide, state.playerFaction);
+}
 
 const shipHailLines = {
   friendly: [
@@ -3993,23 +4047,28 @@ function getShipFaction(shipId) {
 }
 
 function getFactionAttitude(faction = 'neutral') {
-  if (!faction || faction === 'neutral') return 'neutral';
-  if (faction === 'borg') return state.playerFaction === 'borg' ? 'friendly' : 'hostile';
+  if (!faction || faction === 'neutral' || faction === 'unknown') return 'neutral';
+  if (faction === 'borg') return (state.playerFaction === 'borg' || getPlayerSide() === 'borg') ? 'friendly' : 'hostile';
   if (faction === 'pirate') return 'hostile';
-  if (faction === state.playerFaction) return 'friendly';
-  const relation = factionRelations[state.playerFaction] || {};
+  if (faction === state.playerFaction || faction === getPlayerSide()) return 'friendly';
+  const relation = getFactionRelationEntry(state.playerFaction);
   if (relation.friendly?.includes(faction)) return 'friendly';
   if (relation.hostile?.includes(faction)) return 'hostile';
   return 'neutral';
 }
 
 function formatFaction(faction = 'neutral') {
-  return factionNames[faction] || factionNames.neutral;
+  const key = normalizeFactionKey(faction);
+  if (factionNames[key]) return factionNames[key];
+  if (key.startsWith('custom:')) return `Polity ${key.slice(7)}`;
+  if (key === 'unknown') return 'Unknown';
+  return factionNames.neutral;
 }
 
 function normalizeFactionKey(faction = 'neutral') {
-  const key = String(faction || 'neutral').toLowerCase();
-  return factionNames[key] ? key : 'neutral';
+  const key = String(faction ?? 'neutral').trim().toLowerCase();
+  if (!key || key === 'undefined' || key === 'null') return 'neutral';
+  return key;
 }
 
 function isPurchasableFactionFlag(faction = 'neutral') {
@@ -4435,7 +4494,12 @@ function getBaseSystemFaction(index = state.currentPlanet) {
   const planet = state.planets[index] || {};
   const row = state.systemData[index] || [];
   const gov = Number(planet.governmentId ?? row[1]);
-  if (Number.isFinite(gov) && BM1_GOVERNMENT_FACTIONS[gov] !== undefined) return BM1_GOVERNMENT_FACTIONS[gov];
+  if (Number.isFinite(gov) && Object.prototype.hasOwnProperty.call(BM1_GOVERNMENT_FACTIONS, gov)) {
+    return BM1_GOVERNMENT_FACTIONS[gov];
+  }
+  if (Number.isFinite(gov)) {
+    return resolveBaseSystemFaction({ governmentId: gov, mappedFactions: BM1_GOVERNMENT_FACTIONS });
+  }
   const name = String(planet.name || row[0] || '').toLowerCase();
   const desc = String(row[7] || '').toLowerCase();
   const text = `${name} ${desc}`;
@@ -6415,7 +6479,7 @@ function isFactionShipStockEligible(shipFaction, localFaction) {
   if (!shipFaction || shipFaction === 'neutral') return true;
   if (!localFaction || localFaction === 'neutral') return true;
   if (shipFaction === localFaction) return true;
-  const relation = factionRelations[localFaction] || {};
+  const relation = getFactionRelationEntry(localFaction);
   return Boolean(relation.friendly?.includes(shipFaction));
 }
 
@@ -6462,8 +6526,7 @@ function getShipyardStock(station = getCurrentDockedStation()) {
 }
 
 function isSystemControlled(systemIndex = state.currentPlanet) {
-  return state.controlledSystems.includes(Number(systemIndex))
-    || (state.playerFaction !== 'neutral' && getSystemFaction(systemIndex) === state.playerFaction);
+  return playerHoldsSystem(state.controlledSystems, systemIndex);
 }
 
 function markSystemVisited(systemIndex = state.currentPlanet) {
@@ -7414,18 +7477,37 @@ function getRebuildSystemStationsStatus(systemIndex = state.currentPlanet) {
   return { ok: true, reason: `Restore ${targets.length} ruined station${targets.length === 1 ? '' : 's'} under your control.`, targets, cost };
 }
 
+function getPlayerOwnedFaction() {
+  const command = getPlayerSide();
+  return command && command !== 'neutral' && command !== 'unknown' ? command : normalizeFactionKey(state.playerFaction);
+}
+
+function transferEligibleStationsOnControlChange(systemIndex, previousHolder) {
+  const ownedFaction = getPlayerOwnedFaction();
+  const apply = (station) => {
+    if (!station) return;
+    if (station.systemIndex != null && Number(station.systemIndex) !== Number(systemIndex)) return;
+    if (!isStationTransferableFromHolder(station, previousHolder)) return;
+    station.faction = ownedFaction;
+    if ('attitude' in station) station.attitude = 'friendly';
+    if ('hostile' in station) station.hostile = false;
+  };
+  for (const station of state.stationDefinitions || []) {
+    if (Number(station.systemIndex) === Number(systemIndex)) apply(station);
+  }
+  for (const station of state.playerBuiltStations || []) {
+    if (Number(station.systemIndex) === Number(systemIndex)) station.faction = ownedFaction;
+  }
+  for (const station of state.stations || []) apply(station);
+  const systemState = state.systemStates[systemIndex];
+  if (systemState?.stations) {
+    for (const station of systemState.stations) apply(station);
+  }
+}
+
 function assignSystemStationDefinitionsToPlayer(systemIndex = state.currentPlanet) {
-  for (const station of state.stationDefinitions) {
-    if (Number(station.systemIndex) === Number(systemIndex)) {
-      station.faction = state.playerFaction;
-      station.attitude = 'friendly';
-    }
-  }
-  for (const station of state.playerBuiltStations) {
-    if (Number(station.systemIndex) === Number(systemIndex)) {
-      station.faction = state.playerFaction;
-    }
-  }
+  const previousHolder = getSystemFaction(systemIndex);
+  transferEligibleStationsOnControlChange(systemIndex, previousHolder);
 }
 
 function rebuildSystemStations() {
@@ -7439,20 +7521,35 @@ function rebuildSystemStations() {
   }
   const cameraBeforeRebuild = { x: state.camera.x, y: state.camera.y };
   const rebuiltIds = new Set(status.targets.map((station) => station.id));
+  const preservedShips = (state.systemStates[state.currentPlanet]?.npcShips || []).map((ship) => ({
+    ...ship,
+    identityLocked: true,
+  }));
   for (const id of rebuiltIds) delete state.destroyedStations[id];
   assignSystemStationDefinitionsToPlayer(state.currentPlanet);
   state.latinum -= status.cost.latinum;
   state.mylatinum = state.latinum;
   state.duranium -= status.cost.duranium;
   state.myduranium = state.duranium;
-  state.systemStates = {};
+  delete state.systemStates[state.currentPlanet];
   applySystemState(state.currentPlanet);
+  if (preservedShips.length && state.systemStates[state.currentPlanet]) {
+    state.systemStates[state.currentPlanet].npcShips = preservedShips;
+    const now = performance.now();
+    state.npcShips = [
+      ...preservedShips,
+      ...getPlayerFleetNpcShips(state.currentPlanet, now),
+      ...getPlayerEscortNpcShips(now),
+    ];
+  }
   for (const station of state.stations) {
     if (!rebuiltIds.has(station.id)) continue;
-    station.faction = state.playerFaction;
-    station.attitude = 'friendly';
-    station.hostile = false;
     station.destroyed = false;
+    if (isStationTransferableFromHolder({ ...station, destroyed: false }, getPlayerOwnedFaction()) || station.builtByPlayer) {
+      station.faction = getPlayerOwnedFaction();
+      station.attitude = 'friendly';
+      station.hostile = false;
+    }
   }
   state.camera.x = cameraBeforeRebuild.x;
   state.camera.y = cameraBeforeRebuild.y;
@@ -7462,8 +7559,9 @@ function rebuildSystemStations() {
 }
 
 function isFactionSystemClaimTarget(systemIndex = state.currentPlanet) {
+  if (isSystemControlled(systemIndex)) return false;
   const sovereign = getSystemFaction(systemIndex);
-  return sovereign !== 'neutral' && sovereign !== 'pirate' && sovereign !== state.playerFaction;
+  return sovereign !== 'neutral' && sovereign !== 'pirate';
 }
 
 function getSystemClaimCost(systemIndex = state.currentPlanet) {
@@ -7476,8 +7574,8 @@ function getSystemClaimCost(systemIndex = state.currentPlanet) {
 
 function isSystemClaimDefenseFaction(faction = 'neutral', systemIndex = state.currentPlanet) {
   const sovereign = getSystemFaction(systemIndex);
-  if (!faction || faction === 'neutral' || faction === state.playerFaction) return false;
-  if (sovereign === 'neutral') return faction !== 'neutral' && faction !== state.playerFaction;
+  if (!faction || faction === 'neutral') return false;
+  if (sovereign === 'neutral') return faction !== 'neutral' && faction !== getPlayerSide();
   return faction === sovereign || areFactionsAligned(faction, sovereign);
 }
 
@@ -7601,32 +7699,18 @@ function claimCurrentSystem() {
     setLog(status.message);
     return;
   }
+  const previousHolder = getSystemFaction(state.currentPlanet);
   if (!state.controlledSystems.includes(state.currentPlanet)) {
     state.controlledSystems.push(state.currentPlanet);
   }
   if (state.factionSystemOverrides) delete state.factionSystemOverrides[state.currentPlanet];
-  assignSystemStationDefinitionsToPlayer(state.currentPlanet);
+  transferEligibleStationsOnControlChange(state.currentPlanet, previousHolder);
   const claimCost = getSystemClaimCost(state.currentPlanet);
   state.latinum = Math.max(0, state.latinum - claimCost.latinum);
   state.mylatinum = state.latinum;
   state.duranium = Math.max(0, state.duranium - claimCost.duranium);
   state.myduranium = state.duranium;
-  const systemState = state.systemStates[state.currentPlanet];
-  for (const station of state.stations) {
-    if (station.destroyed) continue;
-    station.faction = state.playerFaction;
-    station.attitude = 'friendly';
-    station.hostile = false;
-  }
-  if (systemState?.stations) {
-    for (const station of systemState.stations) {
-      if (station.destroyed) continue;
-      station.faction = state.playerFaction;
-      station.attitude = 'friendly';
-      station.hostile = false;
-    }
-  }
-  state.systemFaction = state.playerFaction;
+  state.systemFaction = getSystemFaction(state.currentPlanet);
   state.systemAttitude = 'friendly';
   playGameSound('uiConfirm', { cooldownKey: `claim:${state.currentPlanet}` });
   setLog(`${state.planets[state.currentPlanet]?.name || 'System'} claimed for the ${formatFaction(state.playerFaction)}. Charter cost: ${claimCost.latinum} latinum, ${claimCost.duranium} duranium.`);
@@ -8842,6 +8926,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     cargoArray: state.cargoArray,
     playership: state.playership,
     playerFaction: state.playerFaction,
+    playerSide: getPlayerSide(),
     playerFlags: normalizePlayerFlags(),
     captainName: state.captainName,
     shipName: state.shipName,
@@ -8929,6 +9014,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.cargoArray = s.cargoArray ?? state.cargoArray;
   state.playership = resolveShipId(s.playership ?? 18);
   state.playerFaction = s.playerFaction ?? getShipFaction(state.playership);
+  state.playerSide = s.playerSide ?? s.playerFaction ?? state.playerFaction;
   state.playerFlags = Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction];
   normalizePlayerFlags();
   state.factionStanding = (s.factionStanding && typeof s.factionStanding === 'object') ? s.factionStanding : {};
@@ -9940,6 +10026,7 @@ function completeWarpTravel() {
   state.warp.active = false;
   const p = state.planets[state.currentPlanet];
   applySystemState(state.currentPlanet);
+  calmHomeSystem();
   const completedBuilds = completeDueStationConstructions({ silent: true });
   scheduleNextFleetAttack(performance.now() + 30000);
   setCameraNearPlanet();
@@ -10914,6 +11001,8 @@ function addProjectile({
   turnRate = 0,
   hitRadius = null,
   targetType = 'ship',
+  credit = null,
+  actorId = null,
 }) {
   const radians = heading * Math.PI / 180;
   state.projectiles.push({
@@ -10922,6 +11011,8 @@ function addProjectile({
     vx: Math.sin(radians) * speed,
     vy: -Math.cos(radians) * speed,
     owner,
+    credit: credit || resolveActorCombatCredit({ owner, source: owner }),
+    actorId,
     damage,
     color,
     targetId,
@@ -11128,10 +11219,16 @@ function applyPlayerDamage(damage, color = '#ff7777', options = {}) {
   return { shieldDamage, hullDamage };
 }
 
-function damageNpcShip(npc, damage, source = 'player', color = '#74d6ff', impactPoint = null) {
+function damageNpcShip(npc, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
   ensureNpcCombatStats(npc);
   const amount = Math.max(0, Math.round(finiteNumber(damage, 0)));
   if (amount <= 0) return { shieldDamage: 0, hullDamage: 0 };
+  const credit = meta.credit || resolveActorCombatCredit({ source, role: meta.actor?.role, fleetId: meta.actor?.fleetId, owner: source });
+  npc.lastCombatCredit = credit;
+  if (meta.actor?.id) {
+    npc.lastAttackerId = meta.actor.id;
+    npc.lastAttackerUntil = performance.now() + NPC_PLAYER_AGGRO_MS;
+  }
   const shieldDamage = Math.min(npc.combatShields, amount);
   const hullDamage = Math.max(0, amount - shieldDamage);
   npc.lastShieldHitAt = performance.now();
@@ -11156,14 +11253,14 @@ function damageNpcShip(npc, damage, source = 'player', color = '#74d6ff', impact
     });
   }
   playImpactSound({ shieldDamage, hullDamage }, { cooldownKey: hullDamage > 0 ? `impact:ship-hull:${npc.id}` : `impact:ship-shield:${npc.id}`, volume: 0.92 });
-  if (source === 'player') {
+  if (grantsPlayerCombatCredit(credit) || source === 'player') {
     const now = performance.now();
     npc.attitude = 'hostile';
     npc.hostile = true;
     npc.playerAggroUntil = now + NPC_PLAYER_AGGRO_MS;
     npc.playerEscortOrderUntil = now + PLAYER_ESCORT_ORDER_MS;
   }
-  if (npc.combatHull <= 0) destroyNpcShip(npc);
+  if (npc.combatHull <= 0) destroyNpcShip(npc, credit);
   return { shieldDamage, hullDamage };
 }
 
@@ -11202,11 +11299,13 @@ function alertLocalDefenseAgainstPlayer(faction = state.systemFaction, attackedS
   }
 }
 
-function damageStation(station, damage, source = 'player', color = '#74d6ff', impactPoint = null) {
+function damageStation(station, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
   ensureStationCombatStats(station);
   const visual = getStationVisualProfile(station);
   const amount = Math.max(0, Math.round(finiteNumber(damage, 0)));
   if (amount <= 0) return { shieldDamage: 0, hullDamage: 0 };
+  const credit = meta.credit || resolveActorCombatCredit({ source, role: meta.actor?.role, fleetId: meta.actor?.fleetId, owner: source });
+  station.lastCombatCredit = credit;
   const shieldDamage = Math.min(station.combatShields, amount);
   const hullDamage = Math.max(0, amount - shieldDamage);
   station.lastShieldHitAt = performance.now();
@@ -11232,14 +11331,14 @@ function damageStation(station, damage, source = 'player', color = '#74d6ff', im
     });
   }
   playImpactSound({ shieldDamage, hullDamage }, { cooldownKey: hullDamage > 0 ? `impact:station-hull:${station.id}` : `impact:station-shield:${station.id}`, volume: 1.05 });
-  if (source === 'player') {
+  if (grantsPlayerCombatCredit(credit) || source === 'player') {
     const now = performance.now();
     station.attitude = 'hostile';
     station.hostile = true;
     station.playerEscortOrderUntil = now + PLAYER_ESCORT_ORDER_MS;
     alertLocalDefenseAgainstPlayer(station.faction || state.systemFaction, station);
   }
-  if (station.combatHull <= 0) destroyStation(station);
+  if (station.combatHull <= 0) destroyStation(station, credit);
   return { shieldDamage, hullDamage };
 }
 
@@ -11390,10 +11489,10 @@ function updateTargetWindow() {
     ${isStation ? '' : renderShipHailPanel(target, distance)}`;
 }
 
-function damageCombatTarget(target, damage, source = 'player', color = '#74d6ff', impactPoint = null) {
+function damageCombatTarget(target, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
   return target.stationTypeId
-    ? damageStation(target, damage, source, color, impactPoint)
-    : damageNpcShip(target, damage, source, color, impactPoint);
+    ? damageStation(target, damage, source, color, impactPoint, meta)
+    : damageNpcShip(target, damage, source, color, impactPoint, meta);
 }
 
 const FLEET_STANCES = ['follow', 'attack', 'seek', 'planet', 'explore', 'trade'];
@@ -11862,9 +11961,14 @@ function processHeldWeaponInputs() {
 function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player', now = performance.now()) {
   const weaponId = getDefaultWeaponId(npc.shipId, npc.faction, true);
   const weapon = getWeapon(weaponId);
+  const targetPoint = targetType === 'player' ? playerWorldPosition() : target;
+  const fireRange = getNpcWeaponRange(npc);
+  const distance = Math.hypot((targetPoint?.x || 0) - npc.x, (targetPoint?.y || 0) - npc.y);
+  if (!isWithinFireRange(distance, fireRange)) return;
   const cooldown = getScaledWeaponCooldown(npc.shipId, weapon, NPC_WEAPON_COOLDOWN_SCALE, NPC_WEAPON_FLOOR_SCALE);
   if (now - (npc.lastShotAt || 0) < cooldown) return;
   npc.lastShotAt = now;
+  const credit = resolveActorCombatCredit(npc);
   const shotColor = getWeaponShotColor(npc.faction, weapon);
   const targetHeading = (Math.atan2(target.x - npc.x, -(target.y - npc.y)) * 180 / Math.PI + 360) % 360;
   const visualKind = getWeaponVisualKind(weapon);
@@ -11883,7 +11987,7 @@ function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player
       };
     const impact = getWeaponImpactPoint(targetType === 'player' ? null : target, origin, targetType);
     if (targetType === 'player') applyPlayerDamage(damage, shotColor, { impactPoint: impact });
-    else damageCombatTarget(target, damage, 'npc', shotColor, impact);
+    else damageCombatTarget(target, damage, credit, shotColor, impact, { credit, actor: npc });
     if (isCuttingBeamWeapon(weapon)) {
       addCuttingBeamEffects({
         weapon,
@@ -11915,6 +12019,8 @@ function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player
     heading,
     speed: weapon.speed || 8.5,
     owner: 'npc',
+    credit,
+    actorId: npc.id,
     damage,
     color: shotColor,
     targetId: targetType === 'player' ? null : target.id || null,
@@ -11961,7 +12067,7 @@ function fireStationWeapon(station, target, now = performance.now()) {
       : origin;
     const impact = getWeaponImpactPoint(targetType === 'player' ? null : target, beamOrigin, targetType);
     if (targetType === 'player') applyPlayerDamage(damage, shotColor, { impactPoint: impact });
-    else damageCombatTarget(target, damage, 'station', shotColor, impact);
+    else damageCombatTarget(target, damage, 'station', shotColor, impact, { credit: 'station', actor: station });
     if (isCuttingBeamWeapon(weapon)) {
       addCuttingBeamEffects({
         weapon,
@@ -12003,6 +12109,8 @@ function fireStationWeapon(station, target, now = performance.now()) {
       heading: heading + (barrelCount === 1 ? 0 : (i === 0 ? -1.8 : 1.8)),
       speed: weapon.speed || 10.5,
       owner: 'station',
+      credit: 'station',
+      actorId: station.id,
       damage: shotDamage,
       color: shotColor,
       targetId: target.id || null,
@@ -12037,7 +12145,7 @@ function updateStationDefenses() {
   }
 }
 
-function destroyNpcShip(npc) {
+function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
   npc.destroyed = true;
   npc.hostile = false;
   playGameSound('explosion', { cooldownKey: `destroy:ship:${npc.id}`, volume: 0.95, rateJitter: 0.12 });
@@ -12054,9 +12162,10 @@ function destroyNpcShip(npc) {
     updateStats();
     return;
   }
+  const playerCredited = grantsPlayerCombatCredit(credit);
   const reward = 18 + Math.floor(seeded(npc.seed + 99) * 35);
-  state.latinum += reward;
-  if (npc.faction) {
+  if (playerCredited) state.latinum += reward;
+  if (playerCredited && npc.faction) {
     applyKillStanding(npc.faction, npc.role === 'patrol' ? -4 : -2);
     const witnesses = new Set();
     for (const other of state.npcShips || []) {
@@ -12085,11 +12194,13 @@ function destroyNpcShip(npc) {
       }
     }
   }
-  setLog(`Destroyed ${getShipDisplayName(npc)}. Salvage recovered: ${reward} latinum.`);
+  setLog(playerCredited
+    ? `Destroyed ${getShipDisplayName(npc)}. Salvage recovered: ${reward} latinum.`
+    : `${getShipDisplayName(npc)} destroyed.`);
   updateStats();
 }
 
-function destroyStation(station) {
+function destroyStation(station, credit = station.lastCombatCredit) {
   station.destroyed = true;
   station.hostile = false;
   station.attitude = 'destroyed';
@@ -12118,13 +12229,18 @@ function destroyStation(station) {
     closePlanetMenu();
   }
   const reward = Math.max(65, Math.round((station.maxCombatHull || 100) * 0.18));
-  state.latinum += reward;
-  applyKillStanding(station.faction || getSystemFaction(state.currentPlanet), -6);
-  checkSystemFeatUnlocks();
+  const playerCredited = grantsPlayerCombatCredit(credit);
+  if (playerCredited) {
+    state.latinum += reward;
+    applyKillStanding(station.faction || getSystemFaction(state.currentPlanet), -6);
+    checkSystemFeatUnlocks();
+  }
   const claimStatus = getClaimSystemStatus(state.currentPlanet);
-  setLog(claimStatus.canClaim
-    ? `${station.name} destroyed. Salvage recovered: ${reward} latinum. Dock and claim the system.`
-    : `${station.name} destroyed. Salvage recovered: ${reward} latinum.`);
+  setLog(playerCredited
+    ? (claimStatus.canClaim
+      ? `${station.name} destroyed. Salvage recovered: ${reward} latinum. Dock and claim the system.`
+      : `${station.name} destroyed. Salvage recovered: ${reward} latinum.`)
+    : `${station.name} destroyed.`);
   updateStats();
 }
 
@@ -12167,7 +12283,12 @@ function updateProjectiles(frameScale = 1) {
         const impact = getWeaponImpactPoint(target, { x: shot.x, y: shot.y }, shot.targetType);
         shot.x = impact.x;
         shot.y = impact.y;
-        damageCombatTarget(target, shot.damage, shot.owner, shot.color || '#74d6ff', impact);
+        damageCombatTarget(target, shot.damage, shot.credit || shot.owner, shot.color || '#74d6ff', impact, {
+          credit: shot.credit || resolveActorCombatCredit({ owner: shot.owner, source: shot.owner }),
+          actor: shot.actorId ? (shot.owner === 'station'
+            ? state.stations.find((station) => station.id === shot.actorId)
+            : state.npcShips.find((npc) => npc.id === shot.actorId)) : null,
+        });
         if (shot.kind === 'torpedo' || shot.kind === 'mine') {
           addWeaponEffect({
             kind: 'burst',
@@ -12219,21 +12340,11 @@ function isNpcStationTarget(npc, station) {
 }
 
 function areFactionsAligned(a = 'neutral', b = 'neutral') {
-  if (!a || !b || a === 'neutral' || b === 'neutral') return false;
-  if (a === b) return true;
-  const aRelations = factionRelations[a] || {};
-  const bRelations = factionRelations[b] || {};
-  return Boolean(aRelations.friendly?.includes(b) || bRelations.friendly?.includes(a));
+  return factionsAreAlignedByContract(factionRelations, a, b, { warn: warnUnknownFactionRelation });
 }
 
 function areFactionsOpposed(a = 'neutral', b = 'neutral') {
-  if (!a || !b || a === 'neutral' || b === 'neutral') return false;
-  if (a === b) return false;
-  if (a === 'borg' || b === 'borg') return true;
-  if (a === 'pirate' || b === 'pirate') return true;
-  const aRelations = factionRelations[a] || {};
-  const bRelations = factionRelations[b] || {};
-  return Boolean(aRelations.hostile?.includes(b) || bRelations.hostile?.includes(a));
+  return factionsAreOpposedByContract(factionRelations, a, b, { warn: warnUnknownFactionRelation });
 }
 
 function isNpcSystemDefender(npc) {
@@ -12266,6 +12377,12 @@ function getNpcDefenseTarget(defender) {
       if (a.target.playerAggroUntil !== b.target.playerAggroUntil) return b.target.playerAggroUntil ? 1 : -1;
       return a.distance - b.distance;
     })[0]?.target || null;
+}
+
+function getNpcSelfDefenseTarget(npc, now = performance.now()) {
+  if (!npc || npc.destroyed || !npc.lastAttackerId || finiteNumber(npc.lastAttackerUntil, 0) <= now) return null;
+  const attacker = getLivingNpcShips().find((other) => other.id === npc.lastAttackerId);
+  return attacker && attacker !== npc ? attacker : null;
 }
 
 function getNpcStationTarget(npc) {
@@ -12347,15 +12464,20 @@ function getPlayerEscortPriorityTarget(escort, now = performance.now()) {
     .sort((a, b) => a.playerDistance - b.playerDistance)[0] || null;
 }
 
+function getNpcHuntRange(npc) {
+  return resolveNpcPursuitRange(getNpcWeaponRange(npc), NPC_PURSUIT_RANGE);
+}
+
 function shouldNpcTargetPlayer(npc, playerDistance, stationTarget, now = performance.now()) {
   if (isPlayerCloaked(now)) return false;
   if (isSpawnProtected(now)) return false;
-  if (getFactionStanding(npc.faction) <= -50) return true;
+  const huntRange = getNpcHuntRange(npc);
+  if (getFactionStanding(npc.faction) <= -50) return playerDistance <= huntRange;
   if (normalizeFactionKey(npc.faction) === 'pirate' && (state.shields < 35 || state.hull < 50)) {
-    return playerDistance <= NPC_WEAPON_RANGE * 1.5;
+    return playerDistance <= huntRange;
   }
-  if (npc.playerAggroUntil && npc.playerAggroUntil > now) return playerDistance <= NPC_WEAPON_RANGE * 1.25;
-  if (!stationTarget) return playerDistance <= NPC_WEAPON_RANGE;
+  if (npc.playerAggroUntil && npc.playerAggroUntil > now) return playerDistance <= huntRange;
+  if (!stationTarget) return playerDistance <= huntRange;
   if (playerDistance <= NPC_PLAYER_INTERVENTION_RANGE * 0.58) return true;
   return now - (state.lastPlayerShotAt || 0) < NPC_PLAYER_AGGRO_MS
     && playerDistance <= NPC_PLAYER_INTERVENTION_RANGE;
@@ -12418,13 +12540,15 @@ function scheduleNextFleetAttack(now = performance.now()) {
 
 function chooseFleetAttackFaction(systemIndex = state.currentPlanet) {
   const localFaction = getSystemFaction(systemIndex);
+  const playerHolds = isSystemControlled(systemIndex);
+  const commandSide = getPlayerSide();
   const candidates = Object.keys(factionNames).filter((faction) => (
     faction !== 'neutral'
     && faction !== 'pirate'
     && faction !== 'borg'
     && faction !== localFaction
-    && faction !== state.playerFaction
-    && (areFactionsOpposed(faction, localFaction) || areFactionsOpposed(faction, state.playerFaction))
+    && !(playerHolds && faction === commandSide)
+    && (areFactionsOpposed(faction, localFaction) || (playerHolds && areFactionsOpposed(faction, commandSide)))
   ));
   if (candidates.length) {
     return candidates[Math.floor(seeded(performance.now() * 0.011 + systemIndex * 97) * candidates.length) % candidates.length];
@@ -12516,9 +12640,9 @@ function getFleetAttackDefenders(attackFaction = state.activeFleetAttack?.factio
     && npc.faction !== attackFaction
     && isNpcSystemDefender(npc)
   ));
-  const playerDefending = state.controlledSystems.includes(Number(state.currentPlanet))
-    || state.playerFaction === localFaction
-    || areFactionsAligned(state.playerFaction, localFaction);
+  const playerDefending = isSystemControlled(state.currentPlanet)
+    || getPlayerSide() === localFaction
+    || areFactionsAligned(getPlayerSide(), localFaction);
   const playerEngaged = attackers.some((npc) => distanceToPlayer(npc) <= NPC_PLAYER_INTERVENTION_RANGE * 1.8)
     || now - (state.lastPlayerShotAt || 0) < NPC_PLAYER_AGGRO_MS;
   return {
@@ -12752,6 +12876,7 @@ function updateNpcShips(frameScale = 1) {
     const stationTarget = npc.hostile ? getNpcStationTarget(npc) : null;
     const targetPlayer = npc.hostile && shouldNpcTargetPlayer(npc, playerDistance, stationTarget, now);
     const defenseTarget = getNpcDefenseTarget(npc);
+    const selfDefenseTarget = getNpcSelfDefenseTarget(npc, now);
     const escortTarget = isPlayerEscortNpc(npc) ? getPlayerEscortPriorityTarget(npc, now) : null;
     let combatActive = false;
     if (escortTarget) {
@@ -12768,13 +12893,15 @@ function updateNpcShips(frameScale = 1) {
       npc.destination = getPlayerEscortFormationPoint(npc.escortIndex || 0, now);
       npc.destinationName = 'player escort';
     } else if (defenseTarget) {
-      const targetDistance = Math.hypot(defenseTarget.x - npc.x, defenseTarget.y - npc.y);
       npc.destination = getNpcCombatManeuverPoint(npc, defenseTarget, 'ship', now);
       npc.destinationName = `defend: ${getShipStats(defenseTarget.shipId).name}`;
       combatActive = true;
-      if (targetDistance <= NPC_WEAPON_RANGE) {
-        fireNpcWeapon(npc, defenseTarget, 'ship', now);
-      }
+      fireNpcWeapon(npc, defenseTarget, 'ship', now);
+    } else if (selfDefenseTarget) {
+      npc.destination = getNpcCombatManeuverPoint(npc, selfDefenseTarget, 'ship', now);
+      npc.destinationName = `defend-self: ${getShipDisplayName(selfDefenseTarget)}`;
+      combatActive = true;
+      fireNpcWeapon(npc, selfDefenseTarget, 'ship', now);
     } else if (targetPlayer && !playerCloaked) {
       const player = playerWorldPosition();
       npc.destination = getNpcCombatManeuverPoint(npc, player, 'player', now);
@@ -12785,9 +12912,7 @@ function updateNpcShips(frameScale = 1) {
       npc.destination = getNpcCombatManeuverPoint(npc, stationTarget.station, 'station', now);
       npc.destinationName = stationTarget.station.name || 'station target';
       combatActive = true;
-      if (stationTarget.distance <= NPC_WEAPON_RANGE) {
-        fireNpcWeapon(npc, stationTarget.station, 'station', now);
-      }
+      fireNpcWeapon(npc, stationTarget.station, 'station', now);
     } else if (playerCloaked && npc.destinationName === 'player') {
       npc.combatManeuver = null;
       const next = pickTrafficDestination(state.trafficDestinations, npc.seed + npc.leg * 17 + 47, npc.destinationName);
@@ -16294,6 +16419,7 @@ function resetRunState() {
   state.cloak = { active: false, startedAt: 0, duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS) };
   state.stationPlans = [];
   state.playerFlags = [];
+  state.playerSide = 'ferengi';
   state.factionStanding = {};
   state.feats = {};
   state.power = { energy: 200, dist: { reserve: 5, engines: 5, weapons: 5, shields: 5 } };
@@ -16443,22 +16569,11 @@ function isSpawnProtected(now = performance.now()) {
 }
 function calmHomeSystem() {
   const now = performance.now();
-  state.spawnProtectionUntil = now + 20000;
-  const local = getSystemFaction(state.currentPlanet);
-  state.npcShips = (state.npcShips || []).filter((npc) => {
-    if (!npc || npc.destroyed || isPlayerEscortNpc(npc)) return true;
-    if (areFactionsOpposed(npc.faction, local) || areFactionsOpposed(npc.faction, state.playerFaction)) return false;
-    npc.attitude = 'neutral';
-    npc.hostile = false;
-    npc.playerAggroUntil = 0;
-    npc.attackId = null;
-    return true;
-  });
-  for (const station of state.stations || []) {
-    if (!station || station.destroyed || station.builtByPlayer) continue;
-    station.attitude = 'neutral';
-    station.hostile = false;
-  }
+  const protectedScene = applyPersonalArrivalProtection({
+    ships: state.npcShips,
+    stations: state.stations,
+  }, now, 20000);
+  state.spawnProtectionUntil = protectedScene.spawnProtectionUntil;
 }
 function startWithFaction(key, options = {}) {
   const f = factionDefs[key];
@@ -16467,6 +16582,7 @@ function startWithFaction(key, options = {}) {
   state.currentSaveSlot = getFirstEmptySaveSlot();
   state.playership = f.playership;
   state.playerFaction = f.faction || key;
+  state.playerSide = f.faction || key;
   state.playerFlags = [state.playerFaction];
   state.factionStanding = {};
   state.feats = {};
