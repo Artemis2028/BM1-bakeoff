@@ -16988,13 +16988,492 @@ startMenuEl?.addEventListener('change', (e) => {
 });
 
 let lastFrameTime = performance.now();
+let probeLoopFrozen = false;
+let probeRafHandle = 0;
 function loop(now = performance.now()) {
+  if (probeLoopFrozen) {
+    probeRafHandle = 0;
+    return;
+  }
   const frameScale = Math.min(2.5, Math.max(0.25, (now - lastFrameTime) / 16.6667));
   lastFrameTime = now;
   tick(frameScale);
   render();
-  requestAnimationFrame(loop);
+  if (probeLoopFrozen) {
+    probeRafHandle = 0;
+    return;
+  }
+  probeRafHandle = requestAnimationFrame(loop);
 }
+
+function freezeLoop() {
+  probeLoopFrozen = true;
+  if (probeRafHandle) {
+    cancelAnimationFrame(probeRafHandle);
+    probeRafHandle = 0;
+  }
+}
+
+function probeTick(count = 1, frameScale = 1) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  const scale = Number.isFinite(Number(frameScale)) ? Number(frameScale) : 1;
+  for (let i = 0; i < n; i++) tick(scale);
+}
+
+function probeShipSummary(ship) {
+  if (!ship) return null;
+  const player = playerWorldPosition();
+  return {
+    id: ship.id,
+    name: ship.name || null,
+    faction: ship.faction || null,
+    role: ship.role || null,
+    fleetId: ship.fleetId || null,
+    attackId: ship.attackId || null,
+    destinationName: ship.destinationName || null,
+    destination: ship.destination ? { x: ship.destination.x, y: ship.destination.y } : null,
+    x: ship.x,
+    y: ship.y,
+    hostile: Boolean(ship.hostile),
+    destroyed: Boolean(ship.destroyed),
+    combatHull: ship.combatHull,
+    combatShields: ship.combatShields,
+    lastCombatCredit: ship.lastCombatCredit || null,
+    playerDistance: Math.hypot((ship.x || 0) - player.x, (ship.y || 0) - player.y),
+    fireRange: getNpcWeaponRange(ship),
+    huntRange: getNpcHuntRange(ship),
+  };
+}
+
+function probeStationSummary(station) {
+  if (!station) return null;
+  return {
+    id: station.id,
+    name: station.name || null,
+    faction: station.faction || null,
+    privateInstallation: Boolean(station.privateInstallation),
+    builtByPlayer: Boolean(station.builtByPlayer),
+    destroyed: Boolean(station.destroyed),
+    combatHull: station.combatHull,
+    lastCombatCredit: station.lastCombatCredit || null,
+  };
+}
+
+function probeSnapshot() {
+  const doctrine = getDoctrineRuntime();
+  const breen = doctrine?.getRelations?.('breen') || getFactionRelationEntry('breen');
+  const dominion = doctrine?.getRelations?.('dominion') || getFactionRelationEntry('dominion');
+  return {
+    gameStarted: Boolean(state.gameStarted),
+    currentPlanet: state.currentPlanet,
+    systemName: state.planets[state.currentPlanet]?.name || null,
+    systemFaction: state.systemFaction,
+    playerFaction: state.playerFaction,
+    playerSide: getPlayerSide(),
+    playerFlags: [...(state.playerFlags || [])],
+    controlledSystems: [...(state.controlledSystems || [])],
+    latinum: state.latinum,
+    duranium: state.duranium,
+    hull: state.hull,
+    shields: state.shields,
+    feats: { ...(state.feats || {}) },
+    standing: { ...(state.factionStanding || {}) },
+    spawnProtectionUntil: state.spawnProtectionUntil || 0,
+    now: performance.now(),
+    projectileCount: (state.projectiles || []).length,
+    npcShips: (state.npcShips || []).map(probeShipSummary),
+    stations: (state.stations || []).map(probeStationSummary),
+    log: state.log,
+    breenFriendly: [...(breen.friendly || [])],
+    dominionFriendly: [...(dominion.friendly || [])],
+    breenHostile: [...(breen.hostile || [])],
+    dominionHostile: [...(dominion.hostile || [])],
+    locationIdentity: state.locationIdentity || null,
+    doctrineLoaded: Boolean(doctrine?.loaded),
+  };
+}
+
+function probeFindShip(id) {
+  return (state.npcShips || []).find((ship) => ship.id === id) || null;
+}
+
+function probeFindStation(id) {
+  return (state.stations || []).find((station) => station.id === id) || null;
+}
+
+function probePlacePlayer(x, y) {
+  setCamera(Number(x), Number(y));
+}
+
+function probePrepareArena(options = {}) {
+  freezeLoop();
+  state.nextFleetAttackAt = performance.now() + 1e12;
+  state.activeFleetAttack = null;
+  state.fleetAttackControlSince = 0;
+  state.spawnProtectionUntil = options.keepSpawnProtection ? state.spawnProtectionUntil : 0;
+  state.warp.active = false;
+  state.gameOver = false;
+  state.projectiles = [];
+  state.weaponEffects = [];
+  state.tractorBeams = [];
+  if (options.clearTraffic) {
+    state.npcShips = (state.npcShips || []).filter((ship) => ship.fleetId || ship.attackId);
+  }
+  if (options.clearStations) {
+    state.stations = [];
+  }
+  if (Number.isFinite(Number(options.latinum))) state.latinum = Number(options.latinum);
+  if (Number.isFinite(Number(options.duranium))) state.duranium = Number(options.duranium);
+  if (Number.isFinite(Number(options.hull))) state.hull = Number(options.hull);
+  if (Number.isFinite(Number(options.shields))) state.shields = Number(options.shields);
+  if (state.power) state.power.energy = Math.max(state.power.energy || 0, 500);
+}
+
+function probeSpawnShip(options = {}) {
+  const faction = options.faction || 'klingon';
+  const shipId = Number(options.shipId) || getNpcShipIdForFaction(faction, Number(options.seed) || 17);
+  const player = playerWorldPosition();
+  const ship = createNpcShip({
+    id: options.id || `probe-ship-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    shipId,
+    faction,
+    attitude: options.attitude || (options.hostile ? 'hostile' : 'neutral'),
+    hostile: Boolean(options.hostile),
+    seed: Number(options.seed) || 17,
+    from: {
+      x: Number.isFinite(Number(options.x)) ? Number(options.x) : player.x + 240,
+      y: Number.isFinite(Number(options.y)) ? Number(options.y) : player.y,
+    },
+    destination: options.destination || {
+      x: Number.isFinite(Number(options.destX)) ? Number(options.destX) : player.x,
+      y: Number.isFinite(Number(options.destY)) ? Number(options.destY) : player.y,
+    },
+    destinationName: options.destinationName || 'probe',
+    role: options.role || 'patrol',
+    fleetId: options.fleetId || null,
+    attackId: options.attackId || null,
+    name: options.name || null,
+  });
+  if (options.playerAggro) ship.playerAggroUntil = performance.now() + 60000;
+  ship.lastShotAt = 0;
+  ensureNpcCombatStats(ship);
+  if (Number.isFinite(Number(options.combatHull))) ship.combatHull = Number(options.combatHull);
+  if (Number.isFinite(Number(options.combatShields))) ship.combatShields = Number(options.combatShields);
+  if (Number.isFinite(Number(options.speed))) ship.speed = Number(options.speed);
+  state.npcShips.push(ship);
+  const systemState = state.systemStates[state.currentPlanet];
+  if (systemState?.npcShips) systemState.npcShips.push(ship);
+  return probeShipSummary(ship);
+}
+
+function probeSpawnStation(options = {}) {
+  const stationTypes = Object.values(state.shipStatsById || {}).filter((entry) => entry?.assetType === 'station');
+  const stationTypeId = Number(options.stationTypeId) || Number(stationTypes[0]?.id) || 100;
+  const player = playerWorldPosition();
+  const definition = {
+    id: options.id || `probe-station-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    systemIndex: state.currentPlanet,
+    stationTypeId,
+    faction: options.faction || 'neutral',
+    name: options.name || 'Probe Station',
+    privateInstallation: Boolean(options.privateInstallation),
+    builtByPlayer: Boolean(options.builtByPlayer),
+    eligibleForTransfer: options.eligibleForTransfer,
+    condition: 100,
+  };
+  const runtime = createRuntimeStationFromDefinition(definition, state.currentPlanet, state.stations.length);
+  runtime.x = Number.isFinite(Number(options.x)) ? Number(options.x) : player.x + 180;
+  runtime.y = Number.isFinite(Number(options.y)) ? Number(options.y) : player.y;
+  runtime.privateInstallation = Boolean(options.privateInstallation);
+  if (options.eligibleForTransfer !== undefined) runtime.eligibleForTransfer = options.eligibleForTransfer;
+  ensureStationCombatStats(runtime);
+  if (Number.isFinite(Number(options.combatHull))) runtime.combatHull = Number(options.combatHull);
+  if (Number.isFinite(Number(options.combatShields))) runtime.combatShields = Number(options.combatShields);
+  state.stations.push(runtime);
+  if (!state.stationDefinitions.some((station) => station.id === runtime.id)) {
+    state.stationDefinitions.push({ ...definition });
+  }
+  const systemState = state.systemStates[state.currentPlanet];
+  if (systemState?.stations && !systemState.stations.some((station) => station.id === runtime.id)) {
+    systemState.stations.push(runtime);
+  }
+  return probeStationSummary(runtime);
+}
+
+function probeDestroy(id, credit = 'npc') {
+  const station = probeFindStation(id);
+  const ship = station ? null : probeFindShip(id);
+  const target = station || ship;
+  if (!target) return { destroyed: false, missing: true };
+  if (station) {
+    ensureStationCombatStats(station);
+    station.combatShields = 0;
+    station.combatHull = 1;
+    damageStation(station, 99999, credit, '#ffffff', null, { credit });
+  } else {
+    ensureNpcCombatStats(ship);
+    ship.combatShields = 0;
+    ship.combatHull = 1;
+    damageNpcShip(ship, 99999, credit, '#ffffff', null, { credit });
+  }
+  return {
+    destroyed: Boolean(target.destroyed),
+    lastCombatCredit: target.lastCombatCredit || null,
+    latinum: state.latinum,
+    feats: { ...(state.feats || {}) },
+  };
+}
+
+function probeFireNpc(attackerId, targetSpec = {}) {
+  const attacker = probeFindShip(attackerId);
+  if (!attacker) return { fired: false, missing: true };
+  attacker.lastShotAt = 0;
+  const before = (state.projectiles || []).length;
+  const hullBefore = state.hull;
+  let target = playerWorldPosition();
+  let targetType = targetSpec.targetType || 'player';
+  if (targetSpec.stationId) {
+    target = probeFindStation(targetSpec.stationId);
+    targetType = 'station';
+  } else if (targetSpec.shipId) {
+    target = probeFindShip(targetSpec.shipId);
+    targetType = 'ship';
+  }
+  if (!target) return { fired: false, missingTarget: true };
+  fireNpcWeapon(attacker, target, targetType, performance.now());
+  return {
+    fired: (state.projectiles || []).length > before || state.hull < hullBefore || Boolean(target.destroyed) || target.combatHull < (target.maxCombatHull || Infinity),
+    projectileCount: (state.projectiles || []).length,
+    projectileDelta: (state.projectiles || []).length - before,
+    targetDestroyed: Boolean(target.destroyed),
+    lastCombatCredit: target.lastCombatCredit || null,
+  };
+}
+
+function probeFirePlayer(targetId) {
+  const target = probeFindShip(targetId) || probeFindStation(targetId);
+  if (!target) return { fired: false, missing: true };
+  state.combatTargetId = target.id;
+  state.combatTargetType = target.stationTypeId ? 'station' : 'ship';
+  state.weaponLastFiredAt = [0, 0, 0];
+  if (state.power) state.power.energy = Math.max(state.power.energy || 0, 500);
+  const before = (state.projectiles || []).length;
+  const hullBefore = target.combatHull;
+  firePlayerWeapon(1);
+  return {
+    fired: (state.projectiles || []).length > before || target.combatHull < hullBefore || Boolean(target.destroyed),
+    projectileDelta: (state.projectiles || []).length - before,
+    targetDestroyed: Boolean(target.destroyed),
+    lastCombatCredit: target.lastCombatCredit || null,
+  };
+}
+
+function probeDockForClaim() {
+  state.docked = true;
+  state.dockedPlanetIndex = state.currentPlanet;
+  state.dockedStationId = null;
+  state.latinum = Math.max(state.latinum, 20000);
+  state.duranium = Math.max(state.duranium, 400);
+  state.mylatinum = state.latinum;
+  state.myduranium = state.duranium;
+}
+
+function probeClearClaimBlockers(credit = 'npc') {
+  const blockers = getSystemControlBlockers(state.currentPlanet);
+  const removed = [];
+  for (const blocker of blockers) {
+    const station = (state.stations || []).find((entry) => entry.name === blocker.name && !entry.destroyed);
+    const ship = (state.npcShips || []).find((entry) => getShipDisplayName(entry) === blocker.name && !entry.destroyed);
+    const target = station || ship;
+    if (!target) continue;
+    probeDestroy(target.id, credit);
+    removed.push({ type: blocker.type, id: target.id, credit: target.lastCombatCredit || credit });
+  }
+  return { remaining: getSystemControlBlockers(state.currentPlanet).length, removed };
+}
+
+function probeClaimCurrent() {
+  probeDockForClaim();
+  const before = getClaimSystemStatus(state.currentPlanet);
+  claimCurrentSystem();
+  return {
+    before,
+    after: getClaimSystemStatus(state.currentPlanet),
+    controlled: isSystemControlled(state.currentPlanet),
+    systemFaction: getSystemFaction(state.currentPlanet),
+    stations: (state.stations || []).map(probeStationSummary),
+  };
+}
+
+function probeWarpTo(nameOrIndex) {
+  const index = typeof nameOrIndex === 'string'
+    ? getSystemIndexByName(nameOrIndex)
+    : Number(nameOrIndex);
+  if (!Number.isFinite(index) || index < 0 || !state.planets[index]) {
+    return { ok: false, index, error: 'unknown-system' };
+  }
+  state.warp = {
+    active: true,
+    from: state.currentPlanet,
+    to: index,
+    startedAt: performance.now(),
+    duration: 0,
+    message: 'probe-warp',
+  };
+  completeWarpTravel();
+  freezeLoop();
+  state.nextFleetAttackAt = performance.now() + 1e12;
+  return { ok: true, index, name: state.planets[index]?.name || null };
+}
+
+function probeForceFleetSeize(faction = 'klingon') {
+  const player = playerWorldPosition();
+  spawnFleetAttack(state.currentPlanet, faction);
+  const attack = state.activeFleetAttack;
+  for (const npc of state.npcShips || []) {
+    if (npc.attackId === attack?.id) {
+      npc.x = player.x + 2400;
+      npc.y = player.y + 2400;
+    } else if (!npc.destroyed && npc.faction !== faction && isNpcSystemDefender(npc)) {
+      probeDestroy(npc.id, 'npc');
+    }
+  }
+  for (const station of state.stations || []) {
+    if (station.destroyed) continue;
+    const localFaction = state.systemFaction || getSystemFaction(state.currentPlanet);
+    if (station.privateInstallation) continue;
+    const defends = station.faction !== faction
+      && (station.faction === state.playerFaction || station.faction === localFaction || areFactionsAligned(station.faction, localFaction));
+    if (defends) probeDestroy(station.id, 'npc');
+  }
+  state.lastPlayerShotAt = 0;
+  state.fleetAttackControlSince = performance.now() - (FLEET_ATTACK_CONTROL_DELAY_MS + 250);
+  probeTick(2, 1);
+  return {
+    controlled: isSystemControlled(state.currentPlanet),
+    systemFaction: getSystemFaction(state.currentPlanet),
+    override: state.factionSystemOverrides?.[state.currentPlanet] || null,
+    attackCleared: !state.activeFleetAttack,
+    stations: (state.stations || []).map(probeStationSummary),
+    ships: (state.npcShips || []).filter((ship) => !ship.destroyed).map(probeShipSummary),
+  };
+}
+
+function installBm1ProbeHarness() {
+  globalThis.BM1Probe = {
+    ready() {
+      return Boolean(
+        state.planets?.length
+        && Object.keys(state.shipStatsById || {}).length
+        && (getDoctrineRuntime()?.loaded || state.planets.length)
+      );
+    },
+    freezeLoop,
+    tick: probeTick,
+    skipIntro: skipIntroStory,
+    startGame(faction = 'ferengi', options = {}) {
+      skipIntroStory();
+      freezeLoop();
+      startWithFaction(faction, options);
+      freezeLoop();
+      probePrepareArena(options.arena || {});
+      return probeSnapshot();
+    },
+    prepareArena: probePrepareArena,
+    snapshot: probeSnapshot,
+    spawnShip: probeSpawnShip,
+    spawnStation: probeSpawnStation,
+    placePlayer: probePlacePlayer,
+    destroy: probeDestroy,
+    fireNpc: probeFireNpc,
+    firePlayer: probeFirePlayer,
+    ship: (id) => probeShipSummary(probeFindShip(id)),
+    patchShip(id, fields = {}) {
+      const ship = probeFindShip(id);
+      if (!ship) return null;
+      Object.assign(ship, fields);
+      return probeShipSummary(ship);
+    },
+    station: (id) => probeStationSummary(probeFindStation(id)),
+    relations(faction) {
+      const entry = getDoctrineRuntime()?.getRelations?.(faction) || getFactionRelationEntry(faction);
+      return { friendly: [...(entry.friendly || [])], hostile: [...(entry.hostile || [])] };
+    },
+    aligned: (a, b) => areFactionsAligned(a, b),
+    opposed: (a, b) => areFactionsOpposed(a, b),
+    commandIdentity: () => getPlayerSide(),
+    playerHolds: (index) => isSystemControlled(index),
+    flagShareGrantsControl: () => false,
+    baseFaction: (index) => getBaseSystemFaction(index),
+    governmentId(index) {
+      const planet = state.planets[index];
+      const row = state.systemData?.[index] || [];
+      const gov = Number(planet?.governmentId ?? row[1]);
+      return Number.isFinite(gov) ? gov : null;
+    },
+    setGovernmentId(index, governmentId) {
+      const planet = state.planets[index];
+      if (!planet) return null;
+      if (governmentId === undefined || governmentId === null) delete planet.governmentId;
+      else planet.governmentId = governmentId;
+      return getBaseSystemFaction(index);
+    },
+    addFlag(faction) {
+      state.playerFlags.push(normalizeFactionKey(faction));
+      normalizePlayerFlags();
+      return [...state.playerFlags];
+    },
+    raiseFlag(faction) {
+      raisePlayerFlag(faction);
+      return {
+        playerFaction: state.playerFaction,
+        playerSide: getPlayerSide(),
+        controlledSystems: [...(state.controlledSystems || [])],
+      };
+    },
+    claimCurrent: probeClaimCurrent,
+    clearClaimBlockers: probeClearClaimBlockers,
+    warpTo: probeWarpTo,
+    seize: probeForceFleetSeize,
+    calmArrival() {
+      const before = {
+        ships: (state.npcShips || []).map((ship) => ({
+          id: ship.id,
+          attackId: ship.attackId || null,
+          destinationName: ship.destinationName || null,
+          faction: ship.faction || null,
+        })),
+        stations: (state.stations || []).map((station) => ({
+          id: station.id,
+          faction: station.faction || null,
+        })),
+      };
+      calmHomeSystem();
+      return {
+        before,
+        spawnProtectionUntil: state.spawnProtectionUntil,
+        now: performance.now(),
+        ships: (state.npcShips || []).map((ship) => ({
+          id: ship.id,
+          attackId: ship.attackId || null,
+          destinationName: ship.destinationName || null,
+          faction: ship.faction || null,
+        })),
+        stations: (state.stations || []).map((station) => ({
+          id: station.id,
+          faction: station.faction || null,
+        })),
+        fleetsRemoved: 0,
+        ordersCleared: 0,
+        ownershipRewritten: 0,
+      };
+    },
+    systemIndexByName: getSystemIndexByName,
+    locationIdentity: (index) => currentLocationIdentity(index),
+  };
+}
+
+installBm1ProbeHarness();
 
 updateStats();
 setLog(state.log);
