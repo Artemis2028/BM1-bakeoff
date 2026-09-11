@@ -4956,9 +4956,23 @@ function maybeIssueVisitorOrder(zone, {
   });
 }
 
+function visitorUnableToComplyReason(npc, now = performance.now()) {
+  if (!npc) return null;
+  if (isNpcTractorHeld(npc, now) || npc.securityBlocked === 'tractor') return 'tractor';
+  if (isNpcEngineDisabled(npc, now) || npc.securityBlocked === 'engine') return 'engine';
+  return null;
+}
+
 function evaluateVisitorProgress(zone, order, npc, player = false, dt = SIM_MS_PER_FRAME) {
   if (!order || isTerminalLifecycle(order.lifecycle)) return order;
   const ledger = ensureSystemLedger(zone.systemIndex);
+  if (!player && npc) {
+    if (npc.destroyed) return terminateEncounter(order, 'visitor_destroyed');
+    const blocked = visitorUnableToComplyReason(npc);
+    if (blocked) {
+      return terminateEncounter(order, 'unable_to_comply', { detail: blocked });
+    }
+  }
   const point = visitorPoint(npc, player);
   const distance = pointDistance(point, zone.geometry.center);
   let next = {
@@ -4968,10 +4982,6 @@ function evaluateVisitorProgress(zone, order, npc, player = false, dt = SIM_MS_P
   };
 
   if (!player && npc) {
-    if (npc.destroyed) return terminateEncounter(next, 'visitor_destroyed');
-    if (npc.securityBlocked === 'tractor' || npc.securityBlocked === 'engine') {
-      return terminateEncounter(next, 'unable_to_comply', { detail: npc.securityBlocked });
-    }
     if (npc.securityBlocked === 'combat') {
       return terminateEncounter(next, 'interrupted', { detail: 'combat' });
     }
@@ -5305,7 +5315,11 @@ function operatorActOnEncounter(action, encounterId) {
     return { ok: false, reason: 'no-authority' };
   }
   const ledger = ensureSystemLedger(state.currentPlanet);
-  const order = ledger.orders[encounterId] || Object.values(ledger.orders || {})[0];
+  const key = encounterId == null ? '' : String(encounterId);
+  if (!key || !Object.prototype.hasOwnProperty.call(ledger.orders || {}, key)) {
+    return { ok: false, reason: 'missing-encounter' };
+  }
+  const order = ledger.orders[key];
   if (!order || isTerminalLifecycle(order.lifecycle)) return { ok: false, reason: 'missing' };
   const npc = (state.npcShips || []).find((ship) => ship.securityInstanceId === order.visitorInstanceId);
   if (action === 'waive') {
@@ -14740,14 +14754,14 @@ function updateNpcShips(frameScale = 1) {
     ensureNpcCombatStats(npc);
     npc.securityBlocked = null;
     if (isNpcTractorHeld(npc, now)) {
-      if (npc.securityObjective) npc.securityBlocked = 'tractor';
+      npc.securityBlocked = 'tractor';
       npc.systemWarpIntensity = 0;
       npc.waitUntil = now + 140;
       npc.destination = { x: npc.x, y: npc.y };
       continue;
     }
     if (isNpcEngineDisabled(npc, now)) {
-      if (npc.securityObjective) npc.securityBlocked = 'engine';
+      npc.securityBlocked = 'engine';
       const disableMs = Math.max(1, finiteNumber(getEngineDisruptorItemSettings().disableMs, ENGINE_DISRUPTOR_DISABLE_MS));
       const remaining = clamp((finiteNumber(npc.engineDisabledUntil, now) - now) / disableMs, 0, 1);
       const driftScale = 0.22 + remaining * 0.78;
@@ -19239,6 +19253,54 @@ function installBm1ProbeHarness() {
     encounters: () => listCheckpointEncounters(state.currentPlanet),
     playerRespond: (action) => playerRespondToCheckpoint(action),
     operatorAct: (action, encounterId) => operatorActOnEncounter(action, encounterId),
+    tractorHold(id, holdMs = 30000) {
+      const target = probeFindShip(id);
+      if (!target) return { ok: false, reason: 'missing-ship' };
+      const now = performance.now();
+      const expiresAt = now + Math.max(1000, Number(holdMs) || 30000);
+      const player = playerWorldPosition();
+      const existing = (state.tractorBeams || []).find((beam) => beam.owner === 'player' && beam.targetId === target.id);
+      const base = existing || {
+        id: `tractor-${target.id}`,
+        owner: 'player',
+        targetId: target.id,
+        targetType: 'ship',
+        weaponId: TRACTOR_BEAM_WEAPON_ID,
+        startedAt: now,
+        lastPlayerX: player.x,
+        lastPlayerY: player.y,
+        towOffsetX: target.x - player.x,
+        towOffsetY: target.y - player.y,
+      };
+      Object.assign(base, {
+        slotIndex: 0,
+        expiresAt,
+        color: TRACTOR_BEAM_COLOR,
+        anchorX: target.x,
+        anchorY: target.y,
+      });
+      if (!existing) {
+        if (!state.tractorBeams) state.tractorBeams = [];
+        state.tractorBeams.push(base);
+      }
+      target.tractorHeldUntil = expiresAt;
+      target.tractorOwner = 'player';
+      target.systemWarpIntensity = 0;
+      target.waitUntil = now + 120;
+      target.destination = { x: target.x, y: target.y };
+      return { ok: true, held: isNpcTractorHeld(target, now), expiresAt };
+    },
+    engineDisable(id, disableMs = 30000) {
+      const npc = probeFindShip(id);
+      if (!npc) return { ok: false, reason: 'missing-ship' };
+      const now = performance.now();
+      const holdMs = Math.max(1000, Number(disableMs) || ENGINE_DISRUPTOR_DISABLE_MS);
+      npc.engineDisabledUntil = now + holdMs;
+      npc.systemWarpIntensity = 0;
+      npc.waitUntil = now + 140;
+      npc.destination = { x: npc.x, y: npc.y };
+      return { ok: true, disabled: isNpcEngineDisabled(npc, now), until: npc.engineDisabledUntil };
+    },
     tryDockPlanet: () => tryDockAtPlanetIndex(state.currentPlanet, getFlightPlanetMarker()),
     tryDockStation: (id) => {
       const station = probeFindStation(id);
