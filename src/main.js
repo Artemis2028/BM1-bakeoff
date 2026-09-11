@@ -101,6 +101,35 @@ import {
   withdrawalPolarFromApproach,
 } from './phase3-checkpoints.js';
 import {
+  appendIncidentEvent,
+  applyStandingOnce,
+  acknowledgeFlash,
+  createIncidentLedger,
+  createIncidentObjective,
+  currentFlash,
+  deliverReport,
+  evaluateIncidentReact,
+  flashHoldActive,
+  grantObserverCopy,
+  incrementStrategicJumps,
+  lastObserverDecision,
+  linkEncounterToIncident,
+  listIncidents,
+  listIncidentsForVisitor,
+  makePunishmentToken,
+  observerKnowsIncident,
+  openIncident,
+  pushFlash,
+  rememberPunishment,
+  resolveAccessIncidentsForEpoch,
+  resolveIncident,
+  restoreIncidentLedger,
+  serializeIncidentLedger,
+  shouldPulseFlash,
+  shouldReplaceBanner,
+  classifyLogBand,
+} from './phase4-incidents.js';
+import {
   DOCTRINE_PACK_SRC,
   deriveLiveFireFacts,
   getDoctrineRuntime,
@@ -650,8 +679,11 @@ const state = {
   playerSecurity: createPlayerSecurityState('ferengi'),
   securityZones: createSecurityZonesState(),
   securityEncounters: createSecurityEncountersState(),
+  incidentLedger: createIncidentLedger(),
   checkpointSelectedEncounterId: null,
+  selectedIncidentId: null,
   checkpointPanelRenderKey: '',
+  standingWriteCount: 0,
   playerFlags: [],
   captainName: '',
   shipName: '',
@@ -3537,6 +3569,7 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
   state.tractorBeams = [];
   state.combatTargetId = null;
   state.combatTargetType = 'ship';
+  incrementStrategicJumps(ensureIncidentLedger());
   applySystemState(state.currentPlanet);
   calmHomeSystem();
   scheduleNextFleetAttack(performance.now() + 45000);
@@ -4332,17 +4365,44 @@ function renderSecurityPanel() {
         <div class="security-holding-head"><span>${escapeHtml(holding.name)}</span><small>${escapeHtml(status)}</small></div>
         <div class="security-roe-row">${buttons}</div>
         <div class="meta">Effective ROE: ${escapeHtml(holding.effectiveRoe)}</div>
+        ${holding.held ? `<div class="security-roe-row">${['', 'all', 'incidents', 'silent'].map((mode) => (
+          `<button type="button" data-security-holding-alerts="${holding.systemIndex}" data-alerts="${mode}" class="${(override?.alerts || '') === mode ? 'active' : ''}">${mode === '' ? 'Empire alerts' : mode}</button>`
+        )).join('')}</div>` : ''}
         ${holding.held ? renderAccessClassRow('holding', holding.systemIndex, holdingAccess, { editable: holding.held }) : ''}
       </div>`;
     }).join('')
     : '<div class="meta">No holdings yet. Outside holdings, escorts use the empire-default ROE.</div>';
+  const incidents = listIncidents(ensureIncidentLedger())
+    .sort((a, b) => Number(b.clocks?.localElapsedMs || 0) - Number(a.clocks?.localElapsedMs || 0))
+    .slice(0, 16);
+  const incidentRows = incidents.length
+    ? incidents.map((row) => {
+      const selected = String(state.selectedIncidentId || '') === String(row.incidentId);
+      const age = Math.max(0, Math.floor(((ensureSystemLedger(state.currentPlanet).localElapsedMs) - Number(row.clocks?.localElapsedMs || 0)) / 1000));
+      return `<button type="button" class="security-encounter ${selected ? 'active' : ''}" data-incident-select="${escapeHtml(row.incidentId)}">
+        <span>${escapeHtml(row.kind)}</span>
+        <small>${escapeHtml(row.actor?.instanceId || 'unknown')} · ${escapeHtml(row.outcome || row.status)} · ${age}s</small>
+        <small>${escapeHtml(row.links?.encounterId || row.links?.destructionKey || '')}</small>
+      </button>`;
+    }).join('')
+    : '<div class="meta">No incidents recorded.</div>';
+  const selectedIncident = incidents.find((row) => String(row.incidentId) === String(state.selectedIncidentId)) || incidents[0] || null;
+  const incidentHistory = selectedIncident
+    ? (selectedIncident.history || []).map((row) => `<div class="meta">${escapeHtml(row.type)} · ${escapeHtml(row.detail)}</div>`).join('')
+    : '';
   return `<div class="security-panel" data-security-panel>
-    <div class="meta">Standing orders for your side (${escapeHtml(formatFaction(policies.ownerSide || getPlayerSide()))}). They survive flag changes. Challenge requests a movement and identity check. Closed requests withdrawal. Refusal alone does not authorize weapons; your rules of engagement still apply. Alert settings remain reserved.</div>
+    <div class="meta">Standing orders for your side (${escapeHtml(formatFaction(policies.ownerSide || getPlayerSide()))}). They survive flag changes. Challenge requests a movement and identity check. Closed requests withdrawal. Refusal alone does not authorize weapons; your rules of engagement still apply. Unknown access remains reserved until sensors exist. Alerts change what you are told, not what happened. Silent does not clear a refusal or a kill. Refusal and inability never authorize weapons.</div>
     <div class="security-row">
       <span>Empire default ROE</span>
       <div class="security-roe-row">${empireButtons}</div>
     </div>
     <div class="meta">${escapeHtml(describeRoeMode(policies.empireDefault.roe))}</div>
+    <div class="security-row">
+      <span>Empire alerts</span>
+      <div class="security-roe-row">${['all', 'incidents', 'silent'].map((mode) => (
+        `<button type="button" data-security-empire-alerts="${mode}" class="${policies.empireDefault.alerts === mode ? 'active' : ''}">${mode === 'all' ? 'All' : mode === 'incidents' ? 'Incidents' : 'Silent'}</button>`
+      )).join('')}</div>
+    </div>
     <div class="panel-head">Empire access</div>
     ${renderAccessClassRow('empire', '', empireAccess, { editable: true })}
     <div class="panel-head">Holdings</div>
@@ -4367,6 +4427,9 @@ function renderSecurityPanel() {
       <button type="button" data-checkpoint-operator="withdraw" ${operatorDisabled || !selectedOrder ? 'disabled' : ''}>Request withdrawal</button>
       <button type="button" data-checkpoint-operator="cancel" ${operatorDisabled || !selectedOrder ? 'disabled' : ''}>Cancel instruction</button>
     </div>
+    <div class="panel-head">Incidents</div>
+    <div class="security-encounter-list" data-incident-list>${incidentRows}</div>
+    ${selectedIncident ? `<div class="meta">${escapeHtml(selectedIncident.sayable || '')}</div>${incidentHistory}` : ''}
   </div>`;
 }
 
@@ -4403,6 +4466,280 @@ function ensureSystemLedger(systemIndex = state.currentPlanet) {
     };
   }
   return state.securityEncounters.systems[key];
+}
+
+function ensureIncidentLedger() {
+  if (!state.incidentLedger || state.incidentLedger.version !== 1 || !state.incidentLedger.incidents) {
+    state.incidentLedger = restoreIncidentLedger(state.incidentLedger);
+  }
+  return state.incidentLedger;
+}
+
+function observerKeyFor(npc) {
+  if (!npc) return null;
+  if (npc.securityInstanceId) return `npc:${npc.securityInstanceId}`;
+  if (npc.id != null) return `slot:${npc.id}`;
+  return null;
+}
+
+function describeAccessIncident(order, extras = {}) {
+  const authority = formatFaction(order?.authoritySide || extras.authoritySide || 'Checkpoint');
+  if ((extras.lifecycle || order?.lifecycle) === 'unable_to_comply') {
+    const block = extras.blockingReason || extras.detail || 'blocked';
+    return `Unable to comply: ${block}. No offense recorded.`;
+  }
+  const visitor = order?.visitorKind === 'player'
+    ? `${formatFaction(state.playerFaction)} flagship`
+    : (extras.visitorLabel || 'visitor');
+  return `${authority} checkpoint: ${visitor} refused identity check. Administrative record only — weapons unchanged.`;
+}
+
+function emitIncidentNotice(incident, { actingStart = false, appendOnly = false } = {}) {
+  if (!incident || appendOnly) return null;
+  if (!shouldPulseFlash(incident.kind, { actingStart, appendOnly })) return null;
+  const ledger = ensureIncidentLedger();
+  const mode = getEffectivePolicy(ensurePlayerSecurity(), incident.systemIndex, isSystemControlled(incident.systemIndex)).alerts;
+  const localElapsedMs = ensureSystemLedger(incident.systemIndex).localElapsedMs;
+  const summary = actingStart
+    ? (incident.actingLine || incident.sayable)
+    : incident.sayable;
+  const pushed = pushFlash(ledger, {
+    incidentId: incident.incidentId,
+    kind: incident.kind,
+    summary,
+    atLocalMs: localElapsedMs,
+  }, { localElapsedMs, alertsMode: mode });
+  if (pushed.displayed) {
+    setLog(`FLASH ${summary}`, { band: 'flash', incidentClass: true });
+  }
+  return pushed;
+}
+
+function feedTerminatedEncounter(closed, extras = {}) {
+  if (!closed) return { incident: null, created: false, flash: false };
+  const ledger = ensureIncidentLedger();
+  const identity = currentLocationIdentity(closed.systemIndex);
+  const result = linkEncounterToIncident(ledger, closed, {
+    lifecycle: extras.lifecycle || closed.lifecycle,
+    localElapsedMs: extras.localElapsedMs ?? closed.lastUpdateLocalMs,
+    locationId: identity.locationId,
+    jurisdictionId: identity.jurisdictionId,
+    blockingReason: extras.blockingReason || extras.detail,
+    detail: extras.detail,
+    actorSideId: closed.visitorKind === 'player' ? getPlayerSide() : extras.sideId,
+    broadcast: closed.visitorKind === 'player' ? playerBroadcast() : extras.broadcast,
+    strategicJumps: ledger.strategicJumps,
+    keepNoncompliant: extras.keepNoncompliant || closed.outcome === 'noncompliant',
+    sayable: extras.sayable || describeAccessIncident(closed, extras),
+  });
+  if (result.created && result.flash) emitIncidentNotice(result.incident);
+  if (result.created) evaluatePresentObservers(result.incident);
+  return result;
+}
+
+function appendDepartedAfterNoncompliance(visitor, systemIndex) {
+  if (!visitor?.instanceId) return null;
+  const ledger = ensureIncidentLedger();
+  const prior = listIncidentsForVisitor(ledger, visitor.instanceId).find((row) => (
+    row.kind === 'access_noncompliance'
+    && row.status === 'open'
+    && Number(row.systemIndex) === Number(systemIndex)
+  ));
+  if (!prior) return null;
+  if ((prior.history || []).some((row) => row.type === 'departed' || row.type === 'withdrawn')) return prior;
+  appendIncidentEvent(ledger, prior.incidentId, {
+    atLocalMs: ensureSystemLedger(systemIndex).localElapsedMs,
+    type: 'departed',
+    detail: 'departed',
+  });
+  return prior;
+}
+
+function evaluatePresentObservers(incident, extras = {}) {
+  if (!incident) return [];
+  const doctrine = getDoctrineRuntime();
+  const ledger = ensureIncidentLedger();
+  const decisions = [];
+  const ships = Array.isArray(extras.ships) ? extras.ships : (state.npcShips || []);
+  for (const npc of ships) {
+    if (!npc || npc.destroyed) continue;
+    if (Number(incident.systemIndex) !== Number(state.currentPlanet) && !extras.allowRemote) continue;
+    const decision = evaluateObserverForIncident(npc, incident, extras.factsByObserver?.[observerKeyFor(npc)] || extras.facts || {});
+    if (decision) decisions.push({ npcId: npc.id, instanceId: npc.securityInstanceId, ...decision });
+  }
+  return decisions;
+}
+
+function evaluateObserverForIncident(npc, incident, factOverrides = {}) {
+  if (!npc || npc.destroyed || !incident) return null;
+  const doctrine = getDoctrineRuntime();
+  const ledger = ensureIncidentLedger();
+  const key = observerKeyFor(npc);
+  const forcedUnknown = factOverrides.event_known === false;
+  const present = Number(incident.systemIndex) === Number(state.currentPlanet);
+  const authorityMatch = normalizeFactionKey(npc.faction) === normalizeFactionKey(incident.authoritySide);
+  let known = observerKnowsIncident(ledger, key, incident.incidentId);
+  if (!forcedUnknown && present) {
+    if (incident.kind === 'destruction' || incident.kind === 'distress') known = true;
+    if (incident.kind === 'access_noncompliance' && authorityMatch) known = true;
+    if (factOverrides.event_known === true) known = true;
+  }
+  if (forcedUnknown) known = false;
+  if (known && key) grantObserverCopy(ledger, key, incident.incidentId);
+  const facts = { ...factOverrides };
+  if (forcedUnknown) facts.event_known = false;
+  const evaluate = doctrine?.loaded
+    ? (profileId, role, eventType, reactFacts, cultureId) => doctrine.evaluateReact(profileId, role, eventType, reactFacts, cultureId)
+    : null;
+  const role = npc.doctrineRole || npc.role || 'patrol';
+  const result = evaluateIncidentReact(evaluate, {
+    packProfileId: npc.doctrineProfile || npc.faction,
+    role,
+    incident,
+    known,
+    facts,
+    cultureId: npc.cultureId || null,
+  });
+  if (key) {
+    grantObserverCopy(ledger, key, incident.incidentId, {
+      decision: {
+        packResponse: result.packResponse,
+        appliedResponse: result.appliedResponse,
+        acting: result.acting,
+        eventType: result.eventType,
+        atLocalMs: ensureSystemLedger(incident.systemIndex).localElapsedMs,
+      },
+    });
+  }
+  if (result.appliedResponse === 'ignore_unknown') return result;
+  if (result.acting && (result.appliedResponse === 'investigate' || result.appliedResponse === 'rescue')) {
+    const blocked = visitorUnableToComplyReason(npc);
+    if (!blocked && !npc.incidentObjective) {
+      const target = incident.lastKnown || { x: Number(npc.x) || 0, y: Number(npc.y) || 0 };
+      if (incident.lastKnown) {
+        npc.incidentObjective = createIncidentObjective({
+          kind: result.appliedResponse,
+          incidentId: incident.incidentId,
+          target,
+          startedAtLocalMs: ensureSystemLedger(incident.systemIndex).localElapsedMs,
+          displayName: result.appliedResponse === 'rescue' ? 'rescue survivors' : 'investigate last-known',
+        });
+        incident.actingLine = result.appliedResponse === 'rescue'
+          ? `${formatFaction(npc.faction)} relief is moving to reported survivors.`
+          : `${formatFaction(npc.faction)} is investigating the last-known location.`;
+        emitIncidentNotice(incident, { actingStart: true });
+      } else if (result.appliedResponse === 'investigate') {
+        npc.incidentObjective = createIncidentObjective({
+          kind: 'investigate',
+          incidentId: incident.incidentId,
+          target: { x: Number(npc.x) + 80, y: Number(npc.y) },
+          startedAtLocalMs: ensureSystemLedger(incident.systemIndex).localElapsedMs,
+        });
+        incident.actingLine = `${formatFaction(npc.faction)} is investigating the last-known location.`;
+        emitIncidentNotice(incident, { actingStart: true });
+      }
+    }
+  } else if (result.appliedResponse === 'record_only' && known) {
+    appendIncidentEvent(ledger, incident.incidentId, {
+      atLocalMs: ensureSystemLedger(incident.systemIndex).localElapsedMs,
+      type: 'record_only',
+      detail: `${formatFaction(npc.faction)} patrol recorded the report and continued.`,
+    });
+  }
+  return result;
+}
+
+function applyNpcIncidentObjective(npc, now = performance.now()) {
+  const objective = npc?.incidentObjective;
+  if (!objective) return false;
+  if (visitorUnableToComplyReason(npc, now)) return false;
+  if (npc.securityBlocked === 'combat') return false;
+  const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+  if (Number(localMs) >= Number(objective.searchUntilLocalMs || 0)) {
+    completeIncidentObjective(npc, 'search_exhausted');
+    return false;
+  }
+  if (objective.target) {
+    npc.destination = { x: Number(objective.target.x) || 0, y: Number(objective.target.y) || 0 };
+    npc.destinationName = objective.displayName || 'investigate last-known';
+  }
+  return true;
+}
+
+function completeIncidentObjective(npc, reason = 'complete') {
+  if (!npc?.incidentObjective) return;
+  const ledger = ensureIncidentLedger();
+  const incident = ledger.incidents[npc.incidentObjective.incidentId];
+  if (incident) {
+    appendIncidentEvent(ledger, incident.incidentId, {
+      atLocalMs: ensureSystemLedger(incident.systemIndex).localElapsedMs,
+      type: npc.incidentObjective.kind === 'rescue' ? 'rescue_complete' : 'investigate_complete',
+      detail: reason,
+    });
+    deliverReport(ledger, {
+      incidentId: incident.incidentId,
+      senderKey: observerKeyFor(npc),
+      recipientKey: `authority:${incident.authoritySide || npc.faction || 'local'}`,
+      provenance: 'direct_observation',
+      payload: {
+        kind: incident.kind,
+        summary: npc.incidentObjective.kind === 'rescue'
+          ? `${formatFaction(npc.faction)} recorded aid at the reported location.`
+          : `${formatFaction(npc.faction)} recorded findings at last-known.`,
+        locationId: incident.locationId,
+        lastKnown: incident.lastKnown,
+      },
+    });
+  }
+  npc.incidentObjective = null;
+}
+
+function tickIncidentObjectives() {
+  const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+  for (const npc of state.npcShips || []) {
+    if (!npc?.incidentObjective || npc.destroyed) continue;
+    if (visitorUnableToComplyReason(npc)) continue;
+    if (Number(localMs) >= Number(npc.incidentObjective.searchUntilLocalMs || 0)) {
+      completeIncidentObjective(npc, 'search_exhausted');
+      continue;
+    }
+    if (npc.incidentObjective.target) {
+      const dist = Math.hypot(
+        Number(npc.x) - Number(npc.incidentObjective.target.x),
+        Number(npc.y) - Number(npc.incidentObjective.target.y),
+      );
+      if (dist <= 48) completeIncidentObjective(npc, 'arrived');
+    }
+  }
+}
+
+function acknowledgeCurrentFlash() {
+  const ledger = ensureIncidentLedger();
+  const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+  const acked = acknowledgeFlash(ledger, null, localMs);
+  if (acked && state.backgroundLog) {
+    setLog(state.backgroundLog, { band: 'background', force: true });
+  }
+  updateStats();
+  renderTopLeftPanel();
+  return acked;
+}
+
+function setEmpireAlerts(mode) {
+  state.playerSecurity = setEmpireDefaultDimension(ensurePlayerSecurity(), 'alerts', mode);
+  renderTopLeftPanel();
+  return ensurePlayerSecurity().empireDefault.alerts;
+}
+
+function setHoldingAlerts(systemIndex, mode) {
+  const index = Number(systemIndex);
+  const held = isSystemControlled(index);
+  const retained = Boolean(ensurePlayerSecurity().holdings?.[String(index)]);
+  if (!held && !retained) return null;
+  state.playerSecurity = setHoldingOverrideDimension(ensurePlayerSecurity(), index, 'alerts', mode == null || mode === '' ? null : mode);
+  if (!held) state.playerSecurity = deactivateHoldingOverride(ensurePlayerSecurity(), index);
+  renderTopLeftPanel();
+  return getEffectivePolicy(ensurePlayerSecurity(), index, held).alerts;
 }
 
 function getEffectiveSecurityPolicy(systemIndex = state.currentPlanet) {
@@ -4607,6 +4944,7 @@ function noteAuthoritySide(systemIndex, nextSide) {
   }
   state.securityZones = incrementAuthorityEpoch(state.securityZones, systemIndex, normalized);
   closeSystemOrders(systemIndex, 'authority_changed', { revokeClearances: true });
+  resolveAccessIncidentsForEpoch(ensureIncidentLedger(), systemIndex, 'authority_changed');
   return true;
 }
 
@@ -4620,6 +4958,10 @@ function closeSystemOrders(systemIndex, lifecycle, extras = {}) {
     if (extras.revokeClearances) delete ledger.clearances[closed.visitorInstanceId];
     ledger.recentEvents = pushLedgerEvent(ledger, createLedgerEvent(systemIndex, closed, lifecycle, localElapsedMs)).recentEvents;
     clearNpcObjectiveByEncounter(closed.encounterId);
+    feedTerminatedEncounter(closed, { lifecycle, localElapsedMs, detail: extras.detail });
+  }
+  if (lifecycle === 'authority_changed') {
+    resolveAccessIncidentsForEpoch(ensureIncidentLedger(), systemIndex, 'authority_changed');
   }
   if (extras.revokeClearances) ledger.clearances = {};
 }
@@ -4877,6 +5219,16 @@ function terminateEncounter(order, lifecycle, extras = {}) {
   clearNpcObjectiveByEncounter(order.encounterId);
   if (lifecycle === 'cleared' || lifecycle === 'waived') grantClearance(ledger, closed, closed.clearanceProvenance || lifecycle);
   if (lifecycle === 'authority_changed' || lifecycle === 'checkpoint_unavailable') revokeVisitorClearance(ledger, order.visitorInstanceId);
+  const npc = (state.npcShips || []).find((ship) => ship.securityInstanceId === order.visitorInstanceId);
+  feedTerminatedEncounter(closed, {
+    lifecycle,
+    localElapsedMs: ledger.localElapsedMs,
+    detail: extras.detail,
+    blockingReason: extras.detail,
+    keepNoncompliant: extras.keepNoncompliant || closed.outcome === 'noncompliant',
+    sideId: npc ? getNpcSideId(npc) : null,
+    broadcast: npc ? npcBroadcast(npc) : null,
+  });
   return closed;
 }
 
@@ -5073,6 +5425,7 @@ function updateSecurityIssuePhase(zone) {
     });
     const updated = updateVisitorBoundary(previous, distance, zone.geometry);
     ledger.visitors[entry.instanceId] = updated.visitor;
+    if (updated.visitor.fullyOutside) appendDepartedAfterNoncompliance(updated.visitor, zone.systemIndex);
     const latest = findLatestOrderForVisitor(ledger, entry.instanceId);
     const sameEpisode = latest && Number(latest.entryEpisode) === Number(updated.visitor.entryEpisode);
     const shouldIssue = updated.visitor.inside && (
@@ -5393,6 +5746,8 @@ function closePlayerVisitOnDeparture(fromSystemIndex) {
   const order = findActiveOrderForVisitor(ledger, PLAYER_INSTANCE_ID);
   if (order && !isTerminalLifecycle(order.lifecycle)) {
     terminateEncounter(order, 'departed');
+  } else {
+    appendDepartedAfterNoncompliance(ledger.visitors[PLAYER_INSTANCE_ID], fromSystemIndex);
   }
   const visitor = ledger.visitors[PLAYER_INSTANCE_ID];
   if (visitor) {
@@ -5453,13 +5808,16 @@ function tickSecurity(frameScale = 1) {
     updateSecurityIssuePhase(zone);
     pruneResolvedOrders(ledger);
   }
+  tickIncidentObjectives();
   refreshCheckpointOrderPanel();
   refreshSecurityPanelIfOpen();
 }
 
 function securityPanelRenderKey() {
   const orders = listCheckpointEncounters(state.currentPlanet);
-  return orders.map((order) => `${order.encounterId}:${order.lifecycle}:${remainingSeconds(order)}:${order.outcome || ''}`).join('|');
+  const incidents = listIncidents(ensureIncidentLedger()).map((row) => `${row.incidentId}:${row.status}:${(row.history || []).length}`).join('|');
+  const flash = currentFlash(ensureIncidentLedger());
+  return `${orders.map((order) => `${order.encounterId}:${order.lifecycle}:${remainingSeconds(order)}:${order.outcome || ''}`).join('|')}#${incidents}#${flash?.flashId || ''}`;
 }
 
 function refreshSecurityPanelIfOpen() {
@@ -5577,6 +5935,7 @@ function endVisitOnAmbientReplacement(npc) {
   delete ledger.participants[npc.securityInstanceId];
   npc.securityInstanceId = null;
   npc.securityObjective = null;
+  npc.incidentObjective = null;
 }
 
 function clearInheritedAmbientEvidence(npc) {
@@ -5587,6 +5946,7 @@ function clearInheritedAmbientEvidence(npc) {
   npc.playerEscortOrderUntil = 0;
   npc.attackId = null;
   npc.hailSession = null;
+  npc.incidentObjective = null;
 }
 
 function checkpointUiSnapshot() {
@@ -5830,6 +6190,7 @@ function getFactionStanding(faction = 'neutral') {
 function adjustFactionStanding(faction, delta, opts = {}) {
   const key = normalizeFactionKey(faction);
   if (!state.factionStanding || typeof state.factionStanding !== 'object') state.factionStanding = {};
+  state.standingWriteCount = (Number(state.standingWriteCount) || 0) + 1;
   const before = getFactionStanding(key);
   const after = clamp(before + Math.round(finiteNumber(delta, 0)), STANDING_MIN, STANDING_MAX);
   state.factionStanding[key] = after;
@@ -7252,7 +7613,22 @@ window.addEventListener('blur', () => {
 });
 let lastMotionStatsAt = 0;
 
-function setLog(msg) {
+function setLog(msg, opts = {}) {
+  const band = classifyLogBand(msg, opts);
+  const ledger = state.incidentLedger;
+  const mode = getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)).alerts;
+  const localMs = Number(state.securityEncounters?.systems?.[String(Number(state.currentPlanet))]?.localElapsedMs) || 0;
+  const hasFlash = Boolean(currentFlash(ledger));
+  const hold = hasFlash && flashHoldActive(ledger, localMs);
+  if (!shouldReplaceBanner({
+    band,
+    alertsMode: mode,
+    hasUnackedFlash: hasFlash,
+    holdActive: hold,
+  })) {
+    state.backgroundLog = msg;
+    return;
+  }
   state.log = msg;
   if (logEl) logEl.textContent = msg;
   const messageEl = statsEl?.querySelector('.top-message');
@@ -10082,12 +10458,16 @@ function updateStats() {
   state.mycargo = state.cargo;
   state.totcargo = state.cargoCap;
   const mode = state.warp.active ? 'WARP' : state.mapOpen ? 'MAP' : 'FLIGHT';
+  const flash = currentFlash(ensureIncidentLedger());
   const message = state.log || (state.docked
     ? getCurrentDockedStation()?.name || state.planets[state.dockedPlanetIndex]?.name || 'Docked'
     : 'In Flight');
+  const flashAck = flash
+    ? `<button type="button" class="flash-ack" data-flash-ack="${escapeHtml(flash.flashId)}">Acknowledge</button>`
+    : '';
   statsEl.innerHTML = `<div class="top-strip">
       <div class="top-slot top-ship alert-${getAlertStatus()}">${escapeHtml(mode)} &middot; ${getAlertStatus().toUpperCase()}</div>
-      <div class="top-slot top-message">${escapeHtml(message)}</div>
+      <div class="top-slot top-message">${escapeHtml(message)}${flashAck}</div>
       <div class="top-stat"><span>AM</span>${state.antimatter}/${state.fuelCap}</div>
       <div class="top-stat"><span>SHLD</span>${Math.round(clamp(finiteNumber(state.shields, 0), 0, 100))}%</div>
       <div class="top-stat"><span>Hull</span>${Math.round(clamp(finiteNumber(state.hull, 0), 0, 100))}%</div>
@@ -10707,6 +11087,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     playerSecurity: serializePlayerSecurity(ensurePlayerSecurity()),
     securityZones: serializeSecurityZones(ensureSecurityStores().zones),
     securityEncounters: serializeSecurityEncounters(ensureSecurityStores().encounters),
+    incidentLedger: serializeIncidentLedger(ensureIncidentLedger()),
     autoTarget: state.autoTarget !== false,
     fleetStance: state.fleetStance || 'follow',
     auxLaunched: Boolean(state.auxLaunched),
@@ -10775,6 +11156,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.playerSecurity = restorePlayerSecurity(s.playerSecurity, state.playerSide);
   state.securityZones = restoreSecurityZones(s.securityZones);
   state.securityEncounters = restoreSecurityEncounters(s.securityEncounters);
+  state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
   state.playerFlags = Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction];
   normalizePlayerFlags();
   state.factionStanding = (s.factionStanding && typeof s.factionStanding === 'object') ? s.factionStanding : {};
@@ -11781,6 +12163,7 @@ function completeWarpTravel() {
   const fromIndex = state.warp.from;
   if (Number.isFinite(Number(fromIndex)) && Number(fromIndex) !== Number(targetIndex)) {
     closePlayerVisitOnDeparture(fromIndex);
+    incrementStrategicJumps(ensureIncidentLedger());
   }
   state.day += 1;
   state.currentPlanet = targetIndex;
@@ -12136,6 +12519,13 @@ topLeftMenuEl?.addEventListener('click', (e) => {
   }
 });
 
+statsEl?.addEventListener('click', (e) => {
+  const ack = e.target.closest('[data-flash-ack]');
+  if (ack) {
+    acknowledgeCurrentFlash();
+  }
+});
+
 topLeftPanelEl?.addEventListener('click', (e) => {
   const empireRoe = e.target.closest('[data-security-empire-roe]');
   if (empireRoe) {
@@ -12145,6 +12535,22 @@ topLeftPanelEl?.addEventListener('click', (e) => {
   const holdingRoe = e.target.closest('[data-security-holding-roe]');
   if (holdingRoe) {
     setHoldingRoe(holdingRoe.dataset.securityHoldingRoe, holdingRoe.dataset.roe || null);
+    return;
+  }
+  const empireAlerts = e.target.closest('[data-security-empire-alerts]');
+  if (empireAlerts) {
+    setEmpireAlerts(empireAlerts.dataset.securityEmpireAlerts);
+    return;
+  }
+  const holdingAlerts = e.target.closest('[data-security-holding-alerts]');
+  if (holdingAlerts) {
+    setHoldingAlerts(holdingAlerts.dataset.securityHoldingAlerts, holdingAlerts.dataset.alerts || null);
+    return;
+  }
+  const incidentBtn = e.target.closest('[data-incident-select]');
+  if (incidentBtn) {
+    state.selectedIncidentId = incidentBtn.dataset.incidentSelect;
+    renderTopLeftPanel();
     return;
   }
   const accessBtn = e.target.closest('[data-security-access-class]');
@@ -14037,7 +14443,6 @@ function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
     witnesses.delete(normalizeFactionKey(npc.faction));
     if (witnesses.size) {
       for (const faction of witnesses) adjustFactionStanding(faction, -2, { silent: true });
-      setLog(`Kill witnessed by ${[...witnesses].map(formatFaction).join(', ')} patrol.`);
     }
     if (normalizeFactionKey(npc.faction) === 'borg') {
       if (!state.feats || typeof state.feats !== 'object') state.feats = {};
@@ -14047,16 +14452,60 @@ function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
         if (state.feats.vexBorgKills >= 5) {
           state.feats.vexBorgDown = true;
           adjustFactionStanding('romulan', 15);
-          setLog('Borg purged from the Vex system. The Romulans will now deal with you.');
-        } else {
-          setLog(`Borg destroyed in Vex (${Math.round(state.feats.vexBorgKills)}/5).`);
         }
       }
     }
   }
+  const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+  const victimInstance = npc.securityInstanceId || `slot:${npc.id}`;
+  const creditKey = playerCredited ? (credit === 'playerEscort' ? 'playerEscort' : 'player') : 'none';
+  const token = makePunishmentToken({
+    credit: creditKey,
+    systemIndex: state.currentPlanet,
+    victimInstanceId: victimInstance,
+    localElapsedMs: localMs,
+  });
+  const incidentLedger = ensureIncidentLedger();
+  rememberPunishment(incidentLedger, token);
+  const identity = currentLocationIdentity(state.currentPlanet);
+  const opened = openIncident(incidentLedger, {
+    kind: 'destruction',
+    systemIndex: state.currentPlanet,
+    locationId: identity.locationId,
+    jurisdictionId: identity.jurisdictionId,
+    authoritySide: getSystemControl(state.currentPlanet)?.authoritySide || null,
+    actor: {
+      instanceId: playerCredited ? 'player' : (npc.lastAttackerId || 'npc'),
+      kind: playerCredited ? 'player' : 'npc',
+      sideId: playerCredited ? getPlayerSide() : null,
+      broadcast: playerCredited ? playerBroadcast() : null,
+    },
+    victim: {
+      instanceId: victimInstance,
+      kind: 'npc',
+      sideId: getNpcSideId(npc),
+    },
+    action: 'destroyed',
+    clocks: { localElapsedMs, strategicJumps: incidentLedger.strategicJumps, issuedAtLocalMs: localMs },
+    outcome: 'destroyed',
+    links: {
+      destructionKey: victimInstance,
+      punishmentToken: token,
+      punishmentApplied: playerCredited ? 'kill-standing' : 'none',
+    },
+    lastKnown: { x: Number(npc.x) || 0, y: Number(npc.y) || 0 },
+    sayable: playerCredited
+      ? `Destruction of ${getShipDisplayName(npc)} attributed to you. Standing already applied by combat rules.`
+      : `${getShipDisplayName(npc)} destroyed. No player standing.`,
+    truth: { attributed: playerCredited, notes: playerCredited ? 'Player-credited hull kill.' : 'NPC-only destruction.' },
+  });
+  if (opened.created) {
+    emitIncidentNotice(opened.incident);
+    evaluatePresentObservers(opened.incident);
+  }
   setLog(playerCredited
     ? `Destroyed ${getShipDisplayName(npc)}. Salvage recovered: ${reward} latinum.`
-    : `${getShipDisplayName(npc)} destroyed.`);
+    : `${getShipDisplayName(npc)} destroyed.`, { band: 'background' });
   updateStats();
 }
 
@@ -14095,12 +14544,53 @@ function destroyStation(station, credit = station.lastCombatCredit) {
     applyKillStanding(station.faction || getSystemFaction(state.currentPlanet), -6);
     checkSystemFeatUnlocks();
   }
+  const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+  const victimInstance = `station:${station.id}`;
+  const creditKey = playerCredited ? (credit === 'playerEscort' ? 'playerEscort' : 'player') : 'none';
+  const token = makePunishmentToken({
+    credit: creditKey,
+    systemIndex: state.currentPlanet,
+    victimInstanceId: victimInstance,
+    localElapsedMs: localMs,
+  });
+  const incidentLedger = ensureIncidentLedger();
+  rememberPunishment(incidentLedger, token);
+  const identity = currentLocationIdentity(state.currentPlanet);
+  const opened = openIncident(incidentLedger, {
+    kind: 'destruction',
+    systemIndex: state.currentPlanet,
+    locationId: identity.locationId,
+    jurisdictionId: identity.jurisdictionId,
+    authoritySide: getSystemControl(state.currentPlanet)?.authoritySide || null,
+    actor: {
+      instanceId: playerCredited ? 'player' : 'npc',
+      kind: playerCredited ? 'player' : 'npc',
+      sideId: playerCredited ? getPlayerSide() : null,
+    },
+    victim: { instanceId: victimInstance, kind: 'station', sideId: station.faction || null },
+    action: 'destroyed',
+    clocks: { localElapsedMs, strategicJumps: incidentLedger.strategicJumps, issuedAtLocalMs: localMs },
+    outcome: 'destroyed',
+    links: {
+      destructionKey: victimInstance,
+      punishmentToken: token,
+      punishmentApplied: playerCredited ? 'kill-standing' : 'none',
+    },
+    lastKnown: { x: Number(station.x) || 0, y: Number(station.y) || 0 },
+    sayable: playerCredited
+      ? `Destruction of ${station.name} attributed to you. Standing already applied by combat rules.`
+      : `${station.name} destroyed. No player standing.`,
+  });
+  if (opened.created) {
+    emitIncidentNotice(opened.incident);
+    evaluatePresentObservers(opened.incident);
+  }
   const claimStatus = getClaimSystemStatus(state.currentPlanet);
   setLog(playerCredited
     ? (claimStatus.canClaim
       ? `${station.name} destroyed. Salvage recovered: ${reward} latinum. Dock and claim the system.`
       : `${station.name} destroyed. Salvage recovered: ${reward} latinum.`)
-    : `${station.name} destroyed.`);
+    : `${station.name} destroyed.`, { band: 'background' });
   updateStats();
 }
 
@@ -14661,6 +15151,7 @@ function beginAmbientTrafficArrival(npc, now = performance.now()) {
     lastShotAt: now + 700 + seeded(replacementSeed + 13) * 1500,
     waitUntil: 0,
     securityObjective: null,
+    incidentObjective: null,
     trafficWarp: {
       phase: 'arriving',
       startedAt: now,
@@ -14784,6 +15275,7 @@ function updateNpcShips(frameScale = 1) {
       npc.securityBlocked = 'combat';
     }
     applyNpcSecurityObjective(npc, now);
+    applyNpcIncidentObjective(npc, now);
     if (escortTarget) {
       const target = escortTarget.target;
       const targetDistance = Math.hypot(target.x - npc.x, target.y - npc.y);
@@ -14824,7 +15316,7 @@ function updateNpcShips(frameScale = 1) {
       npc.destination = { ...next.point };
       npc.destinationName = next.name;
     }
-    if (npc.waitUntil && now < npc.waitUntil && !npc.securityObjective) continue;
+    if (npc.waitUntil && now < npc.waitUntil && !npc.securityObjective && !npc.incidentObjective) continue;
     const dx = npc.destination.x - npc.x;
     const dy = npc.destination.y - npc.y;
     const distance = Math.hypot(dx, dy);
@@ -14839,6 +15331,7 @@ function updateNpcShips(frameScale = 1) {
           continue;
         }
       }
+      if (npc.incidentObjective) continue;
       const next = pickTrafficDestination(state.trafficDestinations, npc.seed + npc.leg * 17 + 31, npc.destinationName);
       npc.destination = { ...next.point };
       npc.destinationName = next.name;
@@ -18343,8 +18836,11 @@ function resetRunState() {
   state.playerSecurity = createPlayerSecurityState('ferengi');
   state.securityZones = createSecurityZonesState();
   state.securityEncounters = createSecurityEncountersState();
+  state.incidentLedger = createIncidentLedger();
   state.checkpointSelectedEncounterId = null;
+  state.selectedIncidentId = null;
   state.checkpointPanelRenderKey = '';
+  state.standingWriteCount = 0;
   state.factionStanding = {};
   state.feats = {};
   state.power = { energy: 200, dist: { reserve: 5, engines: 5, weapons: 5, shields: 5 } };
@@ -18511,7 +19007,10 @@ function startWithFaction(key, options = {}) {
   state.playerSecurity = createPlayerSecurityState(state.playerSide);
   state.securityZones = createSecurityZonesState();
   state.securityEncounters = createSecurityEncountersState();
+  state.incidentLedger = createIncidentLedger();
   state.checkpointSelectedEncounterId = null;
+  state.selectedIncidentId = null;
+  state.standingWriteCount = 0;
   state.playerFlags = [state.playerFaction];
   state.factionStanding = {};
   state.feats = {};
@@ -19354,6 +19853,132 @@ function installBm1ProbeHarness() {
     },
     localElapsedMs: () => ensureSystemLedger(state.currentPlanet).localElapsedMs,
     geometry: () => getActiveCheckpoint(state.currentPlanet)?.geometry || null,
+    incidents: createIncidentProbeApi(),
+  };
+}
+
+function createIncidentProbeApi() {
+  return {
+    snapshot: () => {
+      const ledger = ensureIncidentLedger();
+      return {
+        ledger: serializeIncidentLedger(ledger),
+        standing: { ...(state.factionStanding || {}) },
+        standingWriteCount: Number(state.standingWriteCount) || 0,
+        flash: [...(ledger.alerts?.flashQueue || [])],
+        currentFlash: currentFlash(ledger),
+        alertsMode: getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)).alerts,
+        alertsActive: areAlertsActive(getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet))),
+        log: state.log,
+        backgroundLog: state.backgroundLog || null,
+        observedAttacks: [...(ensurePlayerSecurity().observedAttacks || [])],
+        mayAutoEngageSample: null,
+      };
+    },
+    setAlerts: (mode) => setEmpireAlerts(mode),
+    setHoldingAlerts,
+    acknowledgeFlash: () => acknowledgeCurrentFlash(),
+    list: () => listIncidents(ensureIncidentLedger()),
+    forVisitor: (instanceId) => listIncidentsForVisitor(ensureIncidentLedger(), instanceId),
+    lastReact: (observerId) => {
+      const npc = probeFindShip(observerId);
+      const key = observerKeyFor(npc) || (String(observerId).startsWith('npc:') ? observerId : `npc:${observerId}`);
+      return lastObserverDecision(ensureIncidentLedger(), key);
+    },
+    deliverReport: (input) => deliverReport(ensureIncidentLedger(), input),
+    tryStanding: (token, delta = -1) => applyStandingOnce(ensureIncidentLedger(), token, () => adjustFactionStanding('terran', delta, { silent: true })),
+    injectDistress: (facts = {}) => {
+      const eligible = (state.npcShips || []).filter((ship) => (
+        !ship.destroyed
+        && ['patrol', 'relief', 'commander', 'explorer', 'defender'].includes(String(ship.role || ship.doctrineRole || ''))
+      ));
+      if (!eligible.length) return { ok: false, reason: 'no-eligible-observer' };
+      const ledger = ensureIncidentLedger();
+      const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+      const identity = currentLocationIdentity(state.currentPlanet);
+      const target = facts.lastKnown || { x: Number(eligible[0].x) + 40, y: Number(eligible[0].y) };
+      const opened = openIncident(ledger, {
+        kind: 'distress',
+        systemIndex: state.currentPlanet,
+        locationId: identity.locationId,
+        jurisdictionId: identity.jurisdictionId,
+        authoritySide: getSystemControl(state.currentPlanet)?.authoritySide || null,
+        actor: { instanceId: facts.actorInstanceId || 'distress-beacon', kind: 'npc' },
+        victim: { instanceId: null, kind: 'civilian', sideId: facts.victimSide || null },
+        action: 'distress',
+        clocks: { localElapsedMs: localMs, strategicJumps: ledger.strategicJumps, issuedAtLocalMs: localMs },
+        links: { distressKey: facts.distressKey || `distress:${localMs}` },
+        lastKnown: target,
+        sayable: 'Distress observed. Rescue may proceed if survivors are known.',
+      });
+      if (!opened.created) return { ok: false, reason: opened.reason, incident: opened.incident };
+      emitIncidentNotice(opened.incident);
+      const factsByObserver = {};
+      for (const ship of eligible) {
+        const key = observerKeyFor(ship);
+        if (!key) continue;
+        if (facts.ignorantIds?.includes(ship.id)) {
+          factsByObserver[key] = { event_known: false };
+          continue;
+        }
+        factsByObserver[key] = {
+          event_known: true,
+          credible_report: true,
+          event_actionable: true,
+          can_respond: facts.canRespond !== false,
+          survivors_known: facts.survivorsKnown === true,
+          can_rescue: facts.survivorsKnown === true,
+          mission_rescue_active: facts.survivorsKnown === true,
+          evidence_available: facts.evidenceAvailable === true,
+          linked_own_losses: facts.linkedOwnLosses === true,
+          own_asset_affected: facts.ownAssetAffected === true,
+          ...(facts.factsByFaction?.[ship.faction] || {}),
+        };
+      }
+      const decisions = evaluatePresentObservers(opened.incident, { factsByObserver, ships: eligible });
+      return {
+        ok: true,
+        incident: opened.incident,
+        decisions,
+        observers: eligible.map((ship) => ({
+          id: ship.id,
+          faction: ship.faction,
+          role: ship.role,
+          doctrineRole: ship.doctrineRole,
+          instanceId: ship.securityInstanceId,
+          incidentObjective: ship.incidentObjective ? { ...ship.incidentObjective } : null,
+        })),
+      };
+    },
+    reactObserver: (id, incidentId, facts = {}) => {
+      const npc = probeFindShip(id);
+      const incident = ensureIncidentLedger().incidents[incidentId];
+      if (!npc || !incident) return { ok: false, reason: 'missing' };
+      const decision = evaluateObserverForIncident(npc, incident, facts);
+      return {
+        ok: true,
+        decision,
+        incidentObjective: npc.incidentObjective ? { ...npc.incidentObjective } : null,
+        attackId: npc.attackId || null,
+        hostile: Boolean(npc.hostile),
+      };
+    },
+    inspectFire: (npcId, extraFacts = {}) => {
+      const npc = probeFindShip(npcId);
+      const doctrine = getDoctrineRuntime();
+      if (!npc || !doctrine?.loaded) return { allowed: false, missing: true };
+      return doctrine.inspectFire(npc.doctrineProfile || npc.faction, npc.doctrineRole || npc.role, {
+        engagement_objective_active: extraFacts.engagement_objective_active === true,
+        live_weapon_track: true,
+        weapon_usable: true,
+        weapon_ready: true,
+        inside_equipped_range: true,
+        target_actionable: true,
+        identity_known: true,
+        ...extraFacts,
+      });
+    },
+    logBackground: (msg) => setLog(msg, { band: 'background' }),
   };
 }
 
@@ -19381,7 +20006,11 @@ function installPlayerSecurityProbe() {
       protectAll: offersProtectAll(state.playerSecurity),
       checkpoint: checkpointUiSnapshot(),
       log: state.log,
+      standing: { ...(state.factionStanding || {}) },
+      standingWriteCount: Number(state.standingWriteCount) || 0,
+      incidentCount: listIncidents(ensureIncidentLedger()).length,
     }),
+    incidents: createIncidentProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
     raiseFlag: (faction) => {
@@ -19438,6 +20067,9 @@ function installPlayerSecurityProbe() {
         })),
         checkpointEnable: Boolean(document.querySelector('[data-checkpoint-enable]')),
         encounterCount: document.querySelectorAll('[data-checkpoint-select]').length,
+        alertButtons: [...document.querySelectorAll('[data-security-empire-alerts]')].map((el) => el.dataset.securityEmpireAlerts),
+        incidentCount: document.querySelectorAll('[data-incident-select]').length,
+        flashAck: Boolean(document.querySelector('[data-flash-ack]')),
       };
     },
     setEmpireAccess: (cls, value) => setEmpireAccessClass(cls, value),

@@ -253,10 +253,17 @@ export function isAccessEnforced(_policies) {
 }
 
 /**
- * Reserved: alert modes exist as data and must not drive notifications yet.
+ * Phase 4: incident-class notices are active unless the effective mode is silent.
+ * Pass either a merged policy (`{ alerts }`) or the full playerSecurity store.
  */
-export function areAlertsActive(_policies) {
-  return false;
+export function areAlertsActive(policies) {
+  const mode = normalizeAlertMode(policies?.alerts ?? policies?.empireDefault?.alerts);
+  return mode !== 'silent';
+}
+
+export function showsBackgroundAlertLogs(policies) {
+  const mode = normalizeAlertMode(policies?.alerts ?? policies?.empireDefault?.alerts);
+  return mode === 'all';
 }
 
 export function offersProtectAll(_policies) {

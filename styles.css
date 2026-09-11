@@ -660,6 +660,18 @@ body.ui-theme-cardassian .planet-menu::before {
 .top-message {
   justify-content: flex-start;
   padding-inline: 14px;
+  gap: 8px;
+}
+.flash-ack {
+  margin-left: auto;
+  min-height: 24px;
+  padding: 2px 10px;
+  border-radius: 10px 4px 4px 10px;
+  background: var(--lcars-amber);
+  color: #111;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 .top-stat:nth-child(3) {
   background: var(--lcars-cream);

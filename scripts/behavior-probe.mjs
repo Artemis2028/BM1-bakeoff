@@ -745,7 +745,13 @@ async function runPhase2Roe(page, results) {
   check(results, 'S4-18 lost-holding-uses-empire-default-roe', s4.afterLossRoe === 'return-fire');
   check(results, 'S4-19 local-override-reactivates-on-reclaim', s4.afterReclaimHeld === true && s4.reclaimedRoe === 'return-fire');
   check(results, 'S4-20 access-is-reserved-not-enforced', s4.accessEnforced === false);
-  check(results, 'S4-21 alerts-are-reserved-not-notifying', s4.alertsActive === false);
+  check(
+    results,
+    'S4-21 alerts-mode-gates-notifications',
+    (s4.mergedAlerts === 'all' || s4.mergedAlerts === 'incidents' || s4.mergedAlerts === 'silent')
+      && s4.alertsActive === (s4.mergedAlerts !== 'silent'),
+    JSON.stringify({ mergedAlerts: s4.mergedAlerts, alertsActive: s4.alertsActive }),
+  );
   check(results, 'S4-22 protect-all-is-not-offered', s4.protectAll === false);
 
   const ui = await page.evaluate(() => {
@@ -1651,6 +1657,577 @@ async function runPhase3Checkpoints(page, results) {
   check(results, 'S5.ui operator-panel-present', uiShot.present === true && uiShot.checkpointEnable === true);
 }
 
+async function runPhase4Incidents(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+
+  const s61 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    probe2.setEmpireRoe('return-fire');
+    const vulcan = p.systemIndexByName('Vulcan');
+    if (vulcan < 0) return { missing: 'vulcan' };
+    p.warpTo(vulcan);
+    const geo = p.geometry();
+    if (!geo) return { missing: 'authored-zone' };
+    p.placePlayer(geo.center.x + 10, geo.center.y + 10);
+    p.tick(8, 1);
+    const standingBefore = { ...p.snapshot().standing };
+    const attacksBefore = (probe2.snapshot().playerSecurity.observedAttacks || []).length;
+    const shotsBefore = p.snapshot().projectileCount;
+    const refused = p.playerRespond('refuse');
+    const snap = probe2.incidents.snapshot();
+    const incidents = snap.ledger.incidents || {};
+    const access = Object.values(incidents).filter((row) => row.kind === 'access_noncompliance');
+    const visitor = p.checkpoint().playerOrder;
+    const mayFire = probe2.mayAutoEngage({
+      id: 'player-self',
+      faction: 'ferengi',
+      hostile: false,
+      attitude: 'neutral',
+    });
+    return {
+      refused,
+      access,
+      visitor,
+      standingBefore,
+      standing: snap.standing,
+      attacksBefore,
+      attacksAfter: (snap.observedAttacks || []).length,
+      shotsBefore,
+      shotsAfter: p.snapshot().projectileCount,
+      mayFire,
+      flash: snap.currentFlash,
+      log: snap.log,
+    };
+  });
+  check(
+    results,
+    'S6.1 refusal-is-not-aggression',
+    !s61.missing
+      && s61.refused?.ok === true
+      && s61.access.length === 1
+      && s61.attacksAfter === s61.attacksBefore
+      && !s61.access[0]?.links?.attackId
+      && s61.mayFire === false
+      && JSON.stringify(s61.standing) === JSON.stringify(s61.standingBefore)
+      && s61.shotsAfter === s61.shotsBefore,
+    JSON.stringify(s61),
+  );
+
+  const s614 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const inc = globalThis.__BM1_PROBE__.incidents;
+    const before = inc.snapshot();
+    const incidentId = Object.values(before.ledger.incidents || {}).find((row) => row.kind === 'access_noncompliance')?.incidentId;
+    const flashId = before.currentFlash?.flashId || before.flash.slice(-1)[0]?.flashId || null;
+    const flashCount = before.flash.length;
+    p.placeAtApproach();
+    p.tick(24, 4);
+    const after = inc.snapshot();
+    const same = after.ledger.incidents[incidentId];
+    const notice = Object.values(after.ledger.incidents || {}).filter((row) => row.kind === 'access_notice');
+    return {
+      incidentId,
+      sameId: same?.incidentId,
+      history: same?.history || [],
+      noticeCount: notice.length,
+      flashCountBefore: flashCount,
+      flashCountAfter: after.flash.length,
+      lastFlashId: after.currentFlash?.flashId || after.flash.slice(-1)[0]?.flashId || null,
+      firstFlashId: flashId,
+    };
+  });
+  check(
+    results,
+    'S6.14 append-only-withdrawal-does-not-flash',
+    s614.sameId === s614.incidentId
+      && (s614.history.some((row) => row.type === 'departed' || row.type === 'withdrawn'))
+      && s614.noticeCount === 0
+      && s614.flashCountAfter === s614.flashCountBefore
+      && (s614.lastFlashId === s614.firstFlashId || s614.flashCountAfter === s614.flashCountBefore),
+    JSON.stringify(s614),
+  );
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+  const s62 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const snap = p.snapshot();
+    const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    probe2.setEmpireRoe('return-fire');
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'phase4-tractor',
+      role: 'traffic',
+      faction: 'neutral',
+      hostile: false,
+      x: geo.center.x + 18,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 0.3,
+    });
+    p.tick(4, 1);
+    const issued = p.orderFor('phase4-tractor');
+    p.tractorHold('phase4-tractor', 45000);
+    p.tick(6, 1);
+    const order = p.orderFor('phase4-tractor');
+    const incidents = Object.values(probe2.incidents.snapshot().ledger.incidents || {});
+    const inability = incidents.filter((row) => row.kind === 'access_inability');
+    return {
+      issued: issued?.lifecycle || null,
+      order,
+      inability,
+      mayFire: probe2.mayAutoEngage({ id: 'phase4-tractor', faction: 'neutral', hostile: false }),
+      log: p.snapshot().log,
+    };
+  });
+  check(
+    results,
+    'S6.2 inability-is-not-an-offense',
+    s62.order?.lifecycle === 'unable_to_comply'
+      && s62.inability.length === 1
+      && s62.inability[0].truth?.offense === 'none'
+      && /tractor/i.test(JSON.stringify(s62.inability[0].truth))
+      && s62.mayFire === false,
+    JSON.stringify(s62),
+  );
+
+  const s63 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    p.prepareArena({ clearTraffic: true });
+    const anchors = (p.snapshot().stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (!p.checkpoint().zone && anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'phase4-repeat',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + 16,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 0.25,
+    });
+    p.tick(4, 1);
+    const first = p.orderFor('phase4-repeat');
+    p.tick(3, 1);
+    if (first?.encounterId) p.operatorAct('withdraw', first.encounterId);
+    p.tick(2, 1);
+    const afterRevise = p.orderFor('phase4-repeat');
+    if (afterRevise && afterRevise.visitorKind === 'npc') {
+      const closed = p.operatorAct('cancel', afterRevise.encounterId);
+      void closed;
+    }
+    const refusedLike = Object.values(ensureOrders()).find((order) => order.npcId === 'phase4-repeat');
+    function ensureOrders() {
+      return p.encounters() || [];
+    }
+    const visitor = p.ship('phase4-repeat');
+    const all = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => (
+      row.actor?.instanceId === visitor?.securityInstanceId || row.links?.encounterId === first?.encounterId
+    ));
+    return { first, afterRevise, refusedLike, incidents: all, count: all.length };
+  });
+  check(
+    results,
+    'S6.3 phase3-feed-once-per-encounter',
+    s63.first?.encounterId
+      && s63.incidents.length <= 1,
+    JSON.stringify(s63),
+  );
+
+  const s64 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    p.prepareArena({ clearTraffic: true });
+    const standingBefore = { ...p.snapshot().standing };
+    const writesBefore = probe2.snapshot().standingWriteCount;
+    p.spawnShip({
+      id: 'phase4-civilian',
+      role: 'traffic',
+      faction: 'terran',
+      x: 1200,
+      y: 900,
+      destX: 1210,
+      destY: 900,
+    });
+    p.destroy('phase4-civilian', 'player');
+    const afterKill = probe2.incidents.snapshot();
+    const destruction = Object.values(afterKill.ledger.incidents || {}).filter((row) => row.kind === 'destruction');
+    const writesAfterKill = afterKill.standingWriteCount;
+    const token = destruction[0]?.links?.punishmentToken;
+    probe2.incidents.deliverReport({
+      incidentId: destruction[0]?.incidentId,
+      senderKey: 'npc:witness',
+      recipientKey: 'player',
+    });
+    const afterReport = probe2.incidents.tryStanding(token, -4);
+    const vulcan = p.spawnShip({
+      id: 'phase4-vulcan-record',
+      role: 'patrol',
+      faction: 'vulcan',
+      x: 1180,
+      y: 880,
+    });
+    const react = probe2.incidents.reactObserver('phase4-vulcan-record', destruction[0]?.incidentId, {
+      event_known: true,
+      credible_report: true,
+      event_actionable: true,
+    });
+    const afterReact = probe2.incidents.snapshot();
+    p.spawnShip({
+      id: 'phase4-npc-only',
+      role: 'traffic',
+      faction: 'romulan',
+      x: 1300,
+      y: 900,
+    });
+    const standingNpcBefore = { ...p.snapshot().standing };
+    p.destroy('phase4-npc-only', 'npc');
+    const afterNpc = probe2.incidents.snapshot();
+    const npcInc = Object.values(afterNpc.ledger.incidents || {}).filter((row) => row.links?.destructionKey === (p.ship('phase4-npc-only')?.securityInstanceId || 'slot:phase4-npc-only') || row.victim?.instanceId === 'slot:phase4-npc-only' || /romulan|phase4-npc/.test(JSON.stringify(row)));
+    return {
+      destruction,
+      token,
+      writesBefore,
+      writesAfterKill,
+      afterReport,
+      react,
+      standingUnchangedAfterReport: JSON.stringify(afterReact.standing) === JSON.stringify(afterKill.standing),
+      writesAfterReact: afterReact.standingWriteCount,
+      standingChangedOnKill: JSON.stringify(afterKill.standing) !== JSON.stringify(standingBefore),
+      npcStandingUnchanged: JSON.stringify(afterNpc.standing) === JSON.stringify(standingNpcBefore),
+      npcIncCount: npcInc.length,
+      flashAfterKill: afterKill.log,
+      vulcan,
+    };
+  });
+  check(
+    results,
+    'S6.4 kill-standing-is-not-doubled',
+    s64.destruction.length >= 1
+      && s64.token
+      && s64.standingChangedOnKill === true
+      && s64.afterReport?.applied === false
+      && s64.standingUnchangedAfterReport === true
+      && s64.writesAfterReact === s64.writesAfterKill
+      && s64.npcStandingUnchanged === true,
+    JSON.stringify(s64),
+  );
+
+  const s656 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    probe2.incidents.setAlerts('incidents');
+    const afterMode = probe2.incidents.snapshot().alertsMode;
+    probe2.incidents.logBackground('Salvage recovered: 22 latinum.');
+    const afterSalvage = probe2.incidents.snapshot();
+    probe2.incidents.setAlerts('silent');
+    const silentSnap = probe2.incidents.snapshot();
+    const journal = Object.values(silentSnap.ledger.incidents || {});
+    probe2.incidents.setAlerts('all');
+    probe2.openSettings();
+    const ui = probe2.securityUi();
+    return {
+      afterMode,
+      logAfterSalvage: afterSalvage.log,
+      flash: afterSalvage.currentFlash,
+      silentAlertsActive: silentSnap.alertsActive,
+      journalCount: journal.length,
+      uiAlerts: ui.alertButtons,
+      uiIncidents: ui.incidentCount,
+      text: ui.text,
+    };
+  });
+  check(
+    results,
+    'S6.5 alert-modes',
+    s656.afterMode === 'incidents'
+      && /FLASH/i.test(String(s656.logAfterSalvage || ''))
+      && !/^Salvage recovered/i.test(String(s656.logAfterSalvage || ''))
+      && s656.silentAlertsActive === false
+      && s656.journalCount > 0
+      && s656.uiAlerts.includes('all')
+      && s656.uiAlerts.includes('silent'),
+    JSON.stringify(s656),
+  );
+  check(
+    results,
+    'S6.6 flash-priority-over-salvage',
+    /FLASH/i.test(String(s656.logAfterSalvage || ''))
+      && !/Salvage recovered/i.test(String(s656.logAfterSalvage || '')),
+    JSON.stringify({ log: s656.logAfterSalvage, flash: s656.flash }),
+  );
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+  const s67 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const vulcanIdx = p.systemIndexByName('Vulcan');
+    if (vulcanIdx < 0) return { missing: 'vulcan' };
+    p.warpTo(vulcanIdx);
+    p.prepareArena({ clearTraffic: true });
+    const geo = p.geometry() || { center: { x: 1200, y: 900 } };
+    p.spawnShip({
+      id: 'phase4-vulcan-relief',
+      role: 'relief',
+      faction: 'vulcan',
+      x: geo.center.x + 80,
+      y: geo.center.y,
+      destX: geo.center.x + 200,
+      destY: geo.center.y,
+    });
+    p.spawnShip({
+      id: 'phase4-klingon-patrol',
+      role: 'patrol',
+      faction: 'klingon',
+      x: geo.center.x - 80,
+      y: geo.center.y,
+      destX: geo.center.x - 200,
+      destY: geo.center.y,
+      destinationName: 'klingon lane',
+    });
+    p.spawnShip({
+      id: 'phase4-ignorant',
+      role: 'patrol',
+      faction: 'romulan',
+      x: geo.center.x,
+      y: geo.center.y + 90,
+    });
+    const injected = probe2.incidents.injectDistress({
+      survivorsKnown: true,
+      ignorantIds: ['phase4-ignorant'],
+      factsByFaction: {
+        klingon: {
+          event_known: true,
+          credible_report: true,
+          event_actionable: true,
+          linked_own_losses: false,
+          own_asset_affected: false,
+        },
+      },
+    });
+    const vulcanShip = p.ship('phase4-vulcan-relief');
+    const klingonShip = p.ship('phase4-klingon-patrol');
+    const vulcanReact = probe2.incidents.lastReact('phase4-vulcan-relief');
+    const klingonReact = probe2.incidents.lastReact('phase4-klingon-patrol');
+    const ignorantReact = probe2.incidents.lastReact('phase4-ignorant');
+    return {
+      injected,
+      vulcanReact,
+      klingonReact,
+      ignorantReact,
+      vulcanObjective: vulcanShip?.incidentObjective || injected.observers?.find((row) => row.id === 'phase4-vulcan-relief')?.incidentObjective || null,
+      klingonObjective: klingonShip?.incidentObjective || null,
+      klingonDest: klingonShip?.destinationName || null,
+    };
+  });
+  check(
+    results,
+    'S6.7 doctrine-contrast-acting',
+    !s67.missing
+      && s67.injected?.ok === true
+      && (s67.vulcanReact?.appliedResponse === 'rescue' || s67.vulcanReact?.appliedResponse === 'investigate')
+      && Boolean(s67.vulcanObjective)
+      && s67.klingonReact?.appliedResponse === 'record_only'
+      && !s67.klingonObjective
+      && s67.ignorantReact?.appliedResponse === 'ignore_unknown',
+    JSON.stringify(s67),
+  );
+
+  const s68 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    probe2.setEmpireRoe('return-fire');
+    const fire = probe2.incidents.inspectFire('phase4-vulcan-relief', {});
+    const may = probe2.mayAutoEngage({
+      id: 'phase4-klingon-patrol',
+      faction: 'klingon',
+      hostile: false,
+      attitude: 'neutral',
+    });
+    const vulcan = p.ship('phase4-vulcan-relief');
+    return {
+      fire,
+      may,
+      attackId: vulcan?.attackId || null,
+      objective: vulcan?.incidentObjective || null,
+    };
+  });
+  check(
+    results,
+    'S6.8 investigate-rescue-are-not-weapons',
+    s68.fire?.allowed !== true
+      && s68.may === false
+      && !s68.attackId
+      && s68.objective?.fireCapable === false,
+    JSON.stringify(s68),
+  );
+
+  const s613 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const geo = p.geometry() || { center: { x: 1200, y: 900 } };
+    p.placePlayer(geo.center.x + 8, geo.center.y + 8);
+    p.tick(6, 1);
+    const refused = p.playerRespond('refuse');
+    const access = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).find((row) => row.kind === 'access_noncompliance' && row.status === 'open')
+      || Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => row.kind === 'access_noncompliance').slice(-1)[0];
+    p.spawnShip({
+      id: 'phase4-vulcan-protect',
+      role: 'patrol',
+      faction: 'vulcan',
+      x: geo.center.x + 60,
+      y: geo.center.y + 20,
+    });
+    const react = probe2.incidents.reactObserver('phase4-vulcan-protect', access?.incidentId, {
+      event_known: true,
+      credible_report: true,
+      event_actionable: true,
+      own_asset_affected: true,
+      can_respond: true,
+    });
+    const conceal = probe2.incidents.reactObserver('phase4-vulcan-protect', access?.incidentId, {
+      event_known: true,
+      credible_report: true,
+      event_actionable: true,
+    });
+    const ship = p.ship('phase4-vulcan-protect');
+    const fire = probe2.incidents.inspectFire('phase4-vulcan-protect', {});
+    return {
+      refused,
+      accessId: access?.incidentId,
+      react,
+      conceal,
+      attackId: ship?.attackId || null,
+      hostile: Boolean(ship?.hostile),
+      fire,
+      objective: ship?.incidentObjective || null,
+      may: probe2.mayAutoEngage({ id: 'phase4-vulcan-protect', faction: 'vulcan', hostile: false }),
+    };
+  });
+  check(
+    results,
+    'S6.13 pack-protect-is-not-weapons',
+    s613.react?.decision?.packResponse === 'protect'
+      && s613.react?.decision?.appliedResponse === 'record_only'
+      && !s613.attackId
+      && s613.fire?.allowed !== true
+      && s613.fire?.engagementAuthorized !== true
+      && !s613.objective
+      && s613.may === false,
+    JSON.stringify(s613),
+  );
+
+  const s69 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const before = probe2.incidents.snapshot();
+    const open = Object.values(before.ledger.incidents || {}).find((row) => row.status === 'open') || Object.values(before.ledger.incidents || {})[0];
+    p.saveSlot(8);
+    p.wipeSystemStates();
+    p.loadSlot(8);
+    const after = probe2.incidents.snapshot();
+    const restored = after.ledger.incidents[open?.incidentId];
+    return {
+      id: open?.incidentId,
+      restoredId: restored?.incidentId,
+      clocks: restored?.clocks,
+      flash: after.flash.length,
+      standing: after.standing,
+    };
+  });
+  check(
+    results,
+    'S6.9 persistence-survives-systemStates-wipe',
+    Boolean(s69.id && s69.restoredId === s69.id),
+    JSON.stringify(s69),
+  );
+
+  const s610 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const home = p.snapshot().currentPlanet;
+    const vulcan = p.systemIndexByName('Vulcan');
+    if (vulcan >= 0) p.warpTo(p.systemIndexByName('Ferenginar') >= 0 ? p.systemIndexByName('Ferenginar') : home);
+    const anchors = (p.snapshot().stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    const geo = p.geometry();
+    if (geo) {
+      p.spawnShip({
+        id: 'phase4-epoch',
+        role: 'traffic',
+        faction: 'neutral',
+        x: geo.center.x + 14,
+        y: geo.center.y,
+        destX: geo.center.x,
+        destY: geo.center.y,
+        speed: 0.2,
+      });
+      p.tick(5, 1);
+      const order = p.orderFor('phase4-epoch');
+      if (order) p.operatorAct('withdraw', order.encounterId);
+      p.tick(40, 80);
+    }
+    const before = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => row.kind === 'access_noncompliance' && row.status === 'open');
+    const lost = probe2.loseHolding(p.snapshot().currentPlanet, 'klingon');
+    const after = Object.values(probe2.incidents.snapshot().ledger.incidents || {}).filter((row) => before.some((open) => open.incidentId === row.incidentId));
+    return {
+      lost,
+      beforeCount: before.length,
+      resolved: after.every((row) => row.status === 'resolved' && row.resolveReason === 'authority_changed'),
+    };
+  });
+  check(
+    results,
+    'S6.10 authority-change-resolves-access',
+    s610.lost?.overrideActive === false && (s610.beforeCount === 0 || s610.resolved === true),
+    JSON.stringify(s610),
+  );
+
+  const s61112 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const ledger = probe2.incidents.snapshot().ledger;
+    const sanitized = Object.values(ledger.incidents || {}).every((row) => row.incidentId && row.kind);
+    const extras = [];
+    for (let i = 0; i < 20; i += 1) extras.push(i);
+    return {
+      sanitized,
+      version: ledger.version,
+      nextId: ledger.nextIncidentId,
+    };
+  });
+  check(
+    results,
+    'S6.11 ledger-sanitizes-and-versions',
+    s61112.sanitized === true && s61112.version === 1 && s61112.nextId >= 1,
+    JSON.stringify(s61112),
+  );
+
+  const s612 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    probe2.setEmpireRoe('return-fire');
+    const attacker = { id: 'real-phase4', faction: 'klingon', hostile: false };
+    probe2.recordAttack(attacker, 'player');
+    const authorized = probe2.mayAutoEngage(attacker);
+    return { authorized, roe: probe2.snapshot().effectiveRoe };
+  });
+  check(
+    results,
+    'S6.12 end-state-isolation-keeps-real-defense',
+    s612.authorized === true,
+    JSON.stringify(s612),
+  );
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -1665,13 +2242,14 @@ async function main() {
     const results = await runChecks(page);
     await runPhase2Roe(page, results);
     await runPhase3Checkpoints(page, results);
+    await runPhase4Incidents(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 checkpoints Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
