@@ -2870,6 +2870,25 @@ async function loadFactionDoctrinePack() {
     searchClock: doctrine.searchObjective?.clock || null,
   };
   globalThis.BM1Doctrine = doctrine;
+  globalThis.BM1Doctrine.debugSnapshot = () => ({
+    version: doctrine.version,
+    smoke: doctrine.smoke,
+    locationIdentity: state.locationIdentity,
+    doctrine: state.doctrine,
+    log: state.log,
+    playerFaction: state.playerFaction,
+    ships: (state.npcShips || []).map((ship) => ({
+      id: ship.id,
+      nativeRole: ship.role,
+      fleetId: ship.fleetId || null,
+      faction: ship.faction,
+      doctrineProfile: ship.doctrineProfile || null,
+      doctrineRole: ship.doctrineRole || null,
+      doctrineDefaultObjective: ship.doctrineDefaultObjective || null,
+      locationId: ship.locationId || null,
+      doctrineShadow: ship.doctrineShadow || null,
+    })),
+  });
   if (doctrine.smoke?.failed?.length) {
     console.warn('Doctrine runtime smoke failed', doctrine.smoke.failed);
   }
