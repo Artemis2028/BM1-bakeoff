@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Headless Chromium behavioral probe for bake-off Phase 1.
+ * Headless Chromium behavioral probe for bake-off Phase 1 + Phase 2 ROE.
  *
  * Written from this repo's docs + src only:
  * - docs/revised-development-plan.md §2–§3
@@ -8,7 +8,7 @@
  * - docs/BAKEOFF-STATUS.md
  *
  * Boots the real game, freezes the RAF loop, then drives tick() / combat /
- * claim / arrival paths with live fixtures.
+ * claim / arrival paths with live fixtures, then S4 player-security ROE checks.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -646,25 +646,205 @@ async function runChecks(page) {
   return results;
 }
 
+async function runPhase2Roe(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.ready?.()), { timeout: 30000 });
+
+  const now = Date.now();
+  const s4 = await page.evaluate((clock) => {
+    const probe = globalThis.__BM1_PROBE__;
+    probe.setEmpireRoe('return-fire');
+    const warHostile = { id: 'klingon-1', faction: 'klingon', hostile: true, attitude: 'hostile' };
+    const warOnly = { id: 'dominion-war', faction: 'dominion', hostile: false, attitude: 'neutral' };
+    const attacker = { id: 'raider-7', faction: 'klingon', attackId: null, hostile: false, attitude: 'neutral' };
+    const snap = probe.snapshot();
+    const home = snap.currentPlanet;
+    const raid = { id: 'raid-home', systemIndex: home, faction: 'cardassian' };
+    const raider = { id: 'raid-ship', faction: 'cardassian', attackId: 'raid-home' };
+    const otherRaider = { id: 'raid-else', faction: 'cardassian', attackId: 'raid-other' };
+    const warHostileRF = probe.mayAutoEngage(warHostile);
+    const warOnlyRF = probe.mayAutoEngage(warOnly);
+    probe.recordAttack(attacker, 'player');
+    const attributedRF = probe.mayAutoEngage(attacker);
+    probe.setActiveRaid(raid);
+    const raidMatch = probe.mayAutoEngage(raider);
+    probe.setActiveRaid({ id: 'raid-away', systemIndex: home + 9, faction: 'cardassian' });
+    const raidMismatch = probe.mayAutoEngage(otherRaider);
+    probe.setActiveRaid(null);
+    const ownStation = { id: 'own-yard', stationTypeId: 900, builtByPlayer: true, faction: 'ferengi' };
+    const ownEscort = { id: 'escort-a', role: 'playerEscort', fleetId: 'escort-1', faction: 'ferengi' };
+    const foreign = { id: 'foreign-1', faction: 'romulan', hostile: false, attitude: 'neutral' };
+    const orderPreviewOwn = probe.previewEscortOrder(ownStation, 'station');
+    const orderPreviewEscort = probe.previewEscortOrder(ownEscort, 'ship');
+    const orderForeign = probe.markEscortOrder({ ...foreign });
+    probe.setEmpireRoe('defend');
+    const defendHostile = probe.mayAutoEngage({ id: 'd1', faction: 'dominion', hostile: true, attitude: 'hostile' });
+    const defendWar = probe.mayAutoEngage({ id: 'd2', faction: 'dominion', hostile: false, attitude: 'neutral' });
+    probe.setEmpireRoe('return-fire');
+    probe.setHoldingRoe(home, 'defend');
+    const merged = probe.snapshot();
+    const ownerBefore = merged.playerSecurity.ownerSide;
+    probe.raiseFlag('klingon');
+    const afterFlag = probe.snapshot();
+    probe.setHoldingRoe(home, 'return-fire');
+    const lost = probe.loseHolding(home, 'klingon');
+    const afterLoss = probe.snapshot();
+    const reclaimedRoe = probe.reclaimHolding(home);
+    const afterReclaim = probe.snapshot();
+    return {
+      modes: merged.playerSecurity.empireDefault,
+      warHostileRF,
+      warOnlyRF,
+      attributedRF,
+      raidMatch,
+      raidMismatch,
+      defendHostile,
+      defendWar,
+      orderPreviewOwn,
+      orderPreviewEscort,
+      orderForeign,
+      mergedAccess: merged.effectivePolicy.access,
+      mergedAlerts: merged.effectivePolicy.alerts,
+      mergedRoeWhileHoldingDefend: merged.effectiveRoe,
+      ownerBefore,
+      ownerAfter: afterFlag.playerSecurity.ownerSide,
+      roeAfterFlag: afterFlag.playerSecurity.empireDefault.roe,
+      flagAfter: afterFlag.playerFaction,
+      lost,
+      afterLossRoe: afterLoss.effectiveRoe,
+      afterLossHeld: afterLoss.controlledSystems.includes(home),
+      retained: Boolean(afterLoss.playerSecurity.holdings[String(home)]),
+      retainedActive: Boolean(afterLoss.playerSecurity.holdings[String(home)]?.active),
+      reclaimedRoe,
+      afterReclaimHeld: afterReclaim.controlledSystems.includes(home),
+      accessEnforced: snap.accessEnforced,
+      alertsActive: snap.alertsActive,
+      protectAll: snap.protectAll,
+      home,
+      clock,
+    };
+  }, now);
+
+  check(results, 'S4-01 only-return-fire-and-defend-modes', ['return-fire', 'defend'].includes(s4.modes.roe) && s4.protectAll === false);
+  check(results, 'S4-02 return-fire-hostility-alone-insufficient', s4.warHostileRF === false);
+  check(results, 'S4-03 return-fire-war-flag-alone-insufficient', s4.warOnlyRF === false);
+  check(results, 'S4-04 return-fire-attributable-attack-in-system-authorizes', s4.attributedRF === true);
+  check(results, 'S4-05 return-fire-matching-raid-against-holding-authorizes', s4.raidMatch === true);
+  check(results, 'S4-06 return-fire-raid-against-other-system-insufficient', s4.raidMismatch === false);
+  check(results, 'S4-07 defend-hostility-toward-player-authorizes', s4.defendHostile === true);
+  check(results, 'S4-08 defend-war-with-player-flag-authorizes', s4.defendWar === true);
+  check(results, 'S4-09 escort-order-refused-for-player-owned-station', s4.orderPreviewOwn.applied === false && s4.orderPreviewOwn.reason === 'protected');
+  check(results, 'S4-10 escort-order-refused-for-player-side-ship', s4.orderPreviewEscort.applied === false && s4.orderPreviewEscort.reason === 'protected');
+  check(results, 'S4-11 escort-order-overrides-roe-for-foreign-target', s4.orderForeign.applied === true && s4.orderForeign.mutated === true, JSON.stringify(s4.orderForeign));
+  check(results, 'S4-12 policies-belong-to-player-side', s4.ownerBefore === 'ferengi' && s4.ownerAfter === 'ferengi');
+  check(results, 'S4-13 policies-survive-flag-change', s4.flagAfter === 'klingon' && s4.roeAfterFlag === 'return-fire', JSON.stringify({ flag: s4.flagAfter, roe: s4.roeAfterFlag }));
+  check(results, 'S4-14 merge-by-dimension-keeps-reserved-access', Boolean(s4.mergedAccess && s4.mergedAccess.warFlag && s4.mergedRoeWhileHoldingDefend === 'defend'));
+  check(results, 'S4-15 merge-by-dimension-keeps-reserved-alerts', s4.mergedAlerts === 'all' || s4.mergedAlerts === 'incidents' || s4.mergedAlerts === 'silent');
+  check(results, 'S4-16 local-override-inactive-when-holding-lost', s4.afterLossHeld === false && s4.retainedActive === false);
+  check(results, 'S4-17 local-override-retained-when-holding-lost', s4.retained === true);
+  check(results, 'S4-18 lost-holding-uses-empire-default-roe', s4.afterLossRoe === 'return-fire');
+  check(results, 'S4-19 local-override-reactivates-on-reclaim', s4.afterReclaimHeld === true && s4.reclaimedRoe === 'return-fire');
+  check(results, 'S4-20 access-is-reserved-not-enforced', s4.accessEnforced === false);
+  check(results, 'S4-21 alerts-are-reserved-not-notifying', s4.alertsActive === false);
+  check(results, 'S4-22 protect-all-is-not-offered', s4.protectAll === false);
+
+  const ui = await page.evaluate(() => {
+    const probe = globalThis.__BM1_PROBE__;
+    probe.openSettings();
+    const before = probe.securityUi();
+    const returnBtn = document.querySelector('[data-security-empire-roe="return-fire"]');
+    returnBtn?.click();
+    const afterClick = probe.snapshot();
+    const afterUi = probe.securityUi();
+    const text = `${afterUi.text}`.toLowerCase();
+    return {
+      present: before.present,
+      empireButtons: before.empireButtons,
+      holdingButtons: before.holdingButtons.length,
+      text,
+      afterRoe: afterClick.playerSecurity.empireDefault.roe,
+      hasProtectAll: /protect-all|protect all/.test(text),
+      presentsAccessWorking: /access enforcement is active|borders are now closed|challenge visitors automatically/.test(text),
+      presentsAlertsWorking: /flash alerts enabled|notifications are live|alert channel open/.test(text),
+      mentionsReserved: /reserved/.test(text),
+    };
+  });
+
+  check(results, 'S4-23 security-ui-is-on-settings-hook', ui.present === true);
+  check(results, 'S4-24 security-ui-can-set-empire-default', ui.empireButtons.includes('return-fire') && ui.empireButtons.includes('defend') && ui.afterRoe === 'return-fire', JSON.stringify(ui));
+  check(results, 'S4-25 security-ui-lists-owned-or-retained-holdings', ui.holdingButtons > 0);
+  check(results, 'S4-26 security-ui-does-not-present-access-as-working', ui.presentsAccessWorking === false && ui.mentionsReserved === true);
+  check(results, 'S4-27 security-ui-does-not-present-alerts-as-working', ui.presentsAlertsWorking === false);
+  check(results, 'S4-28 security-ui-does-not-offer-protect-all', ui.hasProtectAll === false);
+
+  const extra = await page.evaluate(() => {
+    const probe = globalThis.__BM1_PROBE__;
+    probe.setEmpireRoe('return-fire');
+    const home = probe.snapshot().currentPlanet;
+    probe.setHoldingRoe(home, 'defend');
+    const inHolding = probe.snapshot().effectiveRoe;
+    const lost = probe.loseHolding(home, 'romulan');
+    const outside = probe.snapshot().effectiveRoe;
+    probe.reclaimHolding(home);
+    const ownShip = { id: 'fleet-home', role: 'playerFleet', fleetId: 'garrison-1', faction: 'klingon' };
+    const foreignConcession = { id: 'swiss', stationTypeId: 12, faction: 'neutral', privateInstallation: true };
+    const transferredYard = { id: 'yard', stationTypeId: 4, faction: probe.snapshot().playerSide, builtByPlayer: false };
+    return {
+      inHolding,
+      outside,
+      lostInactive: lost.overrideActive === false,
+      ownShipProtected: probe.isProtected(ownShip, 'ship'),
+      concessionNotOwned: probe.isProtected(foreignConcession, 'station') === false,
+      transferredOwned: probe.isProtected(transferredYard, 'station'),
+      ownShipNotForeign: probe.isForeign(ownShip, 'ship') === false,
+    };
+  });
+
+  check(results, 'S4-29 holding-override-applies-inside-holding', extra.inHolding === 'defend');
+  check(results, 'S4-30 outside-holdings-use-empire-default-roe', extra.outside === 'return-fire');
+  check(results, 'S4-31 occupier-does-not-inherit-inactive-override', extra.lostInactive === true);
+  check(results, 'S4-32 player-side-ships-are-protected-assets', extra.ownShipProtected === true && extra.ownShipNotForeign === true);
+  check(results, 'S4-33 foreign-private-installations-are-not-player-owned', extra.concessionNotOwned === true);
+  check(results, 'S4-34 transferred-holding-yards-are-player-owned', extra.transferredOwned === true);
+
+  const alertSafe = await page.evaluate(() => {
+    const probe = globalThis.__BM1_PROBE__;
+    const own = { id: 'built-1', stationTypeId: 3, builtByPlayer: true, faction: 'ferengi', hostile: false };
+    const escort = { id: 'esc-2', role: 'playerEscort', fleetId: 'e2', faction: 'ferengi', hostile: false };
+    return {
+      ownProtected: probe.isProtected(own, 'station'),
+      escortProtected: probe.isProtected(escort, 'ship'),
+      cannotOrderOwn: probe.markEscortOrder(own).applied === false,
+      cannotOrderEscort: probe.markEscortOrder(escort).applied === false,
+      ownUnchanged: own.hostile === false && !own.playerEscortOrderUntil,
+      escortUnchanged: escort.hostile === false && !escort.playerEscortOrderUntil,
+    };
+  });
+
+  check(results, 'S4-35 own-assets-protected-before-order-mutates', alertSafe.cannotOrderOwn && alertSafe.ownUnchanged);
+  check(results, 'S4-36 player-side-ships-protected-before-order-mutates', alertSafe.cannotOrderEscort && alertSafe.escortUnchanged);
+}
+
 async function main() {
   const server = await startServer();
   let browser;
   try {
     browser = await chromium.launch({
       headless: true,
-      args: ['--disable-dev-shm-usage'],
+      args: ['--disable-dev-shm-usage', '--no-sandbox'],
     });
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
     page.setDefaultTimeout(45000);
     await boot(page);
     const results = await runChecks(page);
+    await runPhase2Roe(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

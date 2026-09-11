@@ -1,4 +1,5 @@
 import {
+  applyDestructionPayout,
   applyPersonalArrivalProtection,
   applyPhase1RelationContract,
   factionsAreAligned as factionsAreAlignedByContract,
@@ -14,6 +15,32 @@ import {
   resolveBaseSystemFaction,
   shouldPreserveNpcIdentity,
 } from './phase1-authority.js';
+import {
+  applyEscortAttackOrder,
+  areAlertsActive,
+  createPlayerSecurityState,
+  deactivateHoldingOverride,
+  describeRoeMode,
+  getEffectivePolicy,
+  getEffectiveRoe,
+  isAccessEnforced,
+  isEligibleForeignTarget,
+  isPlayerOwnedInstallation,
+  isPlayerSideShip,
+  isProtectedPlayerAsset,
+  listSecurityHoldings,
+  offersProtectAll,
+  playerForceMayAutoEngage,
+  previewEscortAttackOrder,
+  pruneObservedAttacks,
+  reactivateHoldingOverride,
+  recordObservedAttack,
+  restorePlayerSecurity,
+  retainPoliciesAcrossFlagChange,
+  serializePlayerSecurity,
+  setEmpireDefaultDimension,
+  setHoldingOverrideDimension,
+} from './phase2-security.js';
 import {
   DOCTRINE_PACK_SRC,
   deriveLiveFireFacts,
@@ -560,6 +587,7 @@ const state = {
   playership: 18,
   playerFaction: 'ferengi',
   playerSide: 'ferengi',
+  playerSecurity: createPlayerSecurityState('ferengi'),
   playerFlags: [],
   captainName: '',
   shipName: '',
@@ -2934,9 +2962,11 @@ async function loadSourceData() {
     state.currentPlanet = Math.min(state.currentPlanet, state.planets.length - 1);
     applySystemState(state.currentPlanet);
     updateStats();
+    globalThis.__BM1_SOURCE_READY__ = true;
   } catch {
     rebuildTravelRoutes();
     setLog('Using fallback data tables.');
+    globalThis.__BM1_SOURCE_READY__ = true;
   }
 }
 
@@ -4063,6 +4093,132 @@ function getFactionRelationEntry(faction) {
 
 function getPlayerSide() {
   return getPlayerCommandIdentity(state.playerSide, state.playerFaction);
+}
+
+function ensurePlayerSecurity() {
+  const side = getPlayerSide();
+  state.playerSecurity = restorePlayerSecurity(state.playerSecurity, side);
+  if (!state.playerSecurity.ownerSide || state.playerSecurity.ownerSide === 'neutral') {
+    state.playerSecurity.ownerSide = side;
+  }
+  return state.playerSecurity;
+}
+
+function getPlayerFleetIdSet() {
+  return new Set((state.playerFleet || []).map((ship) => ship.id).filter(Boolean));
+}
+
+function getPlayerSecurityContext(now = performance.now(), extras = {}) {
+  const policies = ensurePlayerSecurity();
+  const systemIndex = extras.systemIndex != null ? Number(extras.systemIndex) : Number(state.currentPlanet);
+  const playerHolds = extras.playerHoldsSystem != null
+    ? Boolean(extras.playerHoldsSystem)
+    : isSystemControlled(systemIndex);
+  return {
+    policies,
+    now,
+    systemIndex,
+    playerHoldsSystem: playerHolds,
+    playerSide: getPlayerSide(),
+    playerFaction: state.playerFaction,
+    playerFleetIds: getPlayerFleetIdSet(),
+    observedAttacks: policies.observedAttacks,
+    activeRaid: state.activeFleetAttack && Number(state.activeFleetAttack.systemIndex) === systemIndex
+      ? state.activeFleetAttack
+      : null,
+    factionsOpposed: (a, b) => areFactionsOpposed(a, b),
+    factionsAligned: (a, b) => areFactionsAligned(a, b),
+    isSystemAttacker: (target) => isNpcSystemAttacker(target),
+    roe: getEffectiveRoe(policies, systemIndex, playerHolds),
+    targetType: extras.targetType,
+    ...extras,
+  };
+}
+
+function recordAttackOnPlayerSide(actor, victimKind = 'player', now = performance.now()) {
+  if (!actor) return;
+  if (isPlayerSideShip(actor, getPlayerSecurityContext(now)) || isPlayerOwnedInstallation(actor, getPlayerSecurityContext(now))) {
+    return;
+  }
+  state.playerSecurity = pruneObservedAttacks(recordObservedAttack(ensurePlayerSecurity(), {
+    actorId: actor.id,
+    actorFaction: actor.faction,
+    attackId: actor.attackId || null,
+    systemIndex: state.currentPlanet,
+    at: now,
+    victimKind,
+  }), now);
+}
+
+function setEmpireRoe(mode) {
+  state.playerSecurity = setEmpireDefaultDimension(ensurePlayerSecurity(), 'roe', mode);
+  const roe = ensurePlayerSecurity().empireDefault.roe;
+  setLog(`Empire default ROE set to ${roe}.`);
+  renderTopLeftPanel();
+  return roe;
+}
+
+function setHoldingRoe(systemIndex, mode) {
+  const index = Number(systemIndex);
+  const held = isSystemControlled(index);
+  const retained = Boolean(ensurePlayerSecurity().holdings?.[String(index)]);
+  if (!held && !retained) {
+    setLog('Security overrides can only be stored for holdings you control or once held.');
+    return null;
+  }
+  if (mode == null || mode === '') {
+    state.playerSecurity = setHoldingOverrideDimension(ensurePlayerSecurity(), index, 'roe', null);
+    if (!held) state.playerSecurity = deactivateHoldingOverride(ensurePlayerSecurity(), index);
+    setLog(`Holding ROE override cleared for ${state.planets[index]?.name || 'this system'}.`);
+  } else {
+    state.playerSecurity = setHoldingOverrideDimension(ensurePlayerSecurity(), index, 'roe', mode);
+    if (!held) state.playerSecurity = deactivateHoldingOverride(ensurePlayerSecurity(), index);
+    setLog(`${held ? 'Holding' : 'Retained'} ROE override set to ${mode} for ${state.planets[index]?.name || 'this system'}.`);
+  }
+  renderTopLeftPanel();
+  return getEffectiveRoe(ensurePlayerSecurity(), index, held);
+}
+
+function renderSecurityPanel() {
+  const policies = ensurePlayerSecurity();
+  const holdings = listSecurityHoldings(
+    policies,
+    state.controlledSystems || [],
+    (state.planets || []).map((planet) => planet?.name),
+  );
+  const empireButtons = ['return-fire', 'defend'].map((mode) => (
+    `<button type="button" data-security-empire-roe="${mode}" class="${policies.empireDefault.roe === mode ? 'active' : ''}">${mode === 'return-fire' ? 'Return fire' : 'Defend'}</button>`
+  )).join('');
+  const holdingRows = holdings.length
+    ? holdings.map((holding) => {
+      const status = holding.held
+        ? (holding.overrideActive ? 'active override' : 'using empire default')
+        : 'override retained (inactive)';
+      const selected = holding.overrideRoe || '';
+      const buttons = [
+        ['', 'Empire default'],
+        ['return-fire', 'Return fire'],
+        ['defend', 'Defend'],
+      ].map(([value, label]) => (
+        `<button type="button" data-security-holding-roe="${holding.systemIndex}" data-roe="${value}" class="${selected === value ? 'active' : ''}">${label}</button>`
+      )).join('');
+      return `<div class="security-holding ${holding.held ? '' : 'inactive'}" data-security-holding="${holding.systemIndex}">
+        <div class="security-holding-head"><span>${escapeHtml(holding.name)}</span><small>${escapeHtml(status)}</small></div>
+        <div class="security-roe-row">${buttons}</div>
+        <div class="meta">Effective ROE: ${escapeHtml(holding.effectiveRoe)}</div>
+      </div>`;
+    }).join('')
+    : '<div class="meta">No holdings yet. Outside holdings, escorts use the empire-default ROE.</div>';
+  return `<div class="security-panel" data-security-panel>
+    <div class="meta">Standing orders for your side (${escapeHtml(formatFaction(policies.ownerSide || getPlayerSide()))}). They survive flag changes. Access and alert settings are reserved data and are not enforced yet.</div>
+    <div class="security-row">
+      <span>Empire default ROE</span>
+      <div class="security-roe-row">${empireButtons}</div>
+    </div>
+    <div class="meta">${escapeHtml(describeRoeMode(policies.empireDefault.roe))}</div>
+    <div class="panel-head">Holdings</div>
+    ${holdingRows}
+  </div>`;
 }
 
 function doctrineGeneratorFlags(extra = {}) {
@@ -6162,7 +6318,7 @@ function renderTopLeftPanel() {
   const panelContent = state.topLeftTab === 'power'
     ? powerContent
     : state.topLeftTab === 'settings'
-    ? `<div class="panel-head">Settings</div>${gameOptions}<div class="panel-head">Save & Debug</div>${settingsActions}<div class="meta">${escapeHtml(godStatus)}</div><div class="panel-head">God Ship Switcher</div><div class="god-ship-switcher">${renderGodModeShipSwitcher()}</div>`
+    ? `<div class="panel-head">Settings</div>${gameOptions}<div class="panel-head">Security</div>${renderSecurityPanel()}<div class="panel-head">Save & Debug</div>${settingsActions}<div class="meta">${escapeHtml(godStatus)}</div><div class="panel-head">God Ship Switcher</div><div class="god-ship-switcher">${renderGodModeShipSwitcher()}</div>`
     : `<div class="panel-head">Inventory</div>${resources}${flags}${stationPlans}${weaponLine}${contract}<div class="panel-head">Cargo Pods</div><div class="pods">${pods}</div>`;
   topLeftPanelEl.innerHTML = `<button class="panel-close top-left-panel-close" data-top-action="close-panel" aria-label="Close ${escapeHtml(state.topLeftTab)} panel">&times;</button><div class="top-left-panel-content">${panelContent}</div>`;
   const restoredScrollTarget = state.topLeftTab === 'settings'
@@ -6704,6 +6860,18 @@ function getShipyardStock(station = getCurrentDockedStation()) {
 
 function isSystemControlled(systemIndex = state.currentPlanet) {
   return playerHoldsSystem(state.controlledSystems, systemIndex);
+}
+
+function losePlayerHolding(systemIndex = state.currentPlanet, occupierFaction = null) {
+  const index = Number(systemIndex);
+  state.controlledSystems = (state.controlledSystems || []).filter((entry) => Number(entry) !== index);
+  state.playerSecurity = deactivateHoldingOverride(ensurePlayerSecurity(), index);
+  return {
+    systemIndex: index,
+    occupierFaction: occupierFaction || null,
+    overrideRetained: Boolean(ensurePlayerSecurity().holdings?.[String(index)]),
+    overrideActive: Boolean(ensurePlayerSecurity().holdings?.[String(index)]?.active),
+  };
 }
 
 function markSystemVisited(systemIndex = state.currentPlanet) {
@@ -7880,6 +8048,7 @@ function claimCurrentSystem() {
   if (!state.controlledSystems.includes(state.currentPlanet)) {
     state.controlledSystems.push(state.currentPlanet);
   }
+  state.playerSecurity = reactivateHoldingOverride(ensurePlayerSecurity(), state.currentPlanet);
   if (state.factionSystemOverrides) delete state.factionSystemOverrides[state.currentPlanet];
   transferEligibleStationsOnControlChange(state.currentPlanet, previousHolder);
   const claimCost = getSystemClaimCost(state.currentPlanet);
@@ -8203,6 +8372,7 @@ function raisePlayerFlag(faction) {
     return;
   }
   state.playerFaction = key;
+  state.playerSecurity = retainPoliciesAcrossFlagChange(ensurePlayerSecurity(), key);
   realignPlayerAssetsToFaction(key);
   normalizePlayerFlags();
   playGameSound('uiConfirm', { cooldownKey: `raise-flag:${key}` });
@@ -9127,6 +9297,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     planetMarkets: state.planetMarkets,
     factionStanding: state.factionStanding || {},
     feats: state.feats || {},
+    playerSecurity: serializePlayerSecurity(ensurePlayerSecurity()),
     autoTarget: state.autoTarget !== false,
     fleetStance: state.fleetStance || 'follow',
     auxLaunched: Boolean(state.auxLaunched),
@@ -9192,6 +9363,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.playership = resolveShipId(s.playership ?? 18);
   state.playerFaction = s.playerFaction ?? getShipFaction(state.playership);
   state.playerSide = s.playerSide ?? s.playerFaction ?? state.playerFaction;
+  state.playerSecurity = restorePlayerSecurity(s.playerSecurity, state.playerSide);
   state.playerFlags = Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction];
   normalizePlayerFlags();
   state.factionStanding = (s.factionStanding && typeof s.factionStanding === 'object') ? s.factionStanding : {};
@@ -10549,6 +10721,16 @@ topLeftMenuEl?.addEventListener('click', (e) => {
 });
 
 topLeftPanelEl?.addEventListener('click', (e) => {
+  const empireRoe = e.target.closest('[data-security-empire-roe]');
+  if (empireRoe) {
+    setEmpireRoe(empireRoe.dataset.securityEmpireRoe);
+    return;
+  }
+  const holdingRoe = e.target.closest('[data-security-holding-roe]');
+  if (holdingRoe) {
+    setHoldingRoe(holdingRoe.dataset.securityHoldingRoe, holdingRoe.dataset.roe || null);
+    return;
+  }
   const gameOption = e.target.closest('[data-game-option]');
   if (gameOption) {
     const key = gameOption.dataset.gameOption;
@@ -11405,6 +11587,9 @@ function damageNpcShip(npc, damage, source = 'player', color = '#74d6ff', impact
   if (meta.actor?.id) {
     npc.lastAttackerId = meta.actor.id;
     npc.lastAttackerUntil = performance.now() + NPC_PLAYER_AGGRO_MS;
+    if (isPlayerSideShip(npc, getPlayerSecurityContext(npc.lastAttackerUntil))) {
+      recordAttackOnPlayerSide(meta.actor, 'ship', performance.now());
+    }
   }
   const shieldDamage = Math.min(npc.combatShields, amount);
   const hullDamage = Math.max(0, amount - shieldDamage);
@@ -11448,9 +11633,10 @@ function alertLocalDefenseAgainstPlayer(faction = state.systemFaction, attackedS
     defenderFaction === targetFaction
     || areFactionsAligned(defenderFaction, targetFaction)
   );
+  const security = getPlayerSecurityContext(now);
   let alertedStations = 0;
   for (const station of state.stations || []) {
-    if (!station || station.destroyed || station.builtByPlayer) continue;
+    if (!station || station.destroyed || isPlayerOwnedInstallation(station, security)) continue;
     const stationFaction = station.faction || state.systemFaction || 'neutral';
     if (!shouldAlert(stationFaction)) continue;
     if (!station.hostile) alertedStations += 1;
@@ -11460,7 +11646,7 @@ function alertLocalDefenseAgainstPlayer(faction = state.systemFaction, attackedS
   }
   const systemStations = state.systemStates[state.currentPlanet]?.stations || [];
   for (const station of systemStations) {
-    if (!station || station.destroyed || station.builtByPlayer) continue;
+    if (!station || station.destroyed || isPlayerOwnedInstallation(station, security)) continue;
     const stationFaction = station.faction || state.systemFaction || 'neutral';
     if (!shouldAlert(stationFaction)) continue;
     station.attitude = 'hostile';
@@ -11468,7 +11654,7 @@ function alertLocalDefenseAgainstPlayer(faction = state.systemFaction, attackedS
     station.playerAggroUntil = now + NPC_PLAYER_AGGRO_MS;
   }
   for (const npc of state.npcShips || []) {
-    if (!npc || npc.destroyed || isPlayerEscortNpc(npc)) continue;
+    if (!npc || npc.destroyed || isPlayerSideShip(npc, security)) continue;
     if (!shouldAlert(npc.faction || 'neutral')) continue;
     npc.attitude = 'hostile';
     npc.hostile = true;
@@ -11483,6 +11669,9 @@ function damageStation(station, damage, source = 'player', color = '#74d6ff', im
   if (amount <= 0) return { shieldDamage: 0, hullDamage: 0 };
   const credit = meta.credit || resolveActorCombatCredit({ source, role: meta.actor?.role, fleetId: meta.actor?.fleetId, owner: source });
   station.lastCombatCredit = credit;
+  if (meta.actor && isPlayerOwnedInstallation(station, getPlayerSecurityContext(performance.now(), { targetType: 'station' }))) {
+    recordAttackOnPlayerSide(meta.actor, 'station', performance.now());
+  }
   const shieldDamage = Math.min(station.combatShields, amount);
   const hullDamage = Math.max(0, amount - shieldDamage);
   station.lastShieldHitAt = performance.now();
@@ -11759,8 +11948,14 @@ function fleetOrder(slot) {
       setLog('No target selected for the fleet.');
       return;
     }
+    const ordered = markPlayerEscortAttackOrder(target, now);
+    if (!ordered.applied) {
+      setLog(ordered.reason === 'protected'
+        ? 'Fleet orders cannot target your own installations or ships.'
+        : 'No eligible foreign target for the fleet.');
+      return;
+    }
     state.fleetStance = 'attack';
-    markPlayerEscortAttackOrder(target, now);
     retaskEscortWing();
     setLog(`Fleet ordered to attack your target: ${getTargetName(target)}.`);
   } else if (slot === 3) {
@@ -11796,15 +11991,20 @@ function fleetOrder(slot) {
   updateStats();
 }
 function markPlayerEscortAttackOrder(target, now = performance.now()) {
-  if (!target || target.destroyed) return;
-  target.playerEscortOrderUntil = now + PLAYER_ESCORT_ORDER_MS;
-  target.attitude = 'hostile';
-  target.hostile = true;
-  if (target.stationTypeId) {
+  const context = getPlayerSecurityContext(now, {
+    targetType: target?.stationTypeId ? 'station' : 'ship',
+  });
+  const preview = previewEscortAttackOrder(target, context);
+  if (!preview.applied) return preview;
+  const applied = applyEscortAttackOrder(target, now, {
+    ...context,
+    orderMs: PLAYER_ESCORT_ORDER_MS,
+    aggroMs: NPC_PLAYER_AGGRO_MS,
+  });
+  if (applied.applied && target.stationTypeId) {
     alertLocalDefenseAgainstPlayer(target.faction || state.systemFaction, null);
-  } else {
-    target.playerAggroUntil = now + NPC_PLAYER_AGGRO_MS;
   }
+  return applied;
 }
 
 function applyPlayerTractorBeam(weapon, target, slotIndex = 0, now = performance.now()) {
@@ -12137,6 +12337,11 @@ function processHeldWeaponInputs() {
 
 function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player', now = performance.now()) {
   consultDoctrineFire(npc, target, targetType, now);
+  if (targetType === 'player') {
+    recordAttackOnPlayerSide(npc, 'player', now);
+  } else if (target && (isPlayerSideShip(target, getPlayerSecurityContext(now)) || isPlayerOwnedInstallation(target, getPlayerSecurityContext(now, { targetType: 'station' })))) {
+    recordAttackOnPlayerSide(npc, target.stationTypeId ? 'station' : 'ship', now);
+  }
   const weaponId = getDefaultWeaponId(npc.shipId, npc.faction, true);
   const weapon = getWeapon(weaponId);
   const targetPoint = targetType === 'player' ? playerWorldPosition() : target;
@@ -12212,6 +12417,12 @@ function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player
 
 function fireStationWeapon(station, target, now = performance.now()) {
   if (station.destroyed || station.underConstruction) return;
+  const fireTargetType = target?.stationTypeId ? 'station' : target?.id ? 'ship' : 'player';
+  if (fireTargetType === 'player') {
+    recordAttackOnPlayerSide(station, 'player', now);
+  } else if (target && (isPlayerSideShip(target, getPlayerSecurityContext(now)) || isPlayerOwnedInstallation(target, getPlayerSecurityContext(now, { targetType: 'station' })))) {
+    recordAttackOnPlayerSide(station, fireTargetType, now);
+  }
   const stationScale = getStationVisualProfile(station).scale;
   const targetType = target.stationTypeId ? 'station' : target.id ? 'ship' : 'player';
   const baseCooldown = station.defenseCooldown || STATION_WEAPON_COOLDOWN_MS;
@@ -12313,7 +12524,12 @@ function updateStationDefenses() {
       fireStationWeapon(station, playerWorldPosition(), now);
       continue;
     }
-    const hostiles = getLivingNpcShips().filter((npc) => isNpcSystemAttacker(npc));
+    const security = getPlayerSecurityContext(now, { targetType: 'ship' });
+    const hostiles = getLivingNpcShips().filter((npc) => (
+      isPlayerOwnedInstallation(station, security)
+        ? playerForceMayAutoEngage(npc, security)
+        : isNpcSystemAttacker(npc)
+    ));
     if (!hostiles.length) continue;
     const target = hostiles
       .map((npc) => ({ npc, distance: Math.hypot(npc.x - station.x, npc.y - station.y) }))
@@ -12547,8 +12763,14 @@ function isNpcSystemAttacker(npc, defender = null) {
 
 function getNpcDefenseTarget(defender) {
   if (!isNpcSystemDefender(defender)) return null;
+  const security = getPlayerSecurityContext(performance.now(), { targetType: 'ship' });
+  const playerDefender = isPlayerSideShip(defender, security);
   return getLivingNpcShips()
-    .filter((target) => target !== defender && isNpcSystemAttacker(target, defender))
+    .filter((target) => {
+      if (target === defender) return false;
+      if (playerDefender) return playerForceMayAutoEngage(target, security);
+      return isNpcSystemAttacker(target, defender);
+    })
     .map((target) => ({ target, distance: Math.hypot(target.x - defender.x, target.y - defender.y) }))
     .filter((entry) => entry.distance <= NPC_SYSTEM_DEFENSE_RANGE)
     .sort((a, b) => {
@@ -12581,21 +12803,16 @@ function isPlayerEscortNpc(npc) {
 
 function isPlayerEscortShipTarget(npc, now = performance.now()) {
   if (!npc || npc.destroyed || isPlayerEscortNpc(npc)) return false;
-  if (npc.playerEscortOrderUntil && npc.playerEscortOrderUntil > now) return true;
-  if (npc.faction === state.playerFaction || areFactionsAligned(npc.faction, state.playerFaction)) return false;
-  return Boolean(npc.hostile)
-    || npc.attitude === 'hostile'
-    || npc.attackId
-    || (npc.playerAggroUntil && npc.playerAggroUntil > now)
-    || areFactionsOpposed(npc.faction, state.playerFaction)
-    || isNpcSystemAttacker(npc);
+  const security = getPlayerSecurityContext(now, { targetType: 'ship' });
+  if (isPlayerSideShip(npc, security)) return false;
+  return playerForceMayAutoEngage(npc, security);
 }
 
 function isPlayerEscortStationTarget(station, now = performance.now()) {
   if (!station || station.destroyed) return false;
-  if (station.playerEscortOrderUntil && station.playerEscortOrderUntil > now) return true;
-  if (station.faction === state.playerFaction || station.builtByPlayer || areFactionsAligned(station.faction, state.playerFaction)) return false;
-  return Boolean(station.hostile) || station.attitude === 'hostile';
+  const security = getPlayerSecurityContext(now, { targetType: 'station' });
+  if (isPlayerOwnedInstallation(station, security)) return false;
+  return playerForceMayAutoEngage(station, security);
 }
 
 function getPlayerEscortPriorityTarget(escort, now = performance.now()) {
@@ -12882,7 +13099,7 @@ function updateFleetAttacks(now = performance.now()) {
     return;
   }
   if (now - state.fleetAttackControlSince < FLEET_ATTACK_CONTROL_DELAY_MS) return;
-  state.controlledSystems = state.controlledSystems.filter((index) => Number(index) !== Number(state.currentPlanet));
+  losePlayerHolding(state.currentPlanet, attack.faction);
   state.factionSystemOverrides[state.currentPlanet] = attack.faction;
   state.systemFaction = attack.faction;
   state.systemAttitude = getFactionAttitude(attack.faction);
@@ -16630,6 +16847,7 @@ function resetRunState() {
   state.stationPlans = [];
   state.playerFlags = [];
   state.playerSide = 'ferengi';
+  state.playerSecurity = createPlayerSecurityState('ferengi');
   state.factionStanding = {};
   state.feats = {};
   state.power = { energy: 200, dist: { reserve: 5, engines: 5, weapons: 5, shields: 5 } };
@@ -16793,6 +17011,7 @@ function startWithFaction(key, options = {}) {
   state.playership = f.playership;
   state.playerFaction = f.faction || key;
   state.playerSide = f.faction || key;
+  state.playerSecurity = createPlayerSecurityState(state.playerSide);
   state.playerFlags = [state.playerFaction];
   state.factionStanding = {};
   state.feats = {};
@@ -17501,17 +17720,115 @@ function installBm1ProbeHarness() {
   };
 }
 
-installBm1ProbeHarness();
+function installPlayerSecurityProbe() {
+  globalThis.__BM1_PROBE__ = {
+    ready: () => Boolean(globalThis.__BM1_SOURCE_READY__ && Array.isArray(state.planets) && state.planets.length),
+    skipIntro: () => skipIntroStory(),
+    startFaction: (key = 'ferengi') => {
+      skipIntroStory();
+      freezeLoop();
+      startWithFaction(key, { captainName: 'Probe', shipName: 'Probe Ship' });
+      freezeLoop();
+    },
+    snapshot: () => ({
+      gameStarted: state.gameStarted,
+      playerSide: getPlayerSide(),
+      playerFaction: state.playerFaction,
+      currentPlanet: state.currentPlanet,
+      controlledSystems: [...(state.controlledSystems || [])],
+      playerSecurity: serializePlayerSecurity(ensurePlayerSecurity()),
+      effectiveRoe: getEffectiveRoe(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
+      effectivePolicy: getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
+      accessEnforced: isAccessEnforced(state.playerSecurity),
+      alertsActive: areAlertsActive(state.playerSecurity),
+      protectAll: offersProtectAll(state.playerSecurity),
+      log: state.log,
+    }),
+    setEmpireRoe,
+    setHoldingRoe,
+    raiseFlag: (faction) => {
+      if (!hasPlayerFlag(faction)) {
+        state.playerFlags = [...normalizePlayerFlags(), faction];
+        normalizePlayerFlags();
+      }
+      raisePlayerFlag(faction);
+    },
+    loseHolding: (systemIndex = state.currentPlanet, occupier = 'klingon') => losePlayerHolding(systemIndex, occupier),
+    reclaimHolding: (systemIndex = state.currentPlanet) => {
+      const index = Number(systemIndex);
+      if (!state.controlledSystems.includes(index)) state.controlledSystems.push(index);
+      state.playerSecurity = reactivateHoldingOverride(ensurePlayerSecurity(), index);
+      return getEffectiveRoe(ensurePlayerSecurity(), index, true);
+    },
+    recordAttack: (actor, victimKind = 'player') => recordAttackOnPlayerSide(actor, victimKind, performance.now()),
+    setActiveRaid: (raid) => {
+      state.activeFleetAttack = raid || null;
+    },
+    escortMayTarget: (target, targetType = 'ship') => (
+      targetType === 'station'
+        ? isPlayerEscortStationTarget(target, performance.now())
+        : isPlayerEscortShipTarget(target, performance.now())
+    ),
+    markEscortOrder: (target) => markPlayerEscortAttackOrder(target, performance.now()),
+    previewEscortOrder: (target, targetType = 'ship') => previewEscortAttackOrder(target, getPlayerSecurityContext(performance.now(), { targetType })),
+    isProtected: (target, targetType = 'ship') => isProtectedPlayerAsset(target, getPlayerSecurityContext(performance.now(), { targetType })),
+    isForeign: (target, targetType = 'ship') => isEligibleForeignTarget(target, getPlayerSecurityContext(performance.now(), { targetType })),
+    mayAutoEngage: (target, targetType = 'ship') => playerForceMayAutoEngage(target, getPlayerSecurityContext(performance.now(), { targetType })),
+    openSettings: () => {
+      skipIntroStory();
+      if (!state.gameStarted) startWithFaction('ferengi', { captainName: 'Probe', shipName: 'Probe Ship' });
+      state.topLeftPanelOpen = true;
+      state.topLeftTab = 'settings';
+      renderTopLeftPanel();
+    },
+    securityUi: () => {
+      const panel = document.querySelector('[data-security-panel]');
+      return {
+        present: Boolean(panel),
+        html: panel?.innerHTML || '',
+        text: panel?.textContent || '',
+        empireButtons: [...document.querySelectorAll('[data-security-empire-roe]')].map((el) => el.dataset.securityEmpireRoe),
+        holdingButtons: [...document.querySelectorAll('[data-security-holding-roe]')].map((el) => ({
+          system: el.dataset.securityHoldingRoe,
+          roe: el.dataset.roe,
+        })),
+      };
+    },
+    phase1: {
+      applyDestructionPayout: (input) => applyDestructionPayout(input),
+      grantsPlayerCombatCredit: (credit) => grantsPlayerCombatCredit(credit),
+      resolveActorCombatCredit: (actor) => resolveActorCombatCredit(actor),
+      getNpcPursuitRange: (fire, baseline) => resolveNpcPursuitRange(fire, baseline),
+      isWithinFireRange: (distance, range) => isWithinFireRange(distance, range),
+      isWithinPursuitRange: (distance, range) => Number(distance) <= Number(range),
+      playerHoldsSystem: (systems, index) => playerHoldsSystem(systems, index),
+      flagShareGrantsSystemControl: () => false,
+      getPlayerCommandIdentity: (side, flag) => getPlayerCommandIdentity(side, flag),
+      isStationTransferableFromHolder: (station, holder) => isStationTransferableFromHolder(station, holder),
+      retainStationOwner: (station, holder) => !isStationTransferableFromHolder(station, holder),
+      resolveBaseSystemFaction: (input) => resolveBaseSystemFaction(input),
+      shouldPreserveNpcIdentity: (ship) => shouldPreserveNpcIdentity(ship),
+      applyPersonalArrivalProtection: (scene, now, duration) => applyPersonalArrivalProtection(scene, now, duration),
+    },
+  };
+}
+
 
 updateStats();
 setLog(state.log);
 initGameAudio();
 applyGameOptions();
-showIntroStory();
+if (navigator.webdriver) {
+  skipIntroStory();
+} else {
+  showIntroStory();
+}
 syncLegacyState();
 resizeCanvasDisplay();
 loadSourceData();
 loadFlaHints();
 loadPlanetModels();
 loadShipManifest();
+installBm1ProbeHarness();
+installPlayerSecurityProbe();
 loop();
