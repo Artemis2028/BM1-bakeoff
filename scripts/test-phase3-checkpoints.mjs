@@ -96,6 +96,14 @@ const pending = createEncounterRecord({
 assert('pending-denies-services', visitorDeniedServices(pending) === true);
 const cleared = closeEncounter(pending, 'cleared');
 assert('cleared-allows-services', visitorDeniedServices(cleared) === false && cleared.complianceVerified === true);
+const unable = closeEncounter(pending, 'unable_to_comply', { detail: 'tractor' });
+assert(
+  'unable-to-comply-is-not-noncompliant',
+  unable.lifecycle === 'unable_to_comply'
+    && unable.outcome !== 'noncompliant'
+    && unable.accessClearance === false
+    && unable.complianceVerified === false,
+);
 
 const restored = restoreSecurityEncounters(serializeSecurityEncounters({
   version: 1,

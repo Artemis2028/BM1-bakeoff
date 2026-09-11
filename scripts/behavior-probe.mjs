@@ -1217,10 +1217,12 @@ async function runPhase3Checkpoints(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
   const s510 = await page.evaluate(() => {
     const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
     const snap = p.snapshot();
     const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
     if (anchors[0]) p.enableCheckpoint(anchors[0].id);
     p.setEmpireAccess('independent', 'challenge');
+    probe2.setEmpireRoe('return-fire');
     const before = p.localElapsedMs();
     p.tick(12, 0.25);
     const after = p.localElapsedMs();
@@ -1230,6 +1232,8 @@ async function runPhase3Checkpoints(page, results) {
       id: 'slow-trader',
       role: 'traffic',
       faction: 'neutral',
+      hostile: false,
+      attitude: 'neutral',
       x: geo.center.x + Math.min(24, geo.radius * 0.15),
       y: geo.center.y,
       destX: geo.center.x,
@@ -1240,32 +1244,108 @@ async function runPhase3Checkpoints(page, results) {
     const issued = p.orderFor('slow-trader');
     p.tick(14, 1);
     const order = p.orderFor('slow-trader');
-    p.patchShip('slow-trader', {});
-    const ship = p.ship('slow-trader');
-    if (ship) {
-      const raw = (globalThis.BM1Probe.ship('slow-trader'));
-      const npc = (function find() {
-        return true;
-      }());
-      void npc;
-      void raw;
-    }
-    const npcs = p.snapshot().npcShips;
-    const live = npcs.find((entry) => entry.id === 'slow-trader');
-    // Mark tractor via patch if supported.
+    const standingBefore = { ...p.snapshot().standing };
+    const projectilesBefore = p.snapshot().projectileCount;
+    const shipBefore = p.ship('slow-trader');
+    const tractor = p.tractorHold('slow-trader', 45000);
+    p.tick(6, 1);
+    const afterTractor = p.orderFor('slow-trader');
+    const tractorShip = p.ship('slow-trader');
+    const standingAfterTractor = { ...p.snapshot().standing };
+    const mayFireTractor = probe2.mayAutoEngage({
+      id: 'slow-trader',
+      faction: 'neutral',
+      hostile: Boolean(tractorShip?.hostile),
+      attitude: 'neutral',
+    });
+
+    p.prepareArena({ clearTraffic: true });
+    if (!p.checkpoint().zone && anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    const geo2 = p.geometry();
+    p.spawnShip({
+      id: 'disabled-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      hostile: false,
+      attitude: 'neutral',
+      x: geo2.center.x + Math.min(22, geo2.radius * 0.14),
+      y: geo2.center.y,
+      destX: geo2.center.x,
+      destY: geo2.center.y,
+      speed: 0.4,
+    });
+    p.tick(8, 1);
+    const engineIssued = p.orderFor('disabled-trader');
+    const engine = p.engineDisable('disabled-trader', 45000);
+    p.tick(6, 1);
+    const afterEngine = p.orderFor('disabled-trader');
+    const engineShip = p.ship('disabled-trader');
+    const standingAfterEngine = { ...p.snapshot().standing };
+    const mayFireEngine = probe2.mayAutoEngage({
+      id: 'disabled-trader',
+      faction: 'neutral',
+      hostile: Boolean(engineShip?.hostile),
+      attitude: 'neutral',
+    });
     return {
       before,
       after,
       expected,
       clockOk: Math.abs((after - before) - expected) < 2,
       allowance: issued?.remainingTravelMs || order?.remainingTravelMs || 0,
-      live,
+      issuedLifecycle: issued?.lifecycle || order?.lifecycle || null,
+      tractor,
+      engine,
+      engineIssued: engineIssued?.lifecycle || null,
+      remainingBeforeInterrupt: order?.remainingTravelMs || 0,
+      tractorLifecycle: afterTractor?.lifecycle || null,
+      tractorOutcome: afterTractor?.outcome || null,
+      tractorResult: afterTractor?.result || null,
+      engineLifecycle: afterEngine?.lifecycle || null,
+      engineOutcome: afterEngine?.outcome || null,
+      engineResult: afterEngine?.result || null,
+      tractorHostile: Boolean(tractorShip?.hostile),
+      engineHostile: Boolean(engineShip?.hostile),
+      tractorAttackId: tractorShip?.attackId || null,
+      engineAttackId: engineShip?.attackId || null,
+      tractorAggression: tractorShip?.lastAggressionAt || 0,
+      engineAggression: engineShip?.lastAggressionAt || 0,
+      shipHostileBefore: Boolean(shipBefore?.hostile),
+      standingUnchanged: JSON.stringify(standingAfterTractor) === JSON.stringify(standingBefore)
+        && JSON.stringify(standingAfterEngine) === JSON.stringify(standingBefore),
+      projectiles: p.snapshot().projectileCount,
+      projectilesBefore,
+      mayFireTractor,
+      mayFireEngine,
     };
   });
   check(
     results,
     'S5.10 clock-uses-simulation-delta',
     s510.clockOk === true && s510.allowance >= 44000,
+    JSON.stringify({ clockOk: s510.clockOk, allowance: s510.allowance, expected: s510.expected }),
+  );
+  check(
+    results,
+    'S5.10 interrupt-unable-to-comply-without-hostility',
+    s510.tractor?.ok === true
+      && s510.engine?.ok === true
+      && s510.tractorLifecycle === 'unable_to_comply'
+      && s510.engineLifecycle === 'unable_to_comply'
+      && s510.tractorOutcome !== 'noncompliant'
+      && s510.engineOutcome !== 'noncompliant'
+      && s510.remainingBeforeInterrupt > 1000
+      && s510.tractorHostile === false
+      && s510.engineHostile === false
+      && !s510.tractorAttackId
+      && !s510.engineAttackId
+      && s510.tractorAggression === 0
+      && s510.engineAggression === 0
+      && s510.mayFireTractor === false
+      && s510.mayFireEngine === false
+      && s510.standingUnchanged === true
+      && s510.projectiles === s510.projectilesBefore,
     JSON.stringify(s510),
   );
 
@@ -1434,6 +1514,9 @@ async function runPhase3Checkpoints(page, results) {
     });
     p.tick(12, 1);
     const order = (p.checkpoint().orders || []).find((entry) => entry.npcId === 'ui-trader');
+    const missingId = p.operatorAct('waive');
+    const bogusId = p.operatorAct('cancel', 'enc-does-not-exist');
+    const stillActive = (p.checkpoint().orders || []).find((entry) => entry.npcId === 'ui-trader');
     const waived = order ? p.operatorAct('waive', order.encounterId) : { ok: false };
     p.spawnShip({
       id: 'ui-trader-2',
@@ -1450,6 +1533,9 @@ async function runPhase3Checkpoints(page, results) {
     const cancel = second ? p.operatorAct('cancel', second.encounterId) : { ok: false };
     return {
       afterClick,
+      missingId,
+      bogusId,
+      stillActiveLifecycle: stillActive?.lifecycle || null,
       waived,
       withdraw,
       cancel,
@@ -1464,6 +1550,20 @@ async function runPhase3Checkpoints(page, results) {
       && s514.ui.accessButtons.length > 0
       && s514.ui.checkpointEnable === true,
     JSON.stringify(s514),
+  );
+  check(
+    results,
+    'S5.14 operator-missing-id-does-not-act-on-other-order',
+    s514.missingId?.ok === false
+      && s514.bogusId?.ok === false
+      && ['pending', 'holding', 'dwelling'].includes(s514.stillActiveLifecycle)
+      && s514.waived?.ok === true,
+    JSON.stringify({
+      missingId: s514.missingId,
+      bogusId: s514.bogusId,
+      stillActiveLifecycle: s514.stillActiveLifecycle,
+      waived: s514.waived,
+    }),
   );
 
   const s515 = await page.evaluate(() => {
