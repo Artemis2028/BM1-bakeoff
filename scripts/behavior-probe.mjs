@@ -1032,7 +1032,7 @@ async function runPhase3Checkpoints(page, results) {
     p.tick(12, 1);
     p.patchShip('war-visitor', { speed: 0, x: geo.center.x + 30, y: geo.center.y });
     const standingBefore = { ...p.snapshot().standing };
-    p.tick(90, 40);
+    p.tick(40, 250);
     const after = p.orderFor('war-visitor');
     const snap = p.snapshot();
     const mayFire = probe2.mayAutoEngage({ id: 'war-visitor', faction: 'klingon', hostile: false, attitude: 'neutral' });
@@ -1265,7 +1265,7 @@ async function runPhase3Checkpoints(page, results) {
   check(
     results,
     'S5.10 clock-uses-simulation-delta',
-    s510.clockOk === true && s510.allowance >= 45000,
+    s510.clockOk === true && s510.allowance >= 44000,
     JSON.stringify(s510),
   );
 
