@@ -14486,7 +14486,7 @@ function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
       sideId: getNpcSideId(npc),
     },
     action: 'destroyed',
-    clocks: { localElapsedMs, strategicJumps: incidentLedger.strategicJumps, issuedAtLocalMs: localMs },
+    clocks: { localElapsedMs: localMs, strategicJumps: incidentLedger.strategicJumps, issuedAtLocalMs: localMs },
     outcome: 'destroyed',
     links: {
       destructionKey: victimInstance,
@@ -14569,7 +14569,7 @@ function destroyStation(station, credit = station.lastCombatCredit) {
     },
     victim: { instanceId: victimInstance, kind: 'station', sideId: station.faction || null },
     action: 'destroyed',
-    clocks: { localElapsedMs, strategicJumps: incidentLedger.strategicJumps, issuedAtLocalMs: localMs },
+    clocks: { localElapsedMs: localMs, strategicJumps: incidentLedger.strategicJumps, issuedAtLocalMs: localMs },
     outcome: 'destroyed',
     links: {
       destructionKey: victimInstance,
