@@ -407,27 +407,28 @@ async function runChecks(page) {
     const afterOutside = p.ship(hunter.id);
     const projectilesOutside = p.snapshot().projectileCount;
     const hullOutside = p.snapshot().hull;
+    const shieldsOutside = p.snapshot().shields;
     const startDistance = afterOutside.playerDistance;
-    p.patchShip(hunter.id, { speed: 2.8, lastShotAt: 0 });
+    p.patchShip(hunter.id, { speed: 2.8, lastShotAt: performance.now() - 60000 });
     let firedWhileFar = false;
     let mid = afterOutside;
     for (let i = 0; i < 100; i++) {
       p.tick(1, 1);
       mid = p.ship(hunter.id);
       const snap = p.snapshot();
-      if (mid.playerDistance > fireRange && (snap.projectileCount > projectilesOutside || snap.hull < hullOutside)) {
+      if (mid.playerDistance > fireRange && (snap.projectileCount > projectilesOutside || snap.hull < hullOutside || snap.shields < shieldsOutside)) {
         firedWhileFar = true;
         break;
       }
       if (mid.playerDistance <= fireRange * 0.92) break;
     }
     p.placePlayer(mid.x + Math.min(fireRange * 0.28, 140), mid.y);
-    p.patchShip(hunter.id, { lastShotAt: 0 });
+    p.patchShip(hunter.id, { lastShotAt: performance.now() - 60000 });
     const close = p.ship(hunter.id);
     const insideShot = p.fireNpc(close.id, { targetType: 'player' });
     if (!insideShot.fired && !insideShot.projectileDelta) p.tick(16, 1);
     const afterInside = p.snapshot();
-    const insideFired = Boolean(insideShot.fired || insideShot.projectileDelta || afterInside.projectileCount > projectilesOutside || afterInside.hull < hullOutside);
+    const insideFired = Boolean(insideShot.fired || insideShot.projectileDelta || afterInside.projectileCount > projectilesOutside || afterInside.hull < hullOutside || afterInside.shields < shieldsOutside);
     return {
       fireRange,
       huntRange,
@@ -436,11 +437,13 @@ async function runChecks(page) {
       destinationName: mid.destinationName,
       projectilesOutside,
       hullOutside,
+      shieldsOutside,
       firedWhileFar,
       outsideShot,
       insideShot,
       insideFired,
       hullAfter: afterInside.hull,
+      shieldsAfter: afterInside.shields,
       projectilesAfter: afterInside.projectileCount,
     };
   });

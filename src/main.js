@@ -17155,7 +17155,7 @@ function probeSpawnShip(options = {}) {
     name: options.name || null,
   });
   if (options.playerAggro) ship.playerAggroUntil = performance.now() + 60000;
-  ship.lastShotAt = 0;
+  ship.lastShotAt = performance.now() - 60000;
   ensureNpcCombatStats(ship);
   if (Number.isFinite(Number(options.combatHull))) ship.combatHull = Number(options.combatHull);
   if (Number.isFinite(Number(options.combatShields))) ship.combatShields = Number(options.combatShields);
@@ -17227,9 +17227,10 @@ function probeDestroy(id, credit = 'npc') {
 function probeFireNpc(attackerId, targetSpec = {}) {
   const attacker = probeFindShip(attackerId);
   if (!attacker) return { fired: false, missing: true };
-  attacker.lastShotAt = 0;
+  attacker.lastShotAt = performance.now() - 60000;
   const before = (state.projectiles || []).length;
   const hullBefore = state.hull;
+  const shieldsBefore = state.shields;
   let target = playerWorldPosition();
   let targetType = targetSpec.targetType || 'player';
   if (targetSpec.stationId) {
@@ -17240,13 +17241,39 @@ function probeFireNpc(attackerId, targetSpec = {}) {
     targetType = 'ship';
   }
   if (!target) return { fired: false, missingTarget: true };
-  fireNpcWeapon(attacker, target, targetType, performance.now());
+  const targetPoint = targetType === 'player' ? playerWorldPosition() : target;
+  const fireRange = getNpcWeaponRange(attacker);
+  const distance = Math.hypot((targetPoint?.x || 0) - attacker.x, (targetPoint?.y || 0) - attacker.y);
+  const weaponId = getDefaultWeaponId(attacker.shipId, attacker.faction, true);
+  const weapon = getWeapon(weaponId);
+  const cooldown = getScaledWeaponCooldown(attacker.shipId, weapon, NPC_WEAPON_COOLDOWN_SCALE, NPC_WEAPON_FLOOR_SCALE);
+  const now = performance.now();
+  fireNpcWeapon(attacker, target, targetType, now);
   return {
-    fired: (state.projectiles || []).length > before || state.hull < hullBefore || Boolean(target.destroyed) || target.combatHull < (target.maxCombatHull || Infinity),
+    fired: (state.projectiles || []).length > before
+      || state.hull < hullBefore
+      || state.shields < shieldsBefore
+      || Boolean(target.destroyed)
+      || (
+        Number.isFinite(target.combatHull) && target.combatHull < (target.maxCombatHull || Infinity)
+      ),
     projectileCount: (state.projectiles || []).length,
     projectileDelta: (state.projectiles || []).length - before,
     targetDestroyed: Boolean(target.destroyed),
     lastCombatCredit: target.lastCombatCredit || null,
+    distance,
+    fireRange,
+    inRange: isWithinFireRange(distance, fireRange),
+    cooldown,
+    lastShotAt: attacker.lastShotAt,
+    now,
+    weaponId,
+    weaponType: weapon?.type || null,
+    weaponName: weapon?.name || null,
+    hull: state.hull,
+    hullBefore,
+    shields: state.shields,
+    shieldsBefore,
   };
 }
 
@@ -17255,7 +17282,8 @@ function probeFirePlayer(targetId) {
   if (!target) return { fired: false, missing: true };
   state.combatTargetId = target.id;
   state.combatTargetType = target.stationTypeId ? 'station' : 'ship';
-  state.weaponLastFiredAt = [0, 0, 0];
+  const readyAt = performance.now() - 60000;
+  state.weaponLastFiredAt = [readyAt, readyAt, readyAt];
   if (state.power) state.power.energy = Math.max(state.power.energy || 0, 500);
   const before = (state.projectiles || []).length;
   const hullBefore = target.combatHull;
