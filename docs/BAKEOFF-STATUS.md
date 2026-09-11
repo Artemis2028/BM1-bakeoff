@@ -1,8 +1,8 @@
 # BM1 bake-off status
 
 Repo: https://github.com/Artemis2028/BM1-bakeoff  
-Updated: `2026-09-11T14:22:15Z` (Asia/Dubai `2026-09-11T18:22:15+04:00`)  
-Head: `bf11cd9` on `main` (Referee-scored)
+Updated: `2026-09-11T16:28:32Z` (Asia/Dubai `2026-09-11T20:28:32+04:00`)  
+Head: `2164eb5` on `main` (Referee-scored)
 
 Sibling of `BM1-remastered-work` for a **blind** Cloud Agent bake-off. Implement from `docs/` only. Do **not** crib the guided stack on `Artemis2028/BM1-remastered-work` PR #1 (answer key for scoring).
 
@@ -22,33 +22,41 @@ Times below are ISO-8601 UTC (`Z`) with the matching Asia/Dubai wall clock (`UTC
 | --- | --- | --- |
 | [#2](https://github.com/Artemis2028/BM1-bakeoff/pull/2) | Engine / combat (Phase 1 attribution, pursuit≠fire, political authority) | `4c399da` |
 | [#1](https://github.com/Artemis2028/BM1-bakeoff/pull/1) | Doctrine runtime wiring (loader + authority/spawn/identity hooks) | `f684e0b` (rebased onto engine) |
+| [#5](https://github.com/Artemis2028/BM1-bakeoff/pull/5) | Chromium behavior probe (Phase 1 live 17) | `c158f2c` |
+| [#6](https://github.com/Artemis2028/BM1-bakeoff/pull/6) | Phase 2 ROE/Security | `2164eb5` (rebased tip `9e373ab`) |
 
-## Post-merge gates (on `main` @ `f684e0b`)
+## Post-merge gates (on `main` @ `2164eb5`)
+
+Number Three (rebased tip `9e373ab`, merge `2164eb5`):
 
 ```sh
 npm run test:phase1    # 17/17
 npm run test:doctrine  # validate-doctrine 59/59 + runtime adapter 79/79
+npm run probe          # 53/53 (Phase 1 live 17 + S4 36)
 ```
 
-No Playwright `behavior-probe` / Chromium suite on this repo yet. `bf11cd9` is docs-only on top of these gates (this status MD).
+This status MD is docs-only on top of `2164eb5`.
 
 ## Roles
 
 - **Number Four** — engine/combat (done for Phase 1 slice)
 - **Number 2** — doctrine wiring (done for v0.2.1 loader slice)
-- **Number Three** — probe / merge gate
-- **Referee** — MD fidelity scoring (docs only; peek at guided PR only when scoring) — **Pass** on `bf11cd9` (see Version history)
+- **Number Three** — probe / merge gate — Phase 2 ROE green on `2164eb5` (`test:phase1` 17/17, `test:doctrine` 59+79, `probe` 53/53)
+- **Referee** — MD fidelity scoring (docs only; peek at guided PR only when scoring) — **Pass** on `2164eb5` Phase 2 §3; prior **Pass** on `bf11cd9` Phase 1 (see Version history)
 
 ## Next (optional)
 
-1. Referee fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` — **Pass** (see Version history).
-2. Combined Chromium behavioral probe (parity with guided stack’s Playwright suite).
-3. Later phases (ROE / holding zones / etc.) only when Tenth scopes them — still bake-off-only unless directed otherwise.
+1. Referee fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` — **Pass** Phase 1 on `bf11cd9`; **Pass** Phase 2 §3 on `2164eb5` (see Version history).
+2. Combined Chromium behavioral probe — landed [PR #5](https://github.com/Artemis2028/BM1-bakeoff/pull/5) (`c158f2c`); extended by [PR #6](https://github.com/Artemis2028/BM1-bakeoff/pull/6) to `probe` 53/53 (Phase 1 live 17 + S4 36).
+3. Phase 3 (holding zones) still waits on Tenth — [PR #4](https://github.com/Artemis2028/BM1-bakeoff/pull/4) staged; still bake-off-only unless directed otherwise.
 
 ## Version history
 
 Newest first.
 
+- **Referee** — `2026-09-11T16:28:32Z` (Asia/Dubai `2026-09-11T20:28:32+04:00`) — **Pass** — Phase 2 ROE/Security matches plan §3 (probe 53/53); residual UI/shape/probe-count deltas vs guided only. Head scored: [`2164eb5`](https://github.com/Artemis2028/BM1-bakeoff/commit/2164eb5). Number Three gates: `test:phase1` 17/17; `test:doctrine` 59+79; `probe` 53/53 (Phase 1 live 17 + S4 36)
+- [`2164eb5`](https://github.com/Artemis2028/BM1-bakeoff/commit/2164eb5) — `2026-09-11T16:22:16Z` (Asia/Dubai `2026-09-11T20:22:16+04:00`) — Merge [PR #6](https://github.com/Artemis2028/BM1-bakeoff/pull/6) Phase 2 ROE/Security. Rebased tip [`9e373ab`](https://github.com/Artemis2028/BM1-bakeoff/commit/9e373ab)
+- [`c158f2c`](https://github.com/Artemis2028/BM1-bakeoff/commit/c158f2c) — `2026-09-11T15:07:08Z` (Asia/Dubai `2026-09-11T19:07:08+04:00`) — Merge [PR #5](https://github.com/Artemis2028/BM1-bakeoff/pull/5) Chromium behavior probe (Phase 1 live 17)
 - **Referee** — `2026-09-11T14:22:15Z` (Asia/Dubai `2026-09-11T18:22:15+04:00`) — **Pass** — Phase 1 + doctrine-loader high fidelity to plan §2–§3 / DESIGN Phase 1 (offline gates only; no Chromium probe; pack-load vs DESIGN_ONLY noted as intentional). Head scored: [`bf11cd9`](https://github.com/Artemis2028/BM1-bakeoff/commit/bf11cd9)
 - [`bf11cd9`](https://github.com/Artemis2028/BM1-bakeoff/commit/bf11cd9) — `2026-09-11T13:51:56Z` (Asia/Dubai `2026-09-11T17:51:56+04:00`) — Status MD added (`docs/BAKEOFF-STATUS.md`)
 - [`f684e0b`](https://github.com/Artemis2028/BM1-bakeoff/commit/f684e0b) — `2026-09-11T13:49:24Z` (Asia/Dubai `2026-09-11T17:49:24+04:00`) — Merge [PR #1](https://github.com/Artemis2028/BM1-bakeoff/pull/1) doctrine runtime wiring. Post-merge gates: `test:phase1` 17/17; `test:doctrine` validate 59/59 + adapter 79/79
@@ -64,14 +72,17 @@ Use a SHA from Version history to inspect or reset **this bake-off clone**. Do n
 | Goal | Command |
 | --- | --- |
 | Inspect a SHA without moving the branch | `git fetch origin && git checkout <SHA>` |
-| Detached look at current recorded head | `git checkout bf11cd9` |
+| Detached look at current recorded head | `git checkout 2164eb5` |
 | Hard-reset a **local** bake-off clone to a SHA | `git reset --hard <SHA>` |
 | Return to latest `main` after inspecting | `git checkout main && git pull origin main` |
 
 Examples:
 
 ```sh
-# Read-only inspect of the doctrine merge (gates green here)
+# Read-only inspect of current recorded head (Phase 2 ROE merge on main)
+git checkout 2164eb5
+
+# Read-only inspect of the doctrine merge (offline gates green here)
 git checkout f684e0b
 
 # Local clone only: drop later commits and sit on the engine merge
