@@ -1,8 +1,8 @@
 # BM1 bake-off status
 
 Repo: https://github.com/Artemis2028/BM1-bakeoff  
-Updated: `2026-09-11T19:53:36Z` (Asia/Dubai `2026-09-11T23:53:36+04:00`)  
-Head: `276ea8c` on `main` (Phase 4 briefs PR #11 merged)
+Updated: `2026-09-11T20:26:00Z` (Asia/Dubai `2026-09-12T00:26:00+04:00`)  
+Head: `092e530` on `main` (Phase 4 implement PR #13 merged)
 
 Sibling of `BM1-remastered-work` for a **blind** Cloud Agent bake-off. Implement from `docs/` only. Do **not** crib the guided stack on `Artemis2028/BM1-remastered-work` PR #1 (answer key for scoring).
 
@@ -29,45 +29,49 @@ Times below are ISO-8601 UTC (`Z`) with the matching Asia/Dubai wall clock (`UTC
 | [#9](https://github.com/Artemis2028/BM1-bakeoff/pull/9) | Phase 3 red-team #4/#5 (`unable_to_comply` tractor/engine; no `orders[0]` fallback) | `8cf7002` (in `da1604b`) |
 | [#8](https://github.com/Artemis2028/BM1-bakeoff/pull/8) | Phase 3 holding zones / compliance | `da1604b` |
 | [#11](https://github.com/Artemis2028/BM1-bakeoff/pull/11) | Phase 4 incidents/escalation/alerts proposal | `276ea8c` |
+| [#13](https://github.com/Artemis2028/BM1-bakeoff/pull/13) | Phase 4 incidents/escalation/alerts engine | `092e530` (implement tip `7f926df`) |
 
-## Post-merge gates (on `main` @ `276ea8c`)
+## Post-merge gates (on `main` @ `092e530`)
 
-`276ea8c` is docs-only — proposal + engine deps under `docs/phase4/`. Engine implement still waits on Tenth’s go. Engine suites are unchanged from `da1604b`:
-
-Number Three (merge `da1604b`; includes [PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9) `8cf7002`):
+Number Three (merge `092e530`; implement tip [`7f926df`](https://github.com/Artemis2028/BM1-bakeoff/commit/7f926df)):
 
 ```sh
 npm run test:phase1    # 17/17
 npm run test:phase3    # 21/21
+npm run test:phase4    # 43/43
 npm run test:doctrine  # validate-doctrine 59/59 + runtime adapter 79/79
-npm run probe          # 75/75 (Phase 1 live 17 + S4 + S5)
+npm run probe          # 89/89 (Phase 1 live 17 + S4 + S5 + S6)
 ```
 
-Red-team **#4** / **#5** closed: `unable_to_comply` tractor/engine assert; no `orders[0]` fallback.
+Hard gates closed: S6.1/2 non-aggression; S6.4 single standing; S4-21 rewritten; S6.13 `protect` → `record_only`; S6.14 no second FLASH.
+
+Soft non-blocking: top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy` — follow-up if holding alert overrides matter.
 
 Local suites only — this repo has no GitHub Actions CI.
 
-This status MD is docs-only on top of `276ea8c`.
+This status MD is docs-only on top of `092e530`.
 
 ## Roles
 
-- **Number Four** — engine/combat (done for Phase 1 slice)
+- **Number Four** — engine/combat (Phase 4 incidents/escalation/alerts engine done on `092e530`)
 - **Number 2** — doctrine wiring (done for v0.2.1 loader slice)
-- **Number Three** — probe / merge gate — Phase 3 holding zones green on `da1604b` (`test:phase1` 17/17, `test:phase3` 21/21, `test:doctrine` 59+79, `probe` 75/75)
-- **Referee** — MD fidelity scoring (docs only; peek at guided PR only when scoring) — **Pass** Phase 4 brief §6 on `1e8e98d`; prior **Pass** on `da1604b` Phase 3 §5; prior **Pass** on `2164eb5` Phase 2 §3; prior **Pass** on `bf11cd9` Phase 1 (see Version history)
+- **Number Three** — probe / merge gate — Phase 4 engine green on `092e530` (`test:phase1` 17/17, `test:phase3` 21/21, `test:phase4` 43/43, `test:doctrine` 59+79, `probe` 89/89)
+- **Referee** — MD fidelity scoring (docs only; peek at guided PR only when scoring) — **Pass** Phase 4 engine §6 on `7f926df`; prior **Pass** Phase 4 brief §6 on `1e8e98d`; prior **Pass** on `da1604b` Phase 3 §5; prior **Pass** on `2164eb5` Phase 2 §3; prior **Pass** on `bf11cd9` Phase 1 (see Version history)
 
 ## Next (optional)
 
-1. Referee fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` + `docs/phase3/` + `docs/phase4/` — **Pass** Phase 1 on `bf11cd9`; **Pass** Phase 2 §3 on `2164eb5`; **Pass** Phase 3 §5 on `da1604b`; **Pass** Phase 4 brief §6 on `1e8e98d` (see Version history).
-2. Combined Chromium behavioral probe — landed [PR #5](https://github.com/Artemis2028/BM1-bakeoff/pull/5) (`c158f2c`); extended by [PR #6](https://github.com/Artemis2028/BM1-bakeoff/pull/6) to 53/53 and [PR #8](https://github.com/Artemis2028/BM1-bakeoff/pull/8)/[PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9) to `probe` 75/75 (Phase 1 live 17 + S4 + S5).
+1. Referee fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` + `docs/phase3/` + `docs/phase4/` — **Pass** Phase 1 on `bf11cd9`; **Pass** Phase 2 §3 on `2164eb5`; **Pass** Phase 3 §5 on `da1604b`; **Pass** Phase 4 brief §6 on `1e8e98d`; **Pass** Phase 4 engine §6 on `7f926df` (see Version history).
+2. Combined Chromium behavioral probe — landed [PR #5](https://github.com/Artemis2028/BM1-bakeoff/pull/5) (`c158f2c`); extended by [PR #6](https://github.com/Artemis2028/BM1-bakeoff/pull/6) to 53/53, [PR #8](https://github.com/Artemis2028/BM1-bakeoff/pull/8)/[PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9) to 75/75, and [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13) to `probe` 89/89 (Phase 1 live 17 + S4 + S5 + S6).
 3. Phase 3 holding zones are **no longer Pending on bake-off** — landed [PR #8](https://github.com/Artemis2028/BM1-bakeoff/pull/8) (`da1604b`, includes red-team [PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9)). Plan §2 still listing holding zones as Pending is a **non-blocking docs drift** on `docs/revised-development-plan.md`, not bake-off status. [PR #4](https://github.com/Artemis2028/BM1-bakeoff/pull/4) briefs are already on `main`.
-4. Phase 4 engine implement waiting on Tenth — briefs landed [PR #11](https://github.com/Artemis2028/BM1-bakeoff/pull/11) (`276ea8c`, tip `1e8e98d`). Docs-only proposal + engine deps under `docs/phase4/`. Hard gates: refusal/`unable_to_comply` stay non-aggression; no double standing; acting allowlist `investigate`/`rescue`/`record_only` only; same-PR S4-21 rewrite/retire; pack `protect` → `record_only` (S6.13); FLASH on new-open only, not append-only withdrawal (S6.14).
-5. Later phases only when Tenth scopes them — still bake-off-only unless directed otherwise. Process note: no GitHub Actions CI; gates are local suites only.
+4. Phase 4 engine is **done** — landed [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13) (`092e530`, implement tip `7f926df`). Hard gates closed: S6.1/2 non-aggression, S6.4 single standing, S4-21 rewritten, S6.13 `protect` → `record_only`, S6.14 no second FLASH. Soft follow-up optional: top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy` — only if holding alert overrides matter.
+5. Later / next plan phase only when Tenth scopes it — still bake-off-only unless directed otherwise. Process note: no GitHub Actions CI; gates are local suites only.
 
 ## Version history
 
 Newest first.
 
+- **Referee** — `2026-09-11T20:26:00Z` (Asia/Dubai `2026-09-12T00:26:00+04:00`) — **Pass** — Phase 4 engine §6 on 7f926df (probe 89; hard gates closed; soft alertsActive snapshot note).
+- [`092e530`](https://github.com/Artemis2028/BM1-bakeoff/commit/092e530) — `2026-09-11T20:23:26Z` (Asia/Dubai `2026-09-12T00:23:26+04:00`) — Merge [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13) Phase 4 incidents/escalation/alerts engine. Implement tip [`7f926df`](https://github.com/Artemis2028/BM1-bakeoff/commit/7f926df)
 - **Referee** — `2026-09-11T19:53:36Z` (Asia/Dubai `2026-09-11T23:53:36+04:00`) — **Pass** — Phase 4 brief §6 on 1e8e98d (hard gates + S4-21/S6.13/S6.14 locks).
 - [`276ea8c`](https://github.com/Artemis2028/BM1-bakeoff/commit/276ea8c) — `2026-09-11T19:49:30Z` (Asia/Dubai `2026-09-11T23:49:30+04:00`) — Merge [PR #11](https://github.com/Artemis2028/BM1-bakeoff/pull/11) Phase 4 incidents/escalation/alerts proposal. Brief tip [`1e8e98d`](https://github.com/Artemis2028/BM1-bakeoff/commit/1e8e98d)
 - **Referee** — `2026-09-11T19:14:30Z` (Asia/Dubai `2026-09-11T23:14:30+04:00`) — **Pass** — Phase 3 holding zones/compliance matches plan §5 + phase3 docs (probe 75; #4/#5 closed). Non-blocking: status MD tip lag, no Actions CI, plan §2 still says holding zones Pending. Head scored: [`da1604b`](https://github.com/Artemis2028/BM1-bakeoff/commit/da1604b). Number Three gates: `test:phase1` 17/17; `test:phase3` 21/21; `test:doctrine` 59+79; `probe` 75/75. #4/#5 closed (`unable_to_comply` tractor/engine assert; no `orders[0]` fallback)
@@ -91,14 +95,17 @@ Use a SHA from Version history to inspect or reset **this bake-off clone**. Do n
 | Goal | Command |
 | --- | --- |
 | Inspect a SHA without moving the branch | `git fetch origin && git checkout <SHA>` |
-| Detached look at current recorded head | `git checkout 276ea8c` |
+| Detached look at current recorded head | `git checkout 092e530` |
 | Hard-reset a **local** bake-off clone to a SHA | `git reset --hard <SHA>` |
 | Return to latest `main` after inspecting | `git checkout main && git pull origin main` |
 
 Examples:
 
 ```sh
-# Read-only inspect of current recorded head (Phase 4 briefs on main)
+# Read-only inspect of current recorded head (Phase 4 engine on main)
+git checkout 092e530
+
+# Read-only inspect of Phase 4 briefs (proposal + engine deps only)
 git checkout 276ea8c
 
 # Read-only inspect of Phase 3 holding zones (engine gates green here)
