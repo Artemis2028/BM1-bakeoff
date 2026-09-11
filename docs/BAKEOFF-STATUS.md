@@ -49,15 +49,15 @@ No Playwright `behavior-probe` / Chromium suite on this repo yet. `bf11cd9` is d
 
 Newest first. Pending rows are placeholders — do not invent scores or results.
 
-| When (UTC) | Asia/Dubai (UTC+4) | SHA | What |
-| --- | --- | --- | --- |
-| pending | pending | — | **Referee** MD-fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` — **not scored yet** (do not invent a number) |
-| `2026-09-11T13:51:56Z` | `2026-09-11T17:51:56+04:00` | `bf11cd9` | Status MD added (`docs/BAKEOFF-STATUS.md`) |
-| `2026-09-11T13:49:24Z` | `2026-09-11T17:49:24+04:00` | `f684e0b` | Merge [PR #1](https://github.com/Artemis2028/BM1-bakeoff/pull/1) doctrine runtime wiring. Post-merge gates: `test:phase1` 17/17; `test:doctrine` validate 59/59 + adapter 79/79 |
-| `2026-09-11T13:44:09Z` | `2026-09-11T17:44:09+04:00` | `4c399da` | Merge [PR #2](https://github.com/Artemis2028/BM1-bakeoff/pull/2) engine / combat (Phase 1 attribution, pursuit≠fire, political authority) |
-| `2026-09-11T12:48:32Z` | `2026-09-11T16:48:32+04:00` | `538b277` | Revised development plan brief (`docs/revised-development-plan.md`) |
-| `2026-09-11T12:46:32Z` | `2026-09-11T16:46:32+04:00` | `e1a32a2` | Doctrine v0.2.1 docs pack (`docs/doctrine/`) |
-| `2026-09-10T20:55:37Z` | `2026-09-11T00:55:37+04:00` | `87bfe46` | Seed from work-repo `main` |
+| SHA | When (UTC + Asia/Dubai UTC+4) | What |
+| --- | --- | --- |
+| — | pending | **Referee** MD-fidelity score vs `docs/revised-development-plan.md` + `docs/doctrine/` — **not scored yet** (do not invent a number) |
+| [`bf11cd9`](https://github.com/Artemis2028/BM1-bakeoff/commit/bf11cd9) | `2026-09-11T13:51:56Z`<br>Asia/Dubai `2026-09-11T17:51:56+04:00` | Status MD added (`docs/BAKEOFF-STATUS.md`) |
+| [`f684e0b`](https://github.com/Artemis2028/BM1-bakeoff/commit/f684e0b) | `2026-09-11T13:49:24Z`<br>Asia/Dubai `2026-09-11T17:49:24+04:00` | Merge [PR #1](https://github.com/Artemis2028/BM1-bakeoff/pull/1) doctrine runtime wiring. Post-merge gates: `test:phase1` 17/17; `test:doctrine` validate 59/59 + adapter 79/79 |
+| [`4c399da`](https://github.com/Artemis2028/BM1-bakeoff/commit/4c399da) | `2026-09-11T13:44:09Z`<br>Asia/Dubai `2026-09-11T17:44:09+04:00` | Merge [PR #2](https://github.com/Artemis2028/BM1-bakeoff/pull/2) engine / combat (Phase 1 attribution, pursuit≠fire, political authority) |
+| [`538b277`](https://github.com/Artemis2028/BM1-bakeoff/commit/538b277) | `2026-09-11T12:48:32Z`<br>Asia/Dubai `2026-09-11T16:48:32+04:00` | Revised development plan brief (`docs/revised-development-plan.md`) |
+| [`e1a32a2`](https://github.com/Artemis2028/BM1-bakeoff/commit/e1a32a2) | `2026-09-11T12:46:32Z`<br>Asia/Dubai `2026-09-11T16:46:32+04:00` | Doctrine v0.2.1 docs pack (`docs/doctrine/`) |
+| [`87bfe46`](https://github.com/Artemis2028/BM1-bakeoff/commit/87bfe46) | `2026-09-10T20:55:37Z`<br>Asia/Dubai `2026-09-11T00:55:37+04:00` | Seed from work-repo `main` |
 
 ## Rollback (bake-off only)
 
