@@ -3338,6 +3338,74 @@ button:disabled {
   background: var(--lcars-cyan);
   color: #000;
 }
+.security-access-row small {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--lcars-muted);
+  text-transform: none;
+  font-weight: 500;
+}
+.security-row select {
+  min-height: 32px;
+  min-width: 180px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--lcars-text);
+  border: 1px solid var(--lcars-line);
+}
+.security-encounter-list {
+  display: grid;
+  gap: 6px;
+}
+.security-encounter {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 12px 4px 4px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--lcars-text);
+}
+.security-encounter.active {
+  background: rgba(88, 224, 214, 0.22);
+  color: var(--lcars-cream);
+}
+.checkpoint-order-panel {
+  position: absolute;
+  right: 18px;
+  top: 92px;
+  width: min(320px, 36vw);
+  z-index: 8;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-left: 14px solid var(--lcars-cyan);
+  border-radius: 18px 6px 6px 18px;
+  background: var(--lcars-bg);
+  color: var(--lcars-text);
+}
+.checkpoint-order-panel.hidden { display: none; }
+.checkpoint-order-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--lcars-cyan);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.checkpoint-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.checkpoint-order-actions button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 12px 4px 4px 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--lcars-cream);
+}
 .start-copy-panel {
   display: grid;
   gap: 10px;

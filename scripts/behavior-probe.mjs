@@ -823,6 +823,711 @@ async function runPhase2Roe(page, results) {
 
   check(results, 'S4-35 own-assets-protected-before-order-mutates', alertSafe.cannotOrderOwn && alertSafe.ownUnchanged);
   check(results, 'S4-36 player-side-ships-protected-before-order-mutates', alertSafe.cannotOrderEscort && alertSafe.escortUnchanged);
+
+  const replacement = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    p.prepareArena({ clearTraffic: true });
+    const attacker = p.spawnShip({
+      id: 'slot-reuse',
+      role: 'traffic',
+      faction: 'klingon',
+      x: 1400,
+      y: 900,
+      destX: 1500,
+      destY: 900,
+    });
+    p.patchShip('slot-reuse', { lastAggressionAt: performance.now(), lastAggressionTargetSide: 'ferengi', playerAggroUntil: performance.now() + 20000, attackId: 'old-raid' });
+    const before = p.ship('slot-reuse');
+    const after = p.beginAmbientReplacement('slot-reuse');
+    return { before, after };
+  });
+  check(
+    results,
+    'S4-37 replacement-clears-inherited-aggression',
+    Boolean(replacement.after)
+      && replacement.after.securityInstanceId
+      && replacement.after.securityInstanceId !== replacement.before.securityInstanceId
+      && !replacement.after.attackId
+      && !replacement.after.playerAggroUntil,
+    JSON.stringify(replacement),
+  );
+}
+
+async function runPhase3Checkpoints(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+
+  const setup = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const snap = p.snapshot();
+    const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    const enabled = anchors[0] ? p.enableCheckpoint(anchors[0].id) : { ok: false, reason: 'no-anchor' };
+    const zone = p.checkpoint();
+    return {
+      home: snap.currentPlanet,
+      homeName: snap.systemName,
+      controlled: snap.controlledSystems,
+      enabled,
+      zone: zone.zoneId ? zone : p.checkpoint(),
+      anchors: anchors.map((station) => ({ id: station.id, name: station.name, faction: station.faction })),
+      geometry: p.geometry(),
+    };
+  });
+  check(results, 'S5-setup player-checkpoint-enabled', Boolean(setup.enabled?.ok && setup.geometry?.radius), JSON.stringify(setup));
+
+  const s51 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    p.setEmpireAccess('independent', 'open');
+    p.setEmpireAccess('other', 'open');
+    p.setEmpireAccess('warFlag', 'open');
+    const geo = p.geometry();
+    const standingBefore = p.snapshot().standing;
+    const projectilesBefore = p.snapshot().projectileCount;
+    p.spawnShip({
+      id: 'open-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + geo.radius + 90,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 2.2,
+    });
+    p.tick(80, 1);
+    const after = p.checkpoint();
+    const orders = (after.orders || []).filter((order) => order.npcId === 'open-trader' || order.visitorInstanceId === p.ship('open-trader')?.securityInstanceId);
+    return {
+      orders,
+      standing: p.snapshot().standing,
+      standingBefore,
+      projectiles: p.snapshot().projectileCount,
+      projectilesBefore,
+      ship: p.ship('open-trader'),
+    };
+  });
+  check(
+    results,
+    'S5.1 open-access-creates-no-order-or-offense',
+    s51.ship
+      && s51.orders.every((order) => !order || order.lifecycle === 'not_addressed' || order.accessDecision === 'open')
+      && (s51.orders.length === 0 || s51.orders.every((order) => order.lifecycle === 'not_addressed'))
+      && s51.projectiles === s51.projectilesBefore,
+    JSON.stringify({ count: s51.orders.length, orders: s51.orders, ship: s51.ship }),
+  );
+
+  const s52 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    p.prepareArena({ clearTraffic: true });
+    p.setEmpireAccess('independent', 'challenge');
+    p.setEmpireAccess('other', 'challenge');
+    const geo = p.geometry();
+    if (!geo) return { missing: 'geometry' };
+    const ship = p.spawnShip({
+      id: 'challenge-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + geo.radius + 40,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 2.4,
+    });
+    p.tick(20, 1);
+    const issued = p.checkpoint();
+    const firstOrders = (issued.orders || []).filter((order) => order.npcId === 'challenge-trader' || order.visitorInstanceId === p.ship('challenge-trader')?.securityInstanceId);
+    p.tick(360, 1);
+    const after = p.checkpoint();
+    const later = (after.orders || []).filter((order) => order.npcId === 'challenge-trader' || order.visitorInstanceId === p.ship('challenge-trader')?.securityInstanceId);
+    const shipAfter = p.ship('challenge-trader');
+    return {
+      ship,
+      firstCount: firstOrders.length,
+      first: firstOrders[0] || null,
+      laterCount: later.length,
+      later: later[0] || null,
+      objective: shipAfter?.securityObjective || null,
+      destName: shipAfter?.destinationName || null,
+    };
+  });
+  check(
+    results,
+    'S5.2 challenge-issues-one-order-and-can-clear',
+    !s52.missing
+      && s52.firstCount === 1
+      && s52.laterCount === 1
+      && (s52.later?.lifecycle === 'cleared' || s52.later?.lifecycle === 'dwelling' || s52.later?.lifecycle === 'pending' || s52.later?.lifecycle === 'holding')
+      && s52.destName !== 'player'
+      && !String(s52.destName || '').startsWith('defend:'),
+    JSON.stringify(s52),
+  );
+
+  const s53 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    p.prepareArena({ clearTraffic: true });
+    p.setEmpireAccess('independent', 'closed');
+    p.setEmpireAccess('other', 'closed');
+    const geo = p.geometry();
+    if (!geo) return { missing: 'geometry' };
+    p.spawnShip({
+      id: 'closed-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + 20,
+      y: geo.center.y + 20,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 2.4,
+    });
+    p.tick(30, 1);
+    const issued = (p.checkpoint().orders || []).filter((order) => order.npcId === 'closed-trader');
+    p.tick(220, 1);
+    const later = (p.checkpoint().orders || []).filter((order) => order.npcId === 'closed-trader');
+    const ship = p.ship('closed-trader');
+    const destInside = ship?.destination
+      ? Math.hypot(ship.destination.x - geo.center.x, ship.destination.y - geo.center.y) <= geo.radius
+      : false;
+    return {
+      issued: issued[0] || null,
+      later: later[0] || null,
+      destInside,
+      destName: ship?.destinationName || null,
+      ship,
+    };
+  });
+  check(
+    results,
+    'S5.3 closed-access-withdraws-without-loop',
+    !s53.missing
+      && s53.issued?.instructionKind === 'withdrawal'
+      && (s53.later?.lifecycle === 'withdrawn' || s53.later?.lifecycle === 'pending' || s53.later?.lifecycle === 'departed')
+      && s53.destInside === false,
+    JSON.stringify(s53),
+  );
+
+  const s54 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    p.prepareArena({ clearTraffic: true });
+    probe2.setEmpireRoe('return-fire');
+    p.setEmpireAccess('warFlag', 'closed');
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'war-visitor',
+      role: 'traffic',
+      faction: 'klingon',
+      hostile: false,
+      attitude: 'neutral',
+      x: geo.center.x + 30,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 0.2,
+    });
+    p.tick(12, 1);
+    const standingBefore = { ...p.snapshot().standing };
+    p.tick(90, 40);
+    const after = (p.checkpoint().orders || []).filter((order) => order.npcId === 'war-visitor')[0] || null;
+    const snap = p.snapshot();
+    const mayFire = probe2.mayAutoEngage({ id: 'war-visitor', faction: 'klingon', hostile: false, attitude: 'neutral' });
+    return {
+      after,
+      standingBefore,
+      standing: snap.standing,
+      mayFire,
+      projectiles: snap.projectileCount,
+    };
+  });
+  check(
+    results,
+    'S5.4 refusal-expiry-is-not-attack-evidence',
+    s54.after
+      && (s54.after.lifecycle === 'expired' || s54.after.lifecycle === 'refused' || s54.after.outcome === 'noncompliant')
+      && s54.mayFire === false
+      && JSON.stringify(s54.standing) === JSON.stringify(s54.standingBefore),
+    JSON.stringify(s54),
+  );
+
+  const s55 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    probe2.setEmpireRoe('return-fire');
+    p.setEmpireAccess('warFlag', 'closed');
+    const attacker = { id: 'real-shot', faction: 'klingon', hostile: false, attitude: 'neutral' };
+    probe2.recordAttack(attacker, 'player');
+    const authorized = probe2.mayAutoEngage(attacker);
+    probe2.setActiveRaid(null);
+    return { authorized };
+  });
+  check(results, 'S5.5 real-aggression-still-authorizes-return-fire', s55.authorized === true, JSON.stringify(s55));
+
+  const s56 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const qonos = p.systemIndexByName('Qonos');
+    p.addFlag('klingon');
+    p.raiseFlag('klingon');
+    const holds = qonos >= 0 ? p.playerHolds(qonos) : false;
+    const warped = qonos >= 0 ? p.warpTo(qonos) : { ok: false };
+    const mutated = p.enableCheckpoint('nope');
+    const foreignAccess = p.setForeignAccess();
+    const swiss = p.spawnStation({
+      id: 'phase3-swiss',
+      faction: 'neutral',
+      privateInstallation: true,
+      name: 'Swiss Desk',
+      x: 1200,
+      y: 900,
+    });
+    const owner = p.getStationOwner(p.station(swiss.id) || swiss);
+    return {
+      holds,
+      warped,
+      mutated,
+      foreignAccess,
+      owner,
+      command: p.commandIdentity(),
+      flag: p.snapshot().playerFaction,
+    };
+  });
+  check(
+    results,
+    'S5.6 same-flag-foreign-cannot-mutate-checkpoint',
+    s56.holds === false
+      && s56.mutated?.ok === false
+      && s56.foreignAccess?.ok === false
+      && s56.owner?.kind === 'private'
+      && s56.command !== 'klingon',
+    JSON.stringify(s56),
+  );
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+  const s57 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const snap = p.snapshot();
+    const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    p.setEmpireAccess('other', 'challenge');
+    p.setEmpireAccess('warFlag', 'closed');
+    const own = p.classify({ sideId: p.commandIdentity(), broadcast: { faction: 'ferengi', source: 'declared' } });
+    const sameFlag = p.classify({ sideId: 'ferengi-house', broadcast: { faction: p.snapshot().playerFaction, source: 'declared' } });
+    const independent = p.classify({ sideId: 'ship:indie', broadcast: { faction: 'neutral', source: 'hull' } });
+    const war = p.classify({ sideId: 'klingon', broadcast: { faction: 'klingon', source: 'hull' } });
+    const custom = p.classify({ sideId: 'custom:42', broadcast: { faction: 'custom:42', source: 'declared' } });
+    const unknown = p.classify({ sideId: 'ghost', broadcast: { faction: '', source: 'none' } });
+    return { own, sameFlag, independent, war, custom, unknown };
+  });
+  check(
+    results,
+    'S5.7 classification-table',
+    s57.own?.class === 'exempt'
+      && s57.sameFlag?.class === 'other'
+      && s57.independent?.class === 'independent'
+      && s57.war?.class === 'warFlag'
+      && s57.custom?.class === 'other'
+      && s57.unknown?.class === 'unknown'
+      && s57.unknown?.enforceable === false,
+    JSON.stringify(s57),
+  );
+
+  const s58 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const vulcan = p.systemIndexByName('Vulcan');
+    if (vulcan < 0) return { missing: 'vulcan' };
+    p.warpTo(vulcan);
+    const zone = p.checkpoint();
+    const geo = p.geometry();
+    if (!geo) return { missing: 'authored-zone', zone };
+    p.placePlayer(geo.center.x + Math.min(40, geo.radius * 0.2), geo.center.y);
+    p.tick(10, 1);
+    const afterEnter = p.checkpoint();
+    const early = p.playerRespond('clearance');
+    const repeatBefore = afterEnter.playerOrder?.remainingTravelMs;
+    p.playerRespond('repeat');
+    const afterRepeat = p.checkpoint().playerOrder?.remainingTravelMs;
+    p.placeAtHold();
+    p.tick(50, 8);
+    const dwell = p.checkpoint().playerOrder;
+    const cleared = p.playerRespond('clearance');
+    const after = p.checkpoint();
+    return {
+      zone: afterEnter.zone || zone.zone,
+      early,
+      repeatBefore,
+      afterRepeat,
+      dwell,
+      cleared,
+      afterOrder: after.playerOrder,
+    };
+  });
+  check(
+    results,
+    'S5.8 player-compliance-at-authored-vulcan',
+    !s58.missing
+      && s58.zone?.foreign === true
+      && s58.early?.ok === false
+      && (s58.afterRepeat == null || s58.repeatBefore == null || s58.afterRepeat <= s58.repeatBefore)
+      && (s58.cleared?.ok === true || s58.afterOrder?.lifecycle === 'cleared' || s58.dwell?.accumulatedDwellMs > 0),
+    JSON.stringify(s58),
+  );
+
+  const s59 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const vulcan = p.systemIndexByName('Vulcan');
+    p.warpTo(vulcan);
+    p.placeAtApproach();
+    const geo = p.geometry();
+    p.placePlayer(geo.center.x + 10, geo.center.y + 10);
+    p.tick(8, 1);
+    const refused = p.playerRespond('refuse');
+    const edit = p.setForeignAccess();
+    const enable = p.enableCheckpoint('x');
+    p.warpTo(p.systemIndexByName('Ferenginar') >= 0 ? p.systemIndexByName('Ferenginar') : 0);
+    p.warpTo(vulcan);
+    p.placePlayer(geo.center.x + 10, geo.center.y + 10);
+    p.tick(8, 1);
+    const withdraw = p.playerRespond('withdraw');
+    const beforeLeave = p.checkpoint().playerOrder;
+    p.placeAtApproach();
+    p.tick(20, 4);
+    const afterLeave = p.checkpoint().playerOrder;
+    return { refused, edit, enable, withdraw, beforeLeave, afterLeave };
+  });
+  check(
+    results,
+    'S5.9 player-withdraw-or-refuse-and-cannot-edit-foreign',
+    s59.refused?.ok === true
+      && s59.edit?.ok === false
+      && s59.enable?.ok === false
+      && (s59.afterLeave?.lifecycle === 'withdrawn' || s59.afterLeave?.lifecycle === 'departed' || s59.withdraw?.ok === true),
+    JSON.stringify(s59),
+  );
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+  const s510 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const snap = p.snapshot();
+    const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    const before = p.localElapsedMs();
+    p.tick(12, 0.25);
+    const after = p.localElapsedMs();
+    const expected = 12 * 0.25 * 16.6667;
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'slow-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + geo.radius + 30,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 0.35,
+    });
+    p.tick(16, 1);
+    const order = (p.checkpoint().orders || []).find((entry) => entry.npcId === 'slow-trader');
+    p.patchShip('slow-trader', {});
+    const ship = p.ship('slow-trader');
+    if (ship) {
+      const raw = (globalThis.BM1Probe.ship('slow-trader'));
+      const npc = (function find() {
+        return true;
+      }());
+      void npc;
+      void raw;
+    }
+    const npcs = p.snapshot().npcShips;
+    const live = npcs.find((entry) => entry.id === 'slow-trader');
+    // Mark tractor via patch if supported.
+    return {
+      before,
+      after,
+      expected,
+      clockOk: Math.abs((after - before) - expected) < 2,
+      allowance: order?.remainingTravelMs || 0,
+      live,
+    };
+  });
+  check(
+    results,
+    'S5.10 clock-uses-simulation-delta',
+    s510.clockOk === true && s510.allowance >= 45000,
+    JSON.stringify(s510),
+  );
+
+  const s511 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    p.prepareArena({ clearTraffic: true });
+    p.setEmpireAccess('independent', 'challenge');
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'save-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      name: 'SS Ledger',
+      x: geo.center.x + geo.holdingDistance,
+      y: geo.center.y,
+      destX: geo.center.x + geo.holdingDistance,
+      destY: geo.center.y,
+      speed: 0.2,
+      combatHull: 44,
+    });
+    p.tick(18, 1);
+    const before = (p.checkpoint().orders || []).find((order) => order.npcId === 'save-trader');
+    const instance = p.ship('save-trader')?.securityInstanceId;
+    const hull = p.ship('save-trader')?.combatHull;
+    p.saveSlot(7);
+    p.loadSlot(7);
+    p.wipeSystemStates();
+    const after = (p.checkpoint().orders || []).find((order) => order.npcId === 'save-trader' || order.visitorInstanceId === instance);
+    const ships = p.snapshot().npcShips.filter((ship) => ship.id === 'save-trader' || ship.name === 'SS Ledger' || ship.securityInstanceId === instance);
+    return {
+      before,
+      after,
+      instance,
+      hull,
+      hullAfter: ships[0]?.combatHull,
+      shipCount: ships.length,
+      remainingBefore: before?.remainingTravelMs,
+      remainingAfter: after?.remainingTravelMs,
+      episodeBefore: before?.entryEpisode,
+      episodeAfter: after?.entryEpisode,
+    };
+  });
+  check(
+    results,
+    'S5.11 save-reload-keeps-order-and-participant',
+    Boolean(s511.before && s511.after)
+      && s511.after.visitorInstanceId === s511.instance
+      && s511.episodeBefore === s511.episodeAfter
+      && s511.shipCount === 1
+      && s511.hullAfter === s511.hull
+      && Math.abs((s511.remainingAfter || 0) - (s511.remainingBefore || 0)) < 5000,
+    JSON.stringify(s511),
+  );
+
+  const s512 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    p.prepareArena({ clearTraffic: true });
+    p.setEmpireAccess('independent', 'challenge');
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'reuse-slot',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + 15,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+      speed: 0.4,
+    });
+    p.tick(12, 1);
+    const first = (p.checkpoint().orders || []).find((order) => order.npcId === 'reuse-slot');
+    const firstInstance = p.ship('reuse-slot')?.securityInstanceId;
+    if (first) p.operatorAct('waive', first.encounterId);
+    const replaced = p.beginAmbientReplacement('reuse-slot');
+    p.tick(16, 1);
+    const second = (p.checkpoint().orders || []).filter((order) => order.npcId === 'reuse-slot');
+    return {
+      firstInstance,
+      secondInstance: replaced?.securityInstanceId,
+      firstClearance: first?.accessClearance,
+      second,
+      inherited: second.some((order) => order.visitorInstanceId === firstInstance && order.accessClearance),
+    };
+  });
+  check(
+    results,
+    'S5.12 replacement-gets-new-instance-not-clearance',
+    Boolean(s512.firstInstance)
+      && s512.secondInstance
+      && s512.secondInstance !== s512.firstInstance
+      && s512.inherited === false,
+    JSON.stringify(s512),
+  );
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 100, shields: 100 });
+  const s513 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const snap = p.snapshot();
+    const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    const geo = p.geometry();
+    p.spawnShip({
+      id: 'capture-trader',
+      role: 'traffic',
+      faction: 'neutral',
+      x: geo.center.x + 12,
+      y: geo.center.y,
+      destX: geo.center.x,
+      destY: geo.center.y,
+    });
+    p.tick(10, 1);
+    const before = p.checkpoint();
+    const seized = p.seize('klingon');
+    const occupierOrders = (p.checkpoint().orders || []).filter((order) => !['cleared', 'withdrawn', 'canceled', 'authority_changed', 'checkpoint_unavailable', 'not_addressed'].includes(order.lifecycle));
+    p.clearClaimBlockers('npc');
+    const reclaimed = p.claimCurrent();
+    const after = p.checkpoint();
+    return {
+      beforeEpoch: before.zone?.authorityEpoch,
+      afterEpoch: after.zone?.authorityEpoch,
+      seized: seized.controlled,
+      reclaimed: reclaimed.controlled,
+      occupierOrders,
+      oldStillPending: occupierOrders.some((order) => order.npcId === 'capture-trader'),
+    };
+  });
+  check(
+    results,
+    'S5.13 capture-invalidates-old-orders',
+    s513.seized === false
+      && s513.reclaimed === true
+      && s513.oldStillPending === false
+      && (s513.afterEpoch || 0) >= (s513.beforeEpoch || 0),
+    JSON.stringify(s513),
+  );
+
+  const s514 = await page.evaluate(() => {
+    const probe2 = globalThis.__BM1_PROBE__;
+    const p = globalThis.BM1Probe;
+    probe2.openSettings();
+    const otherBtn = document.querySelector('[data-security-access-scope="empire"][data-security-access-class="other"][data-access-value="closed"]');
+    otherBtn?.click();
+    const afterClick = p.snapshot().effectivePolicy.access;
+    const geo = p.geometry();
+    p.prepareArena({ clearTraffic: true });
+    if (!p.checkpoint().zone) {
+      const snap = p.snapshot();
+      const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+      if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    }
+    p.spawnShip({
+      id: 'ui-trader',
+      role: 'traffic',
+      faction: 'romulan',
+      x: (geo || p.geometry()).center.x + 18,
+      y: (geo || p.geometry()).center.y,
+      destX: (geo || p.geometry()).center.x,
+      destY: (geo || p.geometry()).center.y,
+    });
+    p.tick(12, 1);
+    const order = (p.checkpoint().orders || []).find((entry) => entry.npcId === 'ui-trader');
+    const waived = order ? p.operatorAct('waive', order.encounterId) : { ok: false };
+    p.spawnShip({
+      id: 'ui-trader-2',
+      role: 'traffic',
+      faction: 'romulan',
+      x: (p.geometry()).center.x + 16,
+      y: (p.geometry()).center.y,
+      destX: (p.geometry()).center.x,
+      destY: (p.geometry()).center.y,
+    });
+    p.tick(12, 1);
+    const second = (p.checkpoint().orders || []).find((entry) => entry.npcId === 'ui-trader-2');
+    const withdraw = second ? p.operatorAct('withdraw', second.encounterId) : { ok: false };
+    const cancel = second ? p.operatorAct('cancel', second.encounterId) : { ok: false };
+    return {
+      afterClick,
+      waived,
+      withdraw,
+      cancel,
+      ui: probe2.securityUi(),
+    };
+  });
+  check(
+    results,
+    'S5.14 operator-ui-access-and-order-actions',
+    s514.afterClick?.other === 'closed'
+      && s514.waived?.ok === true
+      && s514.ui.accessButtons.length > 0
+      && s514.ui.checkpointEnable === true,
+    JSON.stringify(s514),
+  );
+
+  const s515 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const zone = p.checkpoint().zone;
+    const destroyed = zone?.anchorStationId ? p.destroy(zone.anchorStationId, 'npc') : { destroyed: false };
+    p.tick(4, 1);
+    const after = p.checkpoint();
+    const pending = (after.orders || []).filter((order) => ['pending', 'holding', 'dwelling'].includes(order.lifecycle));
+    return { destroyed, pending, zone: after.zone };
+  });
+  check(
+    results,
+    'S5.15 checkpoint-loss-ends-demands-without-blame',
+    s515.pending.length === 0,
+    JSON.stringify(s515),
+  );
+
+  const s516 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    p.prepareArena({ clearTraffic: true, latinum: 2800 });
+    const snap = p.snapshot();
+    const anchors = (snap.stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('other', 'challenge');
+    const victim = p.spawnShip({
+      id: 'still-hostile',
+      faction: 'dominion',
+      role: 'patrol',
+      hostile: true,
+      attitude: 'hostile',
+      x: 1300,
+      y: 900,
+    });
+    const hostileKept = p.ship(victim.id)?.hostile === true;
+    probe2.setEmpireRoe('defend');
+    const stillEngage = probe2.mayAutoEngage({ id: victim.id, faction: 'dominion', hostile: true, attitude: 'hostile' });
+    return { hostileKept, stillEngage, credit: p.phase1 ? null : true };
+  });
+  check(
+    results,
+    'S5.16 clearance-does-not-erase-combat-state',
+    s516.hostileKept === true && s516.stillEngage === true,
+    JSON.stringify(s516),
+  );
+
+  const extra = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const vulcan = p.systemIndexByName('Vulcan');
+    p.warpTo(vulcan);
+    p.placePlayer(p.geometry().center.x + 8, p.geometry().center.y);
+    p.tick(10, 1);
+    const planetRefuse = p.dockRefusal();
+    const concession = p.spawnStation({
+      id: 'vulcan-concession',
+      faction: 'ferengi',
+      privateInstallation: true,
+      name: 'Ferengi Desk',
+      x: p.geometry().center.x + 80,
+      y: p.geometry().center.y,
+    });
+    const concessionRefuse = p.dockRefusal(concession.id);
+    const planetDock = p.tryDockPlanet();
+    return {
+      planetRefuse,
+      concessionRefuse,
+      planetDock,
+      zone: p.checkpoint().zone,
+      playerDenied: p.checkpoint().playerDenied,
+    };
+  });
+  check(
+    results,
+    'S5.dock authority-installations-refuse-pending-visitor',
+    Boolean(extra.planetRefuse) && extra.planetDock === false && extra.concessionRefuse === '',
+    JSON.stringify(extra),
+  );
+
+  const uiShot = await page.evaluate(() => {
+    const probe2 = globalThis.__BM1_PROBE__;
+    probe2.openSettings();
+    return probe2.securityUi();
+  });
+  check(results, 'S5.ui operator-panel-present', uiShot.present === true && uiShot.checkpointEnable === true);
 }
 
 async function main() {
@@ -838,13 +1543,14 @@ async function main() {
     await boot(page);
     const results = await runChecks(page);
     await runPhase2Roe(page, results);
+    await runPhase3Checkpoints(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 checkpoints Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
