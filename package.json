@@ -8,6 +8,7 @@
     "build:python": "python3 scripts/build_release.py",
     "test:phase1": "node scripts/test-phase1-engine.mjs",
     "test:phase3": "node scripts/test-phase3-checkpoints.mjs",
+    "test:phase4": "node scripts/test-phase4-incidents.mjs",
     "serve": "python3 -m http.server 8001",
     "test:doctrine": "python3 docs/doctrine/validate-doctrine.py && node scripts/test-doctrine-runtime.mjs",
     "probe": "node scripts/behavior-probe.mjs",
