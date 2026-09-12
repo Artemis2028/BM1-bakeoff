@@ -2357,6 +2357,11 @@ async function runSideLaneRepairReman(page, results) {
   const s74 = await page.evaluate(() => {
     const p = globalThis.BM1Probe;
     const lane = globalThis.__BM1_PROBE__.sideLane;
+    p.warpTo(p.systemIndexByName('Sol') >= 0 ? 'Sol' : p.snapshot().currentPlanet);
+    p.disableCheckpoint();
+    p.setEmpireAccess('independent', 'open');
+    p.setEmpireAccess('other', 'open');
+    p.setEmpireAccess('warFlag', 'open');
     p.prepareArena({ latinum: 28000, hull: 70, shields: 70 });
     lane.forceDockPlanet();
     const docked = lane.snapshot();
