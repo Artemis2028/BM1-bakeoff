@@ -130,6 +130,36 @@ import {
   classifyLogBand,
 } from './phase4-incidents.js';
 import {
+  ASSET_OVERDUE_IMPLEMENTED as PHASE5_OVERDUE_IMPLEMENTED,
+  applyPlayerChoice,
+  applyStrategicJumpToBoard,
+  burnWindow,
+  capacityJumpsFromShip,
+  closeObjective,
+  countCivilianRoles as countPhase5CivilianRoles,
+  detectAssignmentInSystem,
+  emptyObjectiveBoard,
+  evaluatePirateFromKnowledge,
+  getAssignment,
+  getConvoy,
+  getObjective,
+  getShortage,
+  grantAssignmentKnowledge,
+  injectShortageAndConvoy,
+  listOpenObjectives,
+  markAssignmentDestroyed,
+  noteUnloadIsNotDisappearance,
+  observerKnowsAssignment,
+  openOverdueForAssignment,
+  recalcOpenUrgency,
+  refuseReplacement,
+  restoreObjectiveBoard,
+  sayableOverdue,
+  sayableUnload,
+  sayableUrgency,
+  serializeObjectiveBoard,
+} from './phase5-objectives.js';
+import {
   DOCTRINE_PACK_SRC,
   deriveLiveFireFacts,
   getDoctrineRuntime,
@@ -729,6 +759,7 @@ const state = {
   securityZones: createSecurityZonesState(),
   securityEncounters: createSecurityEncountersState(),
   incidentLedger: createIncidentLedger(),
+  objectiveBoard: emptyObjectiveBoard(),
   playerUnlocks: createPlayerUnlocks(),
   unrestIndependence: createUnrestIndependenceStore(),
   repairSession: createRepairSession(),
@@ -3624,7 +3655,7 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
   state.tractorBeams = [];
   state.combatTargetId = null;
   state.combatTargetType = 'ship';
-  incrementStrategicJumps(ensureIncidentLedger());
+  incrementPlayerStrategicJumps();
   applySystemState(state.currentPlanet);
   calmHomeSystem();
   scheduleNextFleetAttack(performance.now() + 45000);
@@ -3972,6 +4003,7 @@ function applyCurrentShipStats(resetCondition = false) {
     state.fuelCap = Math.max(80, Math.round(state.antimatteruse * 30));
   }
   syncFuelToAntimatter();
+  if (state.gameStarted && state.objectiveBoard?.objectives) recalcPhase5Urgency();
 }
 
 async function fetchJsonOrNull(src) {
@@ -4485,7 +4517,52 @@ function renderSecurityPanel() {
     <div class="panel-head">Incidents</div>
     <div class="security-encounter-list" data-incident-list>${incidentRows}</div>
     ${selectedIncident ? `<div class="meta">${escapeHtml(selectedIncident.sayable || '')}</div>${incidentHistory}` : ''}
+    ${renderPhase5ObjectivesPanel()}
   </div>`;
+}
+
+function renderPhase5ObjectivesPanel() {
+  const board = ensureObjectiveBoard();
+  const rows = listOpenObjectives(board);
+  const closed = Object.values(board.objectives || {}).filter((row) => row.status === 'closed').slice(-4);
+  const shortage = Object.values(board.shortages || {})[0] || null;
+  const convoy = Object.values(board.convoys || {})[0] || null;
+  if (!rows.length && !closed.length && !convoy) {
+    return `<div class="panel-head">Objectives</div><div class="meta">No campaign convoy or overdue watch.</div>`;
+  }
+  const openHtml = rows.map((row) => {
+    const assignment = getAssignment(board, row.assignmentId);
+    const line = row.kind === 'asset_overdue'
+      ? (row.sayable || sayableOverdue(assignment))
+      : sayableUrgency(row);
+    const cargo = convoy && row.convoyId === convoy.convoyId
+      ? sayableConvoySafe(convoy, getShortage(board, row.shortageId), row)
+      : '';
+    const actions = row.kind === 'convoy_delivery'
+      ? `<div class="security-roe-row">
+          <button type="button" data-phase5-choice="escort" data-objective="${escapeHtml(row.objectiveId)}">Escort</button>
+          <button type="button" data-phase5-choice="deliver" data-objective="${escapeHtml(row.objectiveId)}">Deliver</button>
+          <button type="button" data-phase5-choice="investigate" data-objective="${escapeHtml(row.objectiveId)}">Investigate</button>
+          <button type="button" data-phase5-choice="exploit" data-objective="${escapeHtml(row.objectiveId)}">Exploit</button>
+          <button type="button" data-phase5-choice="ignore" data-objective="${escapeHtml(row.objectiveId)}">Ignore</button>
+        </div>`
+      : '';
+    return `<div class="meta" data-phase5-objective="${escapeHtml(row.objectiveId)}">${escapeHtml(line)}${cargo ? `<br>${escapeHtml(cargo)}` : ''}</div>${actions}`;
+  }).join('');
+  const closedHtml = closed.length
+    ? `<div class="meta">Closed ${closed.map((row) => escapeHtml(`${row.objectiveId} (${row.resolveReason || row.closeToken || 'closed'})`)).join(', ')}</div>`
+    : '';
+  const shortageLine = shortage
+    ? `<div class="meta">Shortage ${escapeHtml(shortage.good)} at ${escapeHtml(shortage.locationName)}: ${escapeHtml(shortage.status)}</div>`
+    : '';
+  return `<div class="panel-head">Objectives</div>${shortageLine}${openHtml || '<div class="meta">No open convoy window.</div>'}${closedHtml}`;
+}
+
+function sayableConvoySafe(convoy, shortage, objective) {
+  const good = convoy?.good || shortage?.good || 'cargo';
+  const from = convoy?.originName || 'origin';
+  const to = convoy?.destinationName || shortage?.locationName || 'destination';
+  return `This cargo (${good}) is going from ${from} to ${to} for this shortage.`;
 }
 
 function ensureSecurityStores() {
@@ -4528,6 +4605,196 @@ function ensureIncidentLedger() {
     state.incidentLedger = restoreIncidentLedger(state.incidentLedger);
   }
   return state.incidentLedger;
+}
+
+function ensureObjectiveBoard() {
+  if (!state.objectiveBoard || state.objectiveBoard.version !== 1 || !state.objectiveBoard.objectives) {
+    state.objectiveBoard = restoreObjectiveBoard(state.objectiveBoard);
+  }
+  return state.objectiveBoard;
+}
+
+function incrementPlayerStrategicJumps() {
+  const ledger = ensureIncidentLedger();
+  incrementStrategicJumps(ledger);
+  const tick = applyStrategicJumpToBoard(ensureObjectiveBoard(), ledger.strategicJumps);
+  for (const objective of tick.newlyBurned || []) {
+    openPhase5Overdue(objective, { currentStrategicJumps: ledger.strategicJumps });
+  }
+  return ledger.strategicJumps;
+}
+
+function currentUrgencyContext(objective = null) {
+  const escorts = (objective?.assignedEscortIds || [])
+    .map((id) => (state.playerFleet || []).find((row) => String(row.id) === String(id)))
+    .filter(Boolean)
+    .map((row) => ({
+      antimatter: Number.isFinite(Number(row.antimatter)) ? Number(row.antimatter) : state.antimatter,
+      antimatterUse: Number.isFinite(Number(row.antimatterUse))
+        ? Number(row.antimatterUse)
+        : finiteNumber(getShipStats(row.shipId).antimatterUse, state.antimatteruse),
+    }));
+  return {
+    antimatter: state.antimatter,
+    antimatterUse: state.antimatteruse,
+    escorts: escorts.length ? escorts : null,
+    currentStrategicJumps: ensureIncidentLedger().strategicJumps,
+  };
+}
+
+function recalcPhase5Urgency() {
+  const board = ensureObjectiveBoard();
+  recalcOpenUrgency(board, (objective) => {
+    const plot = phase5PlottedRoute(objective);
+    const ctx = currentUrgencyContext(objective);
+    return {
+      ...ctx,
+      plannedRouteJumps: objective.clocks?.plannedRouteJumps,
+      capacityJumps: capacityJumpsFromShip(ctx),
+      canPlot: !plot || plot.canTravel !== false,
+    };
+  });
+}
+
+function phase5PlottedRoute(objective) {
+  const assignment = getAssignment(ensureObjectiveBoard(), objective?.assignmentId);
+  if (!assignment) return null;
+  const from = Number.isFinite(Number(state.currentPlanet)) ? state.currentPlanet : assignment.originSystemIndex;
+  const to = assignment.destinationSystemIndex;
+  if (!Number.isFinite(Number(from)) || !Number.isFinite(Number(to))) return null;
+  const plan = getPlottedRoute(from, to);
+  if (!plan) return { canTravel: false };
+  const status = getPlottedRouteStatus(plan);
+  return { ...plan, canTravel: status?.canTravel !== false };
+}
+
+function applyPhase5UnrestWrite(write) {
+  if (!write || write.systemIndex == null) return null;
+  const store = ensureUnrestIndependence();
+  if (write.kind === 'relieve') {
+    return relieveUnrest(store, write.systemIndex, { action: write.action || 'restoreDelivery', at: state.day });
+  }
+  if (write.kind === 'commerceFailure') {
+    return raiseUnrestFromCommerceFailure(store, write.systemIndex, { cause: write.cause || 'playerRaid' });
+  }
+  return null;
+}
+
+function openPhase5Overdue(sourceObjective, extras = {}) {
+  const board = ensureObjectiveBoard();
+  const assignment = getAssignment(board, sourceObjective.assignmentId);
+  if (!assignment) return { ok: false, reason: 'no_assignment' };
+  let opened = openOverdueForAssignment(board, assignment.assignmentId, {
+    sourceObjective,
+    currentStrategicJumps: extras.currentStrategicJumps ?? ensureIncidentLedger().strategicJumps,
+    survivorsKnown: extras.survivorsKnown === true,
+  });
+  if (!opened.ok && opened.reason === 'already_closed') {
+    const existing = Object.values(board.objectives || {}).find((row) => (
+      row.kind === 'asset_overdue' && row.assignmentId === assignment.assignmentId
+    ));
+    if (!existing) return opened;
+    opened = { ok: true, objective: existing, token: opened.token, destroyed: false, attackerId: null };
+  }
+  if (!opened.ok) return opened;
+  if (opened.objective.links?.incidentId && ensureIncidentLedger().incidents[opened.objective.links.incidentId]) {
+    return opened;
+  }
+  const ledger = ensureIncidentLedger();
+  const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+  const identity = currentLocationIdentity(state.currentPlanet);
+  const incident = openIncident(ledger, {
+    kind: 'asset_overdue',
+    systemIndex: state.currentPlanet,
+    locationId: identity.locationId,
+    jurisdictionId: identity.jurisdictionId,
+    authoritySide: getSystemControl(state.currentPlanet)?.authoritySide || null,
+    actor: { instanceId: assignment.assetId, kind: 'npc', role: assignment.role },
+    victim: { instanceId: null, kind: 'civilian' },
+    action: 'missed_milestone',
+    clocks: { localElapsedMs: localMs, strategicJumps: ledger.strategicJumps, issuedAtLocalMs: localMs },
+    links: {
+      overdueKey: `overdue:${assignment.assignmentId}`,
+      assignmentId: assignment.assignmentId,
+      objectiveId: opened.objective.objectiveId,
+      punishmentToken: 'none',
+      punishmentApplied: 'none',
+    },
+    lastKnown: extras.lastKnown || null,
+    sayable: opened.objective.sayable || sayableOverdue(assignment),
+    truth: {
+      attributed: false,
+      notes: 'Overdue — not confirmed destroyed. No attacker identified.',
+      offense: 'none',
+    },
+  });
+  if (incident.created) {
+    opened.objective.links.incidentId = incident.incident.incidentId;
+    emitIncidentNotice(incident.incident);
+    const factsByObserver = {};
+    for (const npc of state.npcShips || []) {
+      const key = observerKeyFor(npc);
+      if (!key) continue;
+      const knows = observerKnowsAssignment(npc, assignment.assignmentId);
+      factsByObserver[key] = knows
+        ? {
+          event_known: true,
+          credible_report: true,
+          event_actionable: true,
+          can_respond: true,
+          evidence_available: extras.evidenceAvailable === true,
+          survivors_known: extras.survivorsKnown === true,
+        }
+        : { event_known: false };
+    }
+    evaluatePresentObservers(incident.incident, { factsByObserver });
+  }
+  setLog(opened.objective.sayable, { band: 'operational' });
+  return { ...opened, incident: incident.incident || null, createdIncident: Boolean(incident.created) };
+}
+
+function applyPhase5PlayerChoice(objectiveId, choice, extras = {}) {
+  const board = ensureObjectiveBoard();
+  const result = applyPlayerChoice(board, objectiveId, choice, {
+    atStrategicJumps: ensureIncidentLedger().strategicJumps,
+    ...extras,
+  });
+  if (result.unrestWrite) applyPhase5UnrestWrite(result.unrestWrite);
+  if (result.openIncident) {
+    const objective = result.objective;
+    const assignment = getAssignment(board, objective.assignmentId);
+    const ledger = ensureIncidentLedger();
+    const localMs = ensureSystemLedger(state.currentPlanet).localElapsedMs;
+    const identity = currentLocationIdentity(state.currentPlanet);
+    const opened = openIncident(ledger, {
+      kind: objective.truth?.survivorsKnown ? 'distress' : 'asset_overdue',
+      systemIndex: state.currentPlanet,
+      locationId: identity.locationId,
+      jurisdictionId: identity.jurisdictionId,
+      actor: { instanceId: 'player', kind: 'player', sideId: getPlayerSide() },
+      action: 'investigate',
+      clocks: { localElapsedMs: localMs, strategicJumps: ledger.strategicJumps, issuedAtLocalMs: localMs },
+      links: {
+        overdueKey: `investigate:${objective.assignmentId}:${localMs}`,
+        assignmentId: objective.assignmentId,
+        objectiveId: objective.objectiveId,
+        punishmentToken: 'none',
+        punishmentApplied: 'none',
+      },
+      sayable: 'Investigation recorded. No attacker identified. Standing unchanged.',
+      truth: { attributed: false, notes: 'Player investigation. No invented attacker.', offense: 'none' },
+    });
+    if (opened.created) {
+      objective.links.incidentId = opened.incident.incidentId;
+      emitIncidentNotice(opened.incident);
+    }
+    result.incident = opened.incident;
+  }
+  if (result.ok && result.choice === 'deliver' && result.hullMayOverdue) {
+    result.sayable = result.objective.sayable;
+  }
+  if (result.ok) setLog(ensureObjectiveBoard().lastJournal || sayableUrgency(result.objective));
+  return result;
 }
 
 function observerKeyFor(npc) {
@@ -4637,8 +4904,12 @@ function evaluateObserverForIncident(npc, incident, factOverrides = {}) {
   if (!forcedUnknown && present) {
     if (incident.kind === 'destruction' || incident.kind === 'distress') known = true;
     if (incident.kind === 'access_noncompliance' && authorityMatch) known = true;
-    if (factOverrides.event_known === true) known = true;
+    if (incident.kind === 'asset_overdue') {
+      const assignmentId = incident.links?.assignmentId;
+      known = Boolean(assignmentId && observerKnowsAssignment(npc, assignmentId));
+    }
   }
+  if (!forcedUnknown && factOverrides.event_known === true) known = true;
   if (forcedUnknown) known = false;
   if (known && key) grantObserverCopy(ledger, key, incident.incidentId);
   const facts = { ...factOverrides };
@@ -6002,6 +6273,10 @@ function clearInheritedAmbientEvidence(npc) {
   npc.attackId = null;
   npc.hailSession = null;
   npc.incidentObjective = null;
+  npc.phase5AssignmentId = null;
+  npc.phase5AssetId = null;
+  npc.phase5ConvoyId = null;
+  npc.knownAssignmentIds = [];
 }
 
 function checkpointUiSnapshot() {
@@ -11335,6 +11610,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     securityZones: serializeSecurityZones(ensureSecurityStores().zones),
     securityEncounters: serializeSecurityEncounters(ensureSecurityStores().encounters),
     incidentLedger: serializeIncidentLedger(ensureIncidentLedger()),
+    objectiveBoard: serializeObjectiveBoard(ensureObjectiveBoard()),
     playerUnlocks: serializePlayerUnlocks(ensurePlayerUnlocks()),
     unrestIndependence: serializeUnrestIndependence(ensureUnrestIndependence()),
     autoTarget: state.autoTarget !== false,
@@ -11406,6 +11682,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.securityZones = restoreSecurityZones(s.securityZones);
   state.securityEncounters = restoreSecurityEncounters(s.securityEncounters);
   state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
+  state.objectiveBoard = restoreObjectiveBoard(s.objectiveBoard);
   state.playerUnlocks = restorePlayerUnlocks(s.playerUnlocks);
   state.unrestIndependence = restoreUnrestIndependence(s.unrestIndependence);
   state.repairSession = clearRepairSession();
@@ -12430,7 +12707,7 @@ function completeWarpTravel() {
   const fromIndex = state.warp.from;
   if (Number.isFinite(Number(fromIndex)) && Number(fromIndex) !== Number(targetIndex)) {
     closePlayerVisitOnDeparture(fromIndex);
-    incrementStrategicJumps(ensureIncidentLedger());
+    incrementPlayerStrategicJumps();
   }
   state.day += 1;
   state.currentPlanet = targetIndex;
@@ -12818,6 +13095,13 @@ topLeftPanelEl?.addEventListener('click', (e) => {
   if (incidentBtn) {
     state.selectedIncidentId = incidentBtn.dataset.incidentSelect;
     renderTopLeftPanel();
+    return;
+  }
+  const phase5Choice = e.target.closest('[data-phase5-choice]');
+  if (phase5Choice) {
+    applyPhase5PlayerChoice(phase5Choice.dataset.objective, phase5Choice.dataset.phase5Choice);
+    renderTopLeftPanel();
+    updateStats();
     return;
   }
   const accessBtn = e.target.closest('[data-security-access-class]');
@@ -14769,6 +15053,16 @@ function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
   if (opened.created) {
     emitIncidentNotice(opened.incident);
     evaluatePresentObservers(opened.incident);
+  }
+  const assignmentId = npc.phase5AssignmentId;
+  if (assignmentId) {
+    markAssignmentDestroyed(ensureObjectiveBoard(), assignmentId, {
+      credit: creditKey,
+      attackerId: playerCredited ? creditKey : null,
+      punishmentToken: token,
+      atStrategicJumps: incidentLedger.strategicJumps,
+      sayable: opened.incident?.sayable,
+    });
   }
   setLog(playerCredited
     ? `Destroyed ${getShipDisplayName(npc)}. Salvage recovered: ${reward} latinum.`
@@ -19144,6 +19438,7 @@ function resetRunState() {
   state.securityZones = createSecurityZonesState();
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
+  state.objectiveBoard = emptyObjectiveBoard();
   state.playerUnlocks = createPlayerUnlocks();
   state.unrestIndependence = createUnrestIndependenceStore();
   state.repairSession = clearRepairSession();
@@ -19319,6 +19614,7 @@ function startWithFaction(key, options = {}) {
   state.securityZones = createSecurityZonesState();
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
+  state.objectiveBoard = emptyObjectiveBoard();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
   state.standingWriteCount = 0;
@@ -20167,6 +20463,400 @@ function installBm1ProbeHarness() {
     geometry: () => getActiveCheckpoint(state.currentPlanet)?.geometry || null,
     incidents: createIncidentProbeApi(),
     sideLane: createSideLaneProbeApi(),
+    phase5: createPhase5ProbeApi(),
+  };
+}
+
+function createPhase5ProbeApi() {
+  const otherSystem = () => {
+    const current = Number(state.currentPlanet);
+    const dest = (state.planets || []).findIndex((_, index) => index !== current);
+    return dest >= 0 ? dest : (current === 0 ? 1 : 0);
+  };
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  return {
+    snapshot: () => {
+      const board = ensureObjectiveBoard();
+      const ledger = ensureIncidentLedger();
+      const civilians = ensureUnrestIndependence()?.civilians?.[String(state.currentPlanet)] || [];
+      return {
+        board: serializeObjectiveBoard(board),
+        strategicJumps: ledger.strategicJumps || 0,
+        standing: { ...(state.factionStanding || {}) },
+        standingWriteCount: Number(state.standingWriteCount) || 0,
+        civilianRoles: countPhase5CivilianRoles(state.npcShips, civilians),
+        mayAutoEngage: null,
+        log: state.log,
+        lastJournal: board.lastJournal,
+        overdueImplemented: PHASE5_OVERDUE_IMPLEMENTED === true,
+        flagShareGrantsControl: flagShareGrantsSystemControl(),
+        catalogWired: false,
+        warpActive: Boolean(state.warp?.active),
+        wormholeActive: Boolean(state.wormholeTransit?.active),
+        antimatter: state.antimatter,
+        antimatterUse: state.antimatteruse,
+        playership: state.playership,
+      };
+    },
+    injectShortageAndConvoy: (opts = {}) => {
+      const missing = failIfMissing(injectShortageAndConvoy, 'injectShortageAndConvoy');
+      if (missing) return missing;
+      const origin = Number.isFinite(Number(opts.originSystemIndex)) ? Number(opts.originSystemIndex) : state.currentPlanet;
+      const destination = Number.isFinite(Number(opts.destinationSystemIndex))
+        ? Number(opts.destinationSystemIndex)
+        : otherSystem();
+      const originName = state.planets[origin]?.name || `system:${origin}`;
+      const destinationName = state.planets[destination]?.name || `system:${destination}`;
+      const roles = injectLoungeAndContract(ensureUnrestIndependence(), origin);
+      if (!roles.ok) return { ok: false, reason: 'civilian-role-missing' };
+      const lounge = probeSpawnShip({
+        id: opts.loungeId || roles.lounge.id,
+        role: 'localTraffic',
+        faction: 'neutral',
+        name: 'Lounge Civilian',
+      });
+      const contract = probeSpawnShip({
+        id: opts.civilianId || roles.contract.id,
+        role: 'commerceContract',
+        faction: 'neutral',
+        name: 'Contract Freighter',
+      });
+      const loungeShip = probeFindShip(lounge.id);
+      const contractShip = probeFindShip(contract.id);
+      if (!loungeShip || !contractShip) {
+        return { ok: false, reason: 'civilian-role-missing' };
+      }
+      loungeShip.civilianPurpose = 'lounge';
+      contractShip.civilianPurpose = 'contract';
+      const board = ensureObjectiveBoard();
+      const injected = injectShortageAndConvoy(board, {
+        assignmentId: opts.assignmentId || undefined,
+        originSystemIndex: origin,
+        destinationSystemIndex: destination,
+        originName,
+        destinationName,
+        good: opts.good || 'food',
+        civilianId: contractShip.id,
+        securityInstanceId: contractShip.securityInstanceId || null,
+        urgencyTier: opts.urgencyTier || 'tight',
+        assignedEscortIds: opts.assignedEscortIds || [],
+        survivorsKnown: opts.survivorsKnown === true,
+        kind: opts.kind || 'convoy_delivery',
+      }, {
+        currentStrategicJumps: ensureIncidentLedger().strategicJumps,
+        plannedRouteJumps: opts.plannedRouteJumps != null ? opts.plannedRouteJumps : 2,
+        antimatter: opts.antimatter != null ? opts.antimatter : state.antimatter,
+        antimatterUse: opts.antimatterUse != null ? opts.antimatterUse : state.antimatteruse,
+        slackByTier: opts.slackByTier || null,
+        canPlot: opts.canPlot !== false,
+      });
+      if (!injected.ok) return injected;
+      contractShip.phase5AssignmentId = injected.assignment.assignmentId;
+      contractShip.phase5AssetId = injected.assignment.assetId;
+      contractShip.phase5ConvoyId = injected.convoy.convoyId;
+      contractShip.commerceContract = { goods: injected.assignment.good, status: 'active', campaign: true };
+      setLog(injected.objective.sayable);
+      return {
+        ok: true,
+        ...injected,
+        lounge: { id: loungeShip.id, purpose: 'lounge', role: loungeShip.role },
+        contract: { id: contractShip.id, purpose: 'contract', role: contractShip.role },
+        coexist: true,
+      };
+    },
+    injectSoftWatch: (opts = {}) => {
+      const board = ensureObjectiveBoard();
+      const origin = Number.isFinite(Number(opts.originSystemIndex)) ? Number(opts.originSystemIndex) : state.currentPlanet;
+      const destination = Number.isFinite(Number(opts.destinationSystemIndex))
+        ? Number(opts.destinationSystemIndex)
+        : otherSystem();
+      return injectShortageAndConvoy(board, {
+        originSystemIndex: origin,
+        destinationSystemIndex: destination,
+        originName: state.planets[origin]?.name || `system:${origin}`,
+        destinationName: state.planets[destination]?.name || `system:${destination}`,
+        good: 'parts',
+        role: 'patrol',
+        urgencyTier: 'soft',
+        kind: 'asset_overdue',
+        civilianId: opts.civilianId || null,
+      }, {
+        currentStrategicJumps: ensureIncidentLedger().strategicJumps,
+        plannedRouteJumps: opts.plannedRouteJumps != null ? opts.plannedRouteJumps : 2,
+        antimatter: state.antimatter,
+        antimatterUse: state.antimatteruse,
+        slackByTier: opts.slackByTier || null,
+      });
+    },
+    completeJump: (kind = 'warp') => {
+      const before = ensureIncidentLedger().strategicJumps;
+      const dest = otherSystem();
+      if (kind === 'wormhole') {
+        const ok = completeWormholeTransit(dest, state.wormhole || { name: 'probe-wormhole', targetIndex: dest }, { silent: true });
+        freezeLoop();
+        const after = ensureIncidentLedger().strategicJumps;
+        if (after <= before) return { ok: false, reason: 'increment-did-not-run', before, after };
+        return { ok: Boolean(ok), kind: 'wormhole', before, after, strategicJumps: after };
+      }
+      const hopped = probeWarpTo(dest);
+      const after = ensureIncidentLedger().strategicJumps;
+      if (after <= before) return { ok: false, reason: 'increment-did-not-run', before, after };
+      return { ...hopped, kind: 'warp', before, after, strategicJumps: after };
+    },
+    cancelTravel: () => {
+      const before = ensureIncidentLedger().strategicJumps;
+      state.warp = {
+        active: false,
+        from: state.currentPlanet,
+        to: otherSystem(),
+        route: null,
+        startedAt: performance.now(),
+        duration: WARP_DURATION_MS,
+        message: 'cancelled',
+      };
+      clearWormholeTransit();
+      const after = ensureIncidentLedger().strategicJumps;
+      return { ok: true, before, after, burned: after !== before };
+    },
+    startTravel: (kind = 'warp') => {
+      const dest = otherSystem();
+      if (kind === 'wormhole') {
+        startWormholeTransit(dest, { name: 'probe-wormhole', targetIndex: dest });
+      } else {
+        beginWarpTravel(dest, { antimatter: 1, legs: [{ from: state.currentPlanet, to: dest }] });
+      }
+      return {
+        ok: true,
+        kind,
+        active: Boolean(state.warp?.active || state.wormholeTransit?.active),
+        strategicJumps: ensureIncidentLedger().strategicJumps,
+      };
+    },
+    burnWindow: (objectiveId) => {
+      const board = ensureObjectiveBoard();
+      const objective = getObjective(board, objectiveId) || listOpenObjectives(board)[0];
+      if (!objective) return { ok: false, reason: 'missing-objective' };
+      objective.clocks.remainingJumps = 0;
+      objective.clocks.burnedJumps = Math.max(
+        Number(objective.clocks.burnedJumps) || 0,
+        Number(objective.clocks.deadlineAtStrategicJumps || 0) - Number(objective.clocks.openedAtStrategicJumps || 0),
+      );
+      return openPhase5Overdue(objective, {
+        currentStrategicJumps: ensureIncidentLedger().strategicJumps,
+      });
+    },
+    changeHull: (shipId, extras = {}) => {
+      const board = ensureObjectiveBoard();
+      const open = listOpenObjectives(board)[0];
+      const before = open ? {
+        deadlineAt: open.clocks.deadlineAtStrategicJumps,
+        openedAt: open.clocks.openedAtStrategicJumps,
+        burnedJumps: open.clocks.burnedJumps,
+        capacityJumps: open.clocks.capacityJumps,
+        remainingJumps: open.clocks.remainingJumps,
+      } : null;
+      if (shipId != null) state.playership = Number(shipId);
+      applyCurrentShipStats(false);
+      if (Number.isFinite(Number(extras.antimatter))) state.antimatter = Number(extras.antimatter);
+      if (Number.isFinite(Number(extras.antimatterUse))) state.antimatteruse = Number(extras.antimatterUse);
+      recalcPhase5Urgency();
+      const afterObj = open ? getObjective(board, open.objectiveId) : null;
+      return {
+        ok: true,
+        before,
+        after: afterObj ? {
+          deadlineAt: afterObj.clocks.deadlineAtStrategicJumps,
+          openedAt: afterObj.clocks.openedAtStrategicJumps,
+          burnedJumps: afterObj.clocks.burnedJumps,
+          capacityJumps: afterObj.clocks.capacityJumps,
+          remainingJumps: afterObj.clocks.remainingJumps,
+          reachable: afterObj.clocks.reachable,
+        } : null,
+      };
+    },
+    assignEscorts: (rows = []) => {
+      const board = ensureObjectiveBoard();
+      const objective = listOpenObjectives(board)[0];
+      if (!objective) return { ok: false, reason: 'missing-objective' };
+      const escorts = (Array.isArray(rows) ? rows : []).map((row, index) => {
+        const id = row.id || `pe-phase5-${index}`;
+        const existing = (state.playerFleet || []).find((ship) => String(ship.id) === String(id));
+        const record = existing || {
+          id,
+          shipId: Number(row.shipId) || state.playership,
+          assignment: 'escort',
+          antimatter: Number(row.antimatter) || state.antimatter,
+          antimatterUse: Number(row.antimatterUse) || state.antimatteruse,
+        };
+        if (!existing) {
+          record.antimatter = Number(row.antimatter) || state.antimatter;
+          record.antimatterUse = Number(row.antimatterUse) || state.antimatteruse;
+          state.playerFleet.push(record);
+        } else {
+          if (row.antimatter != null) existing.antimatter = Number(row.antimatter);
+          if (row.antimatterUse != null) existing.antimatterUse = Number(row.antimatterUse);
+        }
+        return record.id;
+      });
+      objective.assignedEscortIds = escorts;
+      recalcPhase5Urgency();
+      return {
+        ok: true,
+        assignedEscortIds: escorts,
+        capacityJumps: objective.clocks.capacityJumps,
+        deadlineAt: objective.clocks.deadlineAtStrategicJumps,
+        burnedJumps: objective.clocks.burnedJumps,
+      };
+    },
+    deliverReportTo: (observerKey, incidentId, extras = {}) => {
+      const report = deliverReport(ensureIncidentLedger(), {
+        incidentId,
+        senderKey: extras.senderKey || 'probe:sender',
+        recipientKey: observerKey,
+        payload: extras.payload || {},
+      });
+      const npc = probeFindShip(extras.npcId || observerKey.replace(/^npc:/, ''));
+      const incident = ensureIncidentLedger().incidents[incidentId];
+      if (npc && incident?.links?.assignmentId) {
+        grantAssignmentKnowledge(npc, incident.links.assignmentId);
+      }
+      return report;
+    },
+    lastReact: (observerId) => {
+      const npc = probeFindShip(observerId);
+      const key = observerKeyFor(npc) || (String(observerId).startsWith('npc:') ? observerId : `npc:${observerId}`);
+      return lastObserverDecision(ensureIncidentLedger(), key);
+    },
+    applyChoice: (objectiveId, choice) => applyPhase5PlayerChoice(objectiveId, choice),
+    unloadConvoyHulls: (objectiveId) => {
+      const board = ensureObjectiveBoard();
+      const objective = getObjective(board, objectiveId) || listOpenObjectives(board)[0];
+      if (!objective) return { ok: false, reason: 'missing-objective' };
+      const convoy = getConvoy(board, objective.convoyId);
+      for (const hull of convoy?.hulls || []) {
+        const ship = probeFindShip(hull.npcId);
+        if (ship) {
+          state.npcShips = (state.npcShips || []).filter((row) => row !== ship);
+          const system = state.systemStates[state.currentPlanet];
+          if (system?.npcShips) system.npcShips = system.npcShips.filter((row) => row.id !== ship.id);
+        }
+      }
+      const noted = noteUnloadIsNotDisappearance(board, objective.objectiveId);
+      return {
+        ok: true,
+        ...noted,
+        overdueOpened: listOpenObjectives(board).some((row) => row.kind === 'asset_overdue' && row.assignmentId === objective.assignmentId),
+      };
+    },
+    evaluatePirate: (id, extras = {}) => {
+      const npc = probeFindShip(id);
+      const board = ensureObjectiveBoard();
+      const objective = listOpenObjectives(board)[0] || Object.values(board.objectives || {})[0];
+      const convoy = objective ? getConvoy(board, objective.convoyId) : null;
+      const knownByReport = extras.knownByReport === true || observerKnowsAssignment(npc, objective?.assignmentId);
+      const knownByDetection = extras.knownByDetection === true || detectAssignmentInSystem(npc, (state.npcShips || []).filter((ship) => (
+        ship.phase5AssignmentId === objective?.assignmentId
+      )), state.currentPlanet);
+      const eventKnown = extras.event_known === false ? false : Boolean(knownByReport || knownByDetection || extras.event_known === true);
+      if (eventKnown && npc && objective) grantAssignmentKnowledge(npc, objective.assignmentId);
+      const evaluation = evaluatePirateFromKnowledge({
+        event_known: eventKnown,
+        cargoKnown: extras.cargoKnown === true || convoy?.cargo?.known === true,
+        escortPresent: extras.escortPresent === true,
+        patrolPresent: extras.patrolPresent === true,
+      });
+      if (npc) {
+        npc.phase5ConvoyObjective = evaluation.convoyObjective;
+        if (!eventKnown) npc.phase5ConvoyObjective = null;
+      }
+      return {
+        ok: true,
+        ...evaluation,
+        event_known: eventKnown,
+      };
+    },
+    reactOverdue: (extras = {}) => {
+      const board = ensureObjectiveBoard();
+      const overdue = listOpenObjectives(board).find((row) => row.kind === 'asset_overdue')
+        || Object.values(board.objectives || {}).find((row) => row.kind === 'asset_overdue');
+      const assignment = overdue ? getAssignment(board, overdue.assignmentId) : null;
+      if (!overdue || !assignment) return { ok: false, reason: 'missing-overdue' };
+      const ledger = ensureIncidentLedger();
+      let incident = overdue.links?.incidentId ? ledger.incidents[overdue.links.incidentId] : null;
+      if (!incident) {
+        const opened = openPhase5Overdue(overdue, extras);
+        incident = opened.incident;
+      }
+      const eligible = (state.npcShips || []).filter((ship) => !ship.destroyed);
+      const factsByObserver = {};
+      const decisions = [];
+      for (const ship of eligible) {
+        const key = observerKeyFor(ship);
+        if (!key) continue;
+        if (extras.ignorantIds?.includes(ship.id)) {
+          factsByObserver[key] = { event_known: false };
+        } else if (extras.knownIds && !extras.knownIds.includes(ship.id)) {
+          factsByObserver[key] = { event_known: false };
+        } else {
+          const factionFacts = extras.factsByFaction?.[ship.faction] || {};
+          factsByObserver[key] = {
+            event_known: true,
+            credible_report: true,
+            event_actionable: true,
+            can_respond: extras.canRespond !== false,
+            evidence_available: extras.evidenceAvailable !== false,
+            survivors_known: extras.survivorsKnown === true,
+            own_asset_affected: extras.ownAssetAffected === true || factionFacts.own_asset_affected === true,
+            ...factionFacts,
+          };
+          if (overdue.assignmentId) grantAssignmentKnowledge(ship, overdue.assignmentId);
+        }
+        const decision = evaluateObserverForIncident(ship, incident, factsByObserver[key]);
+        decisions.push({
+          id: ship.id,
+          faction: ship.faction,
+          role: ship.role,
+          appliedResponse: decision?.appliedResponse,
+          acting: decision?.acting,
+          incidentObjective: ship.incidentObjective ? { ...ship.incidentObjective } : null,
+        });
+      }
+      return {
+        ok: true,
+        incident,
+        decisions,
+        spawned: false,
+      };
+    },
+    tryMintReplacement: (assignmentId, kind = 'convoy_delivery') => refuseReplacement(ensureObjectiveBoard(), assignmentId, kind),
+    resetRun: () => {
+      const leftover = ensureIncidentLedger().strategicJumps;
+      resetRunState();
+      return {
+        ok: true,
+        leftover,
+        strategicJumps: ensureIncidentLedger().strategicJumps,
+        boardEmpty: Object.keys(ensureObjectiveBoard().objectives).length === 0,
+      };
+    },
+    saveSlot: (slot = 7) => {
+      saveGame(slot);
+      return true;
+    },
+    loadSlot: (slot = 7) => {
+      loadGame(slot);
+      freezeLoop();
+      return true;
+    },
+    wipeSystemStates: () => {
+      state.systemStates = {};
+      applySystemState(state.currentPlanet);
+      reconcileSecurityParticipants(state.currentPlanet);
+      return true;
+    },
   };
 }
 
@@ -20604,6 +21294,7 @@ function installPlayerSecurityProbe() {
     }),
     incidents: createIncidentProbeApi(),
     sideLane: createSideLaneProbeApi(),
+    phase5: createPhase5ProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
     raiseFlag: (faction) => {

@@ -2754,6 +2754,334 @@ async function runSideLaneUnrestIndependence(page, results) {
   );
 }
 
+async function runPhase5Objectives(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+
+  const s81 = await page.evaluate(() => {
+    const probe2 = globalThis.__BM1_PROBE__;
+    const p5 = probe2.phase5;
+    if (!p5?.injectShortageAndConvoy) return { missing: true };
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 2 });
+    const before = p5.snapshot();
+    const warp = p5.completeJump('warp');
+    const afterWarp = p5.snapshot();
+    const wormhole = p5.completeJump('wormhole');
+    const afterWorm = p5.snapshot();
+    const obj = afterWorm.board.objectives[injected.objective.objectiveId];
+    return {
+      missing: false,
+      injectedOk: injected.ok === true,
+      before: before.strategicJumps,
+      afterWarp: afterWarp.strategicJumps,
+      afterWorm: afterWorm.strategicJumps,
+      warpOk: warp.ok === true,
+      wormOk: wormhole.ok === true,
+      burned: obj?.clocks?.burnedJumps,
+      remaining: obj?.clocks?.remainingJumps,
+      ids: {
+        objectiveId: injected.objective?.objectiveId,
+        convoyId: injected.convoy?.convoyId,
+        assignmentId: injected.assignment?.assignmentId,
+      },
+    };
+  });
+  check(results, 'S8.1 clock-ticks-only-on-completed-jump', !s81.missing
+    && s81.injectedOk
+    && s81.afterWarp === s81.before + 1
+    && s81.afterWorm === s81.before + 2
+    && s81.burned === 2, JSON.stringify(s81));
+
+  const s82 = await page.evaluate(() => {
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const before = p5.snapshot().strategicJumps;
+    const started = p5.startTravel('warp');
+    const cancelled = p5.cancelTravel();
+    const afterCancel = p5.snapshot().strategicJumps;
+    p5.saveSlot(7);
+    const remainingBefore = Object.values(p5.snapshot().board.objectives).find((row) => row.status === 'open')?.clocks?.remainingJumps;
+    p5.loadSlot(7);
+    const afterLoad = p5.snapshot();
+    const remainingAfter = Object.values(afterLoad.board.objectives).find((row) => row.status === 'open')?.clocks?.remainingJumps;
+    const reset = p5.resetRun();
+    return {
+      before,
+      startedActive: started.active === true,
+      cancelledBurned: cancelled.burned === true,
+      afterCancel,
+      remainingBefore,
+      remainingAfter,
+      afterLoadJumps: afterLoad.strategicJumps,
+      resetJumps: reset.strategicJumps,
+      leftover: reset.leftover,
+    };
+  });
+  check(results, 'S8.2 cancel-and-load-do-not-tick', s82.afterCancel === s82.before
+    && s82.cancelledBurned === false
+    && s82.afterLoadJumps === s82.before
+    && s82.remainingAfter === s82.remainingBefore
+    && s82.resetJumps === 0, JSON.stringify(s82));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s8345 = await page.evaluate(() => {
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 2 });
+    p5.saveSlot(7);
+    const beforeIds = {
+      objectiveId: injected.objective.objectiveId,
+      convoyId: injected.convoy.convoyId,
+      assignmentId: injected.assignment.assignmentId,
+    };
+    p5.wipeSystemStates();
+    p5.loadSlot(7);
+    const after = p5.snapshot();
+    const obj = after.board.objectives[beforeIds.objectiveId];
+    const unload = p5.unloadConvoyHulls(beforeIds.objectiveId);
+    const afterUnload = p5.snapshot();
+    const overdueAfterUnload = Object.values(afterUnload.board.objectives).some((row) => row.kind === 'asset_overdue');
+    const closed = p5.applyChoice(beforeIds.objectiveId, 'escort');
+    const remint = p5.tryMintReplacement(beforeIds.assignmentId, 'convoy_delivery');
+    const second = p5.injectShortageAndConvoy({
+      assignmentId: beforeIds.assignmentId,
+      urgencyTier: 'tight',
+      plannedRouteJumps: 2,
+    });
+    return {
+      beforeIds,
+      sameIds: obj?.objectiveId === beforeIds.objectiveId
+        && after.board.convoys[beforeIds.convoyId]?.assignmentId === beforeIds.assignmentId,
+      unloadOk: unload.ok === true && unload.overdueOpened === false,
+      overdueAfterUnload,
+      closedOk: closed.ok === true,
+      remint: remint.reason,
+      secondReason: second.reason,
+    };
+  });
+  check(results, 'S8.3 stable-id-outside-systemStates', s8345.sameIds === true, JSON.stringify(s8345));
+  check(results, 'S8.4 close-once-no-free-replacements', s8345.closedOk
+    && s8345.remint === 'already_closed'
+    && s8345.secondReason === 'already_closed', JSON.stringify(s8345));
+  check(results, 'S8.5 unload-is-not-disappeared', s8345.unloadOk === true && s8345.overdueAfterUnload === false, JSON.stringify(s8345));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s8613 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const p5 = probe2.phase5;
+    p.prepareArena({ clearTraffic: true, latinum: 28000 });
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 1 });
+    const standingBefore = { ...p5.snapshot().standing };
+    const writesBefore = p5.snapshot().standingWriteCount;
+    const burned = p5.burnWindow(injected.objective.objectiveId);
+    const snap = p5.snapshot();
+    const overdue = Object.values(snap.board.objectives).find((row) => row.kind === 'asset_overdue');
+    const incident = Object.values(snap.board ? (probe2.incidents.list() || []) : []).find((row) => row.kind === 'asset_overdue');
+    const journal = `${snap.log || ''} ${snap.lastJournal || ''} ${overdue?.sayable || ''}`;
+    return {
+      burnedOk: burned.ok === true,
+      destroyed: overdue?.truth?.destroyed,
+      attackerId: overdue?.truth?.attackerId,
+      standingSame: JSON.stringify(snap.standing) === JSON.stringify(standingBefore),
+      writesSame: snap.standingWriteCount === writesBefore,
+      namesKiller: /pirates destroyed|killed by/i.test(journal)
+        || (/attacker identified/i.test(journal) && !/no attacker identified/i.test(journal)),
+      sayable: overdue?.sayable || journal,
+      incidentKind: incident?.kind || null,
+    };
+  });
+  check(results, 'S8.6 overdue-not-destroyed-not-attacker', s8613.burnedOk
+    && s8613.destroyed === false
+    && s8613.attackerId == null
+    && s8613.standingSame
+    && s8613.writesSame
+    && s8613.namesKiller === false, JSON.stringify(s8613));
+  check(results, 'S8.13 burned-window-is-not-a-wreck', s8613.destroyed === false && s8613.attackerId == null, JSON.stringify(s8613));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s878 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const p5 = probe2.phase5;
+    p.prepareArena({ clearTraffic: true });
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 1 });
+    const pirateKnown = p.spawnShip({ id: 's8-pirate-known', faction: 'pirate', role: 'raider', x: 400, y: 400 });
+    const pirateIgnorant = p.spawnShip({ id: 's8-pirate-ignorant', faction: 'pirate', role: 'raider', x: 500, y: 400 });
+    const vulcan = p.spawnShip({ id: 's8-vulcan-relief', faction: 'vulcan', role: 'patrol', x: 420, y: 380 });
+    const klingon = p.spawnShip({ id: 's8-klingon-patrol', faction: 'klingon', role: 'patrol', x: 440, y: 360 });
+    const knowing = p5.evaluatePirate(pirateKnown.id, { event_known: true, cargoKnown: true });
+    const ignorant = p5.evaluatePirate(pirateIgnorant.id, { event_known: false });
+    p5.burnWindow(injected.objective.objectiveId);
+    const reacted = p5.reactOverdue({
+      knownIds: [vulcan.id, klingon.id],
+      ignorantIds: [pirateIgnorant.id],
+      factsByFaction: {
+        vulcan: { evidence_available: true, can_respond: true },
+        klingon: { can_respond: true },
+      },
+    });
+    const vulcanDecision = reacted.decisions?.find((row) => row.id === vulcan.id);
+    const klingonDecision = reacted.decisions?.find((row) => row.id === klingon.id);
+    const ignorantDecision = reacted.decisions?.find((row) => row.id === pirateIgnorant.id);
+    return {
+      knowing: knowing.appliedResponse,
+      knowingObjective: knowing.convoyObjective,
+      ignorant: ignorant.appliedResponse,
+      ignorantObjective: ignorant.convoyObjective,
+      ignorantLeak: ignorant.journalLeak,
+      vulcan: vulcanDecision?.appliedResponse,
+      vulcanActing: vulcanDecision?.acting,
+      klingon: klingonDecision?.appliedResponse,
+      ignorantReact: ignorantDecision?.appliedResponse,
+      spawned: reacted.spawned,
+    };
+  });
+  check(results, 'S8.7 knowledge-scoped-pirates', s878.knowing === 'evaluate'
+    && s878.knowingObjective
+    && s878.ignorant === 'ignore_unknown'
+    && s878.ignorantObjective == null
+    && s878.ignorantLeak === false, JSON.stringify(s878));
+  check(results, 'S8.8 knowledge-scoped-patrol-relief', (s878.vulcan === 'investigate' || s878.vulcan === 'rescue')
+    && s878.klingon === 'record_only'
+    && (s878.ignorantReact === 'ignore_unknown' || s878.ignorantReact == null)
+    && s878.spawned === false, JSON.stringify(s878));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s89 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const p5 = probe2.phase5;
+    p.prepareArena({ clearTraffic: true, latinum: 28000 });
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 1 });
+    const hullId = injected.contract?.id;
+    const standingBefore = { ...probe2.incidents.snapshot().standing };
+    const writesBefore = probe2.incidents.snapshot().standingWriteCount;
+    if (hullId) p.destroy(hullId, 'player');
+    const afterKill = probe2.incidents.snapshot();
+    const token = Object.values(afterKill.ledger.incidents || {}).find((row) => row.kind === 'destruction')?.links?.punishmentToken;
+    const reacted = token ? probe2.incidents.tryStanding(token, -4) : { applied: false };
+    const overdueTry = p5.burnWindow(injected.objective.objectiveId);
+    const after = probe2.incidents.snapshot();
+    return {
+      token,
+      killWrites: afterKill.standingWriteCount,
+      writesBefore,
+      standingChangedOnKill: JSON.stringify(afterKill.standing) !== JSON.stringify(standingBefore),
+      secondApplied: reacted.applied,
+      overdueDestroyed: overdueTry.objective?.truth?.destroyed ?? overdueTry.destroyed,
+      afterWrites: after.standingWriteCount,
+    };
+  });
+  check(results, 'S8.9 no-double-standing', s89.secondApplied === false
+    && s89.afterWrites === s89.killWrites, JSON.stringify(s89));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s81016 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const p5 = probe2.phase5;
+    p.prepareArena({ clearTraffic: true });
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 2 });
+    const snap = p5.snapshot();
+    const trafficTimers = (p.snapshot().ships || []).filter((ship) => ship.phase5AssignmentId && ship.role === 'traffic').length;
+    const protect = probe2.incidents.inspectFire
+      ? null
+      : null;
+    return {
+      lounge: injected.lounge?.purpose,
+      contract: injected.contract?.purpose,
+      coexist: injected.coexist,
+      roles: snap.civilianRoles,
+      overdueImplemented: snap.overdueImplemented,
+      flagShare: snap.flagShareGrantsControl,
+      catalogWired: snap.catalogWired,
+      trafficTimers,
+      mayAutoEngage: probe2.mayAutoEngage({ id: 's8-gate', faction: 'dominion', hostile: true, attitude: 'hostile' }),
+    };
+  });
+  check(results, 'S8.10 no-second-civilian-sim', s81016.lounge === 'lounge'
+    && s81016.contract === 'contract'
+    && s81016.coexist === true
+    && s81016.roles?.lounge >= 1
+    && s81016.roles?.contract >= 1, JSON.stringify(s81016));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s81114 = await page.evaluate(() => {
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const tight = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 2, slackByTier: { tight: 1, standard: 2, soft: 4 } });
+    const soft = p5.injectSoftWatch({ plannedRouteJumps: 2, slackByTier: { tight: 1, standard: 2, soft: 4 } });
+    const before = p5.changeHull(null, {});
+    p5.completeJump('warp');
+    const afterJump = p5.snapshot();
+    const hull = p5.changeHull(null, { antimatter: 30, antimatterUse: 3 });
+    const escorts = p5.assignEscorts([{ id: 'pe-s8', antimatter: 3, antimatterUse: 3 }]);
+    const tightObj = afterJump.board.objectives[tight.objective.objectiveId];
+    const softObj = soft.objective;
+    return {
+      tightBudget: tight.objective.clocks.tierBudget,
+      softBudget: softObj.clocks.tierBudget,
+      sameDeadline: tight.objective.clocks.deadlineAtStrategicJumps === softObj.clocks.deadlineAtStrategicJumps,
+      hullDeadline: hull.after?.deadlineAt,
+      hullOpened: hull.after?.openedAt,
+      hullBurned: hull.after?.burnedJumps,
+      beforeDeadline: hull.before?.deadlineAt,
+      beforeBurned: hull.before?.burnedJumps,
+      capacityChanged: hull.after?.capacityJumps !== hull.before?.capacityJumps || escorts.capacityJumps !== hull.before?.capacityJumps,
+      burnedReset: hull.after?.burnedJumps === 0 && (hull.before?.burnedJumps || 0) > 0,
+    };
+  });
+  check(results, 'S8.11 reachable-urgency-recalc', s81114.hullDeadline === s81114.beforeDeadline
+    && s81114.burnedReset !== true
+    && s81114.hullBurned === s81114.beforeBurned, JSON.stringify(s81114));
+  check(results, 'S8.14 urgency-tiers-differ', s81114.tightBudget < s81114.softBudget && s81114.sameDeadline === false, JSON.stringify(s81114));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s812 = await page.evaluate(() => {
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const injected = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 3 });
+    p5.completeJump('warp');
+    const burned = p5.snapshot().board.objectives[injected.objective.objectiveId].clocks.burnedJumps;
+    p5.saveSlot(8);
+    p5.cancelTravel();
+    p5.loadSlot(8);
+    const after = p5.snapshot().board.objectives[injected.objective.objectiveId].clocks.burnedJumps;
+    return { burned, after };
+  });
+  check(results, 'S8.12 cancel-load-do-not-burn-deadline', s812.burned >= 1 && s812.after === s812.burned, JSON.stringify(s812));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s81516 = await page.evaluate(() => {
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const first = p5.injectShortageAndConvoy({ urgencyTier: 'tight', plannedRouteJumps: 2, good: 'food' });
+    const escorted = p5.applyChoice(first.objective.objectiveId, 'escort');
+    const second = p5.injectShortageAndConvoy({ urgencyTier: 'standard', plannedRouteJumps: 2, good: 'fuel' });
+    const ignored = p5.applyChoice(second.objective.objectiveId, 'ignore');
+    p5.completeJump('warp');
+    p5.saveSlot(9);
+    p5.loadSlot(9);
+    const snap = p5.snapshot();
+    const firstClosed = snap.board.objectives[first.objective.objectiveId];
+    const shortage = snap.board.shortages[first.shortage.shortageId];
+    const remint = p5.tryMintReplacement(first.assignment.assignmentId, 'convoy_delivery');
+    return {
+      escorted: escorted.ok,
+      ignored: ignored.ok,
+      firstClosed: firstClosed?.status,
+      shortage: shortage?.status,
+      remint: remint.reason,
+      flagShare: snap.flagShareGrantsControl,
+      catalogWired: snap.catalogWired,
+      overdueImplemented: snap.overdueImplemented,
+    };
+  });
+  check(results, 'S8.15 player-loop-and-supply', s81516.escorted
+    && s81516.ignored
+    && s81516.firstClosed === 'closed'
+    && s81516.shortage === 'filled'
+    && s81516.remint === 'already_closed', JSON.stringify(s81516));
+  check(results, 'S8.16 phase1-4-side-lane-still-hold', s81516.flagShare === false
+    && s81516.catalogWired === false
+    && s81516.overdueImplemented === true, JSON.stringify(s81516));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -2771,13 +3099,14 @@ async function main() {
     await runPhase4Incidents(page, results);
     await runSideLaneRepairReman(page, results);
     await runSideLaneUnrestIndependence(page, results);
+    await runPhase5Objectives(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

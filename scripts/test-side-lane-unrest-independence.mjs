@@ -145,7 +145,7 @@ function mintFixture(store, extras = {}) {
       && COMMERCE_FAILURE_CAUSES.includes('playerRaid')
       && COMMERCE_FAILURE_CAUSES.includes('pirate'),
   );
-  assert('s7.20-not-phase5-asset-overdue', pirate.phase5AssetOverdue === false && ASSET_OVERDUE_IMPLEMENTED === false);
+  assert('s7.20-not-phase5-asset-overdue', pirate.phase5AssetOverdue === false);
 }
 
 // --- S7.21 pirate presence raises unrest without owner rewrite ---
@@ -362,7 +362,9 @@ function mintFixture(store, extras = {}) {
 
 // --- process locks ---
 {
-  assert('s7.lock-no-phase5', ASSET_OVERDUE_IMPLEMENTED === false && PHASE5_ASSET_OVERDUE === 'asset_overdue');
+  const unrestWriter = raiseUnrestFromPiratePresence(createUnrestIndependenceStore(), 0);
+  assert('s7.lock-unrest-writers-not-overdue', unrestWriter.phase5AssetOverdue === false && PHASE5_ASSET_OVERDUE === 'asset_overdue');
+  assert('s7.lock-phase5-flag-flipped-when-real', ASSET_OVERDUE_IMPLEMENTED === true);
   assert('s7.lock-no-catalog-wire', FULL_CATALOG_WIRED === false);
   assert('s7.lock-two-player-roe-modes', playerRoeModesUnchanged(['return-fire', 'defend']));
   const snap = snapshotIndependence(createUnrestIndependenceStore(), 0);
