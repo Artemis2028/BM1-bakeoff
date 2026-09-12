@@ -160,6 +160,30 @@ import {
   serializePlayerUnlocks,
   shouldDrawRepairOverlay,
 } from './side-lane-repair-reman.js';
+import {
+  ASSET_OVERDUE_IMPLEMENTED,
+  PLAYER_SECURITY_ROE_MODES,
+  accessIsPermissionNotCeasefire,
+  applyRelationWrites,
+  applyStationOwnershipPlan,
+  createUnrestIndependenceStore,
+  cultureGrantsFirePermission,
+  declareIndependence,
+  failCivilianDelivery,
+  flagShareGrantsSystemControl,
+  injectCivilWarEvent,
+  injectLoungeAndContract,
+  injectUnrest,
+  raiseUnrestFromCommerceFailure,
+  raiseUnrestFromPiratePresence,
+  raiseUnrestFromRivalAgitation,
+  raiseUnrestFromUnderdevelopment,
+  raiseUnrestFromWarGoingBadly,
+  relieveUnrest,
+  restoreUnrestIndependence,
+  serializeUnrestIndependence,
+  snapshotIndependence,
+} from './side-lane-unrest-independence.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -706,6 +730,7 @@ const state = {
   securityEncounters: createSecurityEncountersState(),
   incidentLedger: createIncidentLedger(),
   playerUnlocks: createPlayerUnlocks(),
+  unrestIndependence: createUnrestIndependenceStore(),
   repairSession: createRepairSession(),
   repairOverlayAsset: { present: false, src: REPAIR_ARMS_ASSET_PATH, probed: false, missing: true, image: null },
   lastRepairRefuse: null,
@@ -6067,7 +6092,13 @@ function consultDoctrineFire(npc, target, targetType, now = performance.now()) {
     ? state.playerFaction
     : (target?.faction || 'neutral');
   const nativeRole = npc.doctrineNativeRole || npc.role;
-  const civilianTarget = targetType === 'ship' && (target?.role === 'traffic' || target?.role === 'localTraffic');
+  const civilianTarget = targetType === 'ship' && (
+    target?.role === 'traffic'
+    || target?.role === 'localTraffic'
+    || target?.role === 'commerceContract'
+    || target?.civilianPurpose === 'lounge'
+    || target?.civilianPurpose === 'contract'
+  );
   const raid = Boolean(npc.attackId) || npc.role === 'fleetAttack';
   const occupying = npc.role === 'occupationFleet';
   const escorting = npc.role === 'playerEscort' && npc.fleetId;
@@ -10597,6 +10628,72 @@ function ensurePlayerUnlocks() {
   return state.playerUnlocks;
 }
 
+function ensureUnrestIndependence() {
+  state.unrestIndependence = restoreUnrestIndependence(state.unrestIndependence);
+  return state.unrestIndependence;
+}
+
+function applyIndependenceRelationWrites(writes) {
+  const next = applyRelationWrites(factionRelations, writes);
+  for (const key of Object.keys(factionRelations)) delete factionRelations[key];
+  Object.assign(factionRelations, next);
+  const doctrine = getDoctrineRuntime();
+  if (doctrine?.appliedRelations) {
+    const doctrineNext = applyRelationWrites(doctrine.appliedRelations, writes);
+    for (const key of Object.keys(doctrine.appliedRelations)) delete doctrine.appliedRelations[key];
+    Object.assign(doctrine.appliedRelations, doctrineNext);
+  }
+}
+
+function applyIndependenceDeclaration(systemIndex, extras = {}) {
+  const store = ensureUnrestIndependence();
+  const index = Number(systemIndex);
+  const previousHolder = extras.parentSideId || getSystemFaction(index);
+  const stations = Number(index) === Number(state.currentPlanet)
+    ? (state.stations || [])
+    : ((ensureSystemState(index)?.stations) || []);
+  const result = declareIndependence(store, {
+    systemIndex: index,
+    parentSideId: previousHolder,
+    parentTemperament: extras.parentTemperament || { conflict: 'warlike', outsider: 'xenophobic' },
+    parentProfileId: extras.parentProfileId || previousHolder,
+    parentRelations: extras.parentRelations || getDeclaredRelationsByContract(factionRelations, previousHolder),
+    worldCultureId: extras.worldCultureId ?? state.locationIdentity?.cultureId ?? null,
+    flownFlag: extras.flownFlag || state.playerFaction,
+    origin: extras.origin || (state.planets?.[index]?.name || `sys-${index}`),
+    epoch: extras.epoch ?? state.day,
+    authoredInject: extras.authoredInject === true || extras.probeInject === true,
+    probeInject: extras.probeInject === true,
+    civilWar: extras.civilWar !== false,
+    temperament: extras.temperament,
+    profileId: extras.profileId,
+    stations,
+    controlledSystems: state.controlledSystems,
+    at: extras.at ?? state.day,
+  });
+  if (!result.ok) return result;
+  applyStationOwnershipPlan(stations, result.stationPlan);
+  if (isSystemControlled(index)) {
+    losePlayerHolding(index, result.sideId);
+  }
+  if (!state.factionSystemOverrides || typeof state.factionSystemOverrides !== 'object') {
+    state.factionSystemOverrides = {};
+  }
+  state.factionSystemOverrides[index] = result.sideId;
+  noteAuthoritySide(index, result.sideId);
+  applyIndependenceRelationWrites(result.relationWrites);
+  state.unrestIndependence = store;
+  return {
+    ...result,
+    concessionOwners: stations.map((station) => ({
+      id: station.id,
+      owner: getStationOwner(station),
+    })),
+    authoritySide: getSystemControl(index).authoritySide,
+    flagShareGrantsControl: flagShareGrantsSystemControl(),
+  };
+}
+
 function ensureRepairOverlayAsset() {
   if (state.repairOverlayAsset?.probed) return state.repairOverlayAsset;
   const img = new Image();
@@ -11239,6 +11336,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     securityEncounters: serializeSecurityEncounters(ensureSecurityStores().encounters),
     incidentLedger: serializeIncidentLedger(ensureIncidentLedger()),
     playerUnlocks: serializePlayerUnlocks(ensurePlayerUnlocks()),
+    unrestIndependence: serializeUnrestIndependence(ensureUnrestIndependence()),
     autoTarget: state.autoTarget !== false,
     fleetStance: state.fleetStance || 'follow',
     auxLaunched: Boolean(state.auxLaunched),
@@ -11309,6 +11407,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.securityEncounters = restoreSecurityEncounters(s.securityEncounters);
   state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
   state.playerUnlocks = restorePlayerUnlocks(s.playerUnlocks);
+  state.unrestIndependence = restoreUnrestIndependence(s.unrestIndependence);
   state.repairSession = clearRepairSession();
   state.lastRepairRefuse = null;
   state.playerFlags = Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction];
@@ -19046,6 +19145,7 @@ function resetRunState() {
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
   state.playerUnlocks = createPlayerUnlocks();
+  state.unrestIndependence = createUnrestIndependenceStore();
   state.repairSession = clearRepairSession();
   state.lastRepairRefuse = null;
   state.checkpointSelectedEncounterId = null;
@@ -20121,6 +20221,19 @@ function createSideLaneProbeApi() {
         },
         catalogWired: false,
         location,
+        ...snapshotIndependence(ensureUnrestIndependence(), state.currentPlanet, {
+          concessionOwner: (() => {
+            const concession = (state.stations || []).find((station) => (
+              station.privateInstallation || station.ownerKind === 'private'
+            ));
+            return concession ? getStationOwner(concession) : null;
+          })(),
+        }),
+        playerRoeModes: [...PLAYER_SECURITY_ROE_MODES],
+        cultureGrantsFire: cultureGrantsFirePermission(),
+        accessIsCeasefire: !accessIsPermissionNotCeasefire(),
+        phase5AssetOverdue: ASSET_OVERDUE_IMPLEMENTED,
+        flagShareGrantsControl: flagShareGrantsSystemControl(),
       };
     },
     startRepair: () => repairHull(),
@@ -20224,6 +20337,115 @@ function createSideLaneProbeApi() {
     ),
     evaluateRepair: (input) => evaluateRepairStart(input),
     purchaseStatus: (shipId) => getShipPurchaseStatus(shipId),
+    injectUnrest: (systemIndex, stateName) => {
+      const index = Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet;
+      const result = injectUnrest(ensureUnrestIndependence(), index, stateName, { at: state.day });
+      return result;
+    },
+    raiseUnrestFromCommerceFailure: (opts = {}) => {
+      const index = Number.isFinite(Number(opts.systemIndex)) ? Number(opts.systemIndex) : state.currentPlanet;
+      if (opts.failDelivery !== false) {
+        return failCivilianDelivery(ensureUnrestIndependence(), index, { cause: opts.cause || 'blockade' });
+      }
+      return raiseUnrestFromCommerceFailure(ensureUnrestIndependence(), index, opts);
+    },
+    raiseUnrestFromPiratePresence: (systemIndex) => {
+      const index = Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet;
+      return raiseUnrestFromPiratePresence(ensureUnrestIndependence(), index);
+    },
+    raiseUnrestFromWarGoingBadly: (systemIndex, extras = {}) => (
+      raiseUnrestFromWarGoingBadly(
+        ensureUnrestIndependence(),
+        Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet,
+        extras,
+      )
+    ),
+    raiseUnrestFromUnderdevelopment: (systemIndex) => (
+      raiseUnrestFromUnderdevelopment(
+        ensureUnrestIndependence(),
+        Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet,
+      )
+    ),
+    raiseUnrestFromRivalAgitation: (systemIndex, extras = {}) => (
+      raiseUnrestFromRivalAgitation(
+        ensureUnrestIndependence(),
+        Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet,
+        extras,
+      )
+    ),
+    relieveUnrest: (opts = {}) => {
+      const index = Number.isFinite(Number(opts.systemIndex)) ? Number(opts.systemIndex) : state.currentPlanet;
+      const last = ensureUnrestIndependence().lastMint;
+      return relieveUnrest(ensureUnrestIndependence(), index, {
+        action: opts.action || opts.kind || 'inject',
+        sideId: opts.sideId || last?.sideId,
+        easeWarlike: opts.easeWarlike === true,
+        at: state.day,
+      });
+    },
+    injectLoungeAndContract: (systemIndex) => {
+      const index = Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet;
+      const storeResult = injectLoungeAndContract(ensureUnrestIndependence(), index);
+      if (!storeResult.ok) return { ok: false, reason: storeResult.reason || 'civilian-role-missing' };
+      const lounge = probeSpawnShip({
+        id: storeResult.lounge.id,
+        role: 'localTraffic',
+        faction: 'neutral',
+        name: 'Lounge Civilian',
+      });
+      const contract = probeSpawnShip({
+        id: storeResult.contract.id,
+        role: 'commerceContract',
+        faction: 'neutral',
+        name: 'Contract Freighter',
+      });
+      const loungeShip = probeFindShip(lounge.id);
+      const contractShip = probeFindShip(contract.id);
+      if (!loungeShip || !contractShip) {
+        return { ok: false, reason: 'civilian-role-missing', lounge, contract };
+      }
+      loungeShip.civilianPurpose = 'lounge';
+      contractShip.civilianPurpose = 'contract';
+      contractShip.commerceContract = { ...(storeResult.contract.contract || {}), status: 'active' };
+      return {
+        ok: true,
+        lounge: { id: loungeShip.id, purpose: 'lounge', role: loungeShip.role },
+        contract: { id: contractShip.id, purpose: 'contract', role: contractShip.role },
+        coexist: true,
+      };
+    },
+    declareIndependence: (systemIndex, extras = {}) => {
+      const index = Number.isFinite(Number(systemIndex)) ? Number(systemIndex) : state.currentPlanet;
+      return applyIndependenceDeclaration(index, extras);
+    },
+    shiftTemperament: (sideId, poles) => {
+      if (!sideId) return { ok: false, reason: 'unknown-side' };
+      return injectCivilWarEvent(ensureUnrestIndependence(), sideId, poles, { at: state.day });
+    },
+    spawnConcession: (extras = {}) => {
+      const spawned = probeSpawnStation({
+        id: extras.id || 's7-concession',
+        name: extras.name || 'Foreign Concession',
+        stationTypeId: extras.stationTypeId || 75,
+        faction: extras.faction || 'ferengi',
+        privateInstallation: true,
+        ownerKind: 'private',
+      });
+      const station = probeFindStation(spawned.id);
+      if (station) {
+        station.privateInstallation = true;
+        station.ownerKind = 'private';
+        station.faction = extras.faction || 'ferengi';
+      }
+      return {
+        ...spawned,
+        owner: station ? getStationOwner(station) : null,
+      };
+    },
+    concessionOwner: (id) => {
+      const station = probeFindStation(id);
+      return station ? getStationOwner(station) : null;
+    },
   };
 }
 
