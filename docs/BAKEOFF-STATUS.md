@@ -17,6 +17,7 @@ Times below are ISO-8601 UTC (`Z`) with the matching Asia/Dubai wall clock (`UTC
 | `docs/phase3/` | Phase 3 holding-zones / compliance briefs |
 | `docs/phase4/` | Phase 4 incidents / escalation / alerts proposal + engine deps |
 | `docs/side-lane-repair-reman-independence/` | Side-lane brief (repairCapable / Reman unlock / independence + unrest/commerce/pirates follow-up) — proposal; not a Referee Pass |
+| `docs/phase5/` | Phase 5 persistent convoy/distress objectives proposal + engine deps — brief open; not a Referee Pass |
 | This file | What landed here and how it was gated |
 
 ## Merged
@@ -68,6 +69,7 @@ This status MD is docs-only on top of `092e530`.
 5. Later / next plan phase only when Tenth scopes it — still bake-off-only unless directed otherwise. Process note: no GitHub Actions CI; gates are local suites only.
 6. Side-lane brief (repairCapable / Reman unlock / independence-civil-war) — **proposal [PR #16](https://github.com/Artemis2028/BM1-bakeoff/pull/16) merged** on `main` @ `1791808` (after additive `bm-ships/` PR #15; no catalog wire). **Not** roadmap Phase 5. **No Referee Pass claimed.** Tenth amend 2026-09-12: gate 3 allows **divergent** doctrine/ROE and war-driven temperament (`peaceful` / `warlike` / `xenophobic` / `xenophilic`); gates 1–2 unchanged. Referee / One / Four / Two score the three hard gates before any engine PR. Number Three probes only after engine.
 7. Side-lane follow-up docs (unrest / commerce / pirates / civilian lounge+contract) — **proposal [PR #17](https://github.com/Artemis2028/BM1-bakeoff/pull/17)** from `main` @ `1791808`. Tenth amend 2026-09-12: independence is **not a random flip**; stackable pressure raises unrest; civilians must **lounge and** run commerce contracts; pirates are a pressure faction; temperament may shift *because* of these pressures. Gates 1–2 unchanged. Soft S7.8 unchanged. **Not** Phase 5 (overlap with future commerce scenarios may be noted only). **No Referee Pass claimed.** Referee / One / Two / Four score the new §6 before any engine PR.
+8. Phase 5 brief (persistent convoy / distress / `asset_overdue` objectives) — **proposal [PR #20](https://github.com/Artemis2028/BM1-bakeoff/pull/20)** from `main` @ `72cc984` (after side-lane engine PRs #18 / #19). Eight hard gates for scoring (clock only on completed warp/wormhole; stable close-once IDs; overdue ≠ destroyed ≠ attacker; delivered knowledge; reuse P4 + side-lane civilians; no invented attacker / no double standing; reachable urgency; urgency tiers). **No Referee Pass claimed.** Referee / One score the eight gates before any engine PR. Number Three probes only after engine.
 
 ## Version history
 
