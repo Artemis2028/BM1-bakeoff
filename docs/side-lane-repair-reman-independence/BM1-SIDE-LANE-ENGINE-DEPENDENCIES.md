@@ -1,16 +1,16 @@
 # BM1 side-lane proposal: engine dependencies
 
 **Reviewed document:** `BM1-SIDE-LANE-REPAIR-REMAN-INDEPENDENCE-PROPOSAL.md`  
-**Reviewed against:** `Artemis2028/BM1-bakeoff` at `10c3a7e` on `main` (12 September 2026). Line numbers below refer to this head and may drift.  
-**Method:** read the landed Phase 1–4 modules, dock/repair UI, Remus station stock, and the additive `bm-ships/` pack. No engine changes made. This is a dependency/risk checklist for a later writer, not a post-implementation review and not permission to wire the catalog.
+**Reviewed against:** `Artemis2028/BM1-bakeoff` at `1791808` on `main` (12 September 2026), after side-lane brief PR #16. Line numbers below refer to this head and may drift.  
+**Method:** read the landed Phase 1–4 modules, dock/repair UI, Remus station stock, ambient traffic / pirate paths, and the additive `bm-ships/` pack. No engine changes made. This is a dependency/risk checklist for a later writer, not a post-implementation review and not permission to wire the catalog.
 
 ## Verdict in one paragraph
 
-The brief can be implemented as three thin gates without a rewrite and without Phase 5. Repair is a missing capability bit on top of `repairHull` / the shared Repair button / the player-sprite draw path. Reman access is a missing durable unlock: today’s Reman Starbase stock list is an instance key waiting to become a landmine. Independence is a mint-a-`sideId` event that must call existing Phase 1 owner/control helpers and Number 2’s explicit inheritance table. **Tenth amend (2026-09-12):** breakaway doctrine/ROE **may diverge** from the parent; temperament axes (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) may shift during the war and rematch profile — they must not clone the parent in silence, freeze at declaration, rewrite concessions, or grant culture fire. The load-bearing risks are all integration mistakes: overlay whenever docked; treating defense-platform dock as repair; deleting Reman access in `destroyStation`; wiring 212 hulls; silent parent-profile copy **or** forced clone; frozen-at-declaration doctrine; retitling concessions.
+The brief can be implemented as three thin gates without a rewrite and without Phase 5. Repair is a missing capability bit on top of `repairHull` / the shared Repair button / the player-sprite draw path. Reman access is a missing durable unlock: today’s Reman Starbase stock list is an instance key waiting to become a landmine. Independence is a mint-a-`sideId` event that must call existing Phase 1 owner/control helpers and Number 2’s explicit inheritance table. **Tenth amend (2026-09-12):** breakaway doctrine/ROE **may diverge** from the parent; temperament axes (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) may shift during the war and rematch profile — they must not clone the parent in silence, freeze at declaration, rewrite concessions, or grant culture fire. **Tenth amend (2026-09-12, unrest/commerce/pirates):** independence is **not a random flip**. Stackable pressure raises unrest (war going badly, starved commerce, thin development, unrest chain, rival agitation). Ambient civilians must **lounge and** run commerce contracts — do not convert every `traffic`/`localTraffic` ship into a timer freighter. `pirate` is a pressure faction (prey routes, avoid strong military, raise unrest; clearing them relieves). Temperament may shift *because* of these pressures (named writes). Thresholds TBD. Not Phase 5. Soft S7.8 unchanged. The load-bearing risks are all integration mistakes: overlay whenever docked; treating defense-platform dock as repair; deleting Reman access in `destroyStation`; wiring 212 hulls; silent parent-profile copy **or** forced clone; frozen-at-declaration doctrine; retitling concessions; **random secession**; **all-freighter civilians**; **stealing Phase 5 convoy loops**; **agitation/pirates rewriting owners**.
 
 ## What already exists (do not reinvent)
 
-| Need | Engine / pack fact at `10c3a7e` |
+| Need | Engine / pack fact at `1791808` |
 | --- | --- |
 | Dock vs distance | `tryDockAtPlanetIndex` (~10518), `tryDockAtStation` (~13186). Hostile stations refuse. Wormhole / construction / destroyed have their own exits. |
 | Phase 3 service denial | `visitorDeniedServices` (`src/phase3-checkpoints.js` ~446). `getCheckpointDockRefusal` (`src/main.js` ~5533) blocks authority planet/stations; **private owners return ''**. `checkpointUiSnapshot.playerDenied` (~5975). |
@@ -28,6 +28,9 @@ The brief can be implemented as three thin gates without a rewrite and without P
 | Doctrine | `stampDoctrineOnActor` / `evaluateReact` in `src/doctrine.js`. Culture `reman` is not an empire (`DESIGN-doctrine-v0.2.1.md`). Culture cannot grant fire permission. |
 | Persistence lesson | `state.systemStates = {}` still wipes on load / build / reset. Unlocks and new sides must live **outside** that cache (copy the Phase 3/4 pattern). |
 | Probe surface | `globalThis.__BM1_PROBE__`. S7 should extend this object rather than scrape private state. |
+| Ambient civilians | Roles `traffic` and `localTraffic`. `scheduleAmbientTrafficWarp` / `isAmbientTrafficWarpEligible` / `beginAmbientTrafficArrival`. `consultDoctrineFire` treats both as `civilianTarget`. **No contract, starve, or unrest store.** |
+| Pirates | Faction `pirate` (empty-list independent; `areFactionsOpposed` true vs pirate). Fire facts: `predationOrder` / `predationAttackPhase` when `pirate` + raid. Flavor cargo-raid in `repairHull` neighborhood (~12020) is **not** world unrest. `chooseFleetAttackFaction` may fall back to `pirate`. |
+| Occupation / home defense | `occupationFleet` role; fleet-attack seizure path. Usable as a **war-going-badly** inject later; do not retitle concessions from it beyond existing Phase 1 capture. |
 
 ## Hooks the writer will have to touch
 
@@ -48,11 +51,17 @@ Prefer small helpers (capability predicate, unlock record, breakaway mint) plus 
 | New unlock store | Serialize next to feats / `securityEncounters` / `incidentLedger`. Init on `resetRunState`. Survive `systemStates` wipe. |
 | Independence event | Mint `sideId`; assign **explicit** starting temperament (may differ from parent); `noteAuthoritySide` / epoch; Phase 1 transfer helpers only for holder assets; **do not** loop all stations assigning the new side. |
 | Doctrine stamp / relations | Apply §5.3. **Divergence allowed.** Empty-list independent + explicit parent hostility if civil war. No `Object.assign` from parent profile. |
-| Civil-war temperament write | Named event → pole change on breakaway (parent optional) → rematch `profileId` via §5.3.4. Must not inject `engagement_authorized` / `attackId` or rewrite owners. |
+| Civil-war temperament write | Named event → pole change on breakaway (parent optional) → rematch `profileId` via §5.3.4. Must not inject `engagement_authorized` / `attackId` or rewrite owners. §6 pressure writes (war going badly, starved commerce, agitation, thriving pirates, relief) are valid **named** inputs to the same path. |
+| New unrest store | Live **outside** `systemStates` (copy Phase 3/4). Per-world / per-holder unrest + last named write. Init on `resetRunState`. Survive save/load. **No invented threshold constant** in the first slice — named below/at states + probe inject are enough (S7.19). |
+| Independence eligibility | Mint helper consults unrest eligibility **or** an authored/probe inject. A declaration with neither is a random flip (fails S7.19). Do not silently mint from a tick. |
+| Ambient `traffic` / `localTraffic` | **Keep lounge.** Do not convert the whole ambient population into contract freighters. Additive contract role (food/fuel/parts / timed delivery) rides beside lounge/dock/park/`localTraffic` (S7.22). |
+| Civilian contracts / starve | Optional first-slice fixture: one contract, one fail/abort that raises unrest (S7.20). A second fixture uses a **non-pirate** cause. Do **not** implement Phase 5 `asset_overdue` campaign bookkeeping. |
+| Pirate pressure | Existing `pirate` faction + predation facts. Presence / thriving-on-route raises unrest (S7.21). Clearing them is a relief write (S7.23). Prefer civilian-route fixtures over spawning a navy via `allowsRoutineGenerator`. |
+| Outside agitation | Doctrine-facing named write only. Must not call Phase 1 transfer helpers “because the agitator won the argument.” Number 2 scores. |
 | Player Security setters | Must ignore breakaway NPC side. Two modes only. If the player later holds the world, existing Phase 2 reclaim applies to the **player** side only. |
-| `__BM1_PROBE__` | Snapshot: `repairCapable`, `repairInProgress`, overlay on/off, Reman flag, Reman Starbase alive, breakaway `sideId`, temperament poles, parent vs breakaway `profileId`, concession owner, relations, `mayAutoEngage`, Phase 1 `flagShareGrantsSystemControl`. |
+| `__BM1_PROBE__` | Snapshot: `repairCapable`, `repairInProgress`, overlay on/off, Reman flag, Reman Starbase alive, breakaway `sideId`, temperament poles, parent vs breakaway `profileId`, concession owner, relations, `mayAutoEngage`, Phase 1 `flagShareGrantsSystemControl`, **unrest** (world, below/at eligibility, last write), **civilianRoles** (lounge vs contract counts), **piratePressure**, **commerceFailed**. |
 
-Do **not** hook `buildShipScanReport`, `allowsRoutineGenerator` (to spawn a civil-war navy), or `loadShipCatalog` for general traffic.
+Do **not** hook `buildShipScanReport`, `allowsRoutineGenerator` (to spawn a civil-war navy **or** a pirate navy for unrest), or `loadShipCatalog` for general traffic.
 
 ## Risks
 
@@ -112,13 +121,43 @@ Doctrine notes already warn not to equate Reman culture with an empire. Using it
 
 ### 10. Invented numbers / Phase 5 creep
 
-Changing `repairHull` prices “to feel Flash,” adding convoy overdue loops, or spawning a civil-war fleet to satisfy `evaluateReact` are out of scope.
+Changing `repairHull` prices “to feel Flash,” adding convoy overdue loops, or spawning a civil-war fleet to satisfy `evaluateReact` are out of scope. Same fail: inventing an unrest threshold, N-jump starve count, pirate spawn rate, or lounge:contract ratio in the first slice; implementing `asset_overdue` campaign bookkeeping “because deliveries fail over jumps.”
 
-**Gate:** S7.5; process lock (not Phase 5).
+**Gate:** S7.5; process lock (not Phase 5); S7.19 (named below/at states only).
 
 ### 11. Persistence and replacements
 
-Unlocks and breakaway sides must not live in `systemStates`. Ambient `npc.id` reuse still applies if civil-war traffic is added later (it should not be, first slice). Use `securityInstanceId` if any visitor is attributed.
+Unlocks, breakaway sides, and **unrest** must not live in `systemStates`. Ambient `npc.id` reuse still applies if civil-war or contract traffic is added later. Use `securityInstanceId` if any visitor is attributed. `beginAmbientTrafficArrival` must not inherit contract blame or unrest identity from a reused slot.
+
+### 12. Random flip / missing unrest write
+
+A declaration that fires from a silent tick or a random chance, with no unrest write and no authored/probe inject, fails the unrest amend (proposal §6.3). Eligibility is stacked pressure, not a coin.
+
+**Gate:** S7.19.
+
+### 13. All civilians become contract freighters (lounge deleted)
+
+Rewriting `traffic` / `localTraffic` so every ambient ship is on a delivery timer fails S7.22. Commerce is **a** purpose, not the only one. Lounge (dock, park, local traffic) must still exist **in the same system** as a contract civilian.
+
+**Gate:** S7.22.
+
+### 14. Pirate / agitation rewrite of Phase 1 owners
+
+Using thriving pirates or rival agitation to `for (station of system) station.faction = …` fails S7.12 / S7.21 and reopens Phase 1. Pressure raises **unrest** and may named-write temperament. It does not retitle concessions.
+
+**Gate:** S7.12, S7.14, S7.21.
+
+### 15. Commerce failure that is pirate-only
+
+S7.20 requires a path where commerce fails **without** pirates (blockade, neglect, player raid). If the only starve writer is `faction === 'pirate'`, piracy became the sole cause and fails the stack.
+
+**Gate:** S7.20.
+
+### 16. Relief that ends the war or installs player ROE
+
+Clearing pirates / completing a delivery should lower unrest (S7.23). It must not erase an explicit parent↔breakaway hostility write, add a third player ROE mode, or treat access as a ceasefire.
+
+**Gate:** S7.23, S7.17.
 
 ## Probe plan (S7)
 
@@ -139,13 +178,22 @@ __BM1_PROBE__.sideLane = {
     concessionOwner: getStationOwner(fixtureConcession),
     flagShareGrantsControl: false,
     standing: { ...state.factionStanding },
-    mayAutoEngage: playerForceMayAutoEngage(...)
+    mayAutoEngage: playerForceMayAutoEngage(...),
+    unrest: { level: 'below' /* | 'at' | 'above' */, lastWrite: null, eligible: false },
+    civilianRoles: { lounge: 0, contract: 0 },
+    piratePressure: false,
+    commerceFailed: false
   }),
   startRepair: () => repairHull(),
   destroyRemanStarbase: () => { /* fail setup if missing */ },
-  injectRemanRecovery: () => { /* S7.8 */ },
+  injectRemanRecovery: () => { /* S7.8 — still TBD meeting point; do not close here */ },
   declareIndependence: (systemIndex) => { /* fail setup if mint helper missing */ },
-  shiftTemperament: (sideId, poles) => { /* S7.17; fail if no write path */ }
+  shiftTemperament: (sideId, poles) => { /* S7.17; fail if no write path */ },
+  injectUnrest: (systemIndex, stateName) => { /* S7.19 named below/at; no numeric threshold */ },
+  raiseUnrestFromCommerceFailure: (opts) => { /* S7.20; opts.cause: pirate | blockade | neglect | playerRaid */ },
+  raiseUnrestFromPiratePresence: (systemIndex) => { /* S7.21 */ },
+  relieveUnrest: (opts) => { /* S7.23 clearPirates | escortDelivery | inject */ },
+  injectLoungeAndContract: () => { /* S7.22; fail setup if either role missing */ }
 };
 ```
 
@@ -158,25 +206,28 @@ Suggested first Chromium set (catches fatal integrations):
 3. **S7.6 / S7.7:** grant Reman flag → destroy Reman Starbase → save/wipe `systemStates`/reload → flag true.
 4. **S7.8 / S7.10:** no base, recovery inject grants same flag; hull 53 only.
 5. **S7.11–S7.18:** mint side ≠ parent/flag/culture/`neutral`; concession owner unchanged; doctrine/temperament **explicit and allowed to differ** from parent; relations not cloned; war event may change poles + rematch profile (not frozen); `flagShareGrantsSystemControl` still false; culture `reman` ≠ unlock / fire; player ROE still two modes.
+6. **S7.19–S7.23:** unrest below ≠ eligible / at-or-above = eligible (no invented number); commerce failure raises unrest (pirate **and** non-pirate cause); pirate presence raises unrest without owner rewrite; lounge + contract coexist in one system; relief lowers unrest without ending a written war.
 
 ## Recommended implementation order (dependencies)
 
 1. `isRepairCapableLocation` + menu/`repairHull` gates (S7.1–S7.3, S7.5). Overlay last in this group (S7.4).
 2. Durable Reman unlock store + destroy-base invariance (S7.6–S7.7). Recovery inject (S7.8). No catalog wire (S7.9–S7.10).
 3. Independence mint + Phase 1 transfer-only station updates + §5.3 birth writes (divergent temperament) + one war-mutation write (S7.11–S7.18).
+4. Unrest store + named below/at eligibility (S7.19). Commerce-failure and pirate-presence writes (S7.20–S7.21). Lounge+contract fixture (S7.22). Relief write (S7.23). Full route sim and numeric thresholds are **not** required.
 
-Skip (3) if Number 2’s table is still Fail. Skip catalog work entirely.
+Skip (3) if Number 2’s table is still Fail. Skip (4)’s economy sim if Tenth defers it behind injects — still close S7.19–S7.23 with fixtures. Skip catalog work entirely. Do not start Phase 5 in (4).
 
 ## Out of scope for the writer of a later slice
 
-`BM1-remastered-work`; claiming a Referee Pass; doctrine JSON culture→empire edits; weapon tables; `asset_overdue` multi-jump loops; cloak/sensors; wiring 212 hulls; inventing hull IDs or repair prices; setting `hostile` / `attackId` from a repair refuse, an independence declare, or a temperament pole; using construction art as repair arms; inventing temperament shift chances.
+`BM1-remastered-work`; claiming a Referee Pass; doctrine JSON culture→empire edits; weapon tables; `asset_overdue` multi-jump **campaign** loops (Phase 5); cloak/sensors; wiring 212 hulls; inventing hull IDs, repair prices, unrest thresholds, N-jump starve counts, pirate spawn rates, or lounge:contract ratios; setting `hostile` / `attackId` from a repair refuse, an independence declare, a temperament pole, or an unrest write; using construction art as repair arms; inventing temperament shift chances; converting every civilian into a contract freighter; deleting lounge/idle/`localTraffic`; treating `pirate` as an empire or culture fire grant; closing S7.8 from this unrest amend.
 
 ## Sources
 
-- Proposal: `docs/side-lane-repair-reman-independence/BM1-SIDE-LANE-REPAIR-REMAN-INDEPENDENCE-PROPOSAL.md` (Tenth amend 2026-09-12 on gate 3)
+- Proposal: `docs/side-lane-repair-reman-independence/BM1-SIDE-LANE-REPAIR-REMAN-INDEPENDENCE-PROPOSAL.md` (Tenth amend 2026-09-12 on gate 3; unrest/commerce/pirates follow-on §6)
 - Pack: `bm-ships/ships.json` (53), `bm-ships/catalog.mjs`, `bm-ships/integration-rules.json`, `bm-ships/review-decisions.json`
 - Repair / dock: `src/main.js` (`repairHull`, `tryDockAtPlanetIndex`, `tryDockAtStation`, `getCheckpointDockRefusal`, player draw)
+- Ambient civilians / pirates (meeting points only): `src/main.js` (`traffic` / `localTraffic`, `scheduleAmbientTrafficWarp`, `consultDoctrineFire` predation facts, `pirate` faction)
 - Phase 3 services: `src/phase3-checkpoints.js` (`visitorDeniedServices`)
 - Phase 1: `src/phase1-authority.js`
-- Doctrine: `src/doctrine.js`; `docs/doctrine/DESIGN-doctrine-v0.2.1.md`
+- Doctrine: `src/doctrine.js`; `docs/doctrine/DESIGN-doctrine-v0.2.1.md` (civilian ≠ military; merchants distinct from pirates)
 - Phase 4 companion shape: `docs/phase4/BM1-PHASE4-ENGINE-DEPENDENCIES.md`
