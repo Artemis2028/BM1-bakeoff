@@ -657,7 +657,7 @@ This side-lane is ready to score when a reader can mark Pass/Fail on: overlay-on
 
 - Tenth Mountain Trooper scope, 2026-09-12 (this side-lane; three hard gates).
 - Tenth Mountain Trooper amend, 2026-09-12 (PR #16): gate 3 — divergence allowed; war may mutate doctrine/ROE; temperament axes **peaceful** / **warlike** / **xenophobic** / **xenophilic**. Gates 1–2 unchanged.
-- Tenth Mountain Trooper amend, 2026-09-12 (this follow-up): unrest / commerce / pirates / civilian lounge+contract — independence is not a random flip; civilians must lounge **and** take jobs; pirates are a pressure faction; temperament may shift because of these pressures. Gates 1–2 unchanged. Soft S7.8 unchanged.
+- Tenth Mountain Trooper amend, 2026-09-12 (PR #17): unrest / commerce / pirates / civilian lounge+contract — independence is not a random flip; civilians must lounge **and** take jobs; pirates are a pressure faction; temperament may shift because of these pressures. Gates 1–2 unchanged. Soft S7.8 unchanged.
 - Pack missing features and Reman note: `bm-ships/integration-rules.json`, `bm-ships/README.md`, `bm-ships/ships.json` (hull 53 / `bm-ship:53`), `bm-ships/catalog.mjs` (`secret-remus`).
 - Repair overlay / platform / maintenance identification: `bm-ships/review-decisions.json` (`a-231`, `a-74`, `a-78`, `a-79`, `a-73`). Context only; not shipped station art.
 - Landed Remus vendor instance: `data/stationData.json` (Reman Starbase, stock `53`); station types in `data/station_manifest.json` (83 / 86 / 87).
