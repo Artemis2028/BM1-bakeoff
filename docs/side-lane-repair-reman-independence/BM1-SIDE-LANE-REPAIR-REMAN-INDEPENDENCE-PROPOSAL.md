@@ -5,7 +5,8 @@
 **Planning baseline:** `10c3a7e` on `main` (12 September 2026), after Phases 1–4 and additive `bm-ships/` (PR #15). No catalog wire.  
 **Referee context:** Phase 4 engine §6 **Pass** on `7f926df`. This brief does **not** claim a new Referee Pass and is **not** roadmap Phase 5.  
 **Companion:** `docs/side-lane-repair-reman-independence/BM1-SIDE-LANE-ENGINE-DEPENDENCIES.md` (hooks, risks, probe IDs).  
-**Scoped by:** Tenth Mountain Trooper, 2026-09-12.
+**Scoped by:** Tenth Mountain Trooper, 2026-09-12.  
+**Tenth amend (docs, 2026-09-12):** hard gate 3 — breakaway doctrine/ROE **may diverge** from the parent; temperament axes may shift during civil war. Gates 1–2 unchanged.
 
 Phases 1–4 already landed: political authority, two-mode ROE, holding zones/compliance, and incident ledger / FLASH. Additive `bm-ships/` is on `main` as a ships-only pack. This brief may reference that pack. It must not require wiring the full 212-hull roster into gameplay.
 
@@ -17,7 +18,7 @@ Three playable facts become true, each behind a hard gate:
 
 1. **Repair is a service, not a dock.** The player can repair only at a `repairCapable` location. While that repair is actually running, repair-arms overlay the **player ship image** and stop when repair ends. Defense platforms never repair.
 2. **Reman Warbird access is an unlock**, not a live Remus starbase instance. Destroying that base does not erase access forever. A recovery path exists (mission / alternate unlock / durable player flag).
-3. **Worlds can break away.** A declaration of independence mints a **new political side** and can start a civil war. Foreign concessions stay foreign. Doctrine and ROE for the breakaway are **assigned explicitly**, never copied in silence from the parent. Phase 1 authority Passes stay closed.
+3. **Worlds can break away.** A declaration of independence mints a **new political side** and can start a civil war. Foreign concessions stay foreign. Doctrine and ROE for the breakaway are **assigned explicitly** and **may (and should be able to) differ** from the parent — never a silent clone. During the war, temperament axes may shift and inform later doctrine/ROE. Phase 1 authority Passes stay closed.
 
 **Exit condition (this side-lane):** the three hard gates in §2 can be scored from the brief, then (only after Tenth scopes an engine lane) exercised by S7 probes without reopening Phase 1–4 Passes or starting Phase 5.
 
@@ -30,7 +31,7 @@ Three playable facts become true, each behind a hard gate:
 | Wire the 212-hull `bm-ships/` catalog? | **No**, unless a later Reman unlock slice truly needs that one hull. Prefer a minimal access rule. |
 | Invent repair costs, civil-war timers, or prestige numbers? | **No.** Difficulty knobs may come later. |
 | Key Reman access to `Reman Starbase` remaining alive? | **No.** Access is a rule / unlock. The station is one vendor, not the key. |
-| Copy parent doctrine/ROE onto a breakaway? | **No**, unless Number 2’s explicit inheritance table says so for a named field. |
+| Copy parent doctrine/ROE onto a breakaway? | **No silent copy.** Divergence is **allowed and expected**. Number 2’s §5.3 table says which fields may differ at birth and which may mutate in war. |
 
 These are recommendations for this side-lane, not new decisions attributed to the user. Locked gates take precedence.
 
@@ -90,6 +91,14 @@ First engine slice, if scoped: a **minimal Reman access rule** plus a recovery h
 This must **not** silently rewrite Phase 1 ownership or ROE for foreign concessions.
 
 **Doctrine / ROE inheritance for breakaway polities must be explicit** (Number 2 owns that wording in §5). Silent copy of the parent profile, engagement modes, or player Security ROE is a fail.
+
+Tenth amend (docs, 12 September 2026) — **locked decision on hard gate 3**, not a change to gates 1–2:
+
+- Breakaway polities **may and should be able to have different doctrine/ROE than the parent side**. Inheritance is still **explicit** (never a silent copy). The default expectation is **divergence is allowed**, not a forced parent clone.
+- During a civil war, the breakaway’s (and possibly the parent’s) doctrine/ROE **may change depending on the war**. They are **not frozen at declaration** forever.
+- Temperament / stance axes (use these labels; exact enum names can be proposed): **peaceful**, **warlike**, **xenophobic**, **xenophilic**. These are polity temperament axes that can shift with war events. They **inform** doctrine/ROE choices.
+- Temperament shifts must **not** silently rewrite Phase 1 ownership, foreign concessions, or give culture fire permission.
+- The two player Security ROE modes stay (`return-fire` / `defend`). Access remains a permission, not a ceasefire.
 
 Must **not** reopen Phase 1 authority Passes. Preserve, without reopening:
 
@@ -257,7 +266,8 @@ A world (or its government) can **declare independence** from its current holder
 1. Mints a **new political `sideId`** for the breakaway (a real side, not a flag swap, not a culture rename, not `neutral` reuse).
 2. May start a **civil war**: parent and breakaway become opposed by an **explicit** relation write, not by copying the parent’s entire friend/hostile lists.
 3. Leaves foreign concessions and private installations on their existing owners unless Phase 1 transfer rules would already move them.
-4. Assigns doctrine profile, engagement modes, and (if the player is involved) Security ROE by the **explicit inheritance table in §5.3**. Silence is a fail.
+4. Assigns doctrine profile, engagement modes, temperament, and (if the player is involved) Security ROE by the **explicit inheritance table in §5.3**. Silence is a fail. **Divergence from the parent is allowed and expected.**
+5. May later **mutate** breakaway (and possibly parent) temperament / doctrine / ROE as the war develops — not a snapshot frozen at declaration.
 
 This is the Flash-shaped political break. It is **not** Phase 5 convoy play, **not** a new alliance system, and **not** permission to treat doctrine culture as a state.
 
@@ -267,7 +277,8 @@ This is the Flash-shaped political break. It is **not** Phase 5 convoy play, **n
 | --- | --- |
 | Set the world’s `systemFaction` to `neutral` and call it independence | Shared `neutral` is not a side, alliance, or command (Phase 1). |
 | Reuse the parent `sideId` and flip a `independent: true` bit | Breakaway must be a **new** political side. |
-| Copy parent `doctrineProfile`, `engagementModes`, or `evaluateFire` allowlists | Inheritance must be explicit (§5.3). |
+| Copy parent `doctrineProfile`, `engagementModes`, or `evaluateFire` allowlists in silence | Inheritance must be explicit (§5.3). Divergence is allowed; a silent clone is the fail. |
+| Freeze breakaway doctrine/ROE at declaration with no war-mutation path | Tenth lock: temperament / doctrine / ROE **may change depending on the war**. |
 | Apply the player’s empire-default ROE to the breakaway NPC polity | Player Security belongs to the player’s side. |
 | On declare, retitle every station in-system to the new side | Ownership ≠ control. Concessions stay foreign. |
 | Use flown flag (player or parent) as the new side | Authority is a political side, not a flag. |
@@ -278,26 +289,97 @@ This is the Flash-shaped political break. It is **not** Phase 5 convoy play, **n
 
 ### 5.3 Explicit doctrine / ROE inheritance (Number 2)
 
-This table is the scoring surface for Number 2. Fields not listed default to **do not copy**. If a later engine PR needs another field, add a row here first.
+This section is the scoring surface for Number 2. Tenth’s 2026-09-12 amend requires the table to answer three questions:
 
-| Field | Breakaway default (first slice) | May copy from parent? | Notes |
+1. Which fields **may diverge at birth**?
+2. Which fields **may mutate during civil war**?
+3. How do temperament axes map to doctrine profile / ROE **without reopening Phase 1 Passes**?
+
+Fields not listed default to **do not copy** and **do not mutate**. If a later engine PR needs another field, add a row here first. An engine PR that copies or freezes a field “for convenience” without a row fails this gate.
+
+#### 5.3.1 Temperament axes (locked labels)
+
+Use Tenth’s labels. Exact enum / storage names can be proposed (`temperament.peace` vs four flags, etc.):
+
+| Axis pair (proposed) | Pole A | Pole B |
+| --- | --- | --- |
+| Conflict stance | **peaceful** | **warlike** |
+| Outsider stance | **xenophilic** | **xenophobic** |
+
+These are **polity** temperament axes on the **side**, not on a culture and not on a flown flag. They **inform** which doctrine profile / engagement posture is eligible. They are not themselves fire permission, ownership, or access.
+
+#### 5.3.2 Birth: which fields may diverge
+
+**Default expectation: divergence is allowed.** A breakaway that is a clone of the parent because nobody assigned anything is a fail, unless a §5.3 row explicitly says “same as parent for this named field.”
+
+| Field | At birth (first slice) | May diverge from parent? | Silent parent clone? |
 | --- | --- | --- | --- |
-| `sideId` | **Mint new** (`breakaway:<origin>:<epoch>` or `custom:<new>`). Never parent `sideId`, never culture id, never flown flag | **No** | Hard gate. |
-| Declared relations (`friendly` / `hostile`) | Phase 1 empty-list independent contract (no alliance, immunity, or ceasefire), **plus** an explicit parent↔breakaway `hostile` write **if** civil war is active | **No** (except that one explicit war write) | Do not clone the parent’s friend lists. Borg/pirate engine oppositions still apply as global rules, not as inherited diplomacy. |
-| Doctrine `profileId` | Explicit authored breakaway profile, **or** no pack profile / deny assignment / safe fallback | **No** | Unsupported profile-role stays a deny (doctrine v0.2.1). |
-| `engagementModes` / fire allowlists | From the **assigned** profile only; else none | **No** | Culture still cannot grant fire permission. |
-| `evaluateReact` interests | From the assigned profile only | **No** | Do not feed parent “defend the empire” interests to the rebel side by copy. |
-| Culture id on the world | **Retain** the world’s culture if it already has one | N/A (not inherited from parent command) | Culture ≠ side. Reman communities stay culture. |
-| Player Security ROE / access / alerts | Unchanged on the **player’s** side. Breakaway NPC polity does **not** receive them | **No** | If the **player** is the breakaway or later holds the world, existing Phase 2 merge / retain / reclaim applies to the **player side only**. |
-| Phase 3 access class of breakaway ships | Per Phase 3: own-side exempt on **this** side; custom polity visiting a foreign checkpoint is `other` unless they broadcast `independent` | **No** silent reclass | A missing value is not an explicit independence broadcast (Phase 3). |
-| Station `owner` / `ownerKind` / `privateInstallation` | Unchanged except Phase 1 transferable-from-holder assets of the **previous holder** | Only via existing Phase 1 transfer helpers | Foreign concessions stay foreign. |
-| System control | Contested or transferred by the independence / civil-war resolution rules of the engine slice — **not** by flag share | N/A | `isSystemControlled` remains player-side political control. |
-| `fleetId` / `playerEscort` / combat credit | Unchanged | **No** | Do not conscript parent fleets by renaming side. |
-| Incident ledger / standing | May **describe** the declaration as a later incident; must not invent a second standing religion | **No** silent standing rewrite | Phase 4 tokens stay on combat credit. |
+| `sideId` | **Mint new** (`breakaway:<origin>:<epoch>` or `custom:<new>`). Never parent `sideId`, never culture id, never flown flag | **Must** (new side) | **Forbidden** |
+| Temperament (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) | Explicit authored or probe-assigned starting poles. May match parent **only if written** | **Yes — expected** | **Forbidden** |
+| Doctrine `profileId` | Explicit authored breakaway profile **informed by** starting temperament, **or** no pack profile / deny assignment / safe fallback | **Yes — expected** | **Forbidden** |
+| `engagementModes` / fire allowlists | From the **assigned** profile only; else none | **Yes** (follows assigned profile) | **Forbidden** |
+| `evaluateReact` interests | From the assigned profile only | **Yes** | **Forbidden** — do not feed parent “defend the empire” interests by copy |
+| Declared relations (`friendly` / `hostile`) | Phase 1 empty-list independent contract, **plus** an explicit parent↔breakaway `hostile` write **if** civil war is active | **Yes** (empty + war write ≠ parent lists) | **Forbidden** to clone the parent’s friend lists |
+| Culture id on the world | **Retain** the world’s culture if it already has one | N/A (not inherited from parent command) | N/A — culture ≠ side |
+| Player Security ROE / access / alerts | Unchanged on the **player’s** side. Breakaway NPC polity does **not** receive them | N/A for NPC breakaway | **Forbidden** to install player ROE on the NPC side |
+| Phase 3 access class of breakaway ships | Per Phase 3: own-side exempt on **this** side; custom polity visiting a foreign checkpoint is `other` unless they broadcast `independent` | Classification follows the new side, not the parent | **No** silent reclass |
+| Station `owner` / `ownerKind` / `privateInstallation` | Unchanged except Phase 1 transferable-from-holder assets of the **previous holder** | **No** (ownership is not doctrine) | Only via existing Phase 1 transfer helpers |
+| System control | Contested or transferred by independence / civil-war resolution — **not** by flag share | Control ≠ temperament | N/A |
+| `fleetId` / `playerEscort` / combat credit | Unchanged | **No** | **Forbidden** to conscript parent fleets by renaming side |
+| Incident ledger / standing | May **describe** the declaration later; no second standing religion | **No** silent standing rewrite | Phase 4 tokens stay on combat credit |
 
-**Civil war** in this slice means: parent and breakaway are explicitly opposed; existing ROE and attribution decide weapons; no new `protect-all`, no free spawned invasion fleet required to “make it look like Flash.” If the engine later needs spawned civil-war traffic, that is a scoped follow-up, not a silent parent-doctrine copy.
+#### 5.3.3 Civil war: which fields may mutate
 
-Number 2 may amend rows in review. An engine PR that copies a field “for convenience” without a row fails this gate.
+Tenth lock: doctrine/ROE are **not frozen at declaration**. The breakaway’s (and **possibly** the parent’s) temperament, and the doctrine/ROE those axes inform, **may change depending on the war**.
+
+Mutations are **named writes** (a war event → temperament change → explicit rematch of eligible profile / posture). They are not a silent tick, not a culture grant, and not a Phase 1 ownership rewrite.
+
+| Field | May mutate during civil war? | Who | Notes |
+| --- | --- | --- | --- |
+| Temperament poles | **Yes** | Breakaway **should**; parent **may** | Shift along the named axes only. Which events move which pole is Q12. |
+| Doctrine `profileId` | **Yes**, if an explicit map says the new temperament makes another profile eligible | Same side as the temperament write | Rematch; do not `Object.assign` from the other belligerent. |
+| `engagementModes` / fire allowlists | **Yes**, only as a consequence of the rematched profile | Same | Culture still cannot grant fire permission. |
+| `evaluateReact` interests | **Yes**, from the rematched profile only | Same | |
+| Declared relations | **Yes** only as explicit war/peace writes (parent↔breakaway hostility, later treaty) | Either | Still do not clone the other side’s full lists. |
+| Player Security ROE modes | **No new modes** | Player side only | Still only `return-fire` / `defend`. A player who is a belligerent may **change** their stored mode through existing Phase 2 UI; the war does not invent a third mode or copy NPC temperament onto the player. |
+| Access values | Policy remains permission, not ceasefire | Player / authored foreign | Temperament must not reinterpret access as ROE or as fire. |
+| `sideId` | **No** | — | Do not recycle or merge sides mid-war. |
+| Culture id | **No** (culture is not a war stance) | — | Reman communities stay culture. |
+| Station ownership / concessions | **No** via temperament | — | Phase 1 transfer helpers only. |
+| System control | Only via existing capture / reclaim / authored resolution | — | Not a temperament side-effect. |
+| Combat credit / `fleetId` | **No** | — | |
+
+#### 5.3.4 How temperament maps to doctrine / ROE (without reopening Phase 1)
+
+Proposed mapping for Number 2 to score. This is a **recommendation**, not invented numeric thresholds.
+
+```text
+temperament poles
+  → eligibleDoctrineProfiles(side)     // explicit allowlist, may be empty → deny / safe fallback
+    → assigned profileId
+      → engagementModes / evaluateReact from that profile only
+  → does not touch getStationOwner, concessions, sideId, culture fire, or player ROE catalog
+```
+
+| Temperament input | May inform | Must not do |
+| --- | --- | --- |
+| **peaceful** | Prefer profiles / postures that record, negotiate, or defer; do not add war engagement modes the profile lacks | Must not erase parent↔breakaway hostility already written; must not grant immunity; must not re-own concessions |
+| **warlike** | Prefer profiles that already allow military interests (`investigate` / defense-capable modes the pack already has for that profile) | Must not inject `engagement_authorized`, `attackId`, `protect-all`, or a new player ROE mode |
+| **xenophilic** | Prefer interests that treat outsiders as `other` / trade / negotiate rather than closed | Must not turn access into a ceasefire; must not share command with foreigners |
+| **xenophobic** | Prefer stricter authored access **values** on **that side’s** checkpoints (if it has one) or pack interests that watch borders | Must not enforce `unknown` identity; must not rewrite foreign concession owners; must not grant culture fire |
+
+**Phase 1 / Phase 2 stays closed under every pole:**
+
+- Authority is still a political side, not a flag.
+- Station ownership ≠ system control.
+- Foreign concessions stay foreign unless Phase 1 transfer applies.
+- Culture cannot grant fire permission — a xenophobic Reman **culture** is still not an empire and still not a weapons grant.
+- Player Security still has exactly two ROE modes. Access is still a permission, not a ceasefire.
+- Temperament is not `sideId` and is not `cultureId`.
+
+**Civil war** in this slice means: parent and breakaway are explicitly opposed; temperament may shift and rematch doctrine/ROE on the sides that the map names; existing attribution still decides weapons; no new `protect-all`; no free spawned invasion fleet required to “make it look like Flash.” If the engine later needs spawned civil-war traffic, that is a scoped follow-up, not a silent parent-doctrine copy.
+
+Number 2 may amend rows and the mapping in review. The lock Number 2 cannot drop: **explicit writes, divergence allowed, war may mutate, four axes named, Phase 1 closed.**
 
 ### 5.4 Ownership during the break
 
@@ -312,9 +394,9 @@ A Ferengi concession in a world that breaks away from (e.g.) Romulan control rem
 
 ### 5.5 What this brief does not invent
 
-Flash trigger chances, army sizes, day-counts, which named worlds secede first, and whether the **player** can press “Declare independence” on a holding they already control are **open questions** (§9). The hard gate is the **shape**: new side, explicit inheritance, concessions untouched, Phase 1 closed.
+Flash trigger chances, army sizes, day-counts, which named worlds secede first, whether the **player** can press “Declare independence” on a holding they already control, and which war events move which temperament pole are **open questions** (§9). The hard gate is the **shape**: new side; explicit inheritance; **divergence allowed**; war may mutate temperament / informed doctrine/ROE; concessions untouched; Phase 1 closed.
 
-A first engine slice can be as small as: one authored or probe-injected declaration on one world, mint side, write the §5.3 table, start explicit parent hostility, prove concessions and ROE. Galaxy-wide AI secession is not required to close the gate.
+A first engine slice can be as small as: one authored or probe-injected declaration on one world, mint side, assign a temperament **different from the parent**, write the §5.3 table, start explicit parent hostility, then inject one war event that shifts a pole and rematches profile — prove concessions and player ROE catalog unchanged. Galaxy-wide AI secession is not required to close the gate.
 
 ## 6. Acceptance exercises (S7)
 
@@ -334,10 +416,12 @@ Keep all existing Phase 1 / S4 / S5 / S6 / doctrine gates green. Add S7 fixtures
 | **S7.10** Hull identity | Any candidate consults pack **id 53 / `bm-ship:53`**. Independent Warbird and Romulan Warbird variants must not satisfy the unlock. No invented ids. |
 | **S7.11** Independence mints a new side | Declaration produces a `sideId` distinct from parent, from flown flag, from culture id, and from shared `neutral`. |
 | **S7.12** Foreign concessions unchanged | Fixture a private / foreign concession in the breakaway system. After declare + civil-war start, `getStationOwner` is unchanged unless Phase 1 transfer would already apply. Player cannot command it. |
-| **S7.13** Doctrine / ROE inheritance is explicit | After mint, parent `doctrineProfile`, `engagementModes`, and player Security ROE are **not** present on the breakaway unless a §5.3 row allows that named field. Number 2 scores this row. |
-| **S7.14** Phase 1 authority still holds | After independence: `isSystemControlled` is still political control; flag share still does not grant control; station ownership ≠ system control; `flagShareGrantsSystemControl() === false`. Do not reopen Phase 1 Passes. |
+| **S7.13** Doctrine / ROE inheritance is explicit **and may diverge** | After mint, breakaway `doctrineProfile` / `engagementModes` / temperament are **explicitly assigned**. They **may differ** from the parent (expected). Fail if they match the parent **only because** a silent copy ran (no §5.3 row). Player Security ROE is not installed on an NPC breakaway. Number 2 scores this row. |
+| **S7.14** Phase 1 authority still holds | After independence **and** after a temperament shift: `isSystemControlled` is still political control; flag share still does not grant control; station ownership ≠ system control; `flagShareGrantsSystemControl() === false`. Do not reopen Phase 1 Passes. |
 | **S7.15** Parent lists are not cloned | Breakaway `friendly` / `hostile` are empty-list independent **plus** the explicit civil-war opposition if active. Parent’s other friends/enemies are not copied. |
-| **S7.16** Culture is not an empire / unlock | Doctrine culture `reman` does not grant Reman Warbird access and does not become the breakaway `sideId`. Culture still cannot grant fire permission. |
+| **S7.16** Culture is not an empire / unlock | Doctrine culture `reman` does not grant Reman Warbird access and does not become the breakaway `sideId`. Culture still cannot grant fire permission — including after a **xenophobic** or **warlike** temperament write. |
+| **S7.17** War-driven temperament may mutate doctrine/ROE | After declaration, inject a civil-war event. Breakaway temperament poles (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) **may change**; parent poles **may** change. Doctrine profile / informed posture follow the explicit §5.3.4 map. After the shift: concession owners unchanged; no `engagement_authorized` injection; player Security still only `return-fire` / `defend`; access is still not a ceasefire; `mayAutoEngage` unchanged unless Phase 2 evidence already permits. |
+| **S7.18** Not frozen at declaration | Snapshot temperament + `profileId` at mint. After S7.17’s war write they are allowed to differ from that snapshot. A design that cannot change them without a new `sideId` fails this lock. |
 
 Each case may contain multiple assertions. Do not promise a final probe count before S7 is written. Number Three owns the probe gate **after** engine, not this brief.
 
@@ -351,8 +435,10 @@ This side-lane will not:
 - Key Reman access to a live Reman Starbase instance, or delete access when that instance dies.
 - Treat Independent Warbird or other Warbird hulls as the Reman unlock.
 - Equate doctrine culture `reman` with a Reman empire or with the unlock.
-- Silently copy parent doctrine, engagement modes, or player ROE onto a breakaway.
-- Reopen Phase 1 authority Passes (side vs flag; ownership vs control; concession transfer rules).
+- Silently copy parent doctrine, engagement modes, temperament, or player ROE onto a breakaway — **or** force a parent clone when divergence was not explicitly written.
+- Freeze breakaway (or parent) doctrine/ROE at declaration with no war-mutation path for the named temperament axes.
+- Reopen Phase 1 authority Passes (side vs flag; ownership vs control; concession transfer rules), including via temperament.
+- Add a third player Security ROE mode, or treat access as a ceasefire, because a polity is **warlike** or **xenophobic**.
 - Turn Phase 3 docking denial into `repairCapable`, or `repairCapable` into a fire / standing gate.
 - Draw repair arms on stations, NPCs, or construction scaffolds; or use workbee art as arms.
 - Enable `protect-all`, boarding combat, warning shots as damage, or new alliances (including Breen–Dominion covert pact).
@@ -364,7 +450,7 @@ This side-lane will not:
 
 1. **Brief Pass.** Referee / One score §2 hard gates. Number Four scores §3–§4 wording. Number 2 scores §5.3. Do not open an engine PR on this document alone.
 2. **Tenth scopes the engine lane** (may split the three gates). Blind implement from `docs/` only.
-3. **Suggested order if scoped together:** `repairCapable` + overlay (smallest; existing `repairHull` / menu / player draw). Then durable Reman flag + destroy-base + recovery hook (no catalog wire). Then independence mint + §5.3 writes + concession fixture. Prove S7.1–S7.5 before overlay polish; S7.6–S7.10 before any Reman market UI; S7.11–S7.16 before civil-war flavor.
+3. **Suggested order if scoped together:** `repairCapable` + overlay (smallest; existing `repairHull` / menu / player draw). Then durable Reman flag + destroy-base + recovery hook (no catalog wire). Then independence mint + §5.3 birth writes (divergent temperament) + concession fixture + one war-mutation write. Prove S7.1–S7.5 before overlay polish; S7.6–S7.10 before any Reman market UI; S7.11–S7.18 before civil-war flavor.
 4. **Number Three** adds/runs S7 after engine. Keep Phase 1 / S4 / S5 / S6 green.
 5. Changelog / status Pass wait on Referee after review. This proposal PR may note that the brief is open; it must not write a Pass.
 
@@ -386,13 +472,16 @@ Mark these clearly. They do **not** weaken the hard gates.
 | Q8 | Should Phase 4 open an incident on declaration / civil war? | **No** in the first slice unless a later incident brief says so. Do not mint standing from the declare. |
 | Q9 | Are trade / habitat / lab stations ever `repairCapable`? | **False** until a later brief adds them. |
 | Q10 | Split into three engine PRs or one? | Tenth decides after Pass. Gates stay separable. |
+| Q11 | Temperament storage: two bipolar axes vs four independent flags? Exact enum names? | Use the four locked labels. Engine may store two axes (`peaceful`↔`warlike`, `xenophilic`↔`xenophobic`) or four poles; say which in the engine PR. |
+| Q12 | Which war events move which temperament pole (losses, occupation, atrocity, stalemate)? | One probe-injected write is enough to close S7.17. Do not invent chances. |
+| Q13 | Does the parent always shift, or only when authored? | Parent **may** shift. First slice may mutate breakaway only, with parent mutation as an optional inject. |
 
 ## 10. Lanes
 
 | Who | Owns | Scores |
 | --- | --- | --- |
 | **Number Four** | `repairCapable` gate wording (§3) and Reman access-rule wording (§4) — engine/content | Those two gates |
-| **Number 2** | Breakaway doctrine / ROE inheritance (§5.3) | Silent-copy fail; table completeness |
+| **Number 2** | Breakaway doctrine / ROE inheritance (§5.3): birth divergence, war mutation, temperament → profile/ROE map | Silent-copy fail; forced-clone fail; frozen-at-declaration fail; Phase 1 still closed |
 | **Number Three** | Probe gate **after** engine (S7 on `__BM1_PROBE__` / offline tests) | Not this brief |
 | **Referee / One** | This brief vs the **three hard gates** in §2 | **Before** any engine PR |
 
@@ -400,13 +489,14 @@ Mark these clearly. They do **not** weaken the hard gates.
 
 Phase 5 should still take persistent overdue-asset / convoy loops. Phase 6 should make identification honest under cloak. Repair **difficulty knobs**, a authored Reman recovery mission, galaxy-wide secession AI, and catalog wiring of the 212-hull pack are later scopes.
 
-Independence that later needs spawned civil-war fleets, treaties, or player-facing “Declare” UI can be a follow-up. It must still mint a new side and keep §5.3 explicit.
+Independence that later needs spawned civil-war fleets, treaties, or player-facing “Declare” UI can be a follow-up. It must still mint a new side, keep §5.3 explicit, **allow divergent doctrine/ROE**, and allow war-driven temperament shifts on the four named axes.
 
-This side-lane is ready to score when a reader can mark Pass/Fail on: overlay-only-while-repairing-at-`repairCapable` (platforms false; dock ≠ repair); Reman unlock durable after the Remus base dies; breakaway new side with explicit inheritance and Phase 1 concessions untouched.
+This side-lane is ready to score when a reader can mark Pass/Fail on: overlay-only-while-repairing-at-`repairCapable` (platforms false; dock ≠ repair); Reman unlock durable after the Remus base dies; breakaway new side with **explicit, divergable** inheritance, war-mutable temperament (`peaceful` / `warlike` / `xenophobic` / `xenophilic`), and Phase 1 concessions untouched.
 
 ## Sources and precedence
 
 - Tenth Mountain Trooper scope, 2026-09-12 (this side-lane; three hard gates).
+- Tenth Mountain Trooper amend, 2026-09-12 (PR #16): gate 3 — divergence allowed; war may mutate doctrine/ROE; temperament axes **peaceful** / **warlike** / **xenophobic** / **xenophilic**. Gates 1–2 unchanged.
 - Pack missing features and Reman note: `bm-ships/integration-rules.json`, `bm-ships/README.md`, `bm-ships/ships.json` (hull 53 / `bm-ship:53`), `bm-ships/catalog.mjs` (`secret-remus`).
 - Repair overlay / platform / maintenance identification: `bm-ships/review-decisions.json` (`a-231`, `a-74`, `a-78`, `a-79`, `a-73`). Context only; not shipped station art.
 - Landed Remus vendor instance: `data/stationData.json` (Reman Starbase, stock `53`); station types in `data/station_manifest.json` (83 / 86 / 87).

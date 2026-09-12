@@ -6,7 +6,7 @@
 
 ## Verdict in one paragraph
 
-The brief can be implemented as three thin gates without a rewrite and without Phase 5. Repair is a missing capability bit on top of `repairHull` / the shared Repair button / the player-sprite draw path. Reman access is a missing durable unlock: today’s Reman Starbase stock list is an instance key waiting to become a landmine. Independence is a mint-a-`sideId` event that must call existing Phase 1 owner/control helpers and Number 2’s explicit inheritance table instead of cloning parent doctrine or player ROE. The load-bearing risks are all integration mistakes: overlay whenever docked; treating defense-platform dock as repair; deleting Reman access in `destroyStation`; wiring 212 hulls; silent parent-profile copy; retitling concessions.
+The brief can be implemented as three thin gates without a rewrite and without Phase 5. Repair is a missing capability bit on top of `repairHull` / the shared Repair button / the player-sprite draw path. Reman access is a missing durable unlock: today’s Reman Starbase stock list is an instance key waiting to become a landmine. Independence is a mint-a-`sideId` event that must call existing Phase 1 owner/control helpers and Number 2’s explicit inheritance table. **Tenth amend (2026-09-12):** breakaway doctrine/ROE **may diverge** from the parent; temperament axes (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) may shift during the war and rematch profile — they must not clone the parent in silence, freeze at declaration, rewrite concessions, or grant culture fire. The load-bearing risks are all integration mistakes: overlay whenever docked; treating defense-platform dock as repair; deleting Reman access in `destroyStation`; wiring 212 hulls; silent parent-profile copy **or** forced clone; frozen-at-declaration doctrine; retitling concessions.
 
 ## What already exists (do not reinvent)
 
@@ -46,10 +46,11 @@ Prefer small helpers (capability predicate, unlock record, breakaway mint) plus 
 | Shipyard stock / `getShipPurchaseStatus` / Reman Starbase `stock.shipIds` | Offer hull 53 only through `hasRemanWarbirdAccess` (or equivalent). Stock list is not the key. |
 | `bm-ships/catalog.mjs` `getPurchaseDecision` | Hull 53 fails `restricted-stock` today (no `specialVendor`). Wrapper or engine-side check — **do not** silently invent a pack field. S7.8. |
 | New unlock store | Serialize next to feats / `securityEncounters` / `incidentLedger`. Init on `resetRunState`. Survive `systemStates` wipe. |
-| Independence event | Mint `sideId`; `noteAuthoritySide` / epoch; Phase 1 transfer helpers only for holder assets; **do not** loop all stations assigning the new side. |
-| Doctrine stamp / relations | Apply §5.3 table. Empty-list independent + explicit parent hostility if civil war. No `Object.assign` from parent profile. |
-| Player Security setters | Must ignore breakaway NPC side. If the player later holds the world, existing Phase 2 reclaim applies to the **player** side only. |
-| `__BM1_PROBE__` | Snapshot: `repairCapable`, `repairInProgress`, overlay on/off, Reman flag, Reman Starbase alive, breakaway `sideId`, concession owner, parent vs breakaway relations, doctrine profile ids, `mayAutoEngage`, Phase 1 `flagShareGrantsSystemControl`. |
+| Independence event | Mint `sideId`; assign **explicit** starting temperament (may differ from parent); `noteAuthoritySide` / epoch; Phase 1 transfer helpers only for holder assets; **do not** loop all stations assigning the new side. |
+| Doctrine stamp / relations | Apply §5.3. **Divergence allowed.** Empty-list independent + explicit parent hostility if civil war. No `Object.assign` from parent profile. |
+| Civil-war temperament write | Named event → pole change on breakaway (parent optional) → rematch `profileId` via §5.3.4. Must not inject `engagement_authorized` / `attackId` or rewrite owners. |
+| Player Security setters | Must ignore breakaway NPC side. Two modes only. If the player later holds the world, existing Phase 2 reclaim applies to the **player** side only. |
+| `__BM1_PROBE__` | Snapshot: `repairCapable`, `repairInProgress`, overlay on/off, Reman flag, Reman Starbase alive, breakaway `sideId`, temperament poles, parent vs breakaway `profileId`, concession owner, relations, `mayAutoEngage`, Phase 1 `flagShareGrantsSystemControl`. |
 
 Do **not** hook `buildShipScanReport`, `allowsRoutineGenerator` (to spawn a civil-war navy), or `loadShipCatalog` for general traffic.
 
@@ -91,11 +92,13 @@ Calling the pack helper unchanged always refuses hull 53 (`shipyardEligible: fal
 
 **Gate:** S7.9, S7.10.
 
-### 7. Silent parent doctrine / player ROE copy
+### 7. Silent parent doctrine / player ROE copy — or forced clone / freeze
 
-`stampDoctrineOnActor` with the parent `profileId`, or `setEmpireDefaultDimension` on the new side, is the independence landmine. Number 2’s table says **mint side + empty relations + explicit war write + assigned-or-deny profile**.
+`stampDoctrineOnActor` with the parent `profileId`, or `setEmpireDefaultDimension` on the new side, is still the independence landmine. Tenth’s amend adds two more: treating “explicit inheritance” as “must equal parent,” and storing doctrine only at declaration with no war-mutation path.
 
-**Gate:** S7.13, S7.15.
+Number 2’s table says **mint side + explicit (likely divergent) temperament + assigned-or-deny profile + empty relations + explicit war write**. During war, a named temperament write may rematch profile on the breakaway and **may** on the parent. That rematch must not inject `engagement_authorized`, add a third player ROE mode, or retitle concessions.
+
+**Gate:** S7.13, S7.15, S7.17, S7.18.
 
 ### 8. Concession rewrite / Phase 1 reopen
 
@@ -131,7 +134,8 @@ __BM1_PROBE__.sideLane = {
     overlay: Boolean(state.repairOverlayActive),
     remanAccess: { ...state.playerUnlocks?.remanWarbird },
     remanStarbase: { id, destroyed, stock: [...] },
-    breakaway: { sideId, parentSideId, relations, doctrineProfile },
+    breakaway: { sideId, parentSideId, relations, doctrineProfile, temperament },
+    parent: { sideId, doctrineProfile, temperament },
     concessionOwner: getStationOwner(fixtureConcession),
     flagShareGrantsControl: false,
     standing: { ...state.factionStanding },
@@ -140,7 +144,8 @@ __BM1_PROBE__.sideLane = {
   startRepair: () => repairHull(),
   destroyRemanStarbase: () => { /* fail setup if missing */ },
   injectRemanRecovery: () => { /* S7.8 */ },
-  declareIndependence: (systemIndex) => { /* fail setup if mint helper missing */ }
+  declareIndependence: (systemIndex) => { /* fail setup if mint helper missing */ },
+  shiftTemperament: (sideId, poles) => { /* S7.17; fail if no write path */ }
 };
 ```
 
@@ -152,23 +157,23 @@ Suggested first Chromium set (catches fatal integrations):
 2. **S7.4:** overlay off → start repair → overlay on player only → complete → overlay off. Asset-missing allowed.
 3. **S7.6 / S7.7:** grant Reman flag → destroy Reman Starbase → save/wipe `systemStates`/reload → flag true.
 4. **S7.8 / S7.10:** no base, recovery inject grants same flag; hull 53 only.
-5. **S7.11–S7.16:** mint side ≠ parent/flag/culture/`neutral`; concession owner unchanged; doctrine profile not parent; relations not cloned; `flagShareGrantsSystemControl` still false; culture `reman` ≠ unlock.
+5. **S7.11–S7.18:** mint side ≠ parent/flag/culture/`neutral`; concession owner unchanged; doctrine/temperament **explicit and allowed to differ** from parent; relations not cloned; war event may change poles + rematch profile (not frozen); `flagShareGrantsSystemControl` still false; culture `reman` ≠ unlock / fire; player ROE still two modes.
 
 ## Recommended implementation order (dependencies)
 
 1. `isRepairCapableLocation` + menu/`repairHull` gates (S7.1–S7.3, S7.5). Overlay last in this group (S7.4).
 2. Durable Reman unlock store + destroy-base invariance (S7.6–S7.7). Recovery inject (S7.8). No catalog wire (S7.9–S7.10).
-3. Independence mint + Phase 1 transfer-only station updates + §5.3 writes (S7.11–S7.16).
+3. Independence mint + Phase 1 transfer-only station updates + §5.3 birth writes (divergent temperament) + one war-mutation write (S7.11–S7.18).
 
 Skip (3) if Number 2’s table is still Fail. Skip catalog work entirely.
 
 ## Out of scope for the writer of a later slice
 
-`BM1-remastered-work`; claiming a Referee Pass; doctrine JSON culture→empire edits; weapon tables; `asset_overdue` multi-jump loops; cloak/sensors; wiring 212 hulls; inventing hull IDs or repair prices; setting `hostile` / `attackId` from a repair refuse or an independence declare; using construction art as repair arms.
+`BM1-remastered-work`; claiming a Referee Pass; doctrine JSON culture→empire edits; weapon tables; `asset_overdue` multi-jump loops; cloak/sensors; wiring 212 hulls; inventing hull IDs or repair prices; setting `hostile` / `attackId` from a repair refuse, an independence declare, or a temperament pole; using construction art as repair arms; inventing temperament shift chances.
 
 ## Sources
 
-- Proposal: `docs/side-lane-repair-reman-independence/BM1-SIDE-LANE-REPAIR-REMAN-INDEPENDENCE-PROPOSAL.md`
+- Proposal: `docs/side-lane-repair-reman-independence/BM1-SIDE-LANE-REPAIR-REMAN-INDEPENDENCE-PROPOSAL.md` (Tenth amend 2026-09-12 on gate 3)
 - Pack: `bm-ships/ships.json` (53), `bm-ships/catalog.mjs`, `bm-ships/integration-rules.json`, `bm-ships/review-decisions.json`
 - Repair / dock: `src/main.js` (`repairHull`, `tryDockAtPlanetIndex`, `tryDockAtStation`, `getCheckpointDockRefusal`, player draw)
 - Phase 3 services: `src/phase3-checkpoints.js` (`visitorDeniedServices`)
