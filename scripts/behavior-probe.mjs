@@ -2238,6 +2238,244 @@ async function runPhase4Incidents(page, results) {
   );
 }
 
+async function runSideLaneRepairReman(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 70, shields: 70 });
+
+  const s71 = await page.evaluate(() => {
+    const lane = globalThis.__BM1_PROBE__.sideLane;
+    const p = globalThis.BM1Probe;
+    p.prepareArena({ latinum: 28000, hull: 70, shields: 70 });
+    lane.forceDockPlanet();
+    const planet = lane.snapshot();
+    const kinds = ['starbase', 'shipyard', 'heavy-shipyard', 'maintenance'];
+    const stations = kinds.map((kind) => {
+      const spawned = lane.spawnFixture(kind);
+      lane.forceDockStation(spawned.id);
+      return { kind, spawned, snap: lane.snapshot() };
+    });
+    return {
+      planetCapable: planet.repairCapable,
+      stations: stations.map((row) => ({ kind: row.kind, capable: row.snap.repairCapable, missing: row.spawned?.missing })),
+      rates: planet.hullRates,
+    };
+  });
+  check(results, 'S7.1 planet-capable', s71.planetCapable === true, JSON.stringify(s71));
+  check(
+    results,
+    'S7.1 stations-capable',
+    s71.stations.every((row) => row.capable === true && row.missing !== true),
+    JSON.stringify(s71.stations),
+  );
+  check(
+    results,
+    'S7.5 repair-rates-unchanged',
+    s71.rates?.hull === 2 && s71.rates?.shields === 1,
+    JSON.stringify(s71.rates),
+  );
+
+  const s72 = await page.evaluate(() => {
+    const lane = globalThis.__BM1_PROBE__.sideLane;
+    const rows = ['platform86', 'platform87'].map((kind) => {
+      const spawned = lane.spawnFixture(kind);
+      lane.forceDockStation(spawned.id);
+      const before = lane.snapshot();
+      const repair = lane.startRepair();
+      const after = lane.snapshot();
+      return {
+        kind,
+        capable: before.repairCapable,
+        buttonDisabled: before.repairButton.disabled,
+        refuse: after.lastRepairRefuse,
+        overlay: after.overlay,
+        repair,
+      };
+    });
+    return rows;
+  });
+  check(
+    results,
+    'S7.2 platforms-cannot-repair',
+    s72.every((row) => (
+      row.capable === false
+      && row.repair?.ok === false
+      && row.refuse?.layer === 'capability'
+      && /cannot repair/i.test(row.refuse?.reason || '')
+      && row.overlay === false
+    )),
+    JSON.stringify(s72),
+  );
+
+  const s73 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const lane = globalThis.__BM1_PROBE__.sideLane;
+    const vulcan = p.systemIndexByName('Vulcan');
+    p.warpTo(vulcan);
+    const anchors = (p.snapshot().stations || []).filter((station) => !station.destroyed && !station.privateInstallation);
+    if (anchors[0]) p.enableCheckpoint(anchors[0].id);
+    p.setEmpireAccess('independent', 'challenge');
+    p.setEmpireAccess('other', 'challenge');
+    p.placePlayer(p.geometry().center.x + 8, p.geometry().center.y);
+    p.tick(16, 1);
+    const accessRefuse = p.dockRefusal();
+    const playerDenied = p.checkpoint().playerDenied;
+    lane.forceDockPlanet();
+    const denied = playerDenied || accessRefuse
+      ? lane.startRepair()
+      : lane.evaluateRepair({
+        docked: true,
+        kind: 'planet',
+        servicesDenied: true,
+        accessReason: accessRefuse || 'Hold at the marker for clearance',
+      });
+    const deniedSnap = lane.snapshot();
+    const platform = lane.spawnFixture('platform86', { privateInstallation: true, faction: 'ferengi' });
+    lane.forceDockStation(platform.id);
+    const platformRepair = lane.startRepair();
+    const platformSnap = lane.snapshot();
+    return {
+      denied,
+      deniedLayer: denied?.layer || deniedSnap.lastRepairRefuse?.layer,
+      deniedReason: denied?.reason || deniedSnap.lastRepairRefuse?.reason,
+      playerDenied,
+      accessRefuse,
+      platformRepair,
+      platformLayer: platformSnap.lastRepairRefuse?.layer,
+      platformReason: platformSnap.lastRepairRefuse?.reason,
+    };
+  });
+  check(
+    results,
+    'S7.3 docking-not-repair-reasons-distinct',
+    s73.denied?.ok === false
+      && s73.deniedLayer === 'access'
+      && s73.platformRepair?.ok === false
+      && s73.platformLayer === 'capability'
+      && s73.deniedReason !== s73.platformReason,
+    JSON.stringify(s73),
+  );
+
+  const s74 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const lane = globalThis.__BM1_PROBE__.sideLane;
+    p.prepareArena({ latinum: 28000, hull: 70, shields: 70 });
+    lane.forceDockPlanet();
+    const docked = lane.snapshot();
+    const started = lane.startRepair();
+    const during = lane.snapshot();
+    p.tick(1, 1);
+    const after = lane.snapshot();
+    lane.forceDockPlanet();
+    lane.startRepair();
+    lane.cancelRepair();
+    const canceled = lane.snapshot();
+    return {
+      dockedOverlay: docked.overlay,
+      startedOk: started?.ok === true,
+      duringProgress: during.repairInProgress,
+      duringOverlay: during.overlay,
+      assetMissing: during.overlayAssetMissing,
+      constructionArt: during.overlayUsesConstructionArt,
+      afterProgress: after.repairInProgress,
+      afterOverlay: after.overlay,
+      canceledOverlay: canceled.overlay,
+      canceledProgress: canceled.repairInProgress,
+    };
+  });
+  check(
+    results,
+    'S7.4 overlay-only-while-repairing',
+    s74.dockedOverlay === false
+      && s74.startedOk === true
+      && s74.duringProgress === true
+      && (s74.assetMissing ? s74.duringOverlay === false : s74.duringOverlay === true)
+      && s74.constructionArt === false
+      && s74.afterProgress === false
+      && s74.afterOverlay === false
+      && s74.canceledOverlay === false,
+    JSON.stringify(s74),
+  );
+
+  const s7678 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const lane = probe2.sideLane;
+    const beforeEngage = probe2.mayAutoEngage({ id: 's7-control', faction: 'dominion', hostile: true, attitude: 'hostile' });
+    lane.resetReman();
+    const culture = lane.evaluateReman(53, 'reman');
+    const granted = lane.grantReman('remus-secret');
+    const destroyed = lane.destroyRemanStarbase();
+    p.saveSlot(7);
+    p.wipeSystemStates();
+    p.loadSlot(7);
+    const afterLoad = lane.snapshot();
+    lane.resetReman();
+    const destroyedAgain = lane.destroyRemanStarbase();
+    const recovery = lane.injectRemanRecovery();
+    const recovered = lane.snapshot();
+    const packMeet = lane.meetPack({ allowed: false, reason: 'restricted-stock' }, 53);
+    const other = lane.evaluateReman(268);
+    const afterEngage = probe2.mayAutoEngage({ id: 's7-control', faction: 'dominion', hostile: true, attitude: 'hostile' });
+    return {
+      beforeEngage,
+      afterEngage,
+      cultureAllowed: culture.allowed,
+      granted,
+      destroyed,
+      afterLoad: afterLoad.remanAccess,
+      destroyedAgain,
+      recovery,
+      recovered: recovered.remanAccess,
+      packMeet,
+      other,
+      meetingClosed: afterLoad.meetingPoint?.closed === true && afterLoad.meetingPoint?.fabricatedSpecialVendor === false,
+      catalogWired: afterLoad.catalogWired,
+      rates: afterLoad.hullRates,
+    };
+  });
+  check(
+    results,
+    'S7.6 reman-flag-survives-save-and-systemStates-wipe',
+    s7678.afterLoad?.granted === true && s7678.granted?.granted === true,
+    JSON.stringify(s7678.afterLoad),
+  );
+  check(
+    results,
+    'S7.7 destroy-base-does-not-revoke',
+    s7678.destroyed?.ok === true && s7678.destroyed?.access?.granted === true && /access remains/i.test(s7678.destroyed?.sayable || ''),
+    JSON.stringify(s7678.destroyed),
+  );
+  check(
+    results,
+    'S7.8 recovery-and-pack-meeting',
+    s7678.recovery?.granted === true
+      && s7678.recovered?.granted === true
+      && s7678.packMeet?.allowed === true
+      && s7678.packMeet?.fabricatedSpecialVendor === false
+      && s7678.packMeet?.packReason === 'restricted-stock'
+      && s7678.meetingClosed === true
+      && s7678.cultureAllowed === false,
+    JSON.stringify({ recovery: s7678.recovery, packMeet: s7678.packMeet, culture: s7678.cultureAllowed }),
+  );
+  check(
+    results,
+    'S7.9 no-full-catalog-wire',
+    s7678.catalogWired === false,
+    JSON.stringify({ catalogWired: s7678.catalogWired }),
+  );
+  check(
+    results,
+    'S7.10 hull-53-only',
+    s7678.other?.allowed === false && s7678.other?.reason === 'other-warbird',
+    JSON.stringify(s7678.other),
+  );
+  check(
+    results,
+    'S7 reman-does-not-change-mayAutoEngage',
+    s7678.beforeEngage === s7678.afterEngage,
+    JSON.stringify({ before: s7678.beforeEngage, after: s7678.afterEngage }),
+  );
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -2253,13 +2491,14 @@ async function main() {
     await runPhase2Roe(page, results);
     await runPhase3Checkpoints(page, results);
     await runPhase4Incidents(page, results);
+    await runSideLaneRepairReman(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
