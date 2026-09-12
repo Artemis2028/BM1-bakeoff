@@ -2297,6 +2297,7 @@ async function runSideLaneRepairReman(page, results) {
     'S7.2 platforms-cannot-repair',
     s72.every((row) => (
       row.capable === false
+      && row.buttonDisabled === true
       && row.repair?.ok === false
       && row.refuse?.layer === 'capability'
       && /cannot repair/i.test(row.refuse?.reason || '')
