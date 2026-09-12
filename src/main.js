@@ -135,6 +135,31 @@ import {
   getDoctrineRuntime,
   loadFactionDoctrine,
 } from './doctrine.js';
+import {
+  REPAIR_ARMS_ASSET_PATH,
+  REPAIR_HULL_LATINUM_PER_PERCENT,
+  REPAIR_SHIELD_LATINUM_PER_PERCENT,
+  S7_8_MEETING_POINT,
+  advanceRepairSession,
+  beginRepairSession,
+  clearRepairSession,
+  createPlayerUnlocks,
+  createRepairSession,
+  evaluateRemanWarbirdAccess,
+  evaluateRepairStart,
+  filterShipStockForRemanAccess,
+  grantRemanWarbirdAccess,
+  hasRemanWarbirdAccess,
+  isRemanSecretVendorStation,
+  isRemanWarbirdHull,
+  isRepairCapableLocation,
+  meetPackPurchaseDecision,
+  overlayUsesForbiddenArt,
+  remanDestructionSayable,
+  restorePlayerUnlocks,
+  serializePlayerUnlocks,
+  shouldDrawRepairOverlay,
+} from './side-lane-repair-reman.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -680,6 +705,10 @@ const state = {
   securityZones: createSecurityZonesState(),
   securityEncounters: createSecurityEncountersState(),
   incidentLedger: createIncidentLedger(),
+  playerUnlocks: createPlayerUnlocks(),
+  repairSession: createRepairSession(),
+  repairOverlayAsset: { present: false, src: REPAIR_ARMS_ASSET_PATH, probed: false, missing: true, image: null },
+  lastRepairRefuse: null,
   checkpointSelectedEncounterId: null,
   selectedIncidentId: null,
   checkpointPanelRenderKey: '',
@@ -2515,6 +2544,7 @@ function ensureSystemState(systemIndex) {
 }
 
 function applySystemState(systemIndex) {
+  state.repairSession = clearRepairSession();
   const s = ensureSystemState(systemIndex);
   const now = performance.now();
   state.systemStar = { ...s.star };
@@ -8608,9 +8638,12 @@ function getShipyardStock(station = getCurrentDockedStation()) {
     .filter((ship) => ship && ship.assetType === 'ship' && ship.trafficEligible !== false)
     .filter((ship) => getShipPrice(ship) > 0);
   if (station?.stockIds?.length) {
-    const localStock = station.stockIds
-      .map((id) => state.shipStatsById[Number(id)])
-      .filter((ship) => ship && ship.assetType === 'ship' && getShipPrice(ship) > 0);
+    const localStock = filterShipStockForRemanAccess(
+      station.stockIds
+        .map((id) => state.shipStatsById[Number(id)])
+        .filter((ship) => ship && ship.assetType === 'ship' && getShipPrice(ship) > 0),
+      ensurePlayerUnlocks(),
+    );
     if (localStock.length) return localStock.slice(0, SHIPYARD_STOCK_SIZE);
   }
   const context = getShipyardStockContext(station);
@@ -8627,10 +8660,13 @@ function getShipyardStock(station = getCurrentDockedStation()) {
     stock = ships
       .filter((ship) => getShipPrice(ship) <= context.maxPrice * 1.25 && Math.max(1, finiteNumber(ship.mass, 1)) <= context.maxMass + 1);
   }
-  return stock
-    .sort((a, b) => scoreShipyardStock(a, context) - scoreShipyardStock(b, context))
-    .slice(0, context.stockSize)
-    .sort((a, b) => getShipPrice(a) - getShipPrice(b));
+  return filterShipStockForRemanAccess(
+    stock
+      .sort((a, b) => scoreShipyardStock(a, context) - scoreShipyardStock(b, context))
+      .slice(0, context.stockSize)
+      .sort((a, b) => getShipPrice(a) - getShipPrice(b)),
+    ensurePlayerUnlocks(),
+  );
 }
 
 function isSystemControlled(systemIndex = state.currentPlanet) {
@@ -9278,6 +9314,7 @@ function getStationStoreShipIds(stationTypeId, systemIndex = state.currentPlanet
     .filter((ship) => ship && ship.assetType === 'ship' && getShipPrice(ship) > 0)
     .filter((ship) => getShipPrice(ship) <= context.maxPrice && Math.max(1, finiteNumber(ship.mass, 1)) <= context.maxMass)
     .filter((ship) => getShipFaction(ship.id) === state.playerFaction || getShipFaction(ship.id) === 'neutral')
+    .filter((ship) => !isRemanWarbirdHull(ship.id) || hasRemanWarbirdAccess(ensurePlayerUnlocks()))
     .sort((a, b) => scoreShipyardStock(a, context) - scoreShipyardStock(b, context))
     .slice(0, SHIPYARD_STOCK_SIZE)
     .map((ship) => Number(ship.id));
@@ -10354,7 +10391,7 @@ function renderPlanetMenu() {
   const panels = {
     services: `${serviceDescription}<div class="service-grid">
       <button data-planet-action="refuel">Antimatter</button>
-      <button data-planet-action="repair">Repair</button>
+      ${renderRepairServiceButton()}
       <button data-planet-action="contract">Contract</button>
       <button data-planet-action="deliver">Deliver</button>
       <button data-planet-action="claim">${escapeHtml(claimStatus.label)}</button>
@@ -10362,7 +10399,8 @@ function renderPlanetMenu() {
       <button data-planet-action="construction">Build Station</button>
     </div>
     <div class="meta">${escapeHtml(claimStatus.message)}</div>`,
-    market: `<div class="panel-head">Cargo Market</div>
+    market: `${station ? `<div class="service-grid station-repair-row">${renderRepairServiceButton()}</div>` : ''}
+      <div class="panel-head">Cargo Market</div>
       <div class="market">${market}</div>
       ${marketFlags}
       ${marketShips}
@@ -10423,6 +10461,7 @@ function openStationMenu(station) {
   state.dockMenuTab = 'market';
   state.dockPanelScrollByTab = {};
   state.fleetPurchaseShipId = null;
+  maybeGrantRemanFromVendor(station);
   openHudTemporarily(2600);
   playGameSound('dock', { cooldownKey: `dock:station:${station.id}` });
   setLog(`Docked at ${station.name}. Station defenses are active.`);
@@ -10553,10 +10592,120 @@ function requireDocked() {
   return true;
 }
 
+function ensurePlayerUnlocks() {
+  state.playerUnlocks = restorePlayerUnlocks(state.playerUnlocks);
+  return state.playerUnlocks;
+}
+
+function ensureRepairOverlayAsset() {
+  if (state.repairOverlayAsset?.probed) return state.repairOverlayAsset;
+  const img = new Image();
+  img.onload = () => {
+    const present = img.naturalWidth > 0 && !overlayUsesForbiddenArt(REPAIR_ARMS_ASSET_PATH);
+    state.repairOverlayAsset = {
+      present,
+      src: REPAIR_ARMS_ASSET_PATH,
+      probed: true,
+      missing: !present,
+      image: present ? img : null,
+    };
+  };
+  img.onerror = () => {
+    state.repairOverlayAsset = {
+      present: false,
+      src: REPAIR_ARMS_ASSET_PATH,
+      probed: true,
+      missing: true,
+      image: null,
+    };
+  };
+  img.src = REPAIR_ARMS_ASSET_PATH;
+  state.repairOverlayAsset = {
+    present: false,
+    src: REPAIR_ARMS_ASSET_PATH,
+    probed: false,
+    missing: true,
+    image: img,
+    pending: true,
+  };
+  return state.repairOverlayAsset;
+}
+
+function currentRepairDockLocation() {
+  if (!state.docked) return { kind: null, station: null, docked: false, typeId: null, sizeClass: '' };
+  if (state.dockedStationId) {
+    const station = getCurrentDockedStation();
+    const typeId = station ? getStationTypeId(station) : null;
+    const stats = typeId != null ? getShipStats(typeId) : null;
+    return {
+      kind: 'station',
+      station,
+      docked: true,
+      typeId,
+      sizeClass: stats?.sizeClass || station?.sizeClass || '',
+    };
+  }
+  return { kind: 'planet', station: null, docked: true, typeId: null, sizeClass: '' };
+}
+
+function currentRepairAccessRefusal() {
+  return getCheckpointDockRefusal(getCurrentDockedStation() || null, { planet: !state.dockedStationId });
+}
+
+function evaluateCurrentRepairStart() {
+  const location = currentRepairDockLocation();
+  const accessReason = currentRepairAccessRefusal();
+  return evaluateRepairStart({
+    ...location,
+    servicesDenied: Boolean(accessReason),
+    accessReason,
+  });
+}
+
+function maybeGrantRemanFromVendor(station) {
+  if (!isRemanSecretVendorStation(station, { systemName: state.planets[state.currentPlanet]?.name })) return;
+  if (hasRemanWarbirdAccess(ensurePlayerUnlocks())) return;
+  state.playerUnlocks = grantRemanWarbirdAccess(ensurePlayerUnlocks(), {
+    source: 'remus-secret',
+    grantedAt: state.day,
+  });
+}
+
+function findRemanStarbaseStation() {
+  const live = (state.stations || []).find((station) => (
+    String(station?.name || '').trim().toLowerCase() === 'reman starbase'
+    || (Array.isArray(station?.stockIds) && station.stockIds.some((id) => Number(id) === 53))
+  ));
+  if (live) return live;
+  const remus = getSystemIndexByName('Remus');
+  const defs = (state.stationDefinitions || []).filter((station) => Number(station.systemIndex) === remus);
+  return defs.find((station) => String(station?.name || '').trim().toLowerCase() === 'reman starbase') || null;
+}
+
+function renderRepairServiceButton() {
+  const location = currentRepairDockLocation();
+  const capable = isRepairCapableLocation(location);
+  if (!capable) {
+    const reason = evaluateRepairStart({ ...location, docked: true }).reason;
+    return `<button data-planet-action="repair" disabled title="${escapeHtml(reason)}" aria-disabled="true">Repair</button>`;
+  }
+  return `<button data-planet-action="repair">Repair</button>`;
+}
+
 function getShipPurchaseStatus(shipId) {
   const ship = state.shipStatsById[Number(shipId)];
   if (!ship || ship.assetType !== 'ship') {
     return { ok: false, reason: 'That ship is not available.', ship: null };
+  }
+  if (isRemanWarbirdHull(shipId, ship.key)) {
+    const access = evaluateRemanWarbirdAccess({
+      unlocks: ensurePlayerUnlocks(),
+      hullId: shipId,
+      packKey: ship.key,
+    });
+    if (!access.allowed) {
+      return { ok: false, reason: access.sayable, ship };
+    }
   }
   const available = getShipyardStock().some((stockShip) => Number(stockShip.id) === Number(shipId));
   if (!available) {
@@ -11089,6 +11238,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     securityZones: serializeSecurityZones(ensureSecurityStores().zones),
     securityEncounters: serializeSecurityEncounters(ensureSecurityStores().encounters),
     incidentLedger: serializeIncidentLedger(ensureIncidentLedger()),
+    playerUnlocks: serializePlayerUnlocks(ensurePlayerUnlocks()),
     autoTarget: state.autoTarget !== false,
     fleetStance: state.fleetStance || 'follow',
     auxLaunched: Boolean(state.auxLaunched),
@@ -11158,6 +11308,9 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.securityZones = restoreSecurityZones(s.securityZones);
   state.securityEncounters = restoreSecurityEncounters(s.securityEncounters);
   state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
+  state.playerUnlocks = restorePlayerUnlocks(s.playerUnlocks);
+  state.repairSession = clearRepairSession();
+  state.lastRepairRefuse = null;
   state.playerFlags = Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction];
   normalizePlayerFlags();
   state.factionStanding = (s.factionStanding && typeof s.factionStanding === 'object') ? s.factionStanding : {};
@@ -12055,31 +12208,45 @@ function refuel() {
 function repairHull() {
   if (state.gameOver || !state.gameStarted) return;
   if (!requireDocked()) return;
+  const gate = evaluateCurrentRepairStart();
+  if (!gate.ok) {
+    state.lastRepairRefuse = { layer: gate.layer, reason: gate.reason };
+    setLog(gate.reason);
+    return { ok: false, ...gate };
+  }
   const missingHull = Math.max(0, 100 - state.hull);
   const missingShields = Math.max(0, 100 - clamp(finiteNumber(state.shields, 0), 0, 100));
   if (missingHull <= 0 && missingShields <= 0) {
     setLog('Hull and shields already at 100%.');
-    return;
+    return { ok: false, reason: 'already-full' };
   }
-  const hullRepair = Math.min(missingHull, Math.floor(state.latinum / 2));
+  const hullRepair = Math.min(missingHull, Math.floor(state.latinum / REPAIR_HULL_LATINUM_PER_PERCENT));
   state.hull += hullRepair;
-  state.latinum -= hullRepair * 2;
+  state.latinum -= hullRepair * REPAIR_HULL_LATINUM_PER_PERCENT;
   const shieldRepair = Math.min(missingShields, state.latinum);
   state.shields = Math.min(100, clamp(finiteNumber(state.shields, 0), 0, 100) + shieldRepair);
-  state.latinum -= shieldRepair;
+  state.latinum -= shieldRepair * REPAIR_SHIELD_LATINUM_PER_PERCENT;
   if (hullRepair <= 0 && shieldRepair <= 0) {
     setLog('Not enough latinum for repairs.');
-    return;
+    return { ok: false, reason: 'no-latinum' };
   }
+  const overlay = ensureRepairOverlayAsset();
+  state.repairSession = beginRepairSession({
+    overlayAssetPresent: overlay.present === true,
+    actor: 'player',
+  });
+  state.lastRepairRefuse = null;
   playGameSound('uiConfirm', { cooldownKey: `repair:${state.currentPlanet}` });
   setLog(`Repairs complete: hull +${hullRepair}%, shields +${shieldRepair}%.`);
   updateStats();
+  return { ok: true, hullRepair, shieldRepair };
 }
 
 function checkWinLose() {
   if (state.hull <= 0) {
     state.gameOver = true;
     state.victory = false;
+    state.repairSession = clearRepairSession();
     setLog('Game Over: your ship was destroyed.');
     return;
   }
@@ -14536,7 +14703,15 @@ function destroyStation(station, credit = station.lastCombatCredit) {
   if (state.dockedStationId === station.id) {
     state.docked = false;
     state.dockedStationId = null;
+    state.repairSession = clearRepairSession();
     closePlanetMenu();
+  }
+  const remanVendor = isRemanSecretVendorStation(
+    { ...station, destroyed: false },
+    { systemName: state.planets[state.currentPlanet]?.name },
+  ) || String(station.name || '').trim().toLowerCase() === 'reman starbase';
+  if (remanVendor) {
+    setLog(remanDestructionSayable(ensurePlayerUnlocks()));
   }
   const reward = Math.max(65, Math.round((station.maxCombatHull || 100) * 0.18));
   const playerCredited = grantsPlayerCombatCredit(credit);
@@ -15439,6 +15614,13 @@ function tick(frameScale = 1) {
   updateShieldRegeneration(frameScale);
   updatePowerSystems(frameScale);
   processHeldWeaponInputs();
+  if (state.repairSession?.inProgress) {
+    const location = currentRepairDockLocation();
+    const accessReason = currentRepairAccessRefusal();
+    const stillAllowed = isRepairCapableLocation(location) && !accessReason && state.docked;
+    if (!stillAllowed || state.gameOver) state.repairSession = clearRepairSession();
+    else state.repairSession = advanceRepairSession(state.repairSession);
+  }
   const s = state.ship;
   const up = keys.has('w') || keys.has('arrowup');
   const down = keys.has('s') || keys.has('arrowdown');
@@ -15509,6 +15691,7 @@ function tick(frameScale = 1) {
     if (d > undockDistance) {
       state.docked = false;
       state.dockedPlanetIndex = null;
+      state.repairSession = clearRepairSession();
       closePlanetMenu();
       setLog('Undocked. Fly to a planet and click it to dock again.');
       updateStats();
@@ -15519,6 +15702,7 @@ function tick(frameScale = 1) {
     if (!station) {
       state.docked = false;
       state.dockedStationId = null;
+      state.repairSession = clearRepairSession();
       closePlanetMenu();
       updateStats();
     } else {
@@ -15528,6 +15712,7 @@ function tick(frameScale = 1) {
       if (d > undockDistance) {
         state.docked = false;
         state.dockedStationId = null;
+        state.repairSession = clearRepairSession();
         closePlanetMenu();
         setLog(`Undocked from ${station.name}.`);
         updateStats();
@@ -18757,6 +18942,28 @@ function render() {
     ctx.fill();
     ctx.restore();
   }
+  const overlay = ensureRepairOverlayAsset();
+  const location = currentRepairDockLocation();
+  if (
+    shouldDrawRepairOverlay(state.repairSession, {
+      capable: isRepairCapableLocation(location),
+      servicesAllowed: !currentRepairAccessRefusal(),
+      overlayAssetPresent: overlay.present === true,
+      actor: 'player',
+    })
+    && overlay.image
+    && !overlayUsesForbiddenArt(overlay.src)
+  ) {
+    drawRotatedImage(
+      overlay.image,
+      state.ship.x,
+      state.ship.y,
+      playerVisual.width,
+      playerVisual.height,
+      state.ship.rotation,
+      state.ship.drawScale,
+    );
+  }
   ctx.restore();
   drawPlayerCloakEffect();
   drawProjectiles();
@@ -18838,6 +19045,9 @@ function resetRunState() {
   state.securityZones = createSecurityZonesState();
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
+  state.playerUnlocks = createPlayerUnlocks();
+  state.repairSession = clearRepairSession();
+  state.lastRepairRefuse = null;
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
   state.checkpointPanelRenderKey = '';
@@ -19856,6 +20066,164 @@ function installBm1ProbeHarness() {
     localElapsedMs: () => ensureSystemLedger(state.currentPlanet).localElapsedMs,
     geometry: () => getActiveCheckpoint(state.currentPlanet)?.geometry || null,
     incidents: createIncidentProbeApi(),
+    sideLane: createSideLaneProbeApi(),
+  };
+}
+
+function createSideLaneProbeApi() {
+  const fixtureTypes = {
+    starbase: { stationTypeId: 70, name: 'Probe Starbase' },
+    shipyard: { stationTypeId: 74, name: 'Probe Shipyard' },
+    'heavy-shipyard': { stationTypeId: 73, name: 'Probe Heavy Shipyard' },
+    maintenance: { stationTypeId: 83, name: 'Maintenance Station' },
+    platform86: { stationTypeId: 86, name: 'Defense Platform' },
+    platform87: { stationTypeId: 87, name: 'Advanced Defense Platform' },
+    trade: { stationTypeId: 75, name: 'Trade Station' },
+    reman: { stationTypeId: 70, name: 'Reman Starbase', stockIds: [53] },
+  };
+  return {
+    snapshot: () => {
+      const location = currentRepairDockLocation();
+      const overlay = ensureRepairOverlayAsset();
+      const reman = findRemanStarbaseStation();
+      const repairButton = document.querySelector('[data-planet-action="repair"]');
+      return {
+        repairCapable: isRepairCapableLocation(location),
+        repairInProgress: Boolean(state.repairSession?.inProgress),
+        overlay: shouldDrawRepairOverlay(state.repairSession, {
+          capable: isRepairCapableLocation(location),
+          servicesAllowed: !currentRepairAccessRefusal(),
+          overlayAssetPresent: overlay.present === true,
+          actor: 'player',
+        }),
+        overlayAssetMissing: overlay.present !== true,
+        overlayUsesConstructionArt: overlayUsesForbiddenArt(overlay.src),
+        lastRepairRefuse: state.lastRepairRefuse,
+        repairButton: {
+          present: Boolean(repairButton),
+          disabled: Boolean(repairButton?.disabled),
+          title: repairButton?.getAttribute('title') || '',
+        },
+        remanAccess: { ...ensurePlayerUnlocks().remanWarbird },
+        remanStarbase: reman
+          ? {
+            id: reman.id,
+            destroyed: Boolean(reman.destroyed),
+            stock: [...(reman.stockIds || [])],
+            name: reman.name || null,
+          }
+          : { missing: true },
+        meetingPoint: S7_8_MEETING_POINT,
+        flagShareGrantsControl: false,
+        hullRates: {
+          hull: REPAIR_HULL_LATINUM_PER_PERCENT,
+          shields: REPAIR_SHIELD_LATINUM_PER_PERCENT,
+        },
+        catalogWired: false,
+        location,
+      };
+    },
+    startRepair: () => repairHull(),
+    cancelRepair: () => {
+      state.repairSession = clearRepairSession();
+      return true;
+    },
+    forceDockPlanet: () => {
+      state.docked = true;
+      state.dockedPlanetIndex = state.currentPlanet;
+      state.dockedStationId = null;
+      state.planetMenuOpen = true;
+      state.dockMenuTab = 'services';
+      renderPlanetMenu();
+      return currentRepairDockLocation();
+    },
+    forceDockStation: (id) => {
+      const station = probeFindStation(id);
+      if (!station) return { ok: false, missing: true };
+      state.docked = true;
+      state.dockedStationId = station.id;
+      state.dockedPlanetIndex = null;
+      state.planetMenuOpen = true;
+      state.dockMenuTab = 'market';
+      maybeGrantRemanFromVendor(station);
+      renderPlanetMenu();
+      return { ok: true, ...currentRepairDockLocation() };
+    },
+    spawnFixture: (kind, extras = {}) => {
+      const fixture = fixtureTypes[kind];
+      if (!fixture) return { ok: false, missing: true, reason: `unknown-fixture:${kind}` };
+      const spawned = probeSpawnStation({
+        ...fixture,
+        ...extras,
+        id: extras.id || `s7-${kind}`,
+        name: extras.name || fixture.name,
+        stationTypeId: extras.stationTypeId || fixture.stationTypeId,
+      });
+      const station = probeFindStation(spawned.id);
+      if (station && (fixture.stockIds || extras.stockIds)) {
+        station.stockIds = [...(extras.stockIds || fixture.stockIds || [])];
+      }
+      return spawned;
+    },
+    grantReman: (source = 'probe-inject') => {
+      state.playerUnlocks = grantRemanWarbirdAccess(ensurePlayerUnlocks(), {
+        source,
+        grantedAt: state.day,
+      });
+      return { ...state.playerUnlocks.remanWarbird };
+    },
+    injectRemanRecovery: () => {
+      state.playerUnlocks = grantRemanWarbirdAccess(ensurePlayerUnlocks(), {
+        source: 'recovery-mission',
+        grantedAt: state.day,
+      });
+      return { ...state.playerUnlocks.remanWarbird };
+    },
+    resetReman: () => {
+      state.playerUnlocks = createPlayerUnlocks();
+      return { ...state.playerUnlocks.remanWarbird };
+    },
+    destroyRemanStarbase: () => {
+      let reman = findRemanStarbaseStation();
+      if (!reman || reman.destroyed) {
+        const remus = getSystemIndexByName('Remus');
+        if (remus >= 0 && state.currentPlanet !== remus) {
+          probeWarpTo(remus);
+        }
+        reman = findRemanStarbaseStation();
+      }
+      if (!reman) {
+        const spawned = probeSpawnStation({
+          id: 's7-reman-starbase',
+          name: 'Reman Starbase',
+          stationTypeId: 70,
+          faction: 'romulan',
+        });
+        reman = probeFindStation(spawned.id);
+        if (reman) reman.stockIds = [53];
+      }
+      if (!reman) return { ok: false, missing: true, reason: 'reman-starbase-missing' };
+      if (!reman.destroyed) probeDestroy(reman.id, 'npc');
+      return {
+        ok: true,
+        id: reman.id,
+        destroyed: Boolean(reman.destroyed || state.destroyedStations[reman.id]),
+        access: { ...ensurePlayerUnlocks().remanWarbird },
+        sayable: remanDestructionSayable(ensurePlayerUnlocks()),
+      };
+    },
+    evaluateReman: (hullId, cultureId = null) => evaluateRemanWarbirdAccess({
+      unlocks: ensurePlayerUnlocks(),
+      hullId,
+      cultureId,
+    }),
+    meetPack: (catalogDecision, hullId = 53) => meetPackPurchaseDecision(
+      catalogDecision,
+      ensurePlayerUnlocks(),
+      hullId,
+    ),
+    evaluateRepair: (input) => evaluateRepairStart(input),
+    purchaseStatus: (shipId) => getShipPurchaseStatus(shipId),
   };
 }
 
@@ -20013,6 +20381,7 @@ function installPlayerSecurityProbe() {
       incidentCount: listIncidents(ensureIncidentLedger()).length,
     }),
     incidents: createIncidentProbeApi(),
+    sideLane: createSideLaneProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
     raiseFlag: (faction) => {
