@@ -29,6 +29,7 @@ export const INCIDENT_KINDS = Object.freeze([
   'destruction',
   'distress',
   'witnessed_aggression',
+  'asset_overdue',
 ]);
 
 export const ACCESS_FEED_KINDS = Object.freeze(['access_noncompliance', 'access_inability']);
@@ -38,6 +39,7 @@ export const FLASH_ELIGIBLE_KINDS = Object.freeze([
   'access_inability',
   'destruction',
   'distress',
+  'asset_overdue',
 ]);
 
 export const ACTING_ALLOWLIST = Object.freeze([
@@ -65,6 +67,7 @@ const SEVERITY_BY_KIND = {
   destruction: 'combat',
   distress: 'distress',
   witnessed_aggression: 'combat',
+  asset_overdue: 'overdue',
 };
 
 function normalizeKey(value, fallback = '') {
@@ -276,6 +279,9 @@ export function openIncident(ledger, input = {}) {
       attackId: input.links?.attackId || null,
       destructionKey: input.links?.destructionKey || null,
       distressKey: input.links?.distressKey || null,
+      overdueKey: input.links?.overdueKey || null,
+      assignmentId: input.links?.assignmentId || null,
+      objectiveId: input.links?.objectiveId || null,
       punishmentToken: ACCESS_FEED_KINDS.includes(kind) ? 'none' : (input.links?.punishmentToken || null),
       punishmentApplied: input.links?.punishmentApplied || (ACCESS_FEED_KINDS.includes(kind) ? 'none' : null),
     },
@@ -462,6 +468,9 @@ export function defaultIncidentLine(input = {}) {
   }
   if (input.kind === 'distress') {
     return 'Distress observed. Rescue may proceed if survivors are known.';
+  }
+  if (input.kind === 'asset_overdue') {
+    return 'Freighter assignment missed check-in. Overdue — not confirmed destroyed. No attacker identified. Standing unchanged.';
   }
   if (input.kind === 'witnessed_aggression') {
     return 'Attributed attack recorded. Weapons remain on existing ROE.';
@@ -652,6 +661,7 @@ export function incidentEventType(kind, facts = {}) {
   if (kind === 'access_noncompliance') return 'border_breach';
   if (kind === 'access_inability') return null;
   if (kind === 'distress') return 'distress';
+  if (kind === 'asset_overdue') return 'asset_overdue';
   if (kind === 'destruction') return facts.asset_attacked || facts.own_asset_affected ? 'asset_attack' : null;
   if (kind === 'witnessed_aggression') return 'asset_attack';
   return null;
@@ -804,6 +814,9 @@ function sanitizeIncident(raw) {
       attackId: raw.links?.attackId != null ? String(raw.links.attackId) : null,
       destructionKey: raw.links?.destructionKey != null ? String(raw.links.destructionKey) : null,
       distressKey: raw.links?.distressKey != null ? String(raw.links.distressKey) : null,
+      overdueKey: raw.links?.overdueKey != null ? String(raw.links.overdueKey) : null,
+      assignmentId: raw.links?.assignmentId != null ? String(raw.links.assignmentId) : null,
+      objectiveId: raw.links?.objectiveId != null ? String(raw.links.objectiveId) : null,
       punishmentToken: raw.links?.punishmentToken != null ? String(raw.links.punishmentToken) : (ACCESS_FEED_KINDS.includes(kind) ? 'none' : null),
       punishmentApplied: raw.links?.punishmentApplied != null ? String(raw.links.punishmentApplied) : null,
     },
