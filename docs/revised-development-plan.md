@@ -1,9 +1,9 @@
 # BM1 Remastered — revised development plan
 
-Updated: 11 September 2026  
-Checkpoint: Phase 2 security policies reviewed; holding zones and compliance are next to specify.
+Updated: 12 September 2026  
+Checkpoint: Phase 1–5 engine and the repair / Reman / independence side-lane are on bake-off `main`. Phase 6 sensors/cloak is **brief-ready** (not engine). Remaining product knowledge from the guided remastered-work roadmap is in **§16** and `docs/GUIDED-CONVERGENCE.md`. Do not treat Passed Phase 1–6 briefs or the side-lane as incomplete.
 
-This is the current roadmap for what we have completed, what we need to add, and what we would like to build later. It carries forward the cloud handoff and faction-doctrine work, with the decisions made during the Phase 1 and Phase 2 reviews taking precedence. The later milestones are proposed implementation slices, not approval to implement every idea at once.
+This is the current roadmap for what we have completed, what we need to add, and what we would like to build later. It carries forward the cloud handoff and faction-doctrine work, with the decisions made during the Phase 1 and Phase 2 reviews taking precedence. The later milestones are proposed implementation slices, not approval to implement every idea at once. Sections 2–15 retain the 11 September checkpoint wording; **§16 is the bake-off-relative backlog** and takes precedence when those older “Pending / next” lines disagree with landed Passes.
 
 ## 1. The game we want
 
@@ -296,3 +296,67 @@ Later decisions to retain: default BM1 versus optional BM2-derived roster; upgra
 This roadmap combines `BM1-CLOUD-PROJECT-HANDOFF.md`, `BM1-CURRENT-REVIEW-AND-AI-PLAN.md`, `BM1-FACTION-DOCTRINE-v0.2.1.md`, the later integration handoffs discussed in this conversation, and the Phase 1/Phase 2 patch reviews. Older audit findings remain dated leads. The latest explicit decisions and reviewed behavior supersede conflicting earlier proposals—for example armed Vulcans, personal arrival protection, separated political identities, and two-mode player ROE.
 
 This document updates planning and status. It makes no engine changes and does not claim a fresh remote-head check, full-browser run, release build or balance certification.
+
+The 12 September 2026 convergence pass adds **§16** and `docs/GUIDED-CONVERGENCE.md` from the guided remastered-work roadmap (product knowledge only). That pass does not replace this plan, does not mark unfinished bake-off work done, and does not reopen Phase 1–6 briefs or the side-lane.
+
+## 16. Convergence backlog (from guided remastered-work roadmap)
+
+Added: 12 September 2026. **Docs only.** Detail, Flash weapon table, boarding rules, and standing numbers live in [`docs/GUIDED-CONVERGENCE.md`](GUIDED-CONVERGENCE.md).
+
+**Dual-track:** guided `BM1-remastered-work` may land catalog wire and economy/standing earlier. Bake-off already has Phase 1–5 engine, the side-lane, additive `bm-ships/`, and a scored Phase 6 brief. Do not crib guided engine code.
+
+### 16.1 Already complete on bake-off — skip / mark done
+
+Do **not** list these as Agreed next. Older rows in §2 / §4 / §15 that still say “Pending” or “draft Phase 3” are **stale checkpoint text**, not a reopen.
+
+| Package | Bake-off status | Pointer |
+| --- | --- | --- |
+| Phase 1 political authority | **Passed** | §3; PR #2 |
+| Phase 2 ROE / Security | **Passed** | §3; PR #6 |
+| Phase 3 checkpoints / holding zones | **Passed** | §5; `docs/phase3/`; PR #8 / #9 |
+| Phase 4 incidents / escalation / alerts | **Passed** | §6; `docs/phase4/`; PR #13 |
+| Phase 5 persistent convoy / distress + `asset_overdue` | **Engine landed** | §7; `docs/phase5/`; PR #21 |
+| Side-lane `repairCapable` + arms overlay | **Engine landed** | `docs/side-lane-repair-reman-independence/`; PR #18 |
+| Side-lane Reman durable unlock | **Engine landed** (soft `meetPackPurchaseDecision` remains) | Same; PR #18 |
+| Side-lane unrest → independence mint | **Engine landed** | Same; PR #19 |
+| Phase 6 sensors / cloak / contact uncertainty / system space | **Brief ready** (PR #22). Engine **not** implemented — do not rewrite this as a new brief. | §8; `docs/phase6/` |
+| Additive `bm-ships/` pack | **On main** (PR #15). Full catalog **not** wired. | `bm-ships/`; `docs/INSTALL-SHIPS-PATCH.md` |
+
+Guided copy about incidents, independence, repair arms, or Reman recovery is **already satisfied on bake-off**. Cite the merge; do not start a second implementation.
+
+### 16.2 Missing packages — Agreed next / Proposed
+
+**Not yet implemented on bake-off.** These are the guided packages bake-off still lacks. Tenth must scope an engine or data slice; this section is not permission to implement all of them at once.
+
+| # | Package | Status on bake-off | Class | Overlap / pointer |
+| --- | --- | --- | --- | --- |
+| 1 | Weapon / device source ledger | Missing as a reviewed ledger | **Agreed next** | §11 / §13 BM1–BM2 audit. Flash prices in `GUIDED-CONVERGENCE.md` §1 are **source material, not final prices**. Keep Disrupter Canon / Cannon / Turret as three variants. Tractor stays a weapon/device slot. |
+| 2 | Flags / passes / utility inventory | Missing (price knobs only) | **Agreed next** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass is source material **to verify**, not to invent. |
+| 3 | Empty but armable ships | Missing | **Agreed next** | Three slots; empty stays empty across save/load; unarmed NPC cannot fire. Doctrine physical fire gate; §11 per-weapon gate. |
+| 4 | Boarding / capture / command transfer | Explicitly deferred in P4–P6 briefs | **Agreed next** | ≤10% hull to board; capture vs scuttle; away-team XP retain/lose **TBD**; fleet command transfer. See `GUIDED-CONVERGENCE.md` §4. |
+| 5 | Station construction visuals | Missing | **Agreed next** | Scaffolds, workbees, **blue** construction beams ≠ combat evidence. **Do not redo repair arms** (side-lane Pass, PR #18). |
+| 6 | Faction-wide standing / purchase tiers | Missing as live gates | **Agreed next** | Money ≠ trust. First balance pass: Open 0, Trusted 15, Respected 30, Military 50, Strategic 75, Excalibur/Concord 100; new character **20** with selected faction. Independent trade standing in neutral entry. §10 trade restrictions. |
+| 7 | Catalog wire + purchase rules | Additive pack only | **Agreed next** | Guided may wire first; bake-off must still do this. Reuse Reman `meetPackPurchaseDecision` (soft from PR #18). Pack `getPurchaseDecision` + region rules. |
+| 8 | Broader economy / difficulty | Requested / proposed | **Proposed** | §10 / §13. Adjustable tuning; **preserve political identity at all difficulties**. No invented unrest / repair / prestige curves here. |
+| 9 | Weapon / station review presentation | Missing | **Working agreement** | HTML catalogs **without** requiring Flash. |
+| 10 | Dominion distribution / Gorn reserved / major-threat mission-only | Doctrine + pack rules exist; **live spawn/purchase not wired** | **Cross-link** (wires with #7) | Doctrine Gorn absence + hidden Dominion campaign (§12). Pack `reserved-gorn`, `dominion-all` / `dominion-core`, `mission-only`. Short write-up: `GUIDED-CONVERGENCE.md` §10. |
+
+### 16.3 Suggested remaining order (bake-off only)
+
+1. Weapon/device ledger (audit, no retune).
+2. Empty-but-armable persistence + unarmed-cannot-fire.
+3. Flags / passes / utility inventory (verify Thaleron Test Facility pass).
+4. Standing-tier data (Open → Excalibur; new char 20).
+5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions).
+6. Boarding / capture / command transfer.
+7. Station construction visuals (not repair arms).
+8. HTML weapon/station review catalogs.
+9. Broader economy / difficulty knobs, identity unchanged.
+10. Phase 6 **engine** when scoped — brief already exists.
+
+### 16.4 Working agreement (this backlog)
+
+- Blind: implement from `docs/` only.
+- HTML for weapon/station review; Flash is evidence, not a required viewer.
+- Label Flash / pack numbers as source material until Tenth locks them.
+- Do not reopen Phase 1–6 briefs or the side-lane as incomplete.
