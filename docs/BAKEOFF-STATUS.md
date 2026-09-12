@@ -16,6 +16,7 @@ Times below are ISO-8601 UTC (`Z`) with the matching Asia/Dubai wall clock (`UTC
 | `docs/doctrine/` | Faction doctrine v0.2.1 pack + offline validator |
 | `docs/phase3/` | Phase 3 holding-zones / compliance briefs |
 | `docs/phase4/` | Phase 4 incidents / escalation / alerts proposal + engine deps |
+| `docs/side-lane-repair-reman-independence/` | Side-lane brief (repairCapable / Reman unlock / independence) — proposal; not a Referee Pass |
 | This file | What landed here and how it was gated |
 
 ## Merged
@@ -65,6 +66,7 @@ This status MD is docs-only on top of `092e530`.
 3. Phase 3 holding zones are **no longer Pending on bake-off** — landed [PR #8](https://github.com/Artemis2028/BM1-bakeoff/pull/8) (`da1604b`, includes red-team [PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9)). Plan §2 still listing holding zones as Pending is a **non-blocking docs drift** on `docs/revised-development-plan.md`, not bake-off status. [PR #4](https://github.com/Artemis2028/BM1-bakeoff/pull/4) briefs are already on `main`.
 4. Phase 4 engine is **done** — landed [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13) (`092e530`, implement tip `7f926df`). Hard gates closed: S6.1/2 non-aggression, S6.4 single standing, S4-21 rewritten, S6.13 `protect` → `record_only`, S6.14 no second FLASH. Soft follow-up optional: top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy` — only if holding alert overrides matter.
 5. Later / next plan phase only when Tenth scopes it — still bake-off-only unless directed otherwise. Process note: no GitHub Actions CI; gates are local suites only.
+6. Side-lane brief (repairCapable / Reman unlock / independence-civil-war) — **proposal PR open** from `main` @ `10c3a7e` (after additive `bm-ships/` PR #15; no catalog wire). **Not** roadmap Phase 5. **No Referee Pass claimed.** Referee / One / Four / Two score the three hard gates before any engine PR. Number Three probes only after engine.
 
 ## Version history
 
