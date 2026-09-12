@@ -262,7 +262,7 @@ Doctrine already states this. The pack already encodes it. What is missing on ba
 | Major-threat / mission-only hulls | Borg and similar need assigned operations, not ambient traffic | `availabilityRegion: "mission-only"` requires `role === 'mission'` and `authorizedDeployment` |
 | Dominion Battleship | Occupation/campaign, not ambient | Pack: no-ambient-traffic flag retained even in core |
 
-Do not recreate a Gorn state from a leftover name pool. Do not let ordinary Earth traffic spawn Dominion core hulls. Authorised invasion/mission flags must be real operations, not a debug default.
+Do not recreate a Gorn state from a leftover name pool. Do not let ordinary Earth traffic spawn Dominion core hulls. Authorized invasion/mission flags must be real operations, not a debug default.
 
 Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Dominion campaign; `bm-ships/README.md` “Using it in a browser game”; `bm-ships/integration-rules.json` `dominion` / reserved Gorn.
 
