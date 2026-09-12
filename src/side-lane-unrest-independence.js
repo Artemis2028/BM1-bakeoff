@@ -336,7 +336,8 @@ export function raiseUnrestFromPressure(store, systemIndex, source, extras = {})
   }
   return {
     ok: true,
-    raised: ELIGIBILITY_RANK[world.eligibility] > ELIGIBILITY_RANK[before],
+    raised: true,
+    eligibilityRose: ELIGIBILITY_RANK[world.eligibility] > ELIGIBILITY_RANK[before],
     unrest: snapshotWorldUnrest(store, systemIndex),
     temperamentWrite,
     ownersRewritten: false,

@@ -2644,8 +2644,12 @@ async function runSideLaneUnrestIndependence(page, results) {
     });
     p.prepareArena({ clearTraffic: true });
     const roles = lane.injectLoungeAndContract();
+    const planet = p.snapshot().currentPlanet;
+    lane.injectUnrest(planet, 'below');
     const pirateCommerce = lane.raiseUnrestFromCommerceFailure({ cause: 'pirate' });
+    lane.injectUnrest(planet, 'below');
     const blockade = lane.raiseUnrestFromCommerceFailure({ cause: 'blockade', failDelivery: false });
+    lane.injectUnrest(planet, 'below');
     const pirates = lane.raiseUnrestFromPiratePresence();
     const concession = lane.spawnConcession({ id: 's7-relief-concession', faction: 'ferengi' });
     const ownerBeforeRelief = lane.concessionOwner(concession.id);
