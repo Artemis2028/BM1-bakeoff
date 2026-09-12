@@ -2882,7 +2882,8 @@ async function runPhase5Objectives(page, results) {
       attackerId: overdue?.truth?.attackerId,
       standingSame: JSON.stringify(snap.standing) === JSON.stringify(standingBefore),
       writesSame: snap.standingWriteCount === writesBefore,
-      namesKiller: /pirates destroyed|killed by|attacker identified/i.test(journal),
+      namesKiller: /pirates destroyed|killed by/i.test(journal)
+        || (/attacker identified/i.test(journal) && !/no attacker identified/i.test(journal)),
       sayable: overdue?.sayable || journal,
       incidentKind: incident?.kind || null,
     };

@@ -4705,7 +4705,7 @@ function openPhase5Overdue(sourceObjective, extras = {}) {
   const identity = currentLocationIdentity(state.currentPlanet);
   const incident = openIncident(ledger, {
     kind: 'asset_overdue',
-    systemIndex: assignment.destinationSystemIndex ?? state.currentPlanet,
+    systemIndex: state.currentPlanet,
     locationId: identity.locationId,
     jurisdictionId: identity.jurisdictionId,
     authoritySide: getSystemControl(state.currentPlanet)?.authoritySide || null,
@@ -4908,8 +4908,8 @@ function evaluateObserverForIncident(npc, incident, factOverrides = {}) {
       const assignmentId = incident.links?.assignmentId;
       known = Boolean(assignmentId && observerKnowsAssignment(npc, assignmentId));
     }
-    if (factOverrides.event_known === true) known = true;
   }
+  if (!forcedUnknown && factOverrides.event_known === true) known = true;
   if (forcedUnknown) known = false;
   if (known && key) grantObserverCopy(ledger, key, incident.incidentId);
   const facts = { ...factOverrides };
@@ -20533,6 +20533,7 @@ function createPhase5ProbeApi() {
       contractShip.civilianPurpose = 'contract';
       const board = ensureObjectiveBoard();
       const injected = injectShortageAndConvoy(board, {
+        assignmentId: opts.assignmentId || undefined,
         originSystemIndex: origin,
         destinationSystemIndex: destination,
         originName,
