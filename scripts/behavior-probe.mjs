@@ -2482,6 +2482,274 @@ async function runSideLaneRepairReman(page, results) {
   );
 }
 
+async function runSideLaneUnrestIndependence(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+
+  const s71118 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const lane = probe2.sideLane;
+    const vulcan = p.systemIndexByName('Vulcan');
+    p.warpTo(vulcan);
+    p.prepareArena({ clearTraffic: true });
+    const beforeEngage = probe2.mayAutoEngage({ id: 's7-gate3', faction: 'dominion', hostile: true, attitude: 'hostile' });
+    const concession = lane.spawnConcession({ faction: 'ferengi' });
+    const ownerBefore = lane.concessionOwner(concession.id);
+    const minted = lane.declareIndependence(vulcan, {
+      authoredInject: true,
+      parentSideId: 'vulcan',
+      parentTemperament: { conflict: 'warlike', outsider: 'xenophobic' },
+      parentProfileId: 'vulcan',
+      worldCultureId: 'reman',
+      temperament: { conflict: 'peaceful', outsider: 'xenophilic' },
+      origin: 'vulcan',
+      civilWar: true,
+    });
+    const ownerAfter = lane.concessionOwner(concession.id);
+    const snap = lane.snapshot();
+    const birth = {
+      sideId: minted.sideId,
+      temperament: minted.temperament,
+      profileId: minted.profileId,
+    };
+    const shifted = lane.shiftTemperament(minted.sideId, { conflict: 'warlike', outsider: 'xenophobic' });
+    const afterShift = lane.snapshot();
+    const afterEngage = probe2.mayAutoEngage({ id: 's7-gate3', faction: 'dominion', hostile: true, attitude: 'hostile' });
+    return {
+      beforeEngage,
+      afterEngage,
+      minted,
+      ownerBefore,
+      ownerAfter,
+      snap,
+      birth,
+      shifted,
+      afterShift,
+      roe: probe2.snapshot().effectiveRoe,
+      roeModes: snap.playerRoeModes,
+      flagShare: snap.flagShareGrantsControl,
+      cultureFire: snap.cultureGrantsFire,
+      accessCeasefire: snap.accessIsCeasefire,
+      phase5: snap.phase5AssetOverdue,
+    };
+  });
+  check(
+    results,
+    'S7.11 independence-mints-new-side',
+    s71118.minted?.ok === true
+      && s71118.minted.sideId
+      && s71118.minted.sideId !== 'vulcan'
+      && s71118.minted.sideId !== 'neutral'
+      && s71118.minted.sideId !== 'ferengi'
+      && s71118.minted.sideId !== 'reman'
+      && String(s71118.minted.sideId).startsWith('breakaway:'),
+    JSON.stringify({ sideId: s71118.minted?.sideId, reason: s71118.minted?.reason }),
+  );
+  check(
+    results,
+    'S7.12 foreign-concessions-unchanged',
+    s71118.ownerBefore?.kind === 'private'
+      && s71118.ownerAfter?.kind === 'private'
+      && s71118.ownerAfter?.sideId === s71118.ownerBefore?.sideId
+      && s71118.ownerAfter?.sideId === 'ferengi',
+    JSON.stringify({ before: s71118.ownerBefore, after: s71118.ownerAfter }),
+  );
+  check(
+    results,
+    'S7.13 doctrine-inheritance-explicit-and-divergent',
+    s71118.minted?.inheritance?.explicit === true
+      && s71118.minted?.inheritance?.silentParentClone === false
+      && s71118.minted?.inheritance?.divergedFromParent === true
+      && s71118.minted?.profileId !== 'vulcan'
+      && s71118.minted?.playerRoeInstalled === false,
+    JSON.stringify({
+      inheritance: s71118.minted?.inheritance,
+      profileId: s71118.minted?.profileId,
+      temperament: s71118.minted?.temperament,
+    }),
+  );
+  check(
+    results,
+    'S7.14 phase1-authority-still-holds',
+    s71118.flagShare === false
+      && s71118.afterShift?.flagShareGrantsControl === false
+      && s71118.minted?.control?.flagShareGrantsControl === false,
+    JSON.stringify({ flagShare: s71118.flagShare, after: s71118.afterShift?.flagShareGrantsControl }),
+  );
+  check(
+    results,
+    'S7.15 parent-lists-not-cloned',
+    Array.isArray(s71118.minted?.relations?.friendly)
+      && s71118.minted.relations.friendly.length === 0
+      && s71118.minted.relations.hostile?.includes('vulcan')
+      && !(s71118.minted.relations.hostile || []).includes('terran'),
+    JSON.stringify(s71118.minted?.relations),
+  );
+  check(
+    results,
+    'S7.16 culture-is-not-empire-or-fire',
+    s71118.minted?.cultureId === 'reman'
+      && s71118.minted?.sideId !== 'reman'
+      && s71118.cultureFire === false,
+    JSON.stringify({ cultureId: s71118.minted?.cultureId, sideId: s71118.minted?.sideId, fire: s71118.cultureFire }),
+  );
+  check(
+    results,
+    'S7.17 war-temperament-may-mutate',
+    s71118.shifted?.ok === true
+      && s71118.shifted.after?.temperament?.conflict === 'warlike'
+      && s71118.shifted.after?.profileId !== s71118.birth?.profileId
+      && s71118.shifted.engagementAuthorizedInjected === false
+      && s71118.shifted.ownersRewritten === false
+      && s71118.accessCeasefire === false
+      && s71118.roeModes?.length === 2
+      && s71118.roeModes.includes('return-fire')
+      && s71118.roeModes.includes('defend')
+      && s71118.beforeEngage === s71118.afterEngage,
+    JSON.stringify({
+      shifted: s71118.shifted,
+      birth: s71118.birth,
+      engage: { before: s71118.beforeEngage, after: s71118.afterEngage },
+    }),
+  );
+  check(
+    results,
+    'S7.18 not-frozen-at-declaration',
+    s71118.shifted?.after?.temperament?.conflict !== s71118.birth?.temperament?.conflict
+      && s71118.shifted?.after?.profileId !== s71118.birth?.profileId
+      && s71118.minted?.sideId === s71118.birth?.sideId,
+    JSON.stringify({ birth: s71118.birth, after: s71118.shifted?.after }),
+  );
+
+  const s71923 = await page.evaluate(() => {
+    const p = globalThis.BM1Probe;
+    const probe2 = globalThis.__BM1_PROBE__;
+    const lane = probe2.sideLane;
+    const sol = p.systemIndexByName('Sol');
+    p.warpTo(sol >= 0 ? sol : p.snapshot().currentPlanet);
+    p.prepareArena({ clearTraffic: true });
+    const below = lane.injectUnrest(p.snapshot().currentPlanet, 'below');
+    const random = lane.declareIndependence(p.snapshot().currentPlanet, {
+      authoredInject: false,
+      parentSideId: 'terran',
+    });
+    const at = lane.injectUnrest(p.snapshot().currentPlanet, 'at');
+    const eligibleMint = lane.declareIndependence(p.snapshot().currentPlanet, {
+      authoredInject: false,
+      parentSideId: 'terran',
+      parentTemperament: { conflict: 'warlike', outsider: 'xenophobic' },
+      parentProfileId: 'terran',
+      temperament: { conflict: 'peaceful', outsider: 'xenophilic' },
+      origin: 'sol',
+    });
+    p.prepareArena({ clearTraffic: true });
+    const roles = lane.injectLoungeAndContract();
+    const pirateCommerce = lane.raiseUnrestFromCommerceFailure({ cause: 'pirate' });
+    const blockade = lane.raiseUnrestFromCommerceFailure({ cause: 'blockade', failDelivery: false });
+    const pirates = lane.raiseUnrestFromPiratePresence();
+    const concession = lane.spawnConcession({ id: 's7-relief-concession', faction: 'ferengi' });
+    const ownerBeforeRelief = lane.concessionOwner(concession.id);
+    const hostilityBefore = eligibleMint?.relations?.hostile?.slice() || [];
+    const relief = lane.relieveUnrest({ action: 'clearPirates', sideId: eligibleMint.sideId });
+    const ownerAfterRelief = lane.concessionOwner(concession.id);
+    const snap = lane.snapshot();
+    const war = lane.raiseUnrestFromWarGoingBadly();
+    const develop = lane.raiseUnrestFromUnderdevelopment();
+    const agitation = lane.raiseUnrestFromRivalAgitation(undefined, { agitator: 'klingon' });
+    return {
+      below,
+      random,
+      at,
+      eligibleMint,
+      roles,
+      pirateCommerce,
+      blockade,
+      pirates,
+      relief,
+      ownerBeforeRelief,
+      ownerAfterRelief,
+      hostilityBefore,
+      hostilityAfter: snap.breakaway?.relations?.hostile || [],
+      civilWarStill: snap.breakaway?.civilWarActive,
+      snap,
+      war,
+      develop,
+      agitation,
+      stacked: snap.unrest?.stackedSources,
+    };
+  });
+  check(
+    results,
+    'S7.19 unrest-threshold-declaration',
+    s71923.below?.unrest?.eligible === false
+      && s71923.random?.ok === false
+      && /random-flip/i.test(s71923.random?.reason || '')
+      && s71923.at?.unrest?.eligible === true
+      && s71923.eligibleMint?.ok === true
+      && s71923.eligibleMint?.sideId
+      && s71923.eligibleMint.sideId !== 'terran'
+      && s71923.eligibleMint.sideId !== 'neutral',
+    JSON.stringify({
+      below: s71923.below?.unrest,
+      random: s71923.random,
+      at: s71923.at?.unrest,
+      minted: s71923.eligibleMint?.sideId,
+    }),
+  );
+  check(
+    results,
+    'S7.20 commerce-failure-raises-unrest',
+    s71923.pirateCommerce?.raised === true
+      && s71923.blockade?.raised === true
+      && s71923.pirateCommerce?.unrest?.commerceFailed === true
+      && s71923.blockade?.unrest?.lastWrite?.cause === 'blockade',
+    JSON.stringify({ pirate: s71923.pirateCommerce, blockade: s71923.blockade }),
+  );
+  check(
+    results,
+    'S7.21 pirate-presence-raises-unrest',
+    s71923.pirates?.raised === true
+      && s71923.pirates?.ownersRewritten === false
+      && s71923.pirates?.cultureFireGranted === false,
+    JSON.stringify(s71923.pirates),
+  );
+  check(
+    results,
+    'S7.22 lounge-and-contract-coexist',
+    s71923.roles?.ok === true
+      && s71923.roles?.coexist === true
+      && s71923.roles?.lounge?.purpose === 'lounge'
+      && s71923.roles?.contract?.purpose === 'contract'
+      && s71923.snap?.civilianRoles?.lounge >= 1
+      && s71923.snap?.civilianRoles?.contract >= 1,
+    JSON.stringify({ roles: s71923.roles, counts: s71923.snap?.civilianRoles }),
+  );
+  check(
+    results,
+    'S7.23 relief-lowers-unrest-without-ending-war',
+    s71923.relief?.lowered === true
+      && s71923.relief?.civilWarErased === false
+      && s71923.civilWarStill === true
+      && s71923.relief?.playerRoeInstalled === false
+      && s71923.ownerBeforeRelief?.sideId === 'ferengi'
+      && s71923.ownerAfterRelief?.sideId === 'ferengi'
+      && Array.isArray(s71923.hostilityAfter)
+      && s71923.hostilityAfter.includes('terran'),
+    JSON.stringify({
+      relief: s71923.relief,
+      war: s71923.civilWarStill,
+      hostility: s71923.hostilityAfter,
+      owners: { before: s71923.ownerBeforeRelief, after: s71923.ownerAfterRelief },
+    }),
+  );
+  check(
+    results,
+    'S7 unrest-does-not-change-mayAutoEngage',
+    s71118.beforeEngage === s71118.afterEngage,
+    JSON.stringify({ before: s71118.beforeEngage, after: s71118.afterEngage }),
+  );
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -2498,13 +2766,14 @@ async function main() {
     await runPhase3Checkpoints(page, results);
     await runPhase4Incidents(page, results);
     await runSideLaneRepairReman(page, results);
+    await runSideLaneUnrestIndependence(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
