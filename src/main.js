@@ -20132,6 +20132,8 @@ function createSideLaneProbeApi() {
       state.docked = true;
       state.dockedPlanetIndex = state.currentPlanet;
       state.dockedStationId = null;
+      state.planetMenuOpen = true;
+      state.dockMenuTab = 'services';
       renderPlanetMenu();
       return currentRepairDockLocation();
     },
@@ -20141,6 +20143,8 @@ function createSideLaneProbeApi() {
       state.docked = true;
       state.dockedStationId = station.id;
       state.dockedPlanetIndex = null;
+      state.planetMenuOpen = true;
+      state.dockMenuTab = 'market';
       maybeGrantRemanFromVendor(station);
       renderPlanetMenu();
       return { ok: true, ...currentRepairDockLocation() };
