@@ -2,15 +2,16 @@
 
 **Status:** proposal for implementation; no engine changes made by this document.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
-**Planning baseline:** `10c3a7e` on `main` (12 September 2026), after Phases 1–4 and additive `bm-ships/` (PR #15). No catalog wire.  
+**Planning baseline:** `1791808` on `main` (12 September 2026), after side-lane brief PR #16. Still after Phases 1–4 and additive `bm-ships/` (PR #15). No catalog wire.  
 **Referee context:** Phase 4 engine §6 **Pass** on `7f926df`. This brief does **not** claim a new Referee Pass and is **not** roadmap Phase 5.  
 **Companion:** `docs/side-lane-repair-reman-independence/BM1-SIDE-LANE-ENGINE-DEPENDENCIES.md` (hooks, risks, probe IDs).  
 **Scoped by:** Tenth Mountain Trooper, 2026-09-12.  
-**Tenth amend (docs, 2026-09-12):** hard gate 3 — breakaway doctrine/ROE **may diverge** from the parent; temperament axes may shift during civil war. Gates 1–2 unchanged.
+**Tenth amend (docs, 2026-09-12):** hard gate 3 — breakaway doctrine/ROE **may diverge** from the parent; temperament axes may shift during civil war. Gates 1–2 unchanged.  
+**Tenth amend (docs, 2026-09-12, unrest/commerce/pirates):** independence is **not a random flip**. Stackable outside pressure raises unrest; civilians have **both** lounge/idle and commerce-contract purpose; pirates are a pressure faction. Temperament may shift *because* of these pressures. Hard gate 3 shape preserved. Gates 1–2 unchanged. See §6.
 
 Phases 1–4 already landed: political authority, two-mode ROE, holding zones/compliance, and incident ledger / FLASH. Additive `bm-ships/` is on `main` as a ships-only pack. This brief may reference that pack. It must not require wiring the full 212-hull roster into gameplay.
 
-This is a **side-lane** after Phase 4 / alongside idle Phase 5 (convoy / persistent objectives). Three Flash-shaped repairs that the roadmap never numbered: service capability, a durable Reman access rule, and world independence / civil war.
+This is a **side-lane** after Phase 4 / alongside idle Phase 5 (convoy / persistent objectives). Three Flash-shaped repairs that the roadmap never numbered: service capability, a durable Reman access rule, and world independence / civil war. The 2026-09-12 unrest amend adds *why* a world becomes declaration-eligible (pressure, commerce, pirates, civilian purpose) without taking Phase 5’s campaign convoy loop.
 
 ## 1. The result we want
 
@@ -20,16 +21,18 @@ Three playable facts become true, each behind a hard gate:
 2. **Reman Warbird access is an unlock**, not a live Remus starbase instance. Destroying that base does not erase access forever. A recovery path exists (mission / alternate unlock / durable player flag).
 3. **Worlds can break away.** A declaration of independence mints a **new political side** and can start a civil war. Foreign concessions stay foreign. Doctrine and ROE for the breakaway are **assigned explicitly** and **may (and should be able to) differ** from the parent — never a silent clone. During the war, temperament axes may shift and inform later doctrine/ROE. Phase 1 authority Passes stay closed.
 
-**Exit condition (this side-lane):** the three hard gates in §2 can be scored from the brief, then (only after Tenth scopes an engine lane) exercised by S7 probes without reopening Phase 1–4 Passes or starting Phase 5.
+**Exit condition (this side-lane):** the three hard gates in §2 can be scored from the brief, including §6 (unrest is not a random flip; lounge and contract civilians coexist), then (only after Tenth scopes an engine lane) exercised by S7 probes without reopening Phase 1–4 Passes or starting Phase 5.
 
 **Proposed first-release decisions:**
 
 | Question | Proposed answer |
 | --- | --- |
 | Is this Phase 5? | **No.** Phase 5 remains convoy / persistent overdue-asset loops. This is a side-lane. |
-| First engine slice, if scoped later? | Prefer three thin gates over one content dump: `repairCapable` + overlay; a durable Reman access flag + recovery hook; independence that mints a side and writes inheritance explicitly. |
+| First engine slice, if scoped later? | Prefer three thin gates over one content dump: `repairCapable` + overlay; a durable Reman access flag + recovery hook; independence that mints a side and writes inheritance explicitly. Unrest eligibility and lounge/contract coexist may be **inject/fixture** first — not a full economy. |
+| Independence a random flip? | **No.** Stacked pressure raises unrest until declaration is eligible (§6). |
+| Every civilian a contract freighter? | **No.** Lounge / idle / local traffic **and** commerce contracts must coexist. |
 | Wire the 212-hull `bm-ships/` catalog? | **No**, unless a later Reman unlock slice truly needs that one hull. Prefer a minimal access rule. |
-| Invent repair costs, civil-war timers, or prestige numbers? | **No.** Difficulty knobs may come later. |
+| Invent repair costs, civil-war timers, prestige, unrest thresholds, or starve/N-jump numbers? | **No.** Difficulty knobs may come later. |
 | Key Reman access to `Reman Starbase` remaining alive? | **No.** Access is a rule / unlock. The station is one vendor, not the key. |
 | Copy parent doctrine/ROE onto a breakaway? | **No silent copy.** Divergence is **allowed and expected**. Number 2’s §5.3 table says which fields may differ at birth and which may mutate in war. |
 
@@ -100,6 +103,15 @@ Tenth amend (docs, 12 September 2026) — **locked decision on hard gate 3**, no
 - Temperament shifts must **not** silently rewrite Phase 1 ownership, foreign concessions, or give culture fire permission.
 - The two player Security ROE modes stay (`return-fire` / `defend`). Access remains a permission, not a ceasefire.
 
+Tenth amend (docs, 12 September 2026) — **follow-on design on hard gate 3**, not a change to gates 1–2 and not a rewrite of the divergence lock above:
+
+- Independence is **not a random flip**. Stackable **outside pressure** raises unrest / loyalty loss until a later-scoped threshold makes declaration *eligible*. The declaration itself still mints a **new political side** and assigns doctrine/ROE **explicitly** (§5 / §6).
+- Pressure sources (stack): war going badly (losses, occupation, failed home defense); commerce starved (blocked routes, empty markets, failed deliveries over N jumps — piracy is one cause among others); lack of economic development (thin station mix / long neglect); the unrest chain (soft → protests → militia → declaration); outside agitation by rival factions (**doctrine-facing**; must not silently rewrite Phase 1 ownership).
+- Ambient civilians are not scenery-only. They have **jobs** (commerce contracts) **and** they must be able to **lounge / idle locally**. Commerce is a purpose, not their only purpose. Do not make every civilian a freighter on a timer.
+- **Pirates** are a pressure faction: prey on civilian routes, avoid strong military, raise unrest where they thrive. Clearing them is a relief lever.
+- Temperament axes may shift **because of these pressures** (named writes). Thresholds, N, starve rates, and lounge:contract ratios are **TBD — do not invent numbers**.
+- This is **not** Phase 5. Future convoy / `asset_overdue` scenarios may overlap “commerce can fail across jumps” without this lane taking that campaign.
+
 Must **not** reopen Phase 1 authority Passes. Preserve, without reopening:
 
 - Authority is a political side (`isSystemControlled` / `playerHoldsSystem`), **not** a flown flag. `flagShareGrantsSystemControl()` remains false.
@@ -115,8 +127,10 @@ Must **not** reopen Phase 1 authority Passes. Preserve, without reopening:
 
 - **Proposal first.** Do not implement from this text until Tenth scopes the engine lane after a brief Pass.
 - **Blind bake-off.** Implement from `docs/` only. Do not crib `Artemis2028/BM1-remastered-work` guided PR.
-- **Not Phase 5.** Do not take convoy / `asset_overdue` / multi-jump persistent objectives in this lane.
+- **Not Phase 5.** Do not take convoy / `asset_overdue` / multi-jump persistent *campaign* objectives in this lane. §6 may note overlap with future commerce scenarios; it must not steal Phase 5.
+- **No invented balance numbers.** Unrest thresholds, N-jump starve counts, pirate spawn rates, lounge:contract ratios, and development-mix rules stay TBD.
 - **`bm-ships/` is additive and already merged.** Reference it. Do not treat this brief as permission to wire the catalog.
+- **Soft S7.8** (Reman flag ↔ pack `getPurchaseDecision` / missing `specialVendor`) remains an implement-only meeting point. This amend does not close or invent it.
 
 ## 3. Repair arms and `repairCapable`
 
@@ -271,6 +285,8 @@ A world (or its government) can **declare independence** from its current holder
 
 This is the Flash-shaped political break. It is **not** Phase 5 convoy play, **not** a new alliance system, and **not** permission to treat doctrine culture as a state.
 
+**Eligibility is not a coin flip.** §6 is the scoring surface for *why* a world becomes declaration-eligible (stacked unrest / pressure). A probe may still inject a declaration to close S7.11–S7.18; an engine that ships random secession with no unrest write fails the unrest amend.
+
 ### 5.2 What must not happen (Phase 1 stays closed)
 
 | Tempting shortcut | Why it fails the gate |
@@ -336,7 +352,7 @@ Mutations are **named writes** (a war event → temperament change → explicit 
 
 | Field | May mutate during civil war? | Who | Notes |
 | --- | --- | --- | --- |
-| Temperament poles | **Yes** | Breakaway **should**; parent **may** | Shift along the named axes only. Which events move which pole is Q12. |
+| Temperament poles | **Yes** | Breakaway **should**; parent **may** | Shift along the named axes only. Which events move which pole is Q12. §6 pressure sources (war going badly, starved commerce, agitation, thriving pirates, relief) are valid **named** inputs — not a silent tick. |
 | Doctrine `profileId` | **Yes**, if an explicit map says the new temperament makes another profile eligible | Same side as the temperament write | Rematch; do not `Object.assign` from the other belligerent. |
 | `engagementModes` / fire allowlists | **Yes**, only as a consequence of the rematched profile | Same | Culture still cannot grant fire permission. |
 | `evaluateReact` interests | **Yes**, from the rematched profile only | Same | |
@@ -394,11 +410,142 @@ A Ferengi concession in a world that breaks away from (e.g.) Romulan control rem
 
 ### 5.5 What this brief does not invent
 
-Flash trigger chances, army sizes, day-counts, which named worlds secede first, whether the **player** can press “Declare independence” on a holding they already control, and which war events move which temperament pole are **open questions** (§9). The hard gate is the **shape**: new side; explicit inheritance; **divergence allowed**; war may mutate temperament / informed doctrine/ROE; concessions untouched; Phase 1 closed.
+Flash trigger chances, army sizes, day-counts, which named worlds secede first, whether the **player** can press “Declare independence” on a holding they already control, and which war events move which temperament pole are **open questions** (§10). Unrest thresholds, N-jump starve counts, and lounge:contract mix are also open — see §6.8 / Q14–Q18. The hard gate is the **shape**: new side; explicit inheritance; **divergence allowed**; war *and* §6 pressures may mutate temperament / informed doctrine/ROE; concessions untouched; Phase 1 closed; independence not a random flip.
 
-A first engine slice can be as small as: one authored or probe-injected declaration on one world, mint side, assign a temperament **different from the parent**, write the §5.3 table, start explicit parent hostility, then inject one war event that shifts a pole and rematches profile — prove concessions and player ROE catalog unchanged. Galaxy-wide AI secession is not required to close the gate.
+A first engine slice can be as small as: one authored or probe-injected declaration on one world, mint side, assign a temperament **different from the parent**, write the §5.3 table, start explicit parent hostility, then inject one war event **or** one §6 pressure write that shifts a pole and rematches profile — prove concessions and player ROE catalog unchanged. Galaxy-wide AI secession is not required to close the gate. Unrest eligibility can be probe-injected (below vs at/above threshold) without a full commerce sim.
 
-## 6. Acceptance exercises (S7)
+## 6. Unrest, commerce, pirates, and civilian purpose
+
+**Tenth amend (docs, 2026-09-12).** Follow-on design after the gate-3 divergence amend. **Does not change hard gates 1–2.** Hard gate 3’s shape is preserved: a declaration still mints a **new political side** and assigns doctrine/ROE **explicitly**. This section is the scoring surface for *why* a world becomes eligible — independence is **not a random flip**.
+
+**Lane owners (wording):** Number Four (civilian roles, commerce hooks, pirate pressure). Number 2 (outside agitation + temperament-from-pressure; doctrine-facing). Referee / One score this section against hard gate 3 before any engine PR.
+
+Companion risks, hooks, and probe IDs: `BM1-SIDE-LANE-ENGINE-DEPENDENCIES.md` (S7.19–S7.23).
+
+### 6.1 The result we want
+
+Worlds do not secede because a silent die said so. **Stackable outside pressure** raises **unrest** (loyalty loss) on a world / holder. When unrest reaches a later-scoped eligibility threshold (**TBD — do not invent the number**), a declaration becomes *eligible*. The declaration itself still follows §5 / hard gate 3.
+
+Ambient civilians are not scenery. They have **jobs** (commerce contracts: food, fuel, parts, timed deliveries). Stations can starve if those routes die. Failed commerce **feeds unrest**. The player can **escort**, **raid**, or **ignore**.
+
+Civilians must **also** be able to **lounge / idle locally** (dock, park, local traffic). Commerce is **a** purpose, not their **only** purpose. Both roles are valid in the same world. Do not make every civilian a freighter on a timer.
+
+**Pirates** are a **pressure faction**: they prey on civilian routes, avoid strong military, and raise unrest where they thrive. Clearing them is a **relief lever**.
+
+Temperament axes (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) **may shift because of these pressures** via named writes (§5.3.3). They still do not rewrite Phase 1 ownership or grant culture fire.
+
+### 6.2 Stackable pressure sources
+
+Sources **stack**. Any one source may be enough as a probe inject; in play they accumulate. None of them silently mints a `sideId`, clones parent doctrine, or retitles concessions.
+
+| Source | Raises unrest / loyalty loss when… | Must not do |
+| --- | --- | --- |
+| **War going badly** | Losses, occupation, failed home defense | Silently rewrite Phase 1 owners; invent army-size / loss-count thresholds |
+| **Commerce starved** | Blocked routes, empty markets, failed deliveries over **N jumps** | Treat piracy as the only cause; steal Phase 5 `asset_overdue` campaign loops; invent N |
+| **Lack of economic development** | Thin station mix and/or long neglect | Invent which mix is “thin”; auto-build stations; retitle concessions as “development” |
+| **Unrest chain** | Soft → protests → militia → declaration-eligible | Skip to mint with no unrest write; invent stage timers |
+| **Outside agitation** | Rival factions stir the world (**doctrine-facing**) | Silently rewrite Phase 1 ownership, foreign concessions, or culture→empire |
+
+Piracy is **one cause among others** of starved commerce (also blockade, destroyed yards, player raid, neglect, empty markets).
+
+### 6.3 Unrest chain and player levers
+
+```text
+soft unrest → protests → militia → declaration-eligible → §5 mint (new side, explicit doctrine/ROE)
+```
+
+Stages are **labels** for a later engine, not timers and not numeric bands. The player can **relieve** or **worsen** unrest at each step.
+
+| Direction | Example actions (first-slice shape; not a complete list) |
+| --- | --- |
+| **Relieve** (lowers unrest) | Escort surviving commerce; restore a starved market / completed delivery; **clear pirates**; successful home defense; later-scoped development |
+| **Worsen** (raises unrest) | Raid or destroy civilian traffic; let routes die; occupy / fail defense; ignore thriving pirates; later-scoped neglect |
+
+**Do not invent** stage durations, unrest units, or the declaration threshold. First engine slice, if scoped: probe-inject **below threshold** (declaration not eligible from unrest) vs **at/above threshold** (declaration eligible). A declaration that fires with **no** unrest write and **no** authored/probe inject is a **random flip** and fails this amend.
+
+Relief and worsen are **named writes**, same family as §5.3.3 temperament writes. They are not a silent tick and not a Phase 1 owner rewrite.
+
+### 6.4 Civilian ships with purpose
+
+Ambient civilians are not scenery-only. Give them **jobs**:
+
+- **Contracts:** food, fuel, parts runs; timed deliveries.
+- **Starve:** a station / world can go short if its routes die (blocked, raided, undelivered over N jumps).
+- **Unrest feed:** failed commerce is a §6.2 pressure source.
+- **Player:** escort, raid, or ignore. Escort is a relief lever. Raid is a worsen lever. Ignore lets other pressures continue.
+
+Existing engine roles `traffic` and `localTraffic` are the ambient meeting point (`consultDoctrineFire` already treats both as civilian targets). A **contract** role is **additive**. Do not replace every ambient civilian with a timer freighter.
+
+**Phase 5 boundary.** This is **not** the Phase 5 convoy / `asset_overdue` / multi-jump persistent *player-campaign* loop. This side-lane owns **unrest-from-failed-commerce** as political pressure. Phase 5 still owns the campaign convoy/distress scenario. Future Phase 5 work may share “commerce can fail across jumps” language; this lane must not implement remote objectives, deep-space POIs, or overdue-asset campaign bookkeeping.
+
+### 6.5 Lounging civilians (Tenth amend)
+
+Civilians must **also** be able to lounge / idle **locally**:
+
+- dock at a capable berth
+- park / hold in-system
+- local traffic (`localTraffic` or equivalent)
+
+Commerce is **a** purpose, not their **only** purpose. **Both** lounging and commerce traffic are valid. The same world should be able to show a lounging civilian **and** a contract civilian at once.
+
+| Fail | Why |
+| --- | --- |
+| Every civilian is a freighter on a delivery timer | Tenth: lounge is required, not optional flavor |
+| Lounge-only forever; no contract role can exist | Civilians are not scenery-only; commerce is a real purpose |
+| Converting `localTraffic` into contracts and deleting idle dock/park | Lounge was not replaced; it coexists |
+
+Do not invent a lounge:contract population ratio. First slice: a fixture (or probe inject) that places **one lounge civilian** and **one contract civilian** in the same system is enough to close S7.22.
+
+### 6.6 Pirates as a pressure faction
+
+`pirate` already exists as a faction (empty-list independent, predation-facing fire facts, cargo-raid flavor). This amend gives them a **political job**, not a new empire:
+
+- **Prey** on civilian routes (commerce contracts; opportunistically local/lounge traffic).
+- **Avoid** strong military (do not invent a bravery number; first slice: prefer a civilian-route fixture over a defended military fixture).
+- **Raise unrest** where they thrive (pirate presence is a pressure source; it also starves commerce when they kill or abort deliveries).
+- **Clearing them is a relief lever** (lowers unrest — S7.23).
+
+Piracy is **one** cause of commerce starvation, not the only cause. Pirates are not a culture fire grant, not a Phase 1 owner, and not a silent rewrite of concessions. Do not hook `allowsRoutineGenerator` to spawn a pirate navy “so unrest looks busy.”
+
+### 6.7 Temperament and hard gate 3
+
+Preserve the locked gate-3 shape:
+
+1. Declaration mints a **new** `sideId`.
+2. Doctrine / ROE inheritance is **explicit**; **divergence is allowed**.
+3. Foreign concessions stay foreign unless Phase 1 transfer already applies.
+4. Temperament (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) **may shift because of these pressures** — named writes, then rematch via §5.3.4.
+
+| Pressure write | May inform temperament (recommendation, not a chance table) | Must not do |
+| --- | --- | --- |
+| War going badly / occupation / failed home defense | Toward **warlike** and/or **xenophobic** | Inject `engagement_authorized`; retitle concessions |
+| Starved commerce / thriving pirates | Toward **warlike** (blame outsiders) or **xenophilic** (need trade) — **authored or probe-assigned**, not inferred in silence | Invent a default pole from “pirates exist” |
+| Outside agitation | Per the agitator’s authored intent / Number 2’s map | Culture fire; silent owner rewrite |
+| Relief (escorts, cleared pirates, restored deliveries) | May ease **warlike** / unrest; does not auto-pacify a written civil war | Erase parent↔breakaway hostility already written |
+
+Q12 now includes this pressure list. Still **do not invent chances**. One probe-injected pressure write is enough to extend S7.17.
+
+### 6.8 What this section does not invent
+
+Unrest threshold to declare; N in “failed deliveries over N jumps”; starve rates; pirate spawn / bravery numbers; lounge:contract mix; which station mix is “thin”; agitation strength; stage timers; prestige.
+
+A first engine slice can inject unrest states and one lounge + one contract civilian without simulating a galaxy economy.
+
+### 6.9 Current engine (do not treat as the spec)
+
+At `1791808`, `traffic` / `localTraffic` warp on an ambient timer (`scheduleAmbientTrafficWarp`). There is no contract, starve, or unrest store. `pirate` plus `predationOrder` / a cargo-raid log exist; they do not raise world unrest. That is the gap this amend names. **Leave existing ambient timers alone** unless a later scoped slice replaces a subset of civilians with contracts. Do not retune raid cargo loss numbers here.
+
+### 6.10 Non-goals for unrest / commerce / pirates
+
+- Phase 5 convoy / `asset_overdue` campaign loops, remote objectives, deep-space POIs.
+- Making every civilian a contract freighter, or deleting lounge/idle/local traffic.
+- Invented thresholds, N, spawn rates, or mix ratios.
+- Silent Phase 1 ownership / concession rewrite from agitation, pirates, or unrest.
+- Treating `pirate` as an empire, a doctrine culture, or a fire grant.
+- Closing S7.8 (Reman ↔ `getPurchaseDecision`) from this section.
+- Changing gates 1–2 (`repairCapable`, Reman unlock).
+
+## 7. Acceptance exercises (S7)
 
 Keep all existing Phase 1 / S4 / S5 / S6 / doctrine gates green. Add S7 fixtures that fail setup if a required planet, station type, hull id, or unlock record is missing. Classification-only asserts are insufficient for overlay, unlock persistence, and inheritance.
 
@@ -422,16 +569,24 @@ Keep all existing Phase 1 / S4 / S5 / S6 / doctrine gates green. Add S7 fixtures
 | **S7.16** Culture is not an empire / unlock | Doctrine culture `reman` does not grant Reman Warbird access and does not become the breakaway `sideId`. Culture still cannot grant fire permission — including after a **xenophobic** or **warlike** temperament write. |
 | **S7.17** War-driven temperament may mutate doctrine/ROE | After declaration, inject a civil-war event. Breakaway temperament poles (`peaceful` / `warlike` / `xenophobic` / `xenophilic`) **may change**; parent poles **may** change. Doctrine profile / informed posture follow the explicit §5.3.4 map. After the shift: concession owners unchanged; no `engagement_authorized` injection; player Security still only `return-fire` / `defend`; access is still not a ceasefire; `mayAutoEngage` unchanged unless Phase 2 evidence already permits. |
 | **S7.18** Not frozen at declaration | Snapshot temperament + `profileId` at mint. After S7.17’s war write they are allowed to differ from that snapshot. A design that cannot change them without a new `sideId` fails this lock. |
+| **S7.19** Unrest threshold declaration | Probe-inject unrest **below** the (TBD) eligibility mark: declaration is **not** unrest-eligible. Inject unrest **at/above** that mark: declaration **is** eligible and, if fired, still mints a new side per §5 / S7.11. Fail if a declaration fires with no unrest write and no authored/probe inject (random flip). **Do not hard-code a numeric threshold in the probe** — assert the named below/at states. |
+| **S7.20** Commerce failure raises unrest | Fail or abort a civilian delivery / empty a market / block a route (fixture or inject). Unrest on that world **rises**. Piracy may be the cause in this fixture; a second fixture should use a **non-pirate** cause (blockade, neglect, or player raid) so piracy is not the only path. |
+| **S7.21** Pirate presence raises unrest | With pirates thriving on a civilian route (or in-system with no relief), unrest **rises**. Do not require a spawned pirate navy. Fail if pirate presence rewrites concession owners or grants culture fire. |
+| **S7.22** Civilian lounge vs contract roles coexist | Same system fixture: **at least one** civilian lounging / idle / docked / `localTraffic` **and** **at least one** civilian on a commerce contract. Fail if every civilian is forced onto a delivery timer. Fail if no contract role can exist (scenery-only). |
+| **S7.23** Relief actions lower unrest | From a raised-unrest fixture, apply a named relief (clear pirates, complete/escort a delivery, or equivalent inject). Unrest **lowers**. Fail if relief silently ends a written civil war, installs player ROE on an NPC side, or retitles concessions. |
 
-Each case may contain multiple assertions. Do not promise a final probe count before S7 is written. Number Three owns the probe gate **after** engine, not this brief.
+Each case may contain multiple assertions. Do not promise a final probe count before S7 is written. Number Three owns the probe gate **after** engine, not this brief. **S7.8** stays a soft placeholder (Reman ↔ `getPurchaseDecision`); this unrest amend does not close it.
 
-## 7. Non-goals
+## 8. Non-goals
 
 This side-lane will not:
 
-- Implement Phase 5 convoy / `asset_overdue` campaign loops, remote objectives, or deep-space POIs.
+- Implement Phase 5 convoy / `asset_overdue` campaign loops, remote objectives, or deep-space POIs. §6 may *note* overlap with future commerce scenarios; it must not take that campaign.
 - Wire the full `bm-ships/` 212-hull catalog into spawn, markets, or traffic.
-- Invent hull IDs, repair prices, civil-war timers, or prestige thresholds.
+- Invent hull IDs, repair prices, civil-war timers, prestige, unrest thresholds, N-jump starve counts, pirate spawn rates, or lounge:contract ratios.
+- Make every civilian a contract freighter on a timer, or delete lounge / dock / park / local traffic.
+- Treat independence as a random flip with no unrest / authored / probe write.
+- Let outside agitation, pirates, or unrest silently rewrite Phase 1 ownership or foreign concessions.
 - Key Reman access to a live Reman Starbase instance, or delete access when that instance dies.
 - Treat Independent Warbird or other Warbird hulls as the Reman unlock.
 - Equate doctrine culture `reman` with a Reman empire or with the unlock.
@@ -446,17 +601,17 @@ This side-lane will not:
 - Touch `Artemis2028/BM1-remastered-work`.
 - Claim a Referee Pass in `docs/BAKEOFF-STATUS.md`.
 
-## 8. Implementation sequence and handoff
+## 9. Implementation sequence and handoff
 
-1. **Brief Pass.** Referee / One score §2 hard gates. Number Four scores §3–§4 wording. Number 2 scores §5.3. Do not open an engine PR on this document alone.
-2. **Tenth scopes the engine lane** (may split the three gates). Blind implement from `docs/` only.
-3. **Suggested order if scoped together:** `repairCapable` + overlay (smallest; existing `repairHull` / menu / player draw). Then durable Reman flag + destroy-base + recovery hook (no catalog wire). Then independence mint + §5.3 birth writes (divergent temperament) + concession fixture + one war-mutation write. Prove S7.1–S7.5 before overlay polish; S7.6–S7.10 before any Reman market UI; S7.11–S7.18 before civil-war flavor.
+1. **Brief Pass.** Referee / One score §2 hard gates **and** the new §6 pressure / civilian-purpose section. Number Four scores §3–§4 wording **and** §6 civilian / commerce / pirate hooks. Number 2 scores §5.3 **and** §6 agitation + temperament-from-pressure. Do not open an engine PR on this document alone.
+2. **Tenth scopes the engine lane** (may split the three gates; may defer §6 commerce sim behind unrest injects). Blind implement from `docs/` only.
+3. **Suggested order if scoped together:** `repairCapable` + overlay (smallest; existing `repairHull` / menu / player draw). Then durable Reman flag + destroy-base + recovery hook (no catalog wire). Then independence mint + §5.3 birth writes (divergent temperament) + concession fixture + one war-mutation write. Then unrest eligibility injects + lounge/contract coexist + pirate/relief writes (S7.19–S7.23) — full route sim is not required to close those IDs. Prove S7.1–S7.5 before overlay polish; S7.6–S7.10 before any Reman market UI; S7.11–S7.18 before civil-war flavor; S7.19–S7.23 before treating civilians as scenery or as all-freighter.
 4. **Number Three** adds/runs S7 after engine. Keep Phase 1 / S4 / S5 / S6 green.
 5. Changelog / status Pass wait on Referee after review. This proposal PR may note that the brief is open; it must not write a Pass.
 
 If one model implements a later slice, reserve a separate review pass.
 
-## 9. Open questions
+## 10. Open questions
 
 Mark these clearly. They do **not** weaken the hard gates.
 
@@ -473,30 +628,36 @@ Mark these clearly. They do **not** weaken the hard gates.
 | Q9 | Are trade / habitat / lab stations ever `repairCapable`? | **False** until a later brief adds them. |
 | Q10 | Split into three engine PRs or one? | Tenth decides after Pass. Gates stay separable. |
 | Q11 | Temperament storage: two bipolar axes vs four independent flags? Exact enum names? | Use the four locked labels. Engine may store two axes (`peaceful`↔`warlike`, `xenophilic`↔`xenophobic`) or four poles; say which in the engine PR. |
-| Q12 | Which war events move which temperament pole (losses, occupation, atrocity, stalemate)? | One probe-injected write is enough to close S7.17. Do not invent chances. |
+| Q12 | Which war events move which temperament pole (losses, occupation, atrocity, stalemate)? | One probe-injected write is enough to close S7.17. §6 pressure sources are valid named inputs. Do not invent chances. |
 | Q13 | Does the parent always shift, or only when authored? | Parent **may** shift. First slice may mutate breakaway only, with parent mutation as an optional inject. |
+| Q14 | Numeric unrest threshold for declaration-eligible? Units? Decay? | **TBD.** S7.19 asserts named below/at states only. Do not invent a number in the first slice. |
+| Q15 | What is N in “failed deliveries over N jumps”? | **TBD.** S7.20 may inject a failed delivery without a jump count. Do not steal Phase 5 `asset_overdue` to answer this. |
+| Q16 | Lounge vs contract population mix per system? | **TBD.** S7.22 is a coexist fixture (one of each), not a ratio. |
+| Q17 | Which station mix counts as “thin” economic development? How long is neglect? | **TBD.** First slice need not simulate development; an inject can stand in for this source. |
+| Q18 | Do later Phase 5 convoy IDs reuse §6 commerce-contract records? | **Separate campaigns.** This lane may note overlap; Phase 5 still owns the convoy / overdue-asset loop. Do not merge the bookkeeping in the first slice. |
 
-## 10. Lanes
+## 11. Lanes
 
 | Who | Owns | Scores |
 | --- | --- | --- |
-| **Number Four** | `repairCapable` gate wording (§3) and Reman access-rule wording (§4) — engine/content | Those two gates |
-| **Number 2** | Breakaway doctrine / ROE inheritance (§5.3): birth divergence, war mutation, temperament → profile/ROE map | Silent-copy fail; forced-clone fail; frozen-at-declaration fail; Phase 1 still closed |
+| **Number Four** | `repairCapable` gate wording (§3) and Reman access-rule wording (§4) — engine/content. Also §6 civilian lounge/contract coexist, commerce-failure unrest, pirate-as-pressure hooks | Those two gates plus S7.20–S7.23 shape (no invented numbers) |
+| **Number 2** | Breakaway doctrine / ROE inheritance (§5.3): birth divergence, war mutation, temperament → profile/ROE map. Also §6 outside agitation (doctrine-facing) and temperament-from-pressure | Silent-copy fail; forced-clone fail; frozen-at-declaration fail; agitation must not rewrite Phase 1 owners; Phase 1 still closed |
 | **Number Three** | Probe gate **after** engine (S7 on `__BM1_PROBE__` / offline tests) | Not this brief |
-| **Referee / One** | This brief vs the **three hard gates** in §2 | **Before** any engine PR |
+| **Referee / One** | This brief vs the **three hard gates** in §2 **and** the new §6 (not a random flip; lounge+contract; pirates as pressure) | **Before** any engine PR |
 
-## 11. Deferred work remains on the plan
+## 12. Deferred work remains on the plan
 
-Phase 5 should still take persistent overdue-asset / convoy loops. Phase 6 should make identification honest under cloak. Repair **difficulty knobs**, a authored Reman recovery mission, galaxy-wide secession AI, and catalog wiring of the 212-hull pack are later scopes.
+Phase 5 should still take persistent overdue-asset / convoy loops. Phase 6 should make identification honest under cloak. Repair **difficulty knobs**, a authored Reman recovery mission, galaxy-wide secession AI, catalog wiring of the 212-hull pack, and a full commerce/unrest economy (numeric thresholds, N-jump starve, development mix) are later scopes.
 
-Independence that later needs spawned civil-war fleets, treaties, or player-facing “Declare” UI can be a follow-up. It must still mint a new side, keep §5.3 explicit, **allow divergent doctrine/ROE**, and allow war-driven temperament shifts on the four named axes.
+Independence that later needs spawned civil-war fleets, treaties, or player-facing “Declare” UI can be a follow-up. It must still mint a new side, keep §5.3 explicit, **allow divergent doctrine/ROE**, allow war-driven *and* §6-pressure temperament shifts on the four named axes, and treat declaration as unrest-eligible rather than a random flip.
 
-This side-lane is ready to score when a reader can mark Pass/Fail on: overlay-only-while-repairing-at-`repairCapable` (platforms false; dock ≠ repair); Reman unlock durable after the Remus base dies; breakaway new side with **explicit, divergable** inheritance, war-mutable temperament (`peaceful` / `warlike` / `xenophobic` / `xenophilic`), and Phase 1 concessions untouched.
+This side-lane is ready to score when a reader can mark Pass/Fail on: overlay-only-while-repairing-at-`repairCapable` (platforms false; dock ≠ repair); Reman unlock durable after the Remus base dies; breakaway new side with **explicit, divergable** inheritance, war-mutable temperament (`peaceful` / `warlike` / `xenophobic` / `xenophilic`), Phase 1 concessions untouched; **and** §6 — stacked pressure (not a random flip), civilians that **both lounge and run contracts**, pirates as a relief-able pressure faction, failed commerce / pirate presence raising unrest, relief lowering it.
 
 ## Sources and precedence
 
 - Tenth Mountain Trooper scope, 2026-09-12 (this side-lane; three hard gates).
 - Tenth Mountain Trooper amend, 2026-09-12 (PR #16): gate 3 — divergence allowed; war may mutate doctrine/ROE; temperament axes **peaceful** / **warlike** / **xenophobic** / **xenophilic**. Gates 1–2 unchanged.
+- Tenth Mountain Trooper amend, 2026-09-12 (PR #17): unrest / commerce / pirates / civilian lounge+contract — independence is not a random flip; civilians must lounge **and** take jobs; pirates are a pressure faction; temperament may shift because of these pressures. Gates 1–2 unchanged. Soft S7.8 unchanged.
 - Pack missing features and Reman note: `bm-ships/integration-rules.json`, `bm-ships/README.md`, `bm-ships/ships.json` (hull 53 / `bm-ship:53`), `bm-ships/catalog.mjs` (`secret-remus`).
 - Repair overlay / platform / maintenance identification: `bm-ships/review-decisions.json` (`a-231`, `a-74`, `a-78`, `a-79`, `a-73`). Context only; not shipped station art.
 - Landed Remus vendor instance: `data/stationData.json` (Reman Starbase, stock `53`); station types in `data/station_manifest.json` (83 / 86 / 87).
