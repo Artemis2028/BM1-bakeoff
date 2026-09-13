@@ -3320,26 +3320,35 @@ async function runPhase65PowerSensors(page, results) {
   check(results, 'S10.6 no-dominated-curve', s1045.dominated === true, JSON.stringify(s1045));
 
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
-  const s108 = await page.evaluate(() => {
+  const s108a = await page.evaluate(() => {
     const p6 = globalThis.__BM1_PROBE__.phase6;
     const cloak = p6.injectCloakedHull({ id: 's108-cloak' });
     const first = cloak.firstFrame;
     const report = p6.seedReport(cloak.subjectKey, { x: 20, y: 20 });
     const granted = p6.grantLiveLock(cloak.subjectKey);
     const aged = p6.applyLostTrack(cloak.subjectKey);
-    const science = p6.injectScienceVsOrdinary();
     return {
       firstHidden: first?.minimap === false && first?.aiAcquisition === false,
       reportFs: report.firingSolution === false,
       granted: granted.firingSolution === true,
       dropped: aged.firingSolution === false && aged.sameTick === true,
-      scienceSees: science.scienceSees === true,
-      ordinarySees: science.ordinarySees === false,
       unknown: p6.unknownAccessEnforced() === false,
     };
   });
-  check(results, 'S10.8 phase6-preservation', s108.firstHidden && s108.reportFs && s108.granted && s108.dropped
-    && s108.scienceSees && s108.ordinarySees === false && s108.unknown, JSON.stringify(s108));
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s108b = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const science = p6.injectScienceVsOrdinary();
+    return {
+      scienceSees: science.scienceSees === true,
+      ordinarySees: science.ordinarySees === false,
+      damagedSees: science.damagedSees === false,
+      unknown: p6.unknownAccessEnforced() === false,
+    };
+  });
+  check(results, 'S10.8 phase6-preservation', s108a.firstHidden && s108a.reportFs && s108a.granted && s108a.dropped
+    && s108b.scienceSees && s108b.ordinarySees === false && s108b.damagedSees === false
+    && s108a.unknown && s108b.unknown, JSON.stringify({ ...s108a, ...s108b }));
 
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
   const s10910 = await page.evaluate(async () => {

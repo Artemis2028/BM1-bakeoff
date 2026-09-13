@@ -5170,7 +5170,9 @@ function refreshContactBookNow() {
 
   const playerActor = sensorActorFromPlayer();
   for (const npc of getLivingNpcShips()) {
-    const ev = evaluatePassiveDetection(playerActor, sensorActorFromNpc(npc), distanceToPlayer(npc), localMs);
+    const ev = evaluatePassiveDetection(playerActor, sensorActorFromNpc(npc), distanceToPlayer(npc), localMs, {
+      cloaked: isHullCloaked(npc, localMs),
+    });
     if (ev.detected) applyPassiveUpdate(book, playerObserverKey(), subjectKeyOfNpc(npc), ev, npc, localMs);
     else if (isHullCloaked(npc, localMs)) clearObserverSubject(playerObserverKey(), subjectKeyOfNpc(npc));
   }
@@ -5196,7 +5198,9 @@ function refreshContactBookNow() {
     for (const other of getLivingNpcShips()) {
       if (other === npc) continue;
       const dist = Math.hypot(other.x - npc.x, other.y - npc.y);
-      const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(other), dist, localMs);
+      const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(other), dist, localMs, {
+        cloaked: isHullCloaked(other, localMs),
+      });
       if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(other), ev, other, localMs);
       else if (isHullCloaked(other, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(other));
     }
@@ -5222,7 +5226,9 @@ function refreshContactBookNow() {
     else if (isPlayerCloaked()) clearObserverSubject(observer.key, subjectKeyForPlayer());
     for (const npc of getLivingNpcShips()) {
       const dist = Math.hypot(npc.x - station.x, npc.y - station.y);
-      const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(npc), dist, localMs);
+      const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(npc), dist, localMs, {
+        cloaked: isHullCloaked(npc, localMs),
+      });
       if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(npc), ev, npc, localMs);
       else if (isHullCloaked(npc, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(npc));
     }
