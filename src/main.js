@@ -317,6 +317,36 @@ import {
   EXAMPLE_ALIAS_FROM,
   EXAMPLE_ALIAS_TO,
 } from './phase65-power.js';
+import {
+  COMMS_FAILURES_IMPLEMENTED,
+  DEFAULT_APPROACH_RADIUS,
+  MIN_ESCORT_STACK_DIST,
+  TENSION_POSTURE_IMPLEMENTED,
+  applyJumpToFleetOrders,
+  approachBearing,
+  commsFailureNote,
+  defaultJumpPolicyForKind,
+  destinationForPeacefulEscort,
+  emptyFleetOrderBoard,
+  escortSpawnsInSystem,
+  escortsStackedOnDrop,
+  fallbackApproachGeometry,
+  findOrderForShip,
+  formationShareMustNotGiftFiringSolution,
+  interruptOrder,
+  interruptPreservesContactBook,
+  issueOrder,
+  listVisibleOrderMarkers,
+  orderResultForbidsFireInject,
+  panelRows,
+  placeHoldOutside,
+  restoreFleetOrders,
+  resumeStanding,
+  serializeFleetOrders,
+  shipFollowsJump,
+  tensionFromKnownForce,
+  usesFormationSlot,
+} from './phase7-fleet.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -324,6 +354,7 @@ let ctx = gameCtx;
 const minimapCanvas = document.getElementById('minimap');
 const minimapCtx = minimapCanvas?.getContext('2d');
 const minimapPanelEl = document.getElementById('minimap-panel');
+const fleetOrderPanelEl = document.getElementById('fleet-order-panel');
 const interstellarMapCanvas = document.getElementById('interstellar-map-canvas');
 const interstellarMapCtx = interstellarMapCanvas?.getContext('2d');
 const interstellarMapFrameEl = document.getElementById('interstellar-map-frame');
@@ -863,6 +894,7 @@ const state = {
   securityEncounters: createSecurityEncountersState(),
   incidentLedger: createIncidentLedger(),
   objectiveBoard: emptyObjectiveBoard(),
+  fleetOrders: emptyFleetOrderBoard(),
   playerUnlocks: createPlayerUnlocks(),
   unrestIndependence: createUnrestIndependenceStore(),
   repairSession: createRepairSession(),
@@ -3863,6 +3895,12 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
   state.combatTargetId = null;
   state.combatTargetType = 'ship';
   incrementPlayerStrategicJumps();
+  applyJumpToFleetOrders(
+    ensureFleetOrders(),
+    options.fromIndex ?? state.wormholeTransit?.from,
+    targetIndex,
+    { atStrategicJumps: ensureIncidentLedger().strategicJumps },
+  );
   applySystemState(state.currentPlanet);
   calmHomeSystem();
   scheduleNextFleetAttack(performance.now() + 45000);
@@ -4844,6 +4882,212 @@ function ensureObjectiveBoard() {
   return state.objectiveBoard;
 }
 
+function ensureFleetOrders() {
+  if (!state.fleetOrders || state.fleetOrders.version !== 1 || !state.fleetOrders.orders) {
+    state.fleetOrders = restoreFleetOrders(state.fleetOrders);
+  }
+  return state.fleetOrders;
+}
+
+function escortFleetIds() {
+  return getPlayerEscortFleetShips().map((ship) => ship.id).filter(Boolean);
+}
+
+function currentHoldOutsideGeometry() {
+  const zone = getActiveCheckpoint(state.currentPlanet);
+  if (zone?.geometry) {
+    return {
+      geometry: zone.geometry,
+      boundaryId: zone.zoneId || zone.id || AUTHORED_VULCAN_ZONE_ID || 'checkpoint',
+    };
+  }
+  const planet = state.systemPlanet || { x: 0, y: 0 };
+  return {
+    geometry: fallbackApproachGeometry(planet, DEFAULT_APPROACH_RADIUS),
+    boundaryId: `approach:${state.currentPlanet}`,
+  };
+}
+
+function resolveEscortWorldDestination(fleetShipOrNpc, index, now = performance.now(), order = null) {
+  const fleetId = fleetShipOrNpc?.fleetId || fleetShipOrNpc?.id;
+  const standing = order || findOrderForShip(ensureFleetOrders(), fleetId);
+  const formation = getPlayerEscortFormationPoint(index, now);
+  const fleetShip = (state.playerFleet || []).find((row) => row.id === fleetId) || fleetShipOrNpc;
+  if (standing?.status === 'interrupted' && standing.interrupt?.kind === 'defense') return null;
+  if (!standing || usesFormationSlot(standing)) {
+    return getEscortDestination(fleetShip, index, formation, now);
+  }
+  if (standing.kind === 'hold_outside') {
+    const geo = currentHoldOutsideGeometry();
+    const placed = placeHoldOutside(
+      geo.geometry,
+      playerWorldPosition(),
+      [{ id: fleetId, role: standing.role }],
+      state.lastInboundArrival || playerWorldPosition(),
+      { role: standing.role },
+    );
+    return destinationForPeacefulEscort(standing, formation, placed.points[0]);
+  }
+  if (standing.destination) {
+    return destinationForPeacefulEscort(standing, formation, standing.destination);
+  }
+  return formation;
+}
+
+function applyHoldOutsideToLiveEscorts(placed) {
+  for (const row of placed?.points || []) {
+    const npc = (state.npcShips || []).find((ship) => ship.fleetId === row.id && !ship.destroyed);
+    if (!npc) continue;
+    npc.destination = { x: row.x, y: row.y };
+    npc.destinationName = 'hold outside';
+  }
+}
+
+function issuePlayerFleetOrder(kind, extras = {}) {
+  const ids = Array.isArray(extras.assignedShipIds) ? extras.assignedShipIds : escortFleetIds();
+  if (!ids.length) return { ok: false, reason: 'no-escorts' };
+  const board = ensureFleetOrders();
+  const at = ensureIncidentLedger().strategicJumps;
+  const geo = currentHoldOutsideGeometry();
+  const player = playerWorldPosition();
+  const drop = state.lastInboundArrival || player;
+  let destination = extras.destination || null;
+  let role = extras.role || 'support';
+  let boundaryId = extras.boundaryId || '';
+  if (kind === 'hold_outside') {
+    const placed = placeHoldOutside(
+      geo.geometry,
+      extras.approachPoint || player,
+      ids.map((id) => ({ id, role: extras.role || 'support' })),
+      drop,
+      { role },
+    );
+    destination = {
+      x: placed.points[0].x,
+      y: placed.points[0].y,
+      name: extras.label || 'hold outside boundary',
+      systemIndex: state.currentPlanet,
+    };
+    boundaryId = boundaryId || geo.boundaryId;
+    applyHoldOutsideToLiveEscorts(placed);
+  } else if (kind === 'hold') {
+    destination = destination || { x: player.x, y: player.y, name: 'hold here', systemIndex: state.currentPlanet };
+  } else if (kind === 'rally') {
+    const planet = state.systemPlanet || player;
+    destination = destination || {
+      x: planet.x,
+      y: planet.y,
+      name: extras.label || state.planets[state.currentPlanet]?.name || 'planet',
+      systemIndex: Number.isFinite(Number(extras.systemIndex)) ? Number(extras.systemIndex) : state.currentPlanet,
+    };
+  } else if (kind === 'defend_area') {
+    const planet = state.systemPlanet || player;
+    destination = destination || { x: planet.x, y: planet.y, name: extras.label || 'defend area', systemIndex: state.currentPlanet };
+  } else if (kind === 'withdraw') {
+    const bearing = approachBearing(geo.geometry, player);
+    const radius = finiteNumber(geo.geometry?.withdrawalCompleteDistance, finiteNumber(geo.geometry?.radius, DEFAULT_APPROACH_RADIUS) + 80);
+    destination = destination || {
+      x: geo.geometry.center.x + Math.cos(bearing) * radius,
+      y: geo.geometry.center.y + Math.sin(bearing) * radius,
+      name: 'withdraw',
+      systemIndex: state.currentPlanet,
+    };
+    role = extras.role || 'withdrawal_cover';
+  } else if (kind === 'follow' || kind === 'escort' || kind === 'regroup') {
+    destination = destination || { name: 'flagship', systemIndex: state.currentPlanet };
+  } else if (kind === 'focus_target') {
+    const target = extras.target || getSelectedCombatTarget();
+    destination = destination || (target
+      ? {
+        x: target.x,
+        y: target.y,
+        name: getTargetName(target),
+        targetId: target.id,
+        systemIndex: state.currentPlanet,
+      }
+      : { name: extras.label || 'seek', systemIndex: state.currentPlanet });
+  }
+  const result = issueOrder(board, {
+    kind,
+    assignedShipIds: ids,
+    assignedSystemIndex: state.currentPlanet,
+    boundaryId,
+    role,
+    destination,
+    label: extras.label || kind,
+    jumpPolicy: extras.jumpPolicy || defaultJumpPolicyForKind(kind),
+  }, { atStrategicJumps: at, contacts: ensureContactBook() });
+  retaskEscortWing();
+  refreshFleetOrderPanel(true);
+  return result;
+}
+
+function noteEscortDefenseInterrupt(npc) {
+  const order = findOrderForShip(ensureFleetOrders(), npc?.fleetId);
+  if (!order || order.status === 'interrupted') return null;
+  return interruptOrder(ensureFleetOrders(), order.orderId, 'defense', {
+    atStrategicJumps: ensureIncidentLedger().strategicJumps,
+    contacts: ensureContactBook(),
+    reason: 'immediate-defense',
+  });
+}
+
+function resumeEscortIfInterrupted(npc) {
+  const order = findOrderForShip(ensureFleetOrders(), npc?.fleetId);
+  if (order?.status !== 'interrupted' || order.interrupt?.kind !== 'defense') return null;
+  return resumeStanding(ensureFleetOrders(), order.orderId, {
+    atStrategicJumps: ensureIncidentLedger().strategicJumps,
+    contacts: ensureContactBook(),
+  });
+}
+
+function fleetOrderPanelRenderKey() {
+  const rows = panelRows(ensureFleetOrders(), {
+    shipIds: escortFleetIds(),
+    names: Object.fromEntries(getPlayerEscortFleetShips().map((ship) => [ship.id, ship.name || ship.id])),
+  });
+  return rows.map((row) => `${row.shipId}:${row.kind}:${row.status}:${row.jumpPolicy}:${row.parked ? 1 : 0}`).join('|');
+}
+
+function refreshFleetOrderPanel(force = false) {
+  if (!fleetOrderPanelEl) return;
+  const escorts = getPlayerEscortFleetShips();
+  const visible = Boolean(state.gameStarted && !state.gameOver && !state.warp.active && escorts.length);
+  fleetOrderPanelEl.classList.toggle('hidden', !visible);
+  if (!visible) {
+    fleetOrderPanelEl.innerHTML = '';
+    fleetOrderPanelEl.dataset.renderKey = '';
+    return;
+  }
+  const key = fleetOrderPanelRenderKey();
+  if (!force && fleetOrderPanelEl.dataset.renderKey === key) return;
+  fleetOrderPanelEl.dataset.renderKey = key;
+  const names = Object.fromEntries(escorts.map((ship) => [ship.id, ship.name || ship.id]));
+  const rows = panelRows(ensureFleetOrders(), { shipIds: escorts.map((ship) => ship.id), names });
+  const rowHtml = rows.map((row) => (
+    `<div class="fleet-order-row" data-fleet-ship="${escapeHtml(row.shipId)}">
+      <b>${escapeHtml(row.name)}</b>
+      <span>${escapeHtml(row.kind)}</span>
+      <small>${escapeHtml(row.status)}${row.parked ? ' · parked' : ''}</small>
+      <small>${escapeHtml(row.destination)} · ${row.jumpPolicy === 'stay' ? 'stay' : 'follows'}</small>
+    </div>`
+  )).join('');
+  fleetOrderPanelEl.innerHTML = `<div class="fleet-order-head">ESCORT ORDERS</div>
+    ${rowHtml || '<div class="meta">No standing assignment.</div>'}
+    <div class="fleet-order-actions">
+      <button type="button" data-fleet-order="follow">Follow</button>
+      <button type="button" data-fleet-order="escort">Escort</button>
+      <button type="button" data-fleet-order="hold">Hold</button>
+      <button type="button" data-fleet-order="hold_outside">Hold outside</button>
+      <button type="button" data-fleet-order="rally">Rally</button>
+      <button type="button" data-fleet-order="defend_area">Defend</button>
+      <button type="button" data-fleet-order="focus_target">Focus</button>
+      <button type="button" data-fleet-order="regroup">Regroup</button>
+      <button type="button" data-fleet-order="withdraw">Withdraw</button>
+    </div>
+    <div class="meta">Hold-outside stays behind a jump. Follow / escort / regroup travel with the flagship. Defense interrupts resume the standing order.</div>`;
+}
+
 function incrementPlayerStrategicJumps() {
   const ledger = ensureIncidentLedger();
   incrementStrategicJumps(ledger);
@@ -5214,7 +5458,38 @@ function realizeSystemDestinations(systemIndex = state.currentPlanet) {
 
 function placePlayerEscortsOnFormation(now = performance.now()) {
   const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
+  const drop = state.lastInboundArrival || playerWorldPosition();
+  const geo = currentHoldOutsideGeometry();
+  const holdRows = escorts
+    .map((npc) => ({ npc, order: findOrderForShip(ensureFleetOrders(), npc.fleetId) }))
+    .filter((row) => row.order?.kind === 'hold_outside');
+  const placed = holdRows.length
+    ? placeHoldOutside(
+      geo.geometry,
+      drop,
+      holdRows.map((row) => ({ id: row.npc.fleetId, role: row.order.role })),
+      drop,
+    )
+    : { points: [] };
   escorts.forEach((npc, index) => {
+    const order = findOrderForShip(ensureFleetOrders(), npc.fleetId);
+    if (order?.kind === 'hold_outside') {
+      const point = placed.points.find((row) => row.id === npc.fleetId) || placed.points[0];
+      if (point) {
+        npc.x = point.x;
+        npc.y = point.y;
+        npc.destination = { x: point.x, y: point.y };
+        npc.destinationName = 'hold outside';
+        return;
+      }
+    }
+    if (order && !usesFormationSlot(order) && order.destination) {
+      npc.x = order.destination.x;
+      npc.y = order.destination.y;
+      npc.destination = { x: order.destination.x, y: order.destination.y };
+      npc.destinationName = order.destination.name || order.kind;
+      return;
+    }
     const point = getPlayerEscortFormationPoint(npc.escortIndex ?? index, now);
     npc.x = point.x;
     npc.y = point.y;
@@ -5308,10 +5583,12 @@ function refreshContactBookNow() {
       else if (isHullCloaked(other, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(other));
     }
     if (isPlayerEscortNpc(npc)) {
+      const order = findOrderForShip(ensureFleetOrders(), npc.fleetId);
       const playerPos = playerWorldPosition();
       const formation = getPlayerEscortFormationPoint(npc.escortIndex || 0);
-      const inFormation = Math.hypot(npc.x - formation.x, npc.y - formation.y) < 110
-        || Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y) < 300;
+      const inFormation = usesFormationSlot(order)
+        && (Math.hypot(npc.x - formation.x, npc.y - formation.y) < 110
+          || Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y) < 300);
       if (inFormation) shareFormationDetection(book, playerObserverKey(), observer.key, localMs);
     }
   }
@@ -10627,11 +10904,21 @@ function getPlayerEscortFormationPoint(index = 0, now = performance.now()) {
 
 function getPlayerEscortNpcShips(now = performance.now()) {
   const player = playerWorldPosition();
-  return getPlayerEscortFleetShips().map((fleetShip, index) => {
+  return getPlayerEscortFleetShips()
+    .filter((fleetShip) => escortSpawnsInSystem(ensureFleetOrders(), fleetShip.id, state.currentPlanet))
+    .map((fleetShip, index) => {
     const seed = finiteNumber(fleetShip.seed, (state.currentPlanet + 1) * 1301 + index * 67);
     const formation = getPlayerEscortFormationPoint(index, now);
+    const order = findOrderForShip(ensureFleetOrders(), fleetShip.id);
+    const dest = resolveEscortWorldDestination(fleetShip, index, now, order) || formation;
     const spawnAngle = seeded(seed + 31) * Math.PI * 2;
     const spawnDistance = 150 + index * 38 + seeded(seed + 32) * 70;
+    const from = usesFormationSlot(order) || !order?.destination
+      ? {
+        x: player.x + Math.cos(spawnAngle) * spawnDistance,
+        y: player.y + Math.sin(spawnAngle) * spawnDistance,
+      }
+      : { x: dest.x, y: dest.y };
     const ship = createNpcShip({
       id: `escort-${fleetShip.id}`,
       shipId: fleetShip.shipId,
@@ -10639,12 +10926,9 @@ function getPlayerEscortNpcShips(now = performance.now()) {
       attitude: 'friendly',
       hostile: false,
       seed,
-      from: {
-        x: player.x + Math.cos(spawnAngle) * spawnDistance,
-        y: player.y + Math.sin(spawnAngle) * spawnDistance,
-      },
-      destination: getEscortDestination(fleetShip, index, formation, now),
-      destinationName: 'player escort',
+      from,
+      destination: dest,
+      destinationName: order?.destination?.name || (usesFormationSlot(order) ? 'player escort' : order?.kind || 'player escort'),
       role: 'playerEscort',
       fleetId: fleetShip.id,
       name: fleetShip.name && !isCrossFactionShipName(fleetShip.name, state.playerFaction)
@@ -11698,6 +11982,7 @@ function updateStats() {
       <div class="top-stat" title="${escapeHtml(formatFaction(getSystemFaction(state.currentPlanet)) + ' standing')}"><span>STD</span>${getFactionStanding(getSystemFaction(state.currentPlanet))}</div>
     </div>`;
   updatePanel();
+  refreshFleetOrderPanel();
   updateBottomDock();
   renderPlanetMenu();
   if (state.pendingContractOffer || !contractModalEl?.classList.contains('hidden')) {
@@ -12379,6 +12664,7 @@ function buyEscortShip(shipId) {
     seed,
     builtAt: Date.now(),
   });
+  issuePlayerFleetOrder('escort', { assignedShipIds: [id], label: 'travelling escort' });
   state.npcShips.push(...getPlayerEscortNpcShips().filter((npc) => npc.fleetId === id));
   state.fleetPurchaseShipId = null;
   state.pendingFleetPurchase = null;
@@ -12521,6 +12807,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     securityEncounters: serializeSecurityEncounters(ensureSecurityStores().encounters),
     incidentLedger: serializeIncidentLedger(ensureIncidentLedger()),
     objectiveBoard: serializeObjectiveBoard(ensureObjectiveBoard()),
+    fleetOrders: serializeFleetOrders(ensureFleetOrders()),
     contactBook: serializeContactBook(ensureContactBook()),
     cloak: serializeCloak(state.cloak),
     phase65: serializePhase65Runtime({
@@ -12601,6 +12888,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.securityEncounters = restoreSecurityEncounters(s.securityEncounters);
   state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
   state.objectiveBoard = restoreObjectiveBoard(s.objectiveBoard);
+  state.fleetOrders = restoreFleetOrders(s.fleetOrders);
   state.contactBook = restoreContactBook(s.contactBook);
   const restored65 = restorePhase65Runtime(s.phase65 || s);
   state.sensorSuiteId = restored65.sensorSuiteId;
@@ -13667,6 +13955,12 @@ function completeWarpTravel() {
   state.selectedPlanet = state.currentPlanet;
   state.planetCallout = null;
   state.warp.active = false;
+  applyJumpToFleetOrders(
+    ensureFleetOrders(),
+    fromIndex,
+    targetIndex,
+    { atStrategicJumps: ensureIncidentLedger().strategicJumps },
+  );
   const p = state.planets[state.currentPlanet];
   applySystemState(state.currentPlanet);
   calmHomeSystem();
@@ -14155,6 +14449,53 @@ checkpointOrderPanelEl?.addEventListener('click', (e) => {
   if (!action) return;
   playerRespondToCheckpoint(action.dataset.checkpointPlayer);
   refreshCheckpointOrderPanel();
+});
+
+fleetOrderPanelEl?.addEventListener('click', (e) => {
+  const action = e.target.closest('[data-fleet-order]');
+  if (!action) return;
+  const kind = action.dataset.fleetOrder;
+  if (kind === 'follow') {
+    state.fleetStance = 'follow';
+    issuePlayerFleetOrder('follow', { label: 'follow flagship' });
+    setLog('Escorts ordered to follow.');
+  } else if (kind === 'escort') {
+    state.fleetStance = 'follow';
+    issuePlayerFleetOrder('escort', { label: 'escort flagship' });
+    setLog('Escorts ordered to escort the flagship.');
+  } else if (kind === 'hold') {
+    issuePlayerFleetOrder('hold', { label: 'hold here' });
+    setLog('Escorts ordered to hold position.');
+  } else if (kind === 'hold_outside') {
+    issuePlayerFleetOrder('hold_outside', { role: 'screen', label: 'hold outside boundary' });
+    setLog('Escorts ordered to hold outside the boundary.');
+  } else if (kind === 'rally') {
+    state.fleetStance = 'planet';
+    issuePlayerFleetOrder('rally', { label: state.planets[state.currentPlanet]?.name || 'planet' });
+    setLog('Escorts ordered to rally.');
+  } else if (kind === 'defend_area') {
+    state.fleetStance = 'trade';
+    issuePlayerFleetOrder('defend_area', { label: 'defend area' });
+    setLog('Escorts ordered to defend the area.');
+  } else if (kind === 'focus_target') {
+    const target = getSelectedCombatTarget();
+    if (!target) {
+      setLog('No target selected for focus.');
+      return;
+    }
+    state.fleetStance = 'attack';
+    issuePlayerFleetOrder('focus_target', { target, label: getTargetName(target) });
+    setLog(`Escorts ordered to focus ${getTargetName(target)}.`);
+  } else if (kind === 'regroup') {
+    state.fleetStance = 'follow';
+    issuePlayerFleetOrder('regroup', { label: 'regroup on flagship' });
+    setLog('Escorts recalled to regroup. They will follow the next jump.');
+  } else if (kind === 'withdraw') {
+    issuePlayerFleetOrder('withdraw', { role: 'withdrawal_cover', label: 'withdraw' });
+    setLog('Escorts ordered to withdraw. Previous assignment recorded as superseded.');
+  }
+  refreshFleetOrderPanel(true);
+  updateStats();
 });
 
 panelEl?.addEventListener('click', (e) => {
@@ -15351,7 +15692,8 @@ function retaskEscortWing() {
   escorts.forEach((fleetShip, i) => {
     const npc = state.npcShips.find((n) => n.fleetId === fleetShip.id && !n.destroyed);
     if (!npc) return;
-    npc.destination = getEscortDestination(fleetShip, i, getPlayerEscortFormationPoint(i, now), now);
+    const dest = resolveEscortWorldDestination(fleetShip, i, now);
+    if (dest) npc.destination = dest;
   });
 }
 function fleetOrder(slot) {
@@ -15364,6 +15706,7 @@ function fleetOrder(slot) {
   const now = performance.now();
   if (slot === 1) {
     state.fleetStance = 'follow';
+    issuePlayerFleetOrder('follow', { label: 'follow flagship' });
     retaskEscortWing();
     setLog('Fleet ordered to follow you under green alert...');
   } else if (slot === 2) {
@@ -15380,14 +15723,17 @@ function fleetOrder(slot) {
       return;
     }
     state.fleetStance = 'attack';
+    issuePlayerFleetOrder('focus_target', { target, label: getTargetName(target) });
     retaskEscortWing();
     setLog(`Fleet ordered to attack your target: ${getTargetName(target)}.`);
   } else if (slot === 3) {
     state.fleetStance = 'seek';
+    issuePlayerFleetOrder('focus_target', { label: 'seek and destroy', role: 'screen' });
     retaskEscortWing();
     setLog('Fleet ordered to Seek and Destroy enemy targets...');
   } else if (slot === 4) {
     state.fleetStance = 'planet';
+    issuePlayerFleetOrder('rally', { label: state.planets[state.currentPlanet]?.name || 'planet' });
     retaskEscortWing();
     setLog(`All escort ships ordered to gather at ${state.planets[state.currentPlanet]?.name || 'the planet'}...`);
   } else if (slot === 5) {
@@ -15405,10 +15751,12 @@ function fleetOrder(slot) {
     setLog('All nearby auxiliary craft loaded into shuttlebay...');
   } else if (slot === 7) {
     state.fleetStance = 'explore';
+    issuePlayerFleetOrder('rally', { role: 'scout', label: 'explore' });
     retaskEscortWing();
     setLog('All escort ships ordered to explore the galaxy...');
   } else if (slot === 8) {
     state.fleetStance = 'trade';
+    issuePlayerFleetOrder('defend_area', { label: 'trade lanes' });
     retaskEscortWing();
     setLog('All escort ships ordered to guard the trade lanes...');
   }
@@ -16882,6 +17230,7 @@ function updateNpcShips(frameScale = 1) {
     applyNpcSecurityObjective(npc, now);
     applyNpcIncidentObjective(npc, now);
     if (escortTarget) {
+      noteEscortDefenseInterrupt(npc);
       const target = escortTarget.target;
       const targetDistance = Math.hypot(target.x - npc.x, target.y - npc.y);
       const escortWeaponRange = getNpcWeaponRange(npc);
@@ -16892,8 +17241,13 @@ function updateNpcShips(frameScale = 1) {
         fireNpcWeapon(npc, target, escortTarget.type, now);
       }
     } else if (isPlayerEscortNpc(npc)) {
-      npc.destination = getPlayerEscortFormationPoint(npc.escortIndex || 0, now);
-      npc.destinationName = 'player escort';
+      resumeEscortIfInterrupted(npc);
+      const dest = resolveEscortWorldDestination(npc, npc.escortIndex || 0, now);
+      if (dest) {
+        npc.destination = dest;
+        const order = findOrderForShip(ensureFleetOrders(), npc.fleetId);
+        npc.destinationName = order?.destination?.name || (usesFormationSlot(order) ? 'player escort' : order?.kind || 'player escort');
+      }
     } else if (defenseTarget) {
       npc.destination = getNpcCombatManeuverPoint(npc, defenseTarget, 'ship', now);
       npc.destinationName = `defend: ${getShipStats(defenseTarget.shipId).name}`;
@@ -16937,6 +17291,10 @@ function updateNpcShips(frameScale = 1) {
         }
       }
       if (npc.incidentObjective) continue;
+      if (isPlayerEscortNpc(npc)) {
+        const order = findOrderForShip(ensureFleetOrders(), npc.fleetId);
+        if (order && !usesFormationSlot(order)) continue;
+      }
       const next = pickTrafficDestination(state.trafficDestinations, npc.seed + npc.leg * 17 + 31, npc.destinationName);
       npc.destination = { ...next.point };
       npc.destinationName = next.name;
@@ -19924,6 +20282,12 @@ function drawMinimap() {
             : 'rgba(116, 214, 255, 0.7)';
     dot(dest, color, dest.kind === 'lane' ? 1.8 : 2.2);
   }
+  for (const marker of listVisibleOrderMarkers(ensureFleetOrders(), state.currentPlanet)) {
+    const color = marker.kind === 'hold_outside' ? 'rgba(88, 224, 214, 0.95)'
+      : marker.status === 'interrupted' ? 'rgba(255, 180, 110, 0.95)'
+        : 'rgba(255, 214, 110, 0.92)';
+    dot(marker, color, 3.2);
+  }
   for (const npc of state.npcShips) {
     if (npc.destroyed || npc.trafficWarp?.phase === 'away') continue;
     const view = presentationForNpc(npc);
@@ -20506,6 +20870,7 @@ function resetRunState() {
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
   state.objectiveBoard = emptyObjectiveBoard();
+  state.fleetOrders = emptyFleetOrderBoard();
   state.playerUnlocks = createPlayerUnlocks();
   state.unrestIndependence = createUnrestIndependenceStore();
   state.repairSession = clearRepairSession();
@@ -20690,6 +21055,7 @@ function startWithFaction(key, options = {}) {
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
   state.objectiveBoard = emptyObjectiveBoard();
+  state.fleetOrders = emptyFleetOrderBoard();
   state.contactBook = emptyContactBook();
   resetPhase65Runtime();
   state.checkpointSelectedEncounterId = null;
@@ -21618,6 +21984,7 @@ function installBm1ProbeHarness() {
     phase5: createPhase5ProbeApi(),
     phase6: createPhase6ProbeApi(),
     phase65: createPhase65ProbeApi(),
+    phase7: createPhase7ProbeApi(),
   };
 }
 
@@ -22074,6 +22441,195 @@ function createPhase65ProbeApi() {
       };
     },
   };
+}
+
+function createPhase7ProbeApi() {
+  const snapshot = () => {
+    const board = ensureFleetOrders();
+    const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
+    const drop = state.lastInboundArrival || playerWorldPosition();
+    const geo = currentHoldOutsideGeometry();
+    const names = Object.fromEntries(getPlayerEscortFleetShips().map((ship) => [ship.id, ship.name || ship.id]));
+    return {
+      board: serializeFleetOrders(board),
+      orders: listStandingOrdersSafe(board),
+      rows: panelRows(board, { shipIds: escortFleetIds(), names }),
+      markers: listVisibleOrderMarkers(board, state.currentPlanet),
+      escorts: escorts.map((npc) => {
+        const order = findOrderForShip(board, npc.fleetId);
+        return {
+          id: npc.id,
+          fleetId: npc.fleetId,
+          x: npc.x,
+          y: npc.y,
+          destination: npc.destination ? { ...npc.destination } : null,
+          destinationName: npc.destinationName || '',
+          kind: order?.kind || null,
+          status: order?.status || null,
+          jumpPolicy: order?.jumpPolicy || null,
+          parked: Number.isFinite(Number(order?.parkedSystemIndex)),
+          distToDrop: Math.hypot(npc.x - drop.x, npc.y - drop.y),
+          distToCenter: Math.hypot(npc.x - geo.geometry.center.x, npc.y - geo.geometry.center.y),
+          outside: Math.hypot(npc.x - geo.geometry.center.x, npc.y - geo.geometry.center.y) >= finiteNumber(geo.geometry.radius, 0),
+        };
+      }),
+      escortsStacked: escortsStackedOnDrop(drop, escorts, MIN_ESCORT_STACK_DIST),
+      currentPlanet: state.currentPlanet,
+      drop: { x: drop.x, y: drop.y },
+      geometry: {
+        radius: finiteNumber(geo.geometry.radius, 0),
+        center: { ...geo.geometry.center },
+        boundaryId: geo.boundaryId,
+      },
+      panelHtml: fleetOrderPanelEl?.innerHTML || '',
+      panelVisible: Boolean(fleetOrderPanelEl && !fleetOrderPanelEl.classList.contains('hidden')),
+      book: serializeContactBook(ensureContactBook()),
+      firing: listPlayerFiringSolutions(),
+      comms: commsFailureNote(),
+      tension: tensionFromKnownForce(),
+      commsImplemented: COMMS_FAILURES_IMPLEMENTED,
+      tensionImplemented: TENSION_POSTURE_IMPLEMENTED,
+      catalogWired: FULL_CATALOG_WIRED,
+      reman: reman53Identity(),
+    };
+  };
+  const spawnEscort = (opts = {}) => {
+    const id = opts.id || `pe-s12-${Date.now().toString(36)}`;
+    if (!(state.playerFleet || []).some((row) => row.id === id)) {
+      state.playerFleet.push({
+        id,
+        systemIndex: state.currentPlanet,
+        shipId: Number(opts.shipId) || 18,
+        name: opts.name || 'Probe Escort',
+        faction: state.playerFaction,
+        assignment: 'escort',
+        seed: finiteNumber(opts.seed, 91),
+        builtAt: Date.now(),
+      });
+    }
+    issuePlayerFleetOrder(opts.kind || 'escort', {
+      assignedShipIds: [id],
+      label: opts.label || opts.kind || 'escort',
+      role: opts.role,
+    });
+    const live = getPlayerEscortNpcShips().filter((npc) => npc.fleetId === id);
+    for (const npc of live) {
+      if (!state.npcShips.some((row) => row.id === npc.id || row.fleetId === id)) state.npcShips.push(npc);
+    }
+    refreshFleetOrderPanel(true);
+    return { ok: true, id, npcId: `escort-${id}`, snapshot: snapshot() };
+  };
+  return {
+    snapshot,
+    commissionEscort: spawnEscort,
+    issue: (kind, extras = {}) => {
+      const ids = extras.assignedShipIds || escortFleetIds();
+      if (!ids.length) {
+        const created = spawnEscort({ id: extras.id, kind: 'escort' });
+        extras.assignedShipIds = [created.id];
+      }
+      const result = issuePlayerFleetOrder(kind, extras);
+      if (kind === 'hold_outside') placePlayerEscortsOnFormation();
+      refreshFleetOrderPanel(true);
+      return {
+        ok: result.ok !== false,
+        ...result,
+        noFireInject: orderResultForbidsFireInject(result),
+        snapshot: snapshot(),
+      };
+    },
+    holdOutside: (extras = {}) => {
+      if (!escortFleetIds().length) spawnEscort({ id: extras.id || 'pe-hold', role: extras.role || 'screen' });
+      const result = issuePlayerFleetOrder('hold_outside', { role: extras.role || 'screen', label: 'hold outside boundary' });
+      placePlayerEscortsOnFormation();
+      refreshFleetOrderPanel(true);
+      return { ok: result.ok !== false, ...result, snapshot: snapshot() };
+    },
+    completeJump: (toIndex) => {
+      const from = Number(state.currentPlanet);
+      const dest = Number.isFinite(Number(toIndex))
+        ? Number(toIndex)
+        : (state.planets || []).findIndex((_, index) => index !== from);
+      const target = dest >= 0 ? dest : (from === 0 ? 1 : 0);
+      applyJumpToFleetOrders(ensureFleetOrders(), from, target, {
+        atStrategicJumps: ensureIncidentLedger().strategicJumps,
+      });
+      incrementPlayerStrategicJumps();
+      state.currentPlanet = target;
+      state.myplanet = target + 1;
+      applySystemState(target);
+      const drop = applyArrivalPlacement({ fromIndex: from, toIndex: target });
+      refreshContactBookNow();
+      refreshFleetOrderPanel(true);
+      return { ok: true, from, to: target, drop, snapshot: snapshot() };
+    },
+    interruptDefense: (shipId) => {
+      const id = shipId || escortFleetIds()[0];
+      const order = findOrderForShip(ensureFleetOrders(), id);
+      if (!order) return { ok: false, reason: 'missing-order', snapshot: snapshot() };
+      const before = serializeContactBook(ensureContactBook());
+      const result = interruptOrder(ensureFleetOrders(), order.orderId, 'defense', {
+        atStrategicJumps: ensureIncidentLedger().strategicJumps,
+        contacts: ensureContactBook(),
+        reason: 'probe-defense',
+      });
+      const after = serializeContactBook(ensureContactBook());
+      return {
+        ok: result.ok,
+        standing: result.order?.standing || null,
+        status: result.order?.status,
+        noFireInject: orderResultForbidsFireInject(result),
+        bookPreserved: interruptPreservesContactBook(before, after) && result.contacts === ensureContactBook(),
+        snapshot: snapshot(),
+      };
+    },
+    shareFormation: () => {
+      const book = ensureContactBook();
+      const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
+      const copied = [];
+      for (const npc of escorts) {
+        copied.push(...shareFormationDetection(book, playerObserverKey(), observerKeyForNpc(npc.id), currentLocalMs()));
+      }
+      return {
+        ok: true,
+        gifted: formationShareMustNotGiftFiringSolution(copied) === false,
+        detectionOnly: formationShareMustNotGiftFiringSolution(copied),
+        copied: copied.map((row) => ({
+          subjectKey: row.subjectKey,
+          firingSolution: row.firingSolution === true,
+          trackQuality: row.trackQuality,
+        })),
+        snapshot: snapshot(),
+      };
+    },
+    followsJump: (shipId, toIndex) => shipFollowsJump(findOrderForShip(ensureFleetOrders(), shipId), toIndex),
+    seedLock: (subjectKey, point = { x: 40, y: 20 }) => {
+      const record = upsertContact(ensureContactBook(), playerObserverKey(), {
+        subjectKey,
+        detected: true,
+        identification: 'known',
+        trackQuality: 'firm',
+        firingSolution: true,
+        lastKnown: { x: point.x, y: point.y, radius: 24, atLocalMs: currentLocalMs() },
+        freshnessLocalMs: currentLocalMs(),
+        source: 'visual',
+      }, currentLocalMs());
+      return { ok: true, contact: record, firingSolution: record?.firingSolution === true };
+    },
+  };
+}
+
+function listStandingOrdersSafe(board) {
+  return Object.values(board?.orders || {})
+    .filter((row) => row.status === 'standing' || row.status === 'interrupted')
+    .map((row) => ({
+      orderId: row.orderId,
+      kind: row.kind,
+      status: row.status,
+      jumpPolicy: row.jumpPolicy,
+      assignedSystemIndex: row.assignedSystemIndex,
+      parkedSystemIndex: row.parkedSystemIndex,
+    }));
 }
 
 function createPhase5ProbeApi() {
@@ -22908,6 +23464,7 @@ function installPlayerSecurityProbe() {
     phase5: createPhase5ProbeApi(),
     phase6: createPhase6ProbeApi(),
     phase65: createPhase65ProbeApi(),
+    phase7: createPhase7ProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
