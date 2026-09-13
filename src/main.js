@@ -214,6 +214,61 @@ import {
   serializeUnrestIndependence,
   snapshotIndependence,
 } from './side-lane-unrest-independence.js';
+import {
+  CONTACT_BOOK_VERSION,
+  UNKNOWN_ACCESS_ENFORCEMENT,
+  ageTrack,
+  applyLostTrackSameTick,
+  applyPassiveUpdate,
+  buildSystemDestinations,
+  classifySensorRole,
+  computeArrivalDrop,
+  contactPresentation,
+  createScanEmission,
+  decayAllTracks,
+  dropContactsForSubject,
+  emptyContactBook,
+  escortsStackedOnFlagship,
+  evaluatePassiveDetection,
+  failSearch,
+  findContact,
+  firstFrameVisibility,
+  initHullCloak,
+  isCloakActive,
+  isHullCloaked,
+  isIndependentlyAddressable,
+  listDestinationKinds,
+  listFiringSolutions,
+  listObserverKeys,
+  liveFireFactsFromContact,
+  noticeScanEmission,
+  observerHasFiringSolution,
+  observerIdentification,
+  observerKeyForNpc,
+  observerKeyForPlayer,
+  observerKeyForStation,
+  observerSeesSubject,
+  performActiveScan,
+  pruneMissingSubjects,
+  refreshCloakWhilePowered,
+  restoreCloak,
+  restoreContactBook,
+  retainExitPath,
+  roleDefaultEquipment,
+  scanEmissionActive,
+  scienceVsOrdinaryFixture,
+  seedFromReport,
+  serializeCloak,
+  serializeContactBook,
+  setCloakActive,
+  shareFormationDetection,
+  shouldEnforceUnknownAccess,
+  startSearch,
+  subjectKeyForNpc,
+  upsertContact,
+  subjectKeyForPlayer,
+  subjectKeyForStation,
+} from './phase6-sensors.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -874,7 +929,14 @@ const state = {
     active: false,
     startedAt: 0,
     duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
+    startedAtLocalMs: 0,
+    durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   },
+  contactBook: emptyContactBook(),
+  systemDestinations: [],
+  arrivalExit: null,
+  lastInboundArrival: null,
+  lockLostAtLocalMs: 0,
   lastPlayerShotAt: 0,
   npcShipIds: FALLBACK_NPC_SHIP_IDS,
   projectiles: [],
@@ -1604,6 +1666,7 @@ function createNpcShip({
   fleetId = null,
   attackId = null,
   name = null,
+  cloakActive = false,
 } = {}) {
   const spawn = from || {
     x: state.systemStar.x + (seeded(seed + 1) - 0.5) * 1400,
@@ -1648,6 +1711,7 @@ function createNpcShip({
     securityObjective: null,
   };
   assignNpcSecurityInstance(ship);
+  initHullCloak(ship, { active: cloakActive === true }, currentLocalMs());
   return stampDoctrineOnActor(ship, { runtimeFaction: faction, requestedRole: role });
 }
 
@@ -2582,6 +2646,16 @@ function ensureSystemState(systemIndex) {
       scale: getShipVisualScale(shipId) * getTrafficScaleMultiplier(shipSeed + 11),
     };
   });
+  const systemDestinations = buildSystemDestinations({
+    star,
+    planet,
+    stations,
+    asteroids,
+    wormhole,
+    hasAsteroids,
+    hasNebula,
+    seed: base,
+  });
   state.systemStates[systemIndex] = {
     hasNebula,
     nebulaColor: getNebulaColor(base),
@@ -2594,6 +2668,7 @@ function ensureSystemState(systemIndex) {
     station: primaryStation,
     stations,
     trafficDestinations: destinations.map((dest) => ({ name: dest.name, point: { ...dest.point }, spread: dest.spread })),
+    systemDestinations,
     npcShips,
   };
   return state.systemStates[systemIndex];
@@ -2662,6 +2737,11 @@ function applySystemState(systemIndex) {
         : now + 700 + seeded(ship.seed + 13) * 1500,
     };
     if (!realized.securityInstanceId) assignNpcSecurityInstance(realized);
+    initHullCloak(realized, {
+      active: Boolean(ship.cloak?.active || ship.cloakActive),
+      startedAtLocalMs: ship.cloak?.startedAtLocalMs,
+      durationLocalMs: ship.cloak?.durationLocalMs,
+    }, currentLocalMs());
     Object.assign(ship, {
       shipId: realized.shipId,
       name: realized.name,
@@ -2669,6 +2749,7 @@ function applySystemState(systemIndex) {
       role: realized.role,
       identityLocked: true,
       securityInstanceId: realized.securityInstanceId,
+      cloak: realized.cloak,
     });
     return stampDoctrineOnActor(realized, {
       runtimeFaction: faction,
@@ -2697,6 +2778,7 @@ function applySystemState(systemIndex) {
   state.tractorBeams = [];
   state.combatTargetId = null;
   state.combatTargetType = 'ship';
+  realizePhase6AfterApply(systemIndex);
 }
 
 function updateSystemOrbits(now = performance.now()) {
@@ -2761,11 +2843,19 @@ function setCameraNearPlanet() {
     const approach = getCheckpointApproachPoint(zone);
     if (approach) {
       setCamera(approach.x, approach.y);
+      state.arrivalExit = { warp: true, wormhole: Boolean(state.wormhole), checkpointWithdraw: true };
+      placePlayerEscortsOnFormation();
       return;
     }
   }
+  if (state.lastInboundArrival && Number(state.lastInboundArrival.toIndex) === Number(state.currentPlanet)) {
+    setCamera(state.lastInboundArrival.x, state.lastInboundArrival.y);
+    placePlayerEscortsOnFormation();
+    return;
+  }
   const size = getPlanetVisualSize();
   setCamera(state.systemPlanet.x + size * 0.56, state.systemPlanet.y + size * 0.34);
+  placePlayerEscortsOnFormation();
 }
 
 function worldToScreen(point, parallax = 1) {
@@ -3659,11 +3749,13 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
   applySystemState(state.currentPlanet);
   calmHomeSystem();
   scheduleNextFleetAttack(performance.now() + 45000);
-  if (state.wormhole) {
-    setCamera(state.wormhole.x + 90, state.wormhole.y + 60);
-  } else {
-    setCameraNearPlanet();
-  }
+  setPlayerCloak(false, performance.now(), true);
+  applyArrivalPlacement({
+    fromIndex: options.fromIndex ?? state.wormholeTransit?.from,
+    toIndex: targetIndex,
+    wormhole: true,
+  });
+  refreshContactBookNow();
   state.ship.velocity = 0;
   state.ship.turnVelocity = 0;
   state.ship.forwardThrustStartedAt = 0;
@@ -4622,6 +4714,396 @@ function incrementPlayerStrategicJumps() {
     openPhase5Overdue(objective, { currentStrategicJumps: ledger.strategicJumps });
   }
   return ledger.strategicJumps;
+}
+
+function currentLocalMs(systemIndex = state.currentPlanet) {
+  return Number(ensureSystemLedger(systemIndex)?.localElapsedMs) || 0;
+}
+
+function ensureContactBook() {
+  if (!state.contactBook || state.contactBook.version !== CONTACT_BOOK_VERSION || !state.contactBook.observers) {
+    state.contactBook = restoreContactBook(state.contactBook);
+  }
+  return state.contactBook;
+}
+
+function playerObserverKey() {
+  return observerKeyForPlayer();
+}
+
+function subjectKeyOfNpc(npc) {
+  return npc?.securityInstanceId ? subjectKeyForNpc(npc.securityInstanceId) : '';
+}
+
+function subjectKeyOfTarget(target, targetType = 'ship') {
+  if (targetType === 'player' || target == null) return subjectKeyForPlayer();
+  if (targetType === 'station' || target.stationTypeId) return subjectKeyForStation(target.id);
+  return subjectKeyOfNpc(target);
+}
+
+function observerKeyOfActor(actor, kind = 'ship') {
+  if (kind === 'player' || actor === 'player') return observerKeyForPlayer();
+  if (kind === 'station' || actor?.stationTypeId) return observerKeyForStation(actor?.id);
+  return actor?.securityInstanceId ? observerKeyForNpc(actor.securityInstanceId) : observerKeyFor(actor);
+}
+
+function sensorActorFromPlayer() {
+  const stats = getShipStats(state.playership);
+  const name = String(stats.name || state.shipName || '');
+  const science = name.toLowerCase().includes('science') || String(stats.shipClass || '').toLowerCase() === 'science';
+  const energy = finiteNumber(state.power?.energy, 200);
+  const maxEnergy = Math.max(1, getPowerMaxEnergy());
+  const reserve = getPowerDist('reserve');
+  return {
+    key: observerKeyForPlayer(),
+    observerKey: observerKeyForPlayer(),
+    role: science ? 'science' : 'ordinary',
+    sensorEquipment: science ? 'science' : 'standard',
+    sensorAge: Number(state.sensorAge) || 0,
+    powerNorm: clamp((energy / maxEnergy) * (reserve >= 2 ? 1 : 0.35), 0, 1),
+    hullRatio: clamp(finiteNumber(state.hull, 100) / 100, 0, 1),
+    mass: Math.max(1, finiteNumber(stats.mass, 1)),
+    name,
+    shipClass: stats.shipClass,
+    x: state.camera.x,
+    y: state.camera.y,
+    cloak: state.cloak,
+  };
+}
+
+function sensorActorFromNpc(npc) {
+  if (!npc) return { key: '', role: 'ordinary', powerNorm: 1, hullRatio: 1, mass: 1 };
+  const stats = getShipStats(npc.shipId);
+  const role = classifySensorRole({
+    role: npc.role,
+    doctrineRole: npc.doctrineRole,
+    name: npc.name || stats.name,
+    shipClass: stats.shipClass,
+  });
+  const hullRatio = npc.maxCombatHull > 0
+    ? clamp(finiteNumber(npc.combatHull, npc.maxCombatHull) / npc.maxCombatHull, 0, 1)
+    : 1;
+  return {
+    key: observerKeyOfActor(npc),
+    observerKey: observerKeyOfActor(npc),
+    role: npc.sensorRole || role,
+    doctrineRole: npc.doctrineRole,
+    sensorEquipment: npc.sensorEquipment || roleDefaultEquipment(role),
+    sensorAge: Number(npc.sensorAge) || 0,
+    powerNorm: Number.isFinite(Number(npc.powerNorm)) ? clamp(Number(npc.powerNorm), 0, 1) : 1,
+    hullRatio,
+    mass: Math.max(1, finiteNumber(stats.mass, 1)),
+    name: npc.name || stats.name,
+    shipClass: stats.shipClass,
+    x: npc.x,
+    y: npc.y,
+    cloak: npc.cloak,
+    securityInstanceId: npc.securityInstanceId,
+  };
+}
+
+function sensorActorFromStation(station) {
+  const hullRatio = station.maxCombatHull > 0
+    ? clamp(finiteNumber(station.combatHull, station.maxCombatHull) / station.maxCombatHull, 0, 1)
+    : 1;
+  return {
+    key: observerKeyForStation(station.id),
+    observerKey: observerKeyForStation(station.id),
+    role: 'station',
+    sensorEquipment: 'standard',
+    sensorAge: 0,
+    powerNorm: 1,
+    hullRatio,
+    mass: 8,
+    name: station.name,
+    x: station.x,
+    y: station.y,
+    stationTypeId: station.stationTypeId,
+  };
+}
+
+function playerDetectsNpc(npc) {
+  const key = subjectKeyOfNpc(npc);
+  return Boolean(key && observerSeesSubject(ensureContactBook(), playerObserverKey(), key));
+}
+
+function playerHasLockOnNpc(npc) {
+  const key = subjectKeyOfNpc(npc);
+  return Boolean(key && observerHasFiringSolution(ensureContactBook(), playerObserverKey(), key));
+}
+
+function playerDetectsStation(station) {
+  return observerSeesSubject(ensureContactBook(), playerObserverKey(), subjectKeyForStation(station?.id));
+}
+
+function playerHasLockOnStation(station) {
+  return observerHasFiringSolution(ensureContactBook(), playerObserverKey(), subjectKeyForStation(station?.id));
+}
+
+function playerDetectsTarget(target, targetType = 'ship') {
+  return targetType === 'station' || target?.stationTypeId
+    ? playerDetectsStation(target)
+    : playerDetectsNpc(target);
+}
+
+function playerHasLockOnTarget(target, targetType = 'ship') {
+  return targetType === 'station' || target?.stationTypeId
+    ? playerHasLockOnStation(target)
+    : playerHasLockOnNpc(target);
+}
+
+function listPlayerDetectedNpcs() {
+  return getLivingNpcShips().filter((npc) => playerDetectsNpc(npc));
+}
+
+function listPlayerDetectedStations() {
+  return getLivingStations().filter((station) => !station.underConstruction && playerDetectsStation(station));
+}
+
+function observerDetectsTarget(observer, observerKind, target, targetType) {
+  const observerKey = observerKeyOfActor(observer, observerKind);
+  const subjectKey = subjectKeyOfTarget(target, targetType);
+  return Boolean(observerKey && subjectKey && observerSeesSubject(ensureContactBook(), observerKey, subjectKey));
+}
+
+function observerLocksTarget(observer, observerKind, target, targetType) {
+  const observerKey = observerKeyOfActor(observer, observerKind);
+  const subjectKey = subjectKeyOfTarget(target, targetType);
+  return Boolean(observerKey && subjectKey && observerHasFiringSolution(ensureContactBook(), observerKey, subjectKey));
+}
+
+function presentationForNpc(npc) {
+  return contactPresentation(findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(npc)));
+}
+
+function presentationForStation(station) {
+  return contactPresentation(findContact(ensureContactBook(), playerObserverKey(), subjectKeyForStation(station?.id)));
+}
+
+function presentationForTarget(target, targetType = 'ship') {
+  return targetType === 'station' || target?.stationTypeId
+    ? presentationForStation(target)
+    : presentationForNpc(target);
+}
+
+function contactDisplayName(target, targetType = 'ship') {
+  const view = presentationForTarget(target, targetType);
+  if (!view.selectable) return '';
+  if (!view.showName) return 'Unidentified contact';
+  return getTargetName(target);
+}
+
+function shotMatchesSubject(shot, subjectKey) {
+  if (!shot || !subjectKey) return false;
+  if (subjectKey === subjectKeyForPlayer()) return shot.targetType === 'player';
+  if (String(subjectKey).startsWith('station:')) {
+    return shot.targetType === 'station' && subjectKeyForStation(shot.targetId) === subjectKey;
+  }
+  const npc = (state.npcShips || []).find((row) => row.id === shot.targetId);
+  return Boolean(npc && subjectKeyOfNpc(npc) === subjectKey);
+}
+
+function applyLostTrackConsumers(drop) {
+  if (!drop) return drop;
+  if (drop.dropTrackingHome) {
+    for (const shot of state.projectiles || []) {
+      if (shotMatchesSubject(shot, drop.subjectKey)) shot.turnRate = 0;
+    }
+  }
+  if (drop.dropExactTargeting) {
+    const selected = state.combatTargetId
+      ? (state.combatTargetType === 'station'
+        ? state.stations.find((station) => station.id === state.combatTargetId)
+        : state.npcShips.find((npc) => npc.id === state.combatTargetId))
+      : null;
+    if (selected && subjectKeyOfTarget(selected, state.combatTargetType) === drop.subjectKey) {
+      state.lockLostAtLocalMs = currentLocalMs();
+    }
+  }
+  return drop;
+}
+
+function realizeCloakOnScene(localMs = currentLocalMs()) {
+  for (const npc of state.npcShips || []) {
+    initHullCloak(npc, { active: Boolean(npc.cloak?.active), startedAtLocalMs: npc.cloak?.startedAtLocalMs, durationLocalMs: npc.cloak?.durationLocalMs }, localMs);
+  }
+}
+
+function realizeSystemDestinations(systemIndex = state.currentPlanet) {
+  const cached = state.systemStates[systemIndex];
+  const dests = cached?.systemDestinations?.length
+    ? cached.systemDestinations
+    : buildSystemDestinations({
+      star: state.systemStar,
+      planet: state.systemPlanet,
+      stations: state.stations,
+      asteroids: state.asteroids,
+      wormhole: state.wormhole,
+      hasAsteroids: Boolean(cached?.hasAsteroids || state.asteroids?.length),
+      hasNebula: Boolean(state.systemHasNebula),
+      seed: Number(systemIndex) + 1,
+    });
+  state.systemDestinations = dests;
+  if (cached) cached.systemDestinations = dests;
+  return dests;
+}
+
+function placePlayerEscortsOnFormation(now = performance.now()) {
+  const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
+  escorts.forEach((npc, index) => {
+    const point = getPlayerEscortFormationPoint(npc.escortIndex ?? index, now);
+    npc.x = point.x;
+    npc.y = point.y;
+    npc.destination = { ...point };
+  });
+  return escorts.map((npc) => ({ id: npc.id, x: npc.x, y: npc.y }));
+}
+
+function applyArrivalPlacement({ fromIndex = null, toIndex = state.currentPlanet, wormhole = false } = {}) {
+  const destIndex = Number.isFinite(Number(toIndex)) ? Number(toIndex) : state.currentPlanet;
+  const originIndex = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : destIndex;
+  const fromMap = {
+    x: getMapCoordinate(state.systemData?.[originIndex], originIndex, 'x'),
+    y: getMapCoordinate(state.systemData?.[originIndex], originIndex, 'y'),
+  };
+  const toMap = {
+    x: getMapCoordinate(state.systemData?.[destIndex], destIndex, 'x'),
+    y: getMapCoordinate(state.systemData?.[destIndex], destIndex, 'y'),
+  };
+  const zone = getActiveCheckpoint(destIndex);
+  const checkpointApproach = (zone?.foreign && !isSystemControlled(destIndex))
+    ? getCheckpointApproachPoint(zone)
+    : null;
+  const drop = computeArrivalDrop({
+    planet: state.systemPlanet,
+    star: state.systemStar,
+    destinations: state.systemDestinations || [],
+    fromMap,
+    toMap,
+    checkpointApproach,
+    hasNebula: Boolean(state.systemHasNebula),
+    trafficDensity: (state.npcShips || []).length,
+    wormhole: wormhole ? state.wormhole : null,
+  });
+  if (wormhole && state.wormhole && !drop.usedCheckpoint) {
+    setCamera(state.wormhole.x + 90, state.wormhole.y + 60);
+  } else {
+    setCamera(drop.point.x, drop.point.y);
+  }
+  state.lastInboundArrival = { ...drop.point, reason: drop.reason, fromIndex: originIndex, toIndex: destIndex };
+  state.arrivalExit = drop.exit;
+  placePlayerEscortsOnFormation();
+  return drop;
+}
+
+function refreshContactBookNow() {
+  const book = ensureContactBook();
+  const localMs = currentLocalMs();
+  const living = [
+    subjectKeyForPlayer(),
+    ...getLivingNpcShips().map((npc) => subjectKeyOfNpc(npc)).filter(Boolean),
+    ...getLivingStations().map((station) => subjectKeyForStation(station.id)),
+  ];
+  pruneMissingSubjects(book, living);
+  for (const drop of decayAllTracks(book, localMs)) applyLostTrackConsumers(drop);
+
+  const playerActor = sensorActorFromPlayer();
+  for (const npc of getLivingNpcShips()) {
+    const ev = evaluatePassiveDetection(playerActor, sensorActorFromNpc(npc), distanceToPlayer(npc), localMs);
+    if (ev.detected) applyPassiveUpdate(book, playerObserverKey(), subjectKeyOfNpc(npc), ev, npc, localMs);
+  }
+  for (const station of getLivingStations()) {
+    const ev = evaluatePassiveDetection(playerActor, sensorActorFromStation(station), distanceToPlayer(station), localMs);
+    if (ev.detected) applyPassiveUpdate(book, playerObserverKey(), subjectKeyForStation(station.id), ev, station, localMs);
+  }
+
+  for (const npc of getLivingNpcShips()) {
+    const observer = sensorActorFromNpc(npc);
+    const vsPlayer = evaluatePassiveDetection(
+      observer,
+      playerActor,
+      distanceToPlayer(npc),
+      localMs,
+      { cloaked: isPlayerCloaked() },
+    );
+    if (vsPlayer.detected) {
+      applyPassiveUpdate(book, observer.key, subjectKeyForPlayer(), vsPlayer, playerWorldPosition(), localMs);
+    } else {
+      const existing = findContact(book, observer.key, subjectKeyForPlayer());
+      if (existing?.detected && isPlayerCloaked()) {
+        existing.detected = existing.trackQuality === 'area';
+        existing.firingSolution = false;
+        if (existing.trackQuality === 'firm' || existing.trackQuality === 'coarse') existing.trackQuality = 'area';
+      }
+    }
+    for (const other of getLivingNpcShips()) {
+      if (other === npc) continue;
+      const dist = Math.hypot(other.x - npc.x, other.y - npc.y);
+      const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(other), dist, localMs);
+      if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(other), ev, other, localMs);
+    }
+    if (isPlayerEscortNpc(npc)) {
+      const playerPos = playerWorldPosition();
+      const formation = getPlayerEscortFormationPoint(npc.escortIndex || 0);
+      const inFormation = Math.hypot(npc.x - formation.x, npc.y - formation.y) < 110
+        || Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y) < 300;
+      if (inFormation) shareFormationDetection(book, playerObserverKey(), observer.key, localMs);
+    }
+  }
+
+  for (const station of getLivingStations()) {
+    const observer = sensorActorFromStation(station);
+    const vsPlayer = evaluatePassiveDetection(
+      observer,
+      playerActor,
+      distanceToPlayer(station),
+      localMs,
+      { cloaked: isPlayerCloaked() },
+    );
+    if (vsPlayer.detected) applyPassiveUpdate(book, observer.key, subjectKeyForPlayer(), vsPlayer, playerWorldPosition(), localMs);
+    for (const npc of getLivingNpcShips()) {
+      const dist = Math.hypot(npc.x - station.x, npc.y - station.y);
+      const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(npc), dist, localMs);
+      if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(npc), ev, npc, localMs);
+    }
+  }
+
+  for (const key of listObserverKeys(book)) {
+    const emission = book.observers[key]?.scanEmission;
+    if (!emission || !scanEmissionActive(emission, localMs)) continue;
+    const scanner = emission.scannerKey === playerObserverKey()
+      ? playerActor
+      : sensorActorFromNpc(getLivingNpcShips().find((npc) => observerKeyOfActor(npc) === emission.scannerKey));
+    if (!scanner?.key) continue;
+    for (const npc of getLivingNpcShips()) {
+      if (observerKeyOfActor(npc) === emission.scannerKey) continue;
+      noticeScanEmission(book, sensorActorFromNpc(npc), scanner, emission, localMs, {
+        emissionDistance: Math.hypot((scanner.x || 0) - npc.x, (scanner.y || 0) - npc.y),
+      });
+    }
+  }
+  return book;
+}
+
+function listMinimapNpcIds() {
+  return listPlayerDetectedNpcs().map((npc) => npc.id);
+}
+
+function listSelectableContactIds() {
+  return [
+    ...listPlayerDetectedNpcs().map((npc) => npc.id),
+    ...listPlayerDetectedStations().map((station) => station.id),
+  ];
+}
+
+function listPlayerFiringSolutions() {
+  return listFiringSolutions(ensureContactBook(), playerObserverKey());
+}
+
+function realizePhase6AfterApply(systemIndex = state.currentPlanet) {
+  realizeCloakOnScene();
+  realizeSystemDestinations(systemIndex);
+  refreshContactBookNow();
 }
 
 function currentUrgencyContext(objective = null) {
@@ -6265,6 +6747,7 @@ function endVisitOnAmbientReplacement(npc) {
 }
 
 function clearInheritedAmbientEvidence(npc) {
+  const oldSubject = subjectKeyOfNpc(npc);
   npc.lastAggressionAt = 0;
   npc.lastAggressionTargetSide = null;
   npc.lastAggressionSystemIndex = null;
@@ -6277,6 +6760,8 @@ function clearInheritedAmbientEvidence(npc) {
   npc.phase5AssetId = null;
   npc.phase5ConvoyId = null;
   npc.knownAssignmentIds = [];
+  npc.scanReport = null;
+  if (oldSubject) dropContactsForSubject(ensureContactBook(), oldSubject);
 }
 
 function checkpointUiSnapshot() {
@@ -6381,14 +6866,16 @@ function consultDoctrineFire(npc, target, targetType, now = performance.now()) {
   const aggro = Boolean(npc.playerAggroUntil && npc.playerAggroUntil > now);
   const hunter = npc.doctrineRole === 'hunter' || npc.doctrineDefaultObjective === 'hunt';
   const pirateRaid = raid && normalizeFactionKey(npc.faction) === 'pirate';
+  const contact = findContact(ensureContactBook(), observerKeyOfActor(npc), subjectKeyOfTarget(target, targetType));
+  const layerFacts = liveFireFactsFromContact(contact);
   const facts = deriveLiveFireFacts({
     engagementObjectiveActive: true,
-    liveWeaponTrack: targetType !== 'player' || !isPlayerCloaked(now),
+    liveWeaponTrack: layerFacts.liveWeaponTrack === true,
     weaponUsable: true,
     weaponReady: true,
     insideEquippedRange: true,
     targetActionable: !target?.destroyed,
-    identityKnown: Boolean(targetType === 'player' || targetFaction),
+    identityKnown: layerFacts.identityKnown === true,
     attackOnSelf: aggro && (targetType === 'player' || target?.id === npc.lastAttackerId),
     attackOnProtected: escorting || defending,
     defenseObligation: escorting || defending || isNpcSystemDefender(npc),
@@ -6399,10 +6886,11 @@ function consultDoctrineFire(npc, target, targetType, now = performance.now()) {
     credibleCargoIntel: pirateRaid,
     valuableTarget: pirateRaid,
     huntOrder: hunter && (raid || aggro),
-    worthyHunt: hunter && Boolean(target),
-    contactDetected: true,
+    worthyHunt: hunter && Boolean(target) && layerFacts.contactDetected === true,
+    contactDetected: layerFacts.contactDetected === true,
     localDanger: aggro || raid || defending,
   });
+  delete facts.engagement_authorized;
   const inspection = doctrine.inspectFire(npc.doctrineProfile, nativeRole, facts, state.doctrineDominionFlags || {});
   npc.doctrineShadow = {
     at: now,
@@ -8547,37 +9035,48 @@ function getWeaponSpriteFile(weapon = getWeapon()) {
   return 'phaser.png';
 }
 
-function isPlayerCloaked(now = performance.now()) {
-  return Boolean(state.cloak?.active && now - state.cloak.startedAt < state.cloak.duration);
+function isPlayerCloaked(_now = performance.now()) {
+  if (!state.cloak?.active) return false;
+  return isCloakActive(state.cloak, currentLocalMs());
 }
 
 function setPlayerCloak(active, now = performance.now(), silent = false) {
   const cloakSettings = getCloakItemSettings();
+  const localMs = currentLocalMs();
+  const durationMs = finiteNumber(cloakSettings.durationMs, CLOAK_DURATION_MS);
   state.cloak.active = Boolean(active);
   state.cloak.startedAt = active ? now : 0;
-  state.cloak.duration = finiteNumber(cloakSettings.durationMs, CLOAK_DURATION_MS);
+  state.cloak.duration = durationMs;
+  setCloakActive(state.cloak, active, localMs, durationMs);
   if (active) {
     state.combatTargetId = null;
     state.combatTargetType = 'ship';
     state.projectiles = state.projectiles.filter((shot) => !(shot.targetType === 'player' || shot.owner !== 'player' && !shot.targetId));
+    dropContactsForSubject(ensureContactBook(), subjectKeyForPlayer());
+    refreshContactBookNow();
     playGameSound('cloak', { cooldownKey: 'cloak:player' });
     if (!silent) setLog('Cloaking device engaged. Enemy sensors have lost your ship.');
-  } else if (!silent) {
-    playGameSound('cloak', { cooldownKey: 'cloak:player' });
-    setLog('Cloaking device disengaged.');
+  } else {
+    refreshContactBookNow();
+    if (!silent) {
+      playGameSound('cloak', { cooldownKey: 'cloak:player' });
+      setLog('Cloaking device disengaged.');
+    }
   }
   updateStats();
 }
 
 function updateCloakState(now = performance.now()) {
   if (!state.cloak?.active) return;
+  const localMs = currentLocalMs();
   if (getPowerDist('reserve') >= 10) {
     state.cloak.startedAt = now;
+    refreshCloakWhilePowered(state.cloak, localMs);
     return;
   }
-  if (now - state.cloak.startedAt >= state.cloak.duration) {
-    setPlayerCloak(false, now);
-    setLog('Cloaking field collapsed.');
+  if (!isCloakActive(state.cloak, localMs)) {
+    setPlayerCloak(false, now, true);
+    setLog('Your cloak collapsed. Contacts that already had a track may re-acquire; others still have to detect you.');
   }
 }
 
@@ -11611,6 +12110,8 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     securityEncounters: serializeSecurityEncounters(ensureSecurityStores().encounters),
     incidentLedger: serializeIncidentLedger(ensureIncidentLedger()),
     objectiveBoard: serializeObjectiveBoard(ensureObjectiveBoard()),
+    contactBook: serializeContactBook(ensureContactBook()),
+    cloak: serializeCloak(state.cloak),
     playerUnlocks: serializePlayerUnlocks(ensurePlayerUnlocks()),
     unrestIndependence: serializeUnrestIndependence(ensureUnrestIndependence()),
     autoTarget: state.autoTarget !== false,
@@ -11683,6 +12184,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.securityEncounters = restoreSecurityEncounters(s.securityEncounters);
   state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
   state.objectiveBoard = restoreObjectiveBoard(s.objectiveBoard);
+  state.contactBook = restoreContactBook(s.contactBook);
   state.playerUnlocks = restorePlayerUnlocks(s.playerUnlocks);
   state.unrestIndependence = restoreUnrestIndependence(s.unrestIndependence);
   state.repairSession = clearRepairSession();
@@ -11703,7 +12205,12 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.equippedWeaponId = s.equippedWeaponId ?? state.weaponInventory[0] ?? DEFAULT_WEAPON_ID;
   state.weaponSlots = s.weaponSlots ?? [state.equippedWeaponId, null, null];
   state.weaponLastFiredAt = [0, 0, 0];
-  state.cloak = { active: false, startedAt: 0, duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS) };
+  const restoredCloak = restoreCloak(s.cloak);
+  state.cloak = {
+    ...restoredCloak,
+    startedAt: 0,
+    duration: restoredCloak.durationLocalMs || finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
+  };
   state.stationPlans = Array.isArray(s.stationPlans) ? s.stationPlans : [];
   normalizeStationPlans();
   state.playerBuiltStations = Array.isArray(s.playerBuiltStations) ? s.playerBuiltStations : [];
@@ -11745,6 +12252,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   reconcileSecurityParticipants(state.currentPlanet);
   scheduleNextFleetAttack(performance.now() + 20000);
   if (!s.camera) setCameraNearPlanet();
+  refreshContactBookNow();
   state.latinum = state.mylatinum;
   syncFuelToAntimatter();
   state.cargoCap = state.totcargo;
@@ -12042,18 +12550,32 @@ function buildShipScanReport(npc) {
 function scanSelectedShip() {
   if (state.gameOver || !state.gameStarted || state.warp.active || isWormholeTransitActive()) return;
   const npc = getSelectedNpcTarget();
-  if (!npc) {
+  if (!npc || !playerDetectsNpc(npc)) {
     setLog('No ship selected to scan.');
     return;
   }
-  if (distanceToPlayer(npc) > SHIP_HAIL_RANGE) {
-    setLog('Target out of sensor range. Move closer to scan.');
-    rerenderTargetWindowNow();
-    return;
+  const localMs = currentLocalMs();
+  const scanner = sensorActorFromPlayer();
+  const subject = { ...sensorActorFromNpc(npc), key: subjectKeyOfNpc(npc), subjectKey: subjectKeyOfNpc(npc), cloaked: isHullCloaked(npc, localMs) };
+  const result = performActiveScan(ensureContactBook(), scanner, subject, distanceToPlayer(npc), localMs);
+  const playerActor = sensorActorFromPlayer();
+  for (const other of getLivingNpcShips()) {
+    noticeScanEmission(ensureContactBook(), sensorActorFromNpc(other), playerActor, result.emission, localMs, {
+      emissionDistance: distanceToPlayer(other),
+    });
   }
-  npc.scanReport = buildShipScanReport(npc);
+  npc.scanReport = {
+    layers: {
+      identification: result.identification,
+      trackQuality: result.trackQuality,
+      firingSolution: result.firingSolution === true,
+    },
+    empty: result.empty === true,
+    flavorSuppressed: true,
+    emission: true,
+  };
   playGameSound('uiConfirm', { cooldownKey: `scan:${npc.id}` });
-  setLog('...Scan complete...');
+  setLog(result.sayable || (result.empty ? 'Scan found nothing. Cloaked contact (if any) stayed hidden.' : '...Scan complete...'));
   rerenderTargetWindowNow();
   updateStats();
 }
@@ -12721,7 +13243,9 @@ function completeWarpTravel() {
   calmHomeSystem();
   const completedBuilds = completeDueStationConstructions({ silent: true });
   scheduleNextFleetAttack(performance.now() + 30000);
-  setCameraNearPlanet();
+  setPlayerCloak(false, performance.now(), true);
+  applyArrivalPlacement({ fromIndex, toIndex: targetIndex });
+  refreshContactBookNow();
   state.ship.velocity = 0;
   state.ship.turnVelocity = 0;
   state.ship.forwardThrustStartedAt = 0;
@@ -13513,7 +14037,15 @@ function handleGameCanvasClick(e) {
     state.combatTargetId = clickedNpc.id;
     state.combatTargetType = 'ship';
     ensureNpcCombatStats(clickedNpc);
-    setLog(`Target locked: ${getShipStats(clickedNpc.shipId).name} (${formatFaction(clickedNpc.faction)}, ${clickedNpc.attitude}). Press Space to fire.`);
+    const view = presentationForNpc(clickedNpc);
+    const name = contactDisplayName(clickedNpc, 'ship');
+    if (view.liveLock) {
+      setLog(`Target locked: ${name} (${formatFaction(clickedNpc.faction)}, ${clickedNpc.attitude}). Press Space to fire.`);
+    } else if (view.showName) {
+      setLog(`Contact: ${name}. ${view.lockCopy || 'No firing solution.'}`);
+    } else {
+      setLog('Unidentified contact selected.');
+    }
     return;
   }
   const clickedStation = findStationAtScreen(mx, my);
@@ -13616,14 +14148,23 @@ function getCombatTarget(weapon = null) {
   const current = state.combatTargetType === 'station'
     ? state.stations.find((station) => station.id === state.combatTargetId && !station.destroyed && !station.underConstruction)
     : state.npcShips.find((npc) => npc.id === state.combatTargetId && !npc.destroyed);
-  if (current && distanceToPlayer(current) <= weaponRange * 1.25) return current;
-  const candidates = getLivingNpcShips()
+  if (
+    current
+    && playerHasLockOnTarget(current, state.combatTargetType)
+    && distanceToPlayer(current) <= weaponRange * 1.25
+  ) return current;
+  const candidates = listPlayerDetectedNpcs()
     .map((npc) => ({ npc, distance: distanceToPlayer(npc) }))
-    .filter((entry) => entry.distance <= weaponRange && entry.npc.attitude !== 'friendly')
+    .filter((entry) => (
+      entry.distance <= weaponRange
+      && entry.npc.attitude !== 'friendly'
+      && playerHasLockOnNpc(entry.npc)
+    ))
     .sort((a, b) => {
       if (a.npc.hostile !== b.npc.hostile) return a.npc.hostile ? -1 : 1;
       return a.distance - b.distance;
     });
+  if (state.autoTarget === false) return null;
   state.combatTargetId = candidates[0]?.npc.id || null;
   state.combatTargetType = 'ship';
   return candidates[0]?.npc || null;
@@ -13631,11 +14172,10 @@ function getCombatTarget(weapon = null) {
 
 function cycleCombatTarget() {
   const weaponRange = getPlayerWeaponRange();
-  const shipTargets = getLivingNpcShips()
+  const shipTargets = listPlayerDetectedNpcs()
     .filter((npc) => distanceToPlayer(npc) <= weaponRange)
     .map((target) => ({ target, type: 'ship', distance: distanceToPlayer(target) }));
-  const stationTargets = getLivingStations()
-    .filter((station) => !station.underConstruction)
+  const stationTargets = listPlayerDetectedStations()
     .filter((station) => distanceToPlayer(station) <= weaponRange)
     .map((target) => ({ target, type: 'station', distance: distanceToPlayer(target) }));
   const targets = [...shipTargets, ...stationTargets].sort((a, b) => a.distance - b.distance);
@@ -13651,14 +14191,19 @@ function cycleCombatTarget() {
   const next = targets[(current + 1 + targets.length) % targets.length];
   state.combatTargetId = next.target.id;
   state.combatTargetType = next.type;
-  const name = next.type === 'station' ? next.target.name : getShipStats(next.target.shipId).name;
-  setLog(`Target locked: ${name} (${formatFaction(next.target.faction)}, ${next.target.attitude}).`);
+  const view = presentationForTarget(next.target, next.type);
+  const name = contactDisplayName(next.target, next.type);
+  if (view.liveLock) {
+    setLog(`Target locked: ${name}${view.showFaction ? ` (${formatFaction(next.target.faction)}, ${next.target.attitude})` : ''}.`);
+  } else {
+    setLog(view.lockCopy || `Contact: ${name}.`);
+  }
 }
 
 function selectClosestContact() {
-  const shipTargets = getLivingNpcShips()
+  const shipTargets = listPlayerDetectedNpcs()
     .map((npc) => ({ target: npc, type: 'ship', distance: distanceToPlayer(npc) }));
-  const stationTargets = getLivingStations()
+  const stationTargets = listPlayerDetectedStations()
     .map((station) => ({ target: station, type: 'station', distance: distanceToPlayer(station) }));
   const targets = [...shipTargets, ...stationTargets].sort((a, b) => a.distance - b.distance);
   if (!targets.length) {
@@ -13667,8 +14212,11 @@ function selectClosestContact() {
   }
   state.combatTargetId = targets[0].target.id;
   state.combatTargetType = targets[0].type;
-  const name = targets[0].type === 'station' ? (targets[0].target.name || 'Station') : getShipDisplayName(targets[0].target);
-  setLog(`Closest contact: ${name} (${formatFaction(targets[0].target.faction)}).`);
+  const view = presentationForTarget(targets[0].target, targets[0].type);
+  const name = contactDisplayName(targets[0].target, targets[0].type);
+  setLog(view.showFaction
+    ? `Closest contact: ${name} (${formatFaction(targets[0].target.faction)}).`
+    : `Closest contact: ${name}.`);
   rerenderTargetWindowNow();
 }
 function deselectTarget() {
@@ -13682,9 +14230,9 @@ function toggleAutoTarget() {
   setLog(`Auto-target ${state.autoTarget ? 'on' : 'off'}.`);
 }
 function cycleAllContacts() {
-  const shipTargets = getLivingNpcShips()
+  const shipTargets = listPlayerDetectedNpcs()
     .map((npc) => ({ target: npc, type: 'ship', distance: distanceToPlayer(npc) }));
-  const stationTargets = getLivingStations()
+  const stationTargets = listPlayerDetectedStations()
     .map((station) => ({ target: station, type: 'station', distance: distanceToPlayer(station) }));
   const targets = [...shipTargets, ...stationTargets].sort((a, b) => a.distance - b.distance);
   if (!targets.length) {
@@ -13699,14 +14247,17 @@ function cycleAllContacts() {
   const next = targets[(current + 1 + targets.length) % targets.length];
   state.combatTargetId = next.target.id;
   state.combatTargetType = next.type;
-  const name = next.type === 'station' ? (next.target.name || 'Station') : getShipDisplayName(next.target);
-  setLog(`Contact: ${name} (${formatFaction(next.target.faction)}, ${Math.round(next.distance)}u).`);
+  const view = presentationForTarget(next.target, next.type);
+  const name = contactDisplayName(next.target, next.type);
+  setLog(view.showFaction
+    ? `Contact: ${name} (${formatFaction(next.target.faction)}, ${Math.round(next.distance)}u).`
+    : `Contact: ${name} (${Math.round(next.distance)}u).`);
   rerenderTargetWindowNow();
 }
 function findNpcAtScreen(x, y) {
   let best = null;
   let bestDistance = Infinity;
-  for (const npc of getLivingNpcShips()) {
+  for (const npc of listPlayerDetectedNpcs()) {
     const p = worldToScreen(npc);
     const radius = 26 + (npc.scale || 1) * 18;
     const distance = Math.hypot(x - p.x, y - p.y);
@@ -14197,7 +14748,7 @@ function renderShipHailPanel(npc, distance) {
     ${inRange ? '' : '<div class="target-hail-note">Signal fading. Move closer to trade.</div>'}
     <button data-hail-action="hail" ${blockReason ? 'disabled' : ''}>Hail Again</button>
     <button data-hail-action="scan" ${inRange && !blockReason ? '' : 'disabled'}>Scan Ship</button>
-    ${npc.scanReport ? `<div class="target-hail-note">...Scan complete...<br>Primary weapon: ${escapeHtml(npc.scanReport.primary)}<br>Secondary weapon: ${escapeHtml(npc.scanReport.secondary)}<br>Speed: ${npc.scanReport.speed}<br>Cargo Aboard: ${npc.scanReport.tons} tons of ${escapeHtml(npc.scanReport.goods)}<br>Government: ${escapeHtml(npc.scanReport.government)}<br>Combat Rating: ${escapeHtml(npc.scanReport.rating)}</div>` : ''}
+    ${npc.scanReport?.layers ? `<div class="target-hail-note">${npc.scanReport.empty ? 'Scan found nothing. Cloaked contact (if any) stayed hidden.' : `Active scan: identification ${escapeHtml(npc.scanReport.layers.identification)}. Track ${escapeHtml(npc.scanReport.layers.trackQuality)}.${npc.scanReport.layers.firingSolution ? '' : ' No firing solution from scan flavor.'}`} Emission detectable.</div>` : ''}
   </div>`;
 }
 
@@ -14210,7 +14761,7 @@ function updateTargetWindow() {
     return;
   }
   const target = getSelectedCombatTarget();
-  if (!target) {
+  if (!target || !playerDetectsTarget(target, state.combatTargetType)) {
     targetWindowEl.classList.add('hidden');
     targetWindowEl.innerHTML = '';
     targetWindowEl.dataset.renderKey = '';
@@ -14218,18 +14769,24 @@ function updateTargetWindow() {
   }
   ensureCombatTargetStats(target);
   const isStation = Boolean(target.stationTypeId);
+  const view = presentationForTarget(target, isStation ? 'station' : 'ship');
   const targetId = isStation ? target.stationTypeId : target.shipId;
   const stats = getShipStats(targetId);
-  const name = isStation ? target.name || stats.name || 'Station' : getShipDisplayName(target);
-  const typeLabel = isStation ? stats.name || 'Station' : stats.name || stats.shipClass || getShipVisualClass(targetId);
-  const faction = target.faction || state.systemFaction || 'neutral';
-  const shieldColor = getShieldColorForFaction(faction);
+  const name = view.showName
+    ? (isStation ? target.name || stats.name || 'Station' : getShipDisplayName(target))
+    : 'Unidentified contact';
+  const typeLabel = view.showName
+    ? (isStation ? stats.name || 'Station' : stats.name || stats.shipClass || getShipVisualClass(targetId))
+    : 'Unknown';
+  const faction = view.showFaction ? (target.faction || state.systemFaction || 'neutral') : 'unknown';
+  const shieldColor = view.showFaction ? getShieldColorForFaction(target.faction) : '#9aa7b8';
   const hullPct = target.maxCombatHull > 0 ? clamp(target.combatHull / target.maxCombatHull, 0, 1) : 0;
   const hullColor = hullPct > 0.45 ? '#9cffb4' : '#ff7777';
   const distance = Math.round(distanceToPlayer(target));
   const hailRangeState = isStation ? 'station' : distance <= SHIP_HAIL_RANGE ? 'hail-in' : 'hail-out';
-  const spriteSrc = getShipImageSrc(targetId);
-  const attitude = isStation ? '' : target.attitude || 'neutral';
+  const spriteSrc = view.showHullArt ? getShipImageSrc(targetId) : '';
+  const attitude = view.showAttitude && !isStation ? (target.attitude || 'neutral') : '';
+  const lockLabel = view.liveLock ? 'TARGET LOCKED' : (view.areaOnly ? 'LAST KNOWN' : 'CONTACT');
   const now = performance.now();
   if (
     !targetWindowForceRender
@@ -14260,22 +14817,25 @@ function updateTargetWindow() {
   lastTargetWindowRenderAt = now;
   targetWindowEl.dataset.renderKey = renderKey;
   targetWindowEl.classList.remove('hidden');
+  const meta = view.showFaction
+    ? (isStation ? `${formatFaction(faction)} | ${distance}` : `${formatFaction(faction)}${attitude ? ` | ${attitude}` : ''} | ${distance}`)
+    : `Unclassified | ${distance}`;
   targetWindowEl.innerHTML = `<div class="target-window-head">
-      <span>TARGET</span>
+      <span>${escapeHtml(lockLabel)}</span>
       <b>${escapeHtml(name)}</b>
     </div>
     <div class="target-window-body">
       <div class="target-preview">
-        <img src="${escapeHtml(spriteSrc)}" alt="">
+        ${spriteSrc ? `<img src="${escapeHtml(spriteSrc)}" alt="">` : '<div class="target-hail-note">No identification</div>'}
       </div>
       <div class="target-details">
-        <div class="target-meta">${escapeHtml(isStation ? `${formatFaction(faction)} | ${distance}` : `${formatFaction(faction)} | ${attitude} | ${distance}`)}</div>
+        <div class="target-meta">${escapeHtml(meta)}</div>
         <div class="target-class">${escapeHtml(typeLabel)}</div>
-        ${renderTargetMeter('Shield', target.combatShields, target.maxCombatShields, shieldColor)}
-        ${renderTargetMeter('Hull', target.combatHull, target.maxCombatHull, hullColor)}
+        ${view.liveLock ? '' : `<div class="target-hail-note">${escapeHtml(view.lockCopy || 'Lock lost. Last known is an area, not a firing solution.')}</div>`}
+        ${view.showName ? `${renderTargetMeter('Shield', target.combatShields, target.maxCombatShields, shieldColor)}${renderTargetMeter('Hull', target.combatHull, target.maxCombatHull, hullColor)}` : ''}
       </div>
     </div>
-    ${isStation ? '' : renderShipHailPanel(target, distance)}`;
+    ${isStation || !view.showName ? '' : renderShipHailPanel(target, distance)}`;
 }
 
 function damageCombatTarget(target, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
@@ -14759,6 +15319,7 @@ function processHeldWeaponInputs() {
 }
 
 function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player', now = performance.now()) {
+  if (!observerLocksTarget(npc, 'ship', targetType === 'player' ? null : target, targetType)) return;
   consultDoctrineFire(npc, target, targetType, now);
   if (targetType === 'player') {
     recordAttackOnPlayerSide(npc, 'player', now);
@@ -14840,6 +15401,8 @@ function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player
 
 function fireStationWeapon(station, target, now = performance.now()) {
   if (station.destroyed || station.underConstruction) return;
+  const lockType = target?.stationTypeId ? 'station' : target?.id ? 'ship' : 'player';
+  if (!observerLocksTarget(station, 'station', lockType === 'player' ? null : target, lockType)) return;
   const fireTargetType = target?.stationTypeId ? 'station' : target?.id ? 'ship' : 'player';
   if (fireTargetType === 'player') {
     recordAttackOnPlayerSide(station, 'player', now);
@@ -14939,19 +15502,24 @@ function fireStationWeapon(station, target, now = performance.now()) {
 function updateStationDefenses() {
   if (!state.stations.length) return;
   const now = performance.now();
-  const playerCloaked = isPlayerCloaked(now);
   for (const station of state.stations) {
     if (station.destroyed || station.underConstruction) continue;
     const range = station.defenseRange || STATION_DEFENSE_RANGE;
-    if (!playerCloaked && !isSpawnProtected(now) && station.hostile && distanceToPlayer(station) <= range) {
+    if (
+      observerLocksTarget(station, 'station', null, 'player')
+      && !isSpawnProtected(now)
+      && station.hostile
+      && distanceToPlayer(station) <= range
+    ) {
       fireStationWeapon(station, playerWorldPosition(), now);
       continue;
     }
     const security = getPlayerSecurityContext(now, { targetType: 'ship' });
     const hostiles = getLivingNpcShips().filter((npc) => (
-      isPlayerOwnedInstallation(station, security)
+      observerDetectsTarget(station, 'station', npc, 'ship')
+      && (isPlayerOwnedInstallation(station, security)
         ? playerForceMayAutoEngage(npc, security)
-        : isNpcSystemAttacker(npc)
+        : isNpcSystemAttacker(npc))
     ));
     if (!hostiles.length) continue;
     const target = hostiles
@@ -15170,13 +15738,32 @@ function updateProjectiles(frameScale = 1) {
   for (const shot of state.projectiles) {
     if (shot.turnRate) {
       const target = shot.targetType === 'player'
-        ? (playerCloaked ? null : player)
+        ? (observerHasFiringSolution(ensureContactBook(), observerKeyOfActor(
+          shot.owner === 'station'
+            ? state.stations.find((station) => station.id === shot.actorId)
+            : state.npcShips.find((npc) => npc.id === shot.actorId),
+          shot.owner === 'station' ? 'station' : (shot.owner === 'player' ? 'player' : 'ship'),
+        ), subjectKeyForPlayer()) ? player : null)
         : shot.targetId
           ? (shot.targetType === 'station'
             ? state.stations.find((station) => station.id === shot.targetId && !station.destroyed)
             : state.npcShips.find((npc) => npc.id === shot.targetId && !npc.destroyed))
           : null;
-      if (target) {
+      const stillLocked = target && (
+        shot.owner === 'player'
+          ? playerHasLockOnTarget(target, shot.targetType)
+          : observerLocksTarget(
+            shot.owner === 'station'
+              ? state.stations.find((station) => station.id === shot.actorId)
+              : state.npcShips.find((npc) => npc.id === shot.actorId),
+            shot.owner === 'station' ? 'station' : 'ship',
+            target,
+            shot.targetType,
+          )
+      );
+      if (!stillLocked) {
+        shot.turnRate = 0;
+      } else if (target) {
         const desired = (Math.atan2(target.x - shot.x, -(target.y - shot.y)) * 180 / Math.PI + 360) % 360;
         shot.heading = (shot.heading + clamp(angleDelta(shot.heading, desired), -shot.turnRate, shot.turnRate) * frameScale + 360) % 360;
         const radians = shot.heading * Math.PI / 180;
@@ -15293,6 +15880,7 @@ function getNpcDefenseTarget(defender) {
   return getLivingNpcShips()
     .filter((target) => {
       if (target === defender) return false;
+      if (!observerDetectsTarget(defender, 'ship', target, 'ship')) return false;
       if (playerDefender) return playerForceMayAutoEngage(target, security);
       return isNpcSystemAttacker(target, defender);
     })
@@ -15307,7 +15895,9 @@ function getNpcDefenseTarget(defender) {
 function getNpcSelfDefenseTarget(npc, now = performance.now()) {
   if (!npc || npc.destroyed || !npc.lastAttackerId || finiteNumber(npc.lastAttackerUntil, 0) <= now) return null;
   const attacker = getLivingNpcShips().find((other) => other.id === npc.lastAttackerId);
-  return attacker && attacker !== npc ? attacker : null;
+  if (!attacker || attacker === npc) return null;
+  if (!observerDetectsTarget(npc, 'ship', attacker, 'ship')) return null;
+  return attacker;
 }
 
 function getNpcStationTarget(npc) {
@@ -15345,7 +15935,7 @@ function getPlayerEscortPriorityTarget(escort, now = performance.now()) {
     const activeTarget = state.combatTargetType === 'station'
       ? state.stations.find((station) => station.id === state.combatTargetId && isPlayerEscortStationTarget(station, now))
       : state.npcShips.find((npc) => npc.id === state.combatTargetId && isPlayerEscortShipTarget(npc, now));
-    if (activeTarget) {
+    if (activeTarget && observerDetectsTarget(escort, 'ship', activeTarget, state.combatTargetType === 'station' ? 'station' : 'ship')) {
       return {
         target: activeTarget,
         type: state.combatTargetType === 'station' ? 'station' : 'ship',
@@ -15358,7 +15948,7 @@ function getPlayerEscortPriorityTarget(escort, now = performance.now()) {
   if (stance === 'follow') return null;
   const player = playerWorldPosition();
   const shipTarget = getLivingNpcShips()
-    .filter((npc) => npc !== escort && isPlayerEscortShipTarget(npc, now))
+    .filter((npc) => npc !== escort && isPlayerEscortShipTarget(npc, now) && observerDetectsTarget(escort, 'ship', npc, 'ship'))
     .map((npc) => ({
       target: npc,
       type: 'ship',
@@ -15391,7 +15981,7 @@ function getNpcHuntRange(npc) {
 function shouldNpcTargetPlayer(npc, playerDistance, stationTarget, now = performance.now()) {
   const doctrine = getDoctrineRuntime();
   let pursue = true;
-  if (isPlayerCloaked(now)) pursue = false;
+  if (!observerDetectsTarget(npc, 'ship', null, 'player')) pursue = false;
   else if (isSpawnProtected(now)) pursue = false;
   else {
     const huntRange = getNpcHuntRange(npc);
@@ -15728,6 +16318,7 @@ function beginAmbientTrafficArrival(npc, now = performance.now()) {
     },
   });
   assignNpcSecurityInstance(npc, { forceNew: true });
+  initHullCloak(npc, { active: false }, currentLocalMs());
   stampDoctrineOnActor(npc, {
     runtimeFaction: faction,
     requestedRole: npc.role,
@@ -15735,6 +16326,7 @@ function beginAmbientTrafficArrival(npc, now = performance.now()) {
     assignCulture: npc.role === 'localTraffic',
   });
   syncAmbientTrafficVariant(npc);
+  refreshContactBookNow();
 }
 
 function startAmbientTrafficDeparture(npc, now = performance.now()) {
@@ -15993,6 +16585,7 @@ function tick(frameScale = 1) {
     return;
   }
   updateCloakState();
+  refreshContactBookNow();
   updateSystemOrbits();
   updateAsteroids(frameScale);
   updateStationDebris(frameScale);
@@ -18879,10 +19472,27 @@ function drawMinimap() {
     if (!station.destroyed) dot(station, station.hostile ? '#ff9c9c' : '#9cffb4', 3.8);
   }
   if (state.wormhole) dot(state.wormhole, '#c59cff', 3.4);
+  for (const dest of state.systemDestinations || []) {
+    const color = dest.kind === 'restricted' ? 'rgba(255, 180, 110, 0.85)'
+      : dest.kind === 'wreck' ? 'rgba(190, 190, 190, 0.8)'
+        : dest.kind === 'anomaly' ? 'rgba(180, 140, 255, 0.85)'
+          : dest.kind === 'belt' ? 'rgba(170, 190, 150, 0.75)'
+            : 'rgba(116, 214, 255, 0.7)';
+    dot(dest, color, dest.kind === 'lane' ? 1.8 : 2.2);
+  }
   for (const npc of state.npcShips) {
     if (npc.destroyed || npc.trafficWarp?.phase === 'away') continue;
-    const color = npc.attitude === 'friendly' ? '#9cffb4' : npc.hostile ? '#ff9c9c' : '#dfeaff';
-    dot(npc, color, 2.6);
+    const view = presentationForNpc(npc);
+    if (!view.showOnMinimap) continue;
+    const contact = findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(npc));
+    if (view.areaOnly && contact?.lastKnown) {
+      dot(contact.lastKnown, 'rgba(180, 190, 200, 0.45)', 3.4);
+      continue;
+    }
+    const color = view.unclassified
+      ? '#9aa7b8'
+      : (npc.attitude === 'friendly' ? '#9cffb4' : npc.hostile ? '#ff9c9c' : '#dfeaff');
+    dot(view.liveLock ? npc : (contact?.lastKnown || npc), color, 2.6);
   }
 
   ctx2.save();
@@ -19285,6 +19895,7 @@ function render() {
 
   for (const npc of state.npcShips) {
     if (npc.destroyed || npc.trafficWarp?.phase === 'away') continue;
+    if (!playerDetectsNpc(npc)) continue;
     const op = worldToScreen(npc);
     const npcVisual = getShipVisualProfile(npc.shipId);
     const npcRadius = getShipScreenRadius(npc.shipId, npc.scale || npcVisual.scale);
@@ -19430,7 +20041,18 @@ function resetRunState() {
   state.combatTargetType = 'ship';
   state.lastPlayerShotAt = 0;
   state.weaponLastFiredAt = [0, 0, 0];
-  state.cloak = { active: false, startedAt: 0, duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS) };
+  state.cloak = {
+    active: false,
+    startedAt: 0,
+    duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
+    startedAtLocalMs: 0,
+    durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
+  };
+  state.contactBook = emptyContactBook();
+  state.systemDestinations = [];
+  state.arrivalExit = null;
+  state.lastInboundArrival = null;
+  state.lockLostAtLocalMs = 0;
   state.stationPlans = [];
   state.playerFlags = [];
   state.playerSide = 'ferengi';
@@ -19548,7 +20170,14 @@ function restartInEscapePod() {
   state.combatTargetId = null;
   state.combatTargetType = 'ship';
   state.lastPlayerShotAt = 0;
-  state.cloak = { active: false, startedAt: 0, duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS) };
+  state.cloak = {
+    active: false,
+    startedAt: 0,
+    duration: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
+    startedAtLocalMs: 0,
+    durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
+  };
+  state.contactBook = emptyContactBook();
   state.mapOpen = false;
   state.planetMenuOpen = false;
   state.dockMenuTab = 'services';
@@ -19615,6 +20244,7 @@ function startWithFaction(key, options = {}) {
   state.securityEncounters = createSecurityEncountersState();
   state.incidentLedger = createIncidentLedger();
   state.objectiveBoard = emptyObjectiveBoard();
+  state.contactBook = emptyContactBook();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
   state.standingWriteCount = 0;
@@ -19650,6 +20280,7 @@ function startWithFaction(key, options = {}) {
   applySystemState(state.currentPlanet);
   scheduleNextFleetAttack(performance.now() + 30000);
   setCameraNearPlanet();
+  refreshContactBookNow();
   state.ship.x = canvas.width * 0.5;
   state.ship.y = canvas.height * 0.5;
   state.ship.velocity = 0;
@@ -19985,6 +20616,7 @@ function probeSpawnShip(options = {}) {
     fleetId: options.fleetId || null,
     attackId: options.attackId || null,
     name: options.name || null,
+    cloakActive: options.cloakActive === true || options.cloaked === true,
   });
   if (options.playerAggro) ship.playerAggroUntil = performance.now() + 60000;
   ship.lastShotAt = performance.now() - 60000;
@@ -19992,6 +20624,12 @@ function probeSpawnShip(options = {}) {
   if (Number.isFinite(Number(options.combatHull))) ship.combatHull = Number(options.combatHull);
   if (Number.isFinite(Number(options.combatShields))) ship.combatShields = Number(options.combatShields);
   if (Number.isFinite(Number(options.speed))) ship.speed = Number(options.speed);
+  if (options.sensorEquipment) ship.sensorEquipment = options.sensorEquipment;
+  if (options.sensorAge != null) ship.sensorAge = Number(options.sensorAge);
+  if (options.powerNorm != null) ship.powerNorm = Number(options.powerNorm);
+  if (options.cloakActive === true || options.cloaked === true) {
+    initHullCloak(ship, { active: true }, currentLocalMs());
+  }
   state.npcShips.push(ship);
   const systemState = state.systemStates[state.currentPlanet];
   if (systemState?.npcShips) systemState.npcShips.push(ship);
@@ -20464,6 +21102,260 @@ function installBm1ProbeHarness() {
     incidents: createIncidentProbeApi(),
     sideLane: createSideLaneProbeApi(),
     phase5: createPhase5ProbeApi(),
+    phase6: createPhase6ProbeApi(),
+  };
+}
+
+function createPhase6ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const snapshot = () => {
+    const book = ensureContactBook();
+    const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
+    const player = playerWorldPosition();
+    return {
+      book: serializeContactBook(book),
+      playerCloak: { ...state.cloak },
+      minimapIds: listMinimapNpcIds(),
+      targetIds: listSelectableContactIds(),
+      firing: listPlayerFiringSolutions(),
+      destinations: listDestinationKinds(state.systemDestinations || []),
+      destinationRecords: (state.systemDestinations || []).map((row) => ({
+        kind: row.kind,
+        locationId: row.locationId || null,
+        independentAddress: Boolean(row.independentAddress),
+      })),
+      systemClamp: { w: SYSTEM_W, h: SYSTEM_H },
+      arrival: { x: state.camera.x, y: state.camera.y, reason: state.lastInboundArrival?.reason || null },
+      escortOffsets: escorts.map((npc) => ({
+        id: npc.id,
+        dx: npc.x - player.x,
+        dy: npc.y - player.y,
+        dist: Math.hypot(npc.x - player.x, npc.y - player.y),
+      })),
+      escortsStacked: escortsStackedOnFlagship(player, escorts, 40),
+      exit: state.arrivalExit,
+      exitRetained: retainExitPath(state.arrivalExit || { warp: true }),
+      standing: { ...(state.factionStanding || {}) },
+      log: state.log,
+      unknownEnforced: shouldEnforceUnknownAccess() || UNKNOWN_ACCESS_ENFORCEMENT === true,
+      deepSpace: (state.systemDestinations || []).some((row) => isIndependentlyAddressable(row)),
+    };
+  };
+  return {
+    snapshot,
+    injectCloakedHull: (opts = {}) => {
+      const missing = failIfMissing(initHullCloak, 'initHullCloak');
+      if (missing) return missing;
+      const player = playerWorldPosition();
+      const spawned = probeSpawnShip({
+        id: opts.id || `probe-cloak-${Date.now()}`,
+        faction: opts.faction || 'romulan',
+        role: opts.role || 'patrol',
+        name: opts.name || 'Cloaked Warbird',
+        x: Number.isFinite(Number(opts.x)) ? Number(opts.x) : player.x + 220,
+        y: Number.isFinite(Number(opts.y)) ? Number(opts.y) : player.y,
+        cloakActive: true,
+        hostile: Boolean(opts.hostile),
+      });
+      const ship = probeFindShip(spawned.id);
+      if (!ship?.cloak) return { ok: false, reason: 'cloak-helper-missing' };
+      initHullCloak(ship, { active: true }, currentLocalMs());
+      refreshContactBookNow();
+      const vis = firstFrameVisibility(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(ship));
+      return {
+        ok: true,
+        ...spawned,
+        subjectKey: subjectKeyOfNpc(ship),
+        cloaked: isHullCloaked(ship, currentLocalMs()),
+        firstFrame: vis,
+        minimapIds: listMinimapNpcIds(),
+        targetIds: listSelectableContactIds(),
+      };
+    },
+    firstFrameAfterApply: () => {
+      applySystemState(state.currentPlanet);
+      refreshContactBookNow();
+      return { ok: true, ...snapshot(), ticked: false };
+    },
+    injectScienceVsOrdinary: (opts = {}) => {
+      const fixture = scienceVsOrdinaryFixture();
+      const player = playerWorldPosition();
+      const target = probeSpawnShip({
+        id: opts.targetId || 'probe-cloak-target',
+        faction: 'romulan',
+        role: 'patrol',
+        name: 'Cloaked Contact',
+        x: player.x + 170,
+        y: player.y,
+        cloakActive: true,
+      });
+      const science = probeSpawnShip({
+        id: opts.scienceId || 'probe-science',
+        faction: 'vulcan',
+        role: 'science',
+        name: 'Science Specialist',
+        x: player.x + 8,
+        y: player.y + 8,
+        sensorEquipment: 'science',
+        sensorAge: 0,
+        powerNorm: 1,
+      });
+      const ordinary = probeSpawnShip({
+        id: opts.ordinaryId || 'probe-ordinary',
+        faction: 'klingon',
+        role: 'patrol',
+        name: 'Ordinary Battleship',
+        x: player.x + 12,
+        y: player.y - 8,
+        sensorEquipment: 'standard',
+        sensorAge: 8,
+        powerNorm: 1,
+      });
+      const scienceShip = probeFindShip(science.id);
+      const ordinaryShip = probeFindShip(ordinary.id);
+      const targetShip = probeFindShip(target.id);
+      if (!scienceShip || !ordinaryShip || !targetShip) return { ok: false, reason: 'fixture-missing' };
+      scienceShip.sensorEquipment = 'science';
+      scienceShip.sensorAge = 0;
+      scienceShip.powerNorm = 1;
+      ordinaryShip.sensorEquipment = 'standard';
+      ordinaryShip.sensorAge = 8;
+      ordinaryShip.powerNorm = 1;
+      initHullCloak(targetShip, { active: true }, currentLocalMs());
+      refreshContactBookNow();
+      const book = ensureContactBook();
+      const scienceSees = observerSeesSubject(book, observerKeyOfActor(scienceShip), subjectKeyOfNpc(targetShip));
+      const ordinarySees = observerSeesSubject(book, observerKeyOfActor(ordinaryShip), subjectKeyOfNpc(targetShip));
+      scienceShip.powerNorm = 0.12;
+      scienceShip.combatHull = Math.max(1, finiteNumber(scienceShip.maxCombatHull, 40) * 0.2);
+      refreshContactBookNow();
+      const damagedSees = observerSeesSubject(ensureContactBook(), observerKeyOfActor(scienceShip), subjectKeyOfNpc(targetShip));
+      return {
+        ok: true,
+        scienceSees,
+        ordinarySees,
+        damagedSees,
+        scienceMass: fixture.science.mass,
+        ordinaryMass: fixture.ordinary.mass,
+        target: { id: target.id, subjectKey: subjectKeyOfNpc(targetShip) },
+        science: { id: science.id, key: observerKeyOfActor(scienceShip) },
+        ordinary: { id: ordinary.id, key: observerKeyOfActor(ordinaryShip) },
+      };
+    },
+    ageTrack: (contactId, extraAgeMs = 80000) => {
+      const missing = failIfMissing(ageTrack, 'ageTrack');
+      if (missing) return missing;
+      const book = ensureContactBook();
+      const localMs = currentLocalMs();
+      const contact = findContact(book, playerObserverKey(), contactId) || book.observers[playerObserverKey()]?.contacts?.[contactId];
+      const id = contact?.contactId || contactId;
+      const aged = ageTrack(book, playerObserverKey(), id, localMs + extraAgeMs, extraAgeMs);
+      if (aged.drop) applyLostTrackConsumers(aged.drop);
+      return { ok: aged.ok, ...aged, sameTick: true, snapshot: snapshot() };
+    },
+    failSearch: (contactId) => {
+      const missing = failIfMissing(failSearch, 'failSearch');
+      if (missing) return missing;
+      const book = ensureContactBook();
+      const contact = findContact(book, playerObserverKey(), contactId) || book.observers[playerObserverKey()]?.contacts?.[contactId];
+      const id = contact?.contactId || contactId;
+      startSearch(book, playerObserverKey(), id, currentLocalMs(), 4000);
+      const failed = failSearch(book, playerObserverKey(), id, currentLocalMs());
+      return { ok: failed.ok, ...failed, snapshot: snapshot() };
+    },
+    startAreaSearch: (subjectKey) => {
+      const book = ensureContactBook();
+      const contact = findContact(book, playerObserverKey(), subjectKey);
+      if (!contact) return { ok: false, reason: 'missing-contact' };
+      return startSearch(book, playerObserverKey(), contact.contactId, currentLocalMs(), 4000);
+    },
+    activeScan: (observerKey, subjectKey) => {
+      const missing = failIfMissing(performActiveScan, 'performActiveScan');
+      if (missing) return missing;
+      const observerNpc = getLivingNpcShips().find((npc) => observerKeyOfActor(npc) === observerKey);
+      const subjectNpc = getLivingNpcShips().find((npc) => subjectKeyOfNpc(npc) === subjectKey);
+      const observer = observerKey === playerObserverKey()
+        ? sensorActorFromPlayer()
+        : (observerNpc ? sensorActorFromNpc(observerNpc) : null);
+      const subject = subjectKey === subjectKeyForPlayer()
+        ? { ...sensorActorFromPlayer(), key: subjectKeyForPlayer(), subjectKey: subjectKeyForPlayer(), cloaked: isPlayerCloaked() }
+        : (subjectNpc ? { ...sensorActorFromNpc(subjectNpc), key: subjectKeyOfNpc(subjectNpc), subjectKey: subjectKeyOfNpc(subjectNpc), cloaked: isHullCloaked(subjectNpc, currentLocalMs()) } : null);
+      if (!observer || !subject) return { ok: false, reason: 'scan-actors-missing' };
+      const dist = Math.hypot((observer.x || 0) - (subject.x || 0), (observer.y || 0) - (subject.y || 0));
+      const result = performActiveScan(ensureContactBook(), observer, subject, dist, currentLocalMs());
+      for (const npc of getLivingNpcShips()) {
+        noticeScanEmission(ensureContactBook(), sensorActorFromNpc(npc), observer, result.emission, currentLocalMs(), {
+          emissionDistance: Math.hypot((observer.x || 0) - npc.x, (observer.y || 0) - npc.y),
+        });
+      }
+      return { ok: true, ...result, snapshot: snapshot() };
+    },
+    seedReport: (subjectKey, lastKnown = { x: 100, y: 80 }) => {
+      const contact = seedFromReport(ensureContactBook(), playerObserverKey(), subjectKey, lastKnown, currentLocalMs());
+      return { ok: Boolean(contact), contact, firingSolution: contact?.firingSolution === true };
+    },
+    applyLostTrack: (subjectKey) => {
+      const book = ensureContactBook();
+      const contact = findContact(book, playerObserverKey(), subjectKey);
+      if (!contact) return { ok: false, reason: 'missing-contact' };
+      const result = applyLostTrackSameTick(book, playerObserverKey(), contact.contactId, currentLocalMs(), {
+        dropExactTargeting: applyLostTrackConsumers,
+        dropTrackingHome: applyLostTrackConsumers,
+      });
+      if (result.drop) applyLostTrackConsumers(result.drop);
+      return { ok: result.ok, ...result, snapshot: snapshot() };
+    },
+    grantLiveLock: (subjectKey) => {
+      const npc = getLivingNpcShips().find((row) => subjectKeyOfNpc(row) === subjectKey);
+      if (!npc) return { ok: false, reason: 'missing-subject' };
+      const record = upsertContact(ensureContactBook(), playerObserverKey(), {
+        subjectKey,
+        detected: true,
+        identification: 'known',
+        trackQuality: 'firm',
+        firingSolution: true,
+        lastKnown: { x: npc.x, y: npc.y, radius: 24, atLocalMs: currentLocalMs() },
+        freshnessLocalMs: currentLocalMs(),
+        source: 'visual',
+      }, currentLocalMs());
+      return { ok: true, contact: record, firingSolution: record?.firingSolution === true };
+    },
+    applyArrival: (opts = {}) => {
+      const fromIndex = Number.isFinite(Number(opts.fromIndex)) ? Number(opts.fromIndex) : 0;
+      const toIndex = Number.isFinite(Number(opts.toIndex)) ? Number(opts.toIndex) : state.currentPlanet;
+      const drop = applyArrivalPlacement({ fromIndex, toIndex, wormhole: opts.wormhole === true });
+      refreshContactBookNow();
+      return { ok: true, drop, snapshot: snapshot() };
+    },
+    completeJumpFrom: (fromIndex) => {
+      const dest = Number(state.currentPlanet);
+      const origin = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : 0;
+      const drop = applyArrivalPlacement({ fromIndex: origin, toIndex: dest });
+      refreshContactBookNow();
+      return { ok: true, fromIndex: origin, toIndex: dest, drop, snapshot: snapshot() };
+    },
+    listAiAcquisition: (observerId) => {
+      const npc = probeFindShip(observerId);
+      const station = npc ? null : probeFindStation(observerId);
+      const observer = npc || station;
+      if (!observer) return { ok: false, reason: 'missing-observer' };
+      const kind = station ? 'station' : 'ship';
+      const subjects = [
+        { type: 'player', key: subjectKeyForPlayer(), detected: observerDetectsTarget(observer, kind, null, 'player'), lock: observerLocksTarget(observer, kind, null, 'player') },
+        ...getLivingNpcShips().filter((row) => row !== npc).map((row) => ({
+          type: 'ship',
+          id: row.id,
+          key: subjectKeyOfNpc(row),
+          detected: observerDetectsTarget(observer, kind, row, 'ship'),
+          lock: observerLocksTarget(observer, kind, row, 'ship'),
+        })),
+      ];
+      return { ok: true, subjects };
+    },
+    unknownAccessEnforced: () => shouldEnforceUnknownAccess(),
   };
 }
 
@@ -20757,9 +21649,11 @@ function createPhase5ProbeApi() {
       const objective = listOpenObjectives(board)[0] || Object.values(board.objectives || {})[0];
       const convoy = objective ? getConvoy(board, objective.convoyId) : null;
       const knownByReport = extras.knownByReport === true || observerKnowsAssignment(npc, objective?.assignmentId);
-      const knownByDetection = extras.knownByDetection === true || detectAssignmentInSystem(npc, (state.npcShips || []).filter((ship) => (
-        ship.phase5AssignmentId === objective?.assignmentId
-      )), state.currentPlanet);
+      const convoyHulls = (state.npcShips || []).filter((ship) => ship.phase5AssignmentId === objective?.assignmentId);
+      const knownByDetection = extras.knownByDetection === true || (
+        detectAssignmentInSystem(npc, convoyHulls, state.currentPlanet)
+        && convoyHulls.some((hull) => observerDetectsTarget(npc, 'ship', hull, 'ship'))
+      );
       const eventKnown = extras.event_known === false ? false : Boolean(knownByReport || knownByDetection || extras.event_known === true);
       if (eventKnown && npc && objective) grantAssignmentKnowledge(npc, objective.assignmentId);
       const evaluation = evaluatePirateFromKnowledge({
@@ -21295,6 +22189,7 @@ function installPlayerSecurityProbe() {
     incidents: createIncidentProbeApi(),
     sideLane: createSideLaneProbeApi(),
     phase5: createPhase5ProbeApi(),
+    phase6: createPhase6ProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
     raiseFlag: (faction) => {

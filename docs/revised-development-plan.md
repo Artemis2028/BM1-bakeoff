@@ -1,7 +1,7 @@
 # BM1 Remastered — revised development plan
 
 Updated: 12 September 2026  
-Checkpoint: Phase 1–5 engine and the repair / Reman / independence side-lane are on bake-off `main`. Phase 6 sensors/cloak is **brief-ready** (not engine). Remaining product knowledge from the guided remastered-work roadmap is in **§16** and `docs/GUIDED-CONVERGENCE.md`. Do not treat Passed Phase 1–6 briefs or the side-lane as incomplete.
+Checkpoint: Phase 1–5 engine and the repair / Reman / independence side-lane are on bake-off `main`. Phase 6 sensors/cloak engine is implemented from the scored brief (PR pending); **no Referee Pass claimed**. Remaining product knowledge from the guided remastered-work roadmap is in **§16** and `docs/GUIDED-CONVERGENCE.md`. Do not treat Passed Phase 1–6 briefs or the side-lane as incomplete.
 
 This is the current roadmap for what we have completed, what we need to add, and what we would like to build later. It carries forward the cloud handoff and faction-doctrine work, with the decisions made during the Phase 1 and Phase 2 reviews taking precedence. The later milestones are proposed implementation slices, not approval to implement every idea at once. Sections 2–15 retain the 11 September checkpoint wording; **§16 is the bake-off-relative backlog** and takes precedence when those older “Pending / next” lines disagree with landed Passes.
 
@@ -319,7 +319,7 @@ Do **not** list these as Agreed next. Older rows in §2 / §4 / §15 that still 
 | Side-lane `repairCapable` + arms overlay | **Engine landed** | `docs/side-lane-repair-reman-independence/`; PR #18 |
 | Side-lane Reman durable unlock | **Engine landed** (soft `meetPackPurchaseDecision` remains) | Same; PR #18 |
 | Side-lane unrest → independence mint | **Engine landed** | Same; PR #19 |
-| Phase 6 sensors / cloak / contact uncertainty / system space | **Brief ready** (PR #22). Engine **not** implemented — do not rewrite this as a new brief. | §8; `docs/phase6/` |
+| Phase 6 sensors / cloak / contact uncertainty / system space | **Brief ready** (PR #22). Engine implemented from that brief — **no Referee Pass claimed**. Do not rewrite as a new brief. | §8; `docs/phase6/` |
 | Additive `bm-ships/` pack | **On main** (PR #15). Full catalog **not** wired. | `bm-ships/`; `docs/INSTALL-SHIPS-PATCH.md` |
 
 Guided copy about incidents, independence, repair arms, or Reman recovery is **already satisfied on bake-off**. Cite the merge; do not start a second implementation.

@@ -3082,6 +3082,166 @@ async function runPhase5Objectives(page, results) {
     && s81516.overdueImplemented === true, JSON.stringify(s81516));
 }
 
+async function runPhase6Sensors(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase6), { timeout: 30000 });
+
+  const s91 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    if (!p6) return { missing: true };
+    const injected = p6.injectCloakedHull({ name: 'Cloaked Warbird' });
+    const first = p6.firstFrameAfterApply();
+    return {
+      missing: false,
+      ok: injected.ok,
+      cloaked: injected.cloaked,
+      firstFrame: injected.firstFrame,
+      minimapHas: (injected.minimapIds || []).includes(injected.id),
+      targetHas: (injected.targetIds || []).includes(injected.id),
+      firstTicked: first.ticked === true,
+      firstMinimapHas: (first.minimapIds || []).includes(injected.id),
+    };
+  });
+  check(results, 'S9.1 first-frame-cloak', s91.ok && s91.cloaked && s91.firstFrame?.minimap === false
+    && s91.firstFrame?.targetCycle === false && s91.firstFrame?.aiAcquisition === false
+    && s91.minimapHas === false && s91.targetHas === false && s91.firstTicked === false, JSON.stringify(s91));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s92 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const injected = p6.injectCloakedHull({ id: 's92-cloak' });
+    const report = p6.seedReport(injected.subjectKey, { x: 120, y: 80 });
+    const det = report.contact;
+    return {
+      reportFs: report.firingSolution,
+      detected: det?.detected === true,
+      track: det?.trackQuality,
+      ident: det?.identification,
+    };
+  });
+  check(results, 'S9.2 info-layers-report-not-lock', s92.detected && s92.reportFs === false && s92.track === 'area' && s92.ident === 'none', JSON.stringify(s92));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s934 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const cloak = p6.injectCloakedHull({ id: 's93-cloak', hostile: true });
+    const snap = p6.snapshot();
+    const ai = p6.listAiAcquisition(cloak.id);
+    return {
+      minimap: (snap.minimapIds || []).includes(cloak.id),
+      targets: (snap.targetIds || []).includes(cloak.id),
+      playerLock: (snap.firing || []).includes(cloak.subjectKey),
+      cloakSeesPlayer: (ai.subjects || []).find((row) => row.type === 'player')?.detected === true,
+    };
+  });
+  check(results, 'S9.3 hidden-player-ui', s934.minimap === false && s934.targets === false && s934.playerLock === false, JSON.stringify(s934));
+  check(results, 'S9.4 hidden-npc-ai', s934.cloakSeesPlayer === false, JSON.stringify(s934));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s95 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const cloak = p6.injectCloakedHull({ id: 's95-lock' });
+    const granted = p6.grantLiveLock(cloak.subjectKey);
+    const before = p6.snapshot();
+    const aged = p6.applyLostTrack(cloak.subjectKey);
+    const after = aged.snapshot;
+    return {
+      granted: granted.firingSolution === true,
+      beforeFs: (before.firing || []).includes(cloak.subjectKey),
+      afterFs: (after.firing || []).includes(cloak.subjectKey),
+      sameTick: aged.sameTick === true,
+      dropAi: aged.drop?.ai?.acquisition === false,
+      dropUi: aged.drop?.ui?.tooltipLock === false && aged.drop?.ui?.minimapExact === false,
+    };
+  });
+  check(results, 'S9.5 lost-track-same-tick', s95.granted && s95.beforeFs && s95.afterFs === false && s95.sameTick && s95.dropAi && s95.dropUi, JSON.stringify(s95));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s96 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const cloak = p6.injectCloakedHull({ id: 's96-search' });
+    p6.seedReport(cloak.subjectKey, { x: 90, y: 90 });
+    const started = p6.startAreaSearch(cloak.subjectKey);
+    const failed = p6.failSearch(cloak.subjectKey);
+    return {
+      startedFs: started.firingSolution === true,
+      failedFs: failed.firingSolution === true,
+      invented: failed.inventedCoordinates === true,
+    };
+  });
+  check(results, 'S9.6 search-costs-and-can-fail', s96.startedFs === false && s96.failedFs === false && s96.invented === false, JSON.stringify(s96));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s97 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    if (typeof p6.injectScienceVsOrdinary !== 'function') return { missing: true };
+    return p6.injectScienceVsOrdinary();
+  });
+  check(results, 'S9.7 science-specialist-variance', s97.ok && s97.scienceSees === true && s97.ordinarySees === false && s97.damagedSees === false, JSON.stringify(s97));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s98 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const science = p6.injectScienceVsOrdinary();
+    const scan = p6.activeScan(science.science.key, science.target.subjectKey);
+    const noticed = (scan.emission?.detectedBy || []).length > 0 || scan.raised === true || scan.empty === true;
+    return {
+      useful: scan.useful === true,
+      cargo: scan.cargoDump === true,
+      noticed,
+      emptyOrRaised: scan.empty === true || scan.raised === true,
+    };
+  });
+  check(results, 'S9.8 active-scan-useful-detectable', s98.useful && s98.cargo === false && s98.emptyOrRaised, JSON.stringify(s98));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s99 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const snap = p6.snapshot();
+    return {
+      kinds: snap.destinations || [],
+      deep: snap.deepSpace === true,
+      clampW: snap.systemClamp?.w,
+      clampH: snap.systemClamp?.h,
+    };
+  });
+  check(results, 'S9.9 purposeful-destinations', (s99.kinds || []).length >= 2 && s99.deep === false && s99.clampW === 2600 && s99.clampH === 1800, JSON.stringify(s99));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s910 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const a = p6.completeJumpFrom(0);
+    const b = p6.completeJumpFrom(5);
+    return {
+      ax: a.snapshot.arrival.x,
+      ay: a.snapshot.arrival.y,
+      bx: b.snapshot.arrival.x,
+      by: b.snapshot.arrival.y,
+      stacked: b.snapshot.escortsStacked,
+      exit: b.snapshot.exitRetained,
+    };
+  });
+  check(results, 'S9.10 arrival-spacing-exit', (s910.ax !== s910.bx || s910.ay !== s910.by) && s910.stacked === false && s910.exit === true, JSON.stringify(s910));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s911 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const cloak = p6.injectCloakedHull({ id: 's911-cloak' });
+    p6.seedReport(cloak.subjectKey, { x: 10, y: 10 });
+    p5.saveSlot(6);
+    p5.loadSlot(6);
+    const first = p6.firstFrameAfterApply();
+    return {
+      unknown: p6.unknownAccessEnforced(),
+      firstMinimap: (first.minimapIds || []).includes(cloak.id),
+      deep: first.deepSpace,
+    };
+  });
+  check(results, 'S9.11 load-reuse-no-leak', s911.firstMinimap === false && s911.unknown === false, JSON.stringify(s911));
+  check(results, 'S9.12 unknown-still-unenforced', s911.unknown === false, JSON.stringify(s911));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -3100,13 +3260,14 @@ async function main() {
     await runSideLaneRepairReman(page, results);
     await runSideLaneUnrestIndependence(page, results);
     await runPhase5Objectives(page, results);
+    await runPhase6Sensors(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
