@@ -17,7 +17,8 @@ const includeNames = new Set([
   'src',
   'data',
   'docs',
-  'assets'
+  'assets',
+  'bm-ships'
 ]);
 
 const excludedNames = new Set([

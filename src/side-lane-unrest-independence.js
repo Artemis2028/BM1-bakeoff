@@ -77,7 +77,7 @@ export const PLAYER_SECURITY_ROE_MODES = Object.freeze(['return-fire', 'defend']
 export const FORBIDDEN_FIRE_INJECT = 'engagement_authorized';
 export const PHASE5_ASSET_OVERDUE = 'asset_overdue';
 export const ASSET_OVERDUE_IMPLEMENTED = true;
-export const FULL_CATALOG_WIRED = false;
+export const FULL_CATALOG_WIRED = true;
 
 /**
  * §5.3.4 informed postures. These are engine-assigned breakaway profile ids,

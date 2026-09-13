@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'bm2-pwa-20260911-doctrine-v021';
+const CACHE_VERSION = 'bm2-pwa-20260913-catalog-wire-v1';
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_ASSET_MANIFEST = './offline-assets.json';
@@ -21,6 +21,10 @@ const APP_SHELL = [
   './data/pod_manifest.json',
   './data/ship_size_config.json',
   './data/starship_manifest.json',
+  './bm-ships/ships.json',
+  './bm-ships/catalog.mjs',
+  './bm-ships/bm2-id-map.json',
+  './bm-ships/size-config.json',
   './data/stationData.json',
   './data/station_manifest.json',
   './assets/app-icons/icon-192.png',
