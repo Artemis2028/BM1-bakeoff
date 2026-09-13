@@ -3412,6 +3412,84 @@ async function runCatalogWire(page, results) {
   check(results, 'S11.6 roster-wired', s11.snap?.wired === true && s11.snap?.activeCount === 172 && s11.homeStanding === 20, JSON.stringify(s11.snap));
 }
 
+async function runPhase7Fleet(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase7), { timeout: 30000 });
+
+  const s1212 = await page.evaluate(() => {
+    const p7 = globalThis.__BM1_PROBE__.phase7;
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    if (!p7) return { missing: true };
+    const commissioned = p7.commissionEscort({ id: 'pe-s12', name: 'Hold Wing', kind: 'escort' });
+    const held = p7.holdOutside({ id: 'pe-s12', role: 'screen' });
+    const snap = held.snapshot;
+    const escort = (snap.escorts || [])[0];
+    const cloak = p6.injectCloakedHull({ id: 's12-cloak' });
+    p7.seedLock(cloak.subjectKey, { x: 30, y: 12 });
+    const shared = p7.shareFormation();
+    const beforeBook = shared.snapshot.book;
+    const interrupted = p7.interruptDefense('pe-s12');
+    return {
+      missing: false,
+      commissioned: commissioned.ok,
+      held: held.ok,
+      noFire: held.noFireInject !== false && interrupted.noFireInject === true,
+      outside: escort?.outside === true,
+      stacked: snap.escortsStacked === true,
+      destName: escort?.destinationName,
+      kind: escort?.kind,
+      gifted: shared.gifted === true,
+      detectionOnly: shared.detectionOnly === true,
+      standing: interrupted.standing?.kind,
+      bookPreserved: interrupted.bookPreserved === true,
+      panel: snap.panelVisible === true || (snap.panelHtml || '').includes('hold_outside') || (snap.rows || []).some((row) => row.kind === 'hold_outside'),
+      commsStub: snap.commsImplemented === false,
+      tensionStub: snap.tensionImplemented === false,
+      reman: snap.reman?.id === 53,
+      catalog: snap.catalogWired === true,
+      bookBefore: Boolean(beforeBook),
+    };
+  });
+  check(results, 'S12.1 hold-outside-beyond-boundary', s1212.held && s1212.outside === true, JSON.stringify(s1212));
+  check(results, 'S12.2 hold-outside-not-stacked', s1212.stacked === false, JSON.stringify({ stacked: s1212.stacked }));
+  check(results, 'S12.5 no-gifted-fs', s1212.detectionOnly === true && s1212.gifted !== true, JSON.stringify({ gifted: s1212.gifted, detectionOnly: s1212.detectionOnly }));
+  check(results, 'S12.6 no-engagement-inject', s1212.noFire === true, JSON.stringify({ noFire: s1212.noFire }));
+  check(results, 'S12.7 interrupt-preserves-standing', s1212.standing === 'hold_outside', JSON.stringify({ standing: s1212.standing }));
+  check(results, 'S12.8 interrupt-keeps-contact-book', s1212.bookPreserved === true, JSON.stringify({ bookPreserved: s1212.bookPreserved }));
+  check(results, 'S12.9 peaceful-escort-hold', s1212.kind === 'hold_outside' && s1212.destName === 'hold outside', JSON.stringify({ kind: s1212.kind, destName: s1212.destName }));
+  check(results, 'S12.11 visible-order-status', s1212.panel === true, JSON.stringify({ panel: s1212.panel }));
+  check(results, 'S12.soft stubs-and-locks', s1212.commsStub && s1212.tensionStub && s1212.reman && s1212.catalog, JSON.stringify(s1212));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s1234 = await page.evaluate(() => {
+    const p7 = globalThis.__BM1_PROBE__.phase7;
+    p7.commissionEscort({ id: 'pe-stay', name: 'Stay Wing', kind: 'escort' });
+    p7.holdOutside({ id: 'pe-stay' });
+    const here = p7.snapshot().currentPlanet;
+    const jumped = p7.completeJump();
+    const staySnap = jumped.snapshot;
+    const stayPresent = (staySnap.escorts || []).some((row) => row.fleetId === 'pe-stay');
+    const stayOrder = (staySnap.orders || []).find((row) => row.kind === 'hold_outside');
+    p7.commissionEscort({ id: 'pe-follow', name: 'Follow Wing', kind: 'follow' });
+    p7.issue('follow', { assignedShipIds: ['pe-follow'] });
+    const followJump = p7.completeJump(here);
+    const followSnap = followJump.snapshot;
+    const followPresent = (followSnap.escorts || []).some((row) => row.fleetId === 'pe-follow');
+    const followOrder = (followSnap.orders || []).find((row) => row.kind === 'follow');
+    return {
+      stayPresent,
+      stayParked: stayOrder?.parkedSystemIndex === here,
+      stayKind: stayOrder?.kind,
+      followPresent,
+      followSystem: followOrder?.assignedSystemIndex,
+      backAt: followSnap.currentPlanet,
+      here,
+    };
+  });
+  check(results, 'S12.3 order-persists-stay-behind', s1234.stayPresent === false && s1234.stayParked === true && s1234.stayKind === 'hold_outside', JSON.stringify(s1234));
+  check(results, 'S12.4 follow-jumps-with-flagship', s1234.followPresent === true && s1234.followSystem === s1234.backAt, JSON.stringify(s1234));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -3433,13 +3511,14 @@ async function main() {
     await runPhase6Sensors(page, results);
     await runPhase65PowerSensors(page, results);
     await runCatalogWire(page, results);
+    await runPhase7Fleet(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
