@@ -2,7 +2,8 @@
 
 **Reviewed document:** `BM1-PHASE6-SENSORS-CLOAK-SYSTEM-SPACE-PROPOSAL.md`  
 **Reviewed against:** `Artemis2028/BM1-bakeoff` at `9470a66` on `main` (12 September 2026), after Phase 5 engine (PR #21) and side-lane slices. Line numbers below refer to this head and may drift.  
-**Method:** read the landed cloak, targeting, minimap, scan, arrival, escort-formation, power, doctrine-fire, Phase 4/5 knowledge, and save/load paths. No engine changes made. This is a dependency/risk checklist for a later writer, not a post-implementation review and not permission to implement before Tenth scopes the lane.
+**Method:** read the landed cloak, targeting, minimap, scan, arrival, escort-formation, power, doctrine-fire, Phase 4/5 knowledge, and save/load paths. No engine changes made. This is a dependency/risk checklist for a later writer, not a post-implementation review and not permission to implement before Tenth scopes the lane.  
+**Phase 6.5 amend (do not reopen):** generation / suite / draw hooks are in `docs/phase6/BM1-PHASE6.5-ENGINE-DEPENDENCIES.md`. This file’s Phase 6 risks and S9 plan stay the baseline; do not rewrite them as a new sensor religion.
 
 ## Verdict in one paragraph
 

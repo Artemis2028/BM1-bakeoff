@@ -5,6 +5,7 @@
 **Planning baseline:** `9470a66` on `main` (12 September 2026), after Phases 1–5 and side-lane engine (Phase 5 convoy/distress merge PR #21).  
 **Referee context:** Phase 4 engine §6 **Pass** on `7f926df`. Phase 5 brief/engine have **no Referee Pass claimed** on this bake-off status MD. This brief does **not** claim a new Referee Pass.  
 **Companion:** `docs/phase6/BM1-PHASE6-ENGINE-DEPENDENCIES.md` (hooks, risks, probe plan).  
+**Phase 6.5 amend (do not reopen):** power budget, passive/active draw, and upgradeable suites live in `docs/phase6/BM1-PHASE6.5-POWER-SENSORS-SUITES-PROPOSAL.md`. Gates 1–8 in §2 stay closed.  
 **Scoped by:** Tenth Mountain Trooper, 2026-09-12 — proposal first; no engine until Tenth scopes after a brief Pass.
 
 Phases 1–5 already landed: political authority, two-mode ROE, holding zones/compliance, incident ledger / FLASH, and one persistent convoy/distress loop. The side-lane added `repairCapable` / Reman unlock and unrest / lounge+contract civilians / pirates-as-pressure. Doctrine v0.2.1 is loaded; Phase 4 observer copies and Phase 5 board knowledge still treat `lastKnown` as historical text, not a live track.
