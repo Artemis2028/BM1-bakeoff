@@ -5054,6 +5054,7 @@ function refreshFleetOrderPanel(force = false) {
   const escorts = getPlayerEscortFleetShips();
   const visible = Boolean(state.gameStarted && !state.gameOver && !state.warp.active && escorts.length);
   fleetOrderPanelEl.classList.toggle('hidden', !visible);
+  if (visible && minimapPanelEl) minimapPanelEl.style.display = 'block';
   if (!visible) {
     fleetOrderPanelEl.innerHTML = '';
     fleetOrderPanelEl.dataset.renderKey = '';
@@ -22467,7 +22468,7 @@ function createPhase7ProbeApi() {
           kind: order?.kind || null,
           status: order?.status || null,
           jumpPolicy: order?.jumpPolicy || null,
-          parked: Number.isFinite(Number(order?.parkedSystemIndex)),
+          parked: order?.parkedSystemIndex != null && Number.isFinite(Number(order.parkedSystemIndex)),
           distToDrop: Math.hypot(npc.x - drop.x, npc.y - drop.y),
           distToCenter: Math.hypot(npc.x - geo.geometry.center.x, npc.y - geo.geometry.center.y),
           outside: Math.hypot(npc.x - geo.geometry.center.x, npc.y - geo.geometry.center.y) >= finiteNumber(geo.geometry.radius, 0),

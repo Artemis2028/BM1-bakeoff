@@ -198,7 +198,15 @@ assert('s12.9b-follow-still-uses-formation', followDest.x === formation.x && fol
 const markers = listVisibleOrderMarkers(followBoard, 7);
 assert('s12.11-visible-order-status', markers.length >= 0 && describeOrderStatus(findOrderForShip(followBoard, 'wing-1')).includes('escort'));
 const rows = panelRows(followBoard, { shipIds: ['wing-1'], names: { 'wing-1': 'Wing One' } });
-assert('s12.11b-panel-rows', rows[0].name === 'Wing One' && rows[0].kind === 'escort' && rows[0].jumpPolicy === 'follow');
+assert('s12.11b-panel-rows', rows[0].name === 'Wing One' && rows[0].kind === 'escort' && rows[0].jumpPolicy === 'follow' && rows[0].parked === false);
+const freshHold = emptyFleetOrderBoard();
+issueOrder(freshHold, {
+  kind: 'hold_outside',
+  assignedShipIds: ['fresh-1'],
+  assignedSystemIndex: 1,
+  destination: { name: 'hold outside', systemIndex: 1 },
+});
+assert('s12.11c-not-parked-before-jump', panelRows(freshHold, { shipIds: ['fresh-1'] })[0].parked === false);
 
 const rallyBoard = emptyFleetOrderBoard();
 issueOrder(rallyBoard, {

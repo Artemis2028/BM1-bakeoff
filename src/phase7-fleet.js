@@ -700,7 +700,7 @@ export function panelRows(board, extras = {}) {
       jumpPolicy: order?.jumpPolicy || 'follow',
       destination: order?.destination?.name || (usesFormationSlot(order) ? 'flagship' : 'hold'),
       label: describeOrderStatus(order || { kind: 'follow', status: 'standing', jumpPolicy: 'follow', label: 'flagship' }),
-      parked: Number.isFinite(Number(order?.parkedSystemIndex)),
+      parked: order?.parkedSystemIndex != null && Number.isFinite(Number(order.parkedSystemIndex)),
     };
   });
 }
