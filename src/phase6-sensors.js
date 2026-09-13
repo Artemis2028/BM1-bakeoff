@@ -17,6 +17,11 @@
  * Soft: same-tick UI+AI drop on lost-track (S9.5). Cloak/unknown never inject
  * engagement_authorized or culture fire. Phase 3 unknown access stays stored
  * and unenforced from hidden identity.
+ *
+ * Phase 6.5 (docs/phase6/BM1-PHASE6.5-*.md) may feed capabilityMod / sensorMode
+ * / detectabilityMod on the actor. Those move reach and the equipment axis only.
+ * They do not invent identification, firingSolution, or engagement_authorized.
+ * Gates 1–8 stay closed.
  */
 
 export const CONTACT_BOOK_VERSION = 1;
@@ -511,6 +516,9 @@ export function sensorCapability(actor = {}) {
   const power = clamp(actor.powerNorm ?? 1, 0, 1);
   const damage = clamp(actor.hullRatio ?? 1, 0, 1);
   const size = Math.max(0.1, Number(actor.mass) || Number(actor.size) || 1);
+  const suiteMod = Number.isFinite(Number(actor.capabilityMod)) ? Number(actor.capabilityMod) : 0;
+  const mode = actor.sensorMode === 'active' ? 'active' : 'passive';
+  const modeW = mode === 'active' ? 0.16 : 0;
 
   const roleW = {
     science: 1.15,
@@ -525,7 +533,7 @@ export function sensorCapability(actor = {}) {
   const ageW = Math.max(0, 0.25 - age * 0.002);
   const powerW = power * 0.35;
   const damageW = damage * 0.3;
-  const score = roleW + equipW + ageW + powerW + damageW;
+  const score = roleW + equipW + ageW + powerW + damageW + suiteMod + modeW;
   const cloakPierce = role === 'science'
     && equipment === 'science'
     && power >= 0.45
@@ -536,7 +544,7 @@ export function sensorCapability(actor = {}) {
     identifyReach: 240 + (roleW + equipW) * 280,
     firmReach: 200 + score * 180,
     cloakPierce,
-    axes: { role, equipment, age, power, damage, size },
+    axes: { role, equipment, age, power, damage, size, mode, suiteMod },
   };
 }
 
@@ -549,7 +557,8 @@ export function scienceOutperformsOrdinary(scienceActor, ordinaryActor) {
 }
 
 export function evaluatePassiveDetection(observer, subject, distance, localElapsedMs = 0, extras = {}) {
-  const cap = sensorCapability(observer);
+  const mode = extras.mode === 'active' || observer?.sensorMode === 'active' ? 'active' : 'passive';
+  const cap = sensorCapability({ ...observer, sensorMode: mode });
   const cloaked = extras.cloaked === true || isHullCloaked(subject, localElapsedMs);
   const range = Number(distance);
   if (!Number.isFinite(range)) {
@@ -558,7 +567,11 @@ export function evaluatePassiveDetection(observer, subject, distance, localElaps
   if (cloaked && !cap.cloakPierce) {
     return { detected: false, identification: 'none', trackQuality: 'none', firingSolution: false, source: 'passive', reason: 'cloak' };
   }
-  const reach = cloaked ? cap.reach * 0.58 : cap.reach;
+  const detectMod = Number.isFinite(Number(extras.detectabilityMod ?? subject?.detectabilityMod))
+    ? Number(extras.detectabilityMod ?? subject?.detectabilityMod)
+    : 0;
+  const detectBoost = cloaked ? 1 : (1 + clamp(detectMod, -0.8, 1.5) * 0.28);
+  const reach = (cloaked ? cap.reach * 0.58 : cap.reach) * detectBoost;
   if (range > reach) {
     return { detected: false, identification: 'none', trackQuality: 'none', firingSolution: false, source: 'passive', reason: 'range' };
   }
@@ -835,13 +848,16 @@ export function performActiveScan(book, observer, subject, distance, localElapse
   const observerKey = normalizeKey(observer?.key || observer?.observerKey);
   const subjectKey = normalizeKey(subject?.key || subject?.subjectKey);
   const emission = createScanEmission(observerKey, localElapsedMs, { subjectKey });
+  const activeObserver = observer && typeof observer === 'object'
+    ? { ...observer, sensorMode: 'active' }
+    : observer;
   if (observer && typeof observer === 'object') observer.scanEmission = emission;
   if (observerKey) {
     const entry = getObserverEntry(book, observerKey);
     if (entry) entry.scanEmission = emission;
   }
   const cloaked = subject?.cloaked === true || isHullCloaked(subject, localElapsedMs);
-  const cap = sensorCapability(observer);
+  const cap = sensorCapability(activeObserver);
   if (cloaked && !cap.cloakPierce) {
     return {
       useful: true,
@@ -855,7 +871,7 @@ export function performActiveScan(book, observer, subject, distance, localElapse
       sayable: 'Scan found nothing. Cloaked contact (if any) stayed hidden.',
     };
   }
-  const passive = evaluatePassiveDetection(observer, subject, distance, localElapsedMs, { cloaked });
+  const passive = evaluatePassiveDetection(activeObserver, subject, distance, localElapsedMs, { cloaked, mode: 'active' });
   const existing = findContact(book, observerKey, subjectKey);
   let identification = existing?.identification || 'none';
   let trackQuality = existing?.trackQuality || 'none';
