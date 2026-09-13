@@ -404,7 +404,6 @@ import {
   wartimeExceptionSellsHull,
 } from './phase8-markets.js';
 import {
-  EW_CONSUMER_NAME as PHASE9_EW_CONSUMER,
   EW_FAMILIES,
   actorEwDraw,
   applyActiveEw,
@@ -23316,7 +23315,7 @@ function createPhase9ProbeApi() {
       power: {
         consumers: power.consumers,
         ew: power,
-        sharedPool: power.consumers.includes(PHASE9_EW_CONSUMER),
+        sharedPool: power.consumers.includes(EW_CONSUMER_NAME),
       },
       ewBook: serializeEwBook(ew),
       families: listFamilyContracts(),
