@@ -10,6 +10,7 @@
     "test:phase3": "node scripts/test-phase3-checkpoints.mjs",
     "test:phase4": "node scripts/test-phase4-incidents.mjs",
     "test:phase5": "node scripts/test-phase5-objectives.mjs",
+    "test:phase6": "node scripts/test-phase6-sensors.mjs",
     "test:side-lane": "node scripts/test-side-lane-repair-reman.mjs && node scripts/test-side-lane-unrest-independence.mjs",
     "serve": "python3 -m http.server 8001",
     "test:doctrine": "python3 docs/doctrine/validate-doctrine.py && node scripts/test-doctrine-runtime.mjs",
