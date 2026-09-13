@@ -3338,11 +3338,17 @@ async function runPhase65PowerSensors(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
   const s108b = await page.evaluate(() => {
     const p6 = globalThis.__BM1_PROBE__.phase6;
-    const science = p6.injectScienceVsOrdinary();
+    const science = p6.injectScienceVsOrdinary({
+      targetId: 's108-cloak-target',
+      scienceId: 's108-science',
+      ordinaryId: 's108-ordinary',
+    });
     return {
+      ok: science.ok,
       scienceSees: science.scienceSees === true,
       ordinarySees: science.ordinarySees === false,
       damagedSees: science.damagedSees === false,
+      targetCloaked: science.targetCloaked === true,
       unknown: p6.unknownAccessEnforced() === false,
     };
   });

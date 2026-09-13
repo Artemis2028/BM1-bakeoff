@@ -20863,9 +20863,13 @@ function probeSpawnShip(options = {}) {
   if (options.cloakActive === true || options.cloaked === true) {
     initHullCloak(ship, { active: true }, currentLocalMs());
   }
+  state.npcShips = (state.npcShips || []).filter((row) => row.id !== ship.id);
   state.npcShips.push(ship);
   const systemState = state.systemStates[state.currentPlanet];
-  if (systemState?.npcShips) systemState.npcShips.push(ship);
+  if (systemState?.npcShips) {
+    systemState.npcShips = systemState.npcShips.filter((row) => row.id !== ship.id);
+    systemState.npcShips.push(ship);
+  }
   return probeShipSummary(ship);
 }
 
@@ -21458,7 +21462,8 @@ function createPhase6ProbeApi() {
       ordinaryShip.sensorEquipment = 'standard';
       ordinaryShip.sensorAge = 8;
       ordinaryShip.powerNorm = 1;
-      initHullCloak(targetShip, { active: true }, currentLocalMs());
+      initHullCloak(targetShip, { active: true, durationLocalMs: 120000 }, currentLocalMs());
+      if (!isHullCloaked(targetShip, currentLocalMs())) return { ok: false, reason: 'cloak-missing' };
       refreshContactBookNow();
       const book = ensureContactBook();
       const scienceSees = observerSeesSubject(book, observerKeyOfActor(scienceShip), subjectKeyOfNpc(targetShip));
@@ -21472,6 +21477,7 @@ function createPhase6ProbeApi() {
         scienceSees,
         ordinarySees,
         damagedSees,
+        targetCloaked: isHullCloaked(targetShip, currentLocalMs()),
         scienceMass: fixture.science.mass,
         ordinaryMass: fixture.ordinary.mass,
         target: { id: target.id, subjectKey: subjectKeyOfNpc(targetShip) },
