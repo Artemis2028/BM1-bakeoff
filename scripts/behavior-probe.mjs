@@ -3345,16 +3345,16 @@ async function runPhase65PowerSensors(page, results) {
     });
     return {
       ok: science.ok,
-      scienceSees: science.scienceSees === true,
-      ordinarySees: science.ordinarySees === false,
-      damagedSees: science.damagedSees === false,
-      targetCloaked: science.targetCloaked === true,
+      scienceSees: science.scienceSees,
+      ordinarySees: science.ordinarySees,
+      damagedSees: science.damagedSees,
+      targetCloaked: science.targetCloaked,
       unknown: p6.unknownAccessEnforced() === false,
     };
   });
   check(results, 'S10.8 phase6-preservation', s108a.firstHidden && s108a.reportFs && s108a.granted && s108a.dropped
-    && s108b.scienceSees && s108b.ordinarySees === false && s108b.damagedSees === false
-    && s108a.unknown && s108b.unknown, JSON.stringify({ ...s108a, ...s108b }));
+    && s108b.ok && s108b.targetCloaked && s108b.scienceSees === true && s108b.ordinarySees === false
+    && s108b.damagedSees === false && s108a.unknown && s108b.unknown, JSON.stringify({ ...s108a, ...s108b }));
 
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
   const s10910 = await page.evaluate(async () => {
