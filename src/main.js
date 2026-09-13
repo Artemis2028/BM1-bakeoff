@@ -258,6 +258,7 @@ import {
   scanEmissionActive,
   scienceVsOrdinaryFixture,
   seedFromReport,
+  sensorCapability,
   serializeCloak,
   serializeContactBook,
   setCloakActive,
@@ -5171,7 +5172,7 @@ function refreshContactBookNow() {
   const playerActor = sensorActorFromPlayer();
   for (const npc of getLivingNpcShips()) {
     const ev = evaluatePassiveDetection(playerActor, sensorActorFromNpc(npc), distanceToPlayer(npc), localMs, {
-      cloaked: isHullCloaked(npc, localMs),
+      cloaked: isHullCloaked(npc, localMs) || npc.cloak?.active === true,
     });
     if (ev.detected) applyPassiveUpdate(book, playerObserverKey(), subjectKeyOfNpc(npc), ev, npc, localMs);
     else if (isHullCloaked(npc, localMs)) clearObserverSubject(playerObserverKey(), subjectKeyOfNpc(npc));
@@ -5199,7 +5200,7 @@ function refreshContactBookNow() {
       if (other === npc) continue;
       const dist = Math.hypot(other.x - npc.x, other.y - npc.y);
       const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(other), dist, localMs, {
-        cloaked: isHullCloaked(other, localMs),
+        cloaked: isHullCloaked(other, localMs) || other.cloak?.active === true,
       });
       if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(other), ev, other, localMs);
       else if (isHullCloaked(other, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(other));
@@ -5227,7 +5228,7 @@ function refreshContactBookNow() {
     for (const npc of getLivingNpcShips()) {
       const dist = Math.hypot(npc.x - station.x, npc.y - station.y);
       const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(npc), dist, localMs, {
-        cloaked: isHullCloaked(npc, localMs),
+        cloaked: isHullCloaked(npc, localMs) || npc.cloak?.active === true,
       });
       if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(npc), ev, npc, localMs);
       else if (isHullCloaked(npc, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(npc));
@@ -21457,21 +21458,35 @@ function createPhase6ProbeApi() {
       const targetShip = probeFindShip(target.id);
       if (!scienceShip || !ordinaryShip || !targetShip) return { ok: false, reason: 'fixture-missing' };
       scienceShip.sensorEquipment = 'science';
+      scienceShip.sensorRole = 'science';
+      scienceShip.sensorSuiteId = 'suite:science';
       scienceShip.sensorAge = 0;
       scienceShip.powerNorm = 1;
       ordinaryShip.sensorEquipment = 'standard';
+      ordinaryShip.sensorRole = 'patrol';
+      ordinaryShip.sensorSuiteId = 'suite:baseline';
       ordinaryShip.sensorAge = 8;
       ordinaryShip.powerNorm = 1;
+      ordinaryShip.sensorMode = 'passive';
       initHullCloak(targetShip, { active: true, durationLocalMs: 120000 }, currentLocalMs());
       if (!isHullCloaked(targetShip, currentLocalMs())) return { ok: false, reason: 'cloak-missing' };
       refreshContactBookNow();
       const book = ensureContactBook();
-      const scienceSees = observerSeesSubject(book, observerKeyOfActor(scienceShip), subjectKeyOfNpc(targetShip));
-      const ordinarySees = observerSeesSubject(book, observerKeyOfActor(ordinaryShip), subjectKeyOfNpc(targetShip));
+      const targetRange = (observer) => Math.hypot((observer.x || 0) - (targetShip.x || 0), (observer.y || 0) - (targetShip.y || 0));
+      const scienceEval = evaluatePassiveDetection(sensorActorFromNpc(scienceShip), targetShip, targetRange(scienceShip), currentLocalMs(), { cloaked: true });
+      const ordinaryEval = evaluatePassiveDetection(sensorActorFromNpc(ordinaryShip), targetShip, targetRange(ordinaryShip), currentLocalMs(), { cloaked: true });
+      const scienceSees = scienceEval.detected === true;
+      const ordinarySees = ordinaryEval.detected === true;
       scienceShip.powerNorm = 0.12;
       scienceShip.combatHull = Math.max(1, finiteNumber(scienceShip.maxCombatHull, 40) * 0.2);
       refreshContactBookNow();
-      const damagedSees = observerSeesSubject(ensureContactBook(), observerKeyOfActor(scienceShip), subjectKeyOfNpc(targetShip));
+      const damagedEval = evaluatePassiveDetection(sensorActorFromNpc(scienceShip), targetShip, targetRange(scienceShip), currentLocalMs(), { cloaked: true });
+      const damagedSees = damagedEval.detected === true;
+      const ordinaryActor = sensorActorFromNpc(ordinaryShip);
+      const damagedActor = sensorActorFromNpc(scienceShip);
+      const dist = Math.hypot((ordinaryShip.x || 0) - (targetShip.x || 0), (ordinaryShip.y || 0) - (targetShip.y || 0));
+      const ordinaryDirect = evaluatePassiveDetection(ordinaryActor, targetShip, dist, currentLocalMs(), { cloaked: true });
+      const damagedDirect = evaluatePassiveDetection(damagedActor, targetShip, dist, currentLocalMs(), { cloaked: true });
       return {
         ok: true,
         scienceSees,
@@ -21480,6 +21495,11 @@ function createPhase6ProbeApi() {
         targetCloaked: isHullCloaked(targetShip, currentLocalMs()),
         scienceMass: fixture.science.mass,
         ordinaryMass: fixture.ordinary.mass,
+        keysEqual: observerKeyOfActor(scienceShip) === observerKeyOfActor(ordinaryShip),
+        ordinaryCap: sensorCapability(ordinaryActor),
+        damagedCap: sensorCapability(damagedActor),
+        ordinaryDirect: ordinaryDirect.detected,
+        damagedDirect: damagedDirect.detected,
         target: { id: target.id, subjectKey: subjectKeyOfNpc(targetShip) },
         science: { id: science.id, key: observerKeyOfActor(scienceShip) },
         ordinary: { id: ordinary.id, key: observerKeyOfActor(ordinaryShip) },
