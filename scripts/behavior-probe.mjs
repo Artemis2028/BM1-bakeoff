@@ -3490,6 +3490,262 @@ async function runPhase7Fleet(page, results) {
   check(results, 'S12.4 follow-jumps-with-flagship', s1234.followPresent === true && s1234.followSystem === s1234.backAt, JSON.stringify(s1234));
 }
 
+async function runPhase8Markets(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 80, shields: 80 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase8), { timeout: 30000 });
+
+  const s1313 = await page.evaluate(() => {
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    if (typeof p8?.injectMarket !== 'function') return { missing: true, reason: 'injectMarket-missing' };
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const injected = p8.injectMarket({
+      marketId: 'mkt-s13',
+      good: 'food',
+      stock: 4,
+      demand: 5,
+      stockCap: 6,
+      demandCap: 7,
+      systemIndex: here,
+      locationName: 'Probe Port',
+      restriction: 'open',
+    });
+    if (!injected.ok) return { missing: true, reason: injected.reason || 'inject-failed' };
+    const beforeBuy = injected.market.stock;
+    const bought = p8.shopBuy('food', { marketId: 'mkt-s13' });
+    const shortage = p5.injectShortageAndConvoy({
+      good: 'food',
+      originSystemIndex: here === 0 ? 1 : 0,
+      destinationSystemIndex: here,
+      urgencyTier: 'soft',
+    });
+    const fill = p8.applyPhase5Fill(shortage.shortage?.shortageId, { marketId: 'mkt-s13' });
+    const fill2 = p8.applyPhase5Fill(null, { marketId: 'mkt-s13', token: 'fill:repeat', good: 'food' });
+    const fill3 = p8.applyPhase5Fill(null, { marketId: 'mkt-s13', token: 'fill:repeat', good: 'food' });
+    const afterFill = fill.snapshot.book.markets['mkt-s13'];
+    const afterRepeat = fill3.snapshot.book.markets['mkt-s13'];
+    return {
+      missing: false,
+      injectedOk: injected.ok,
+      beforeBuy,
+      afterBuy: bought.stock,
+      fillStock: afterFill?.stock,
+      fillDemand: afterFill?.demand,
+      saturated: afterRepeat?.saturated === true || fill2.marketWrite?.saturated === true,
+      repeatSame: afterRepeat?.stock === fill2.snapshot.book.markets['mkt-s13']?.stock,
+      shortageFilled: shortage.ok,
+    };
+  });
+  check(results, 'S13.1 finite-stock-demand', s1313.missing !== true && s1313.afterBuy === s1313.beforeBuy - 1 && s1313.fillStock > s1313.afterBuy && s1313.saturated === true, JSON.stringify(s1313));
+
+  const s1323 = await page.evaluate(() => {
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const p5 = globalThis.__BM1_PROBE__.phase5;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    p8.injectMarket({
+      marketId: 'mkt-loss',
+      good: 'parts',
+      stock: 5,
+      demand: 2,
+      stockCap: 8,
+      demandCap: 8,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    p5.injectShortageAndConvoy({
+      good: 'parts',
+      originSystemIndex: here,
+      destinationSystemIndex: here === 0 ? 1 : 0,
+    });
+    const before = p8.snapshot().book.markets['mkt-loss'];
+    const worsen = p8.applyPhase5Worsen(null, { marketId: 'mkt-loss', good: 'parts' });
+    const jumped = p8.completeJump();
+    const afterJump = jumped.snapshot.book.markets['mkt-loss'];
+    const closed = p8.closedToken('fill:asg-1');
+    return {
+      beforeStock: before.stock,
+      afterStock: worsen.snapshot.book.markets['mkt-loss']?.stock,
+      afterDemand: worsen.snapshot.book.markets['mkt-loss']?.demand,
+      jumpStock: afterJump?.stock,
+      restocked: jumped.restockedToCap === true,
+      closedReprint: closed.reprinted === true,
+      overdueDestroyed: p5.snapshot().board?.objectives
+        ? Object.values(p5.snapshot().board.objectives).some((row) => row.kind === 'asset_overdue' && row.truth?.destroyed)
+        : false,
+    };
+  });
+  check(results, 'S13.2 losses-bounded', s1323.afterStock < s1323.beforeStock && s1323.jumpStock === s1323.afterStock && s1323.restocked !== true, JSON.stringify(s1323));
+  check(results, 'S13.3 close-once-still-closed', s1323.closedReprint !== true, JSON.stringify(s1323));
+
+  const s1348 = await page.evaluate(() => {
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const ports = p8.injectWartimePorts({ good: 'munitions' });
+    if (!ports.ok) return { missing: true, reason: ports.reason };
+    const embargo = p8.evaluateDeal({ marketId: ports.imperial.marketId, credits: 9e9, priceOffered: 9e9 });
+    const license = p8.injectMarket({
+      marketId: 'mkt-lic',
+      locationId: 'orion:broker',
+      good: 'munitions',
+      restriction: 'license',
+      licenseId: 'wartime-orion',
+      stock: 3,
+    });
+    const noLic = p8.evaluateDeal({ marketId: license.market.marketId, credits: 9e9 });
+    p8.grantLicense('wartime-orion');
+    const withLic = p8.evaluateDeal({ marketId: license.market.marketId, credits: 9e9, hasLicense: true });
+    const seller = p8.injectIndependent({ restriction: 'seller_rule', sellerWillDeal: false, good: 'parts', marketId: 'mkt-seller' });
+    const sellerDeal = p8.evaluateDeal({ marketId: seller.market.marketId, credits: 9e9, sellerHostile: true });
+    const premium = p8.evaluateDeal({ marketId: ports.neutral.marketId, credits: 9e9 });
+    const open = p8.injectMarket({
+      marketId: 'mkt-open-same',
+      locationId: 'port:open',
+      good: 'munitions',
+      restriction: 'open',
+      stock: 4,
+    });
+    const openDeal = p8.evaluateDeal({ marketId: open.market.marketId, credits: 100 });
+    return {
+      missing: false,
+      embargo: { allowed: embargo.allowed, kind: embargo.kind, sayable: embargo.sayable, bid: embargo.higherBidStillRefused },
+      license: { refused: noLic.allowed === false && noLic.kind === 'license', allowed: withLic.allowed === true },
+      seller: { allowed: sellerDeal.allowed, kind: sellerDeal.kind },
+      premium: { allowed: premium.allowed, kind: premium.kind, price: premium.price, sayable: premium.sayable },
+      local: { open: openDeal.allowed, embargo: embargo.allowed, galaxy: embargo.galaxyWide },
+    };
+  });
+  check(results, 'S13.4 price-not-ban-bypass', s1348.missing !== true && s1348.embargo.allowed === false && s1348.license.refused && s1348.seller.kind === 'seller_rule' && s1348.premium.allowed === true, JSON.stringify(s1348));
+  check(results, 'S13.5 earth-klingon-wartime', s1348.embargo.kind === 'embargo' && s1348.premium.kind === 'premium' && /embargo|utopia/i.test(s1348.embargo.sayable || ''), JSON.stringify(s1348.embargo));
+  check(results, 'S13.8 restrictions-local-sayable', s1348.local.open === true && s1348.local.embargo === false && s1348.local.galaxy !== true, JSON.stringify(s1348.local));
+
+  const s1367 = await page.evaluate(() => {
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const catalog = globalThis.__BM1_PROBE__.catalog;
+    const lane = globalThis.__BM1_PROBE__.sideLane;
+    p8.setStanding('terran', 0);
+    p8.setLatinum(9e9);
+    const poorStanding = catalog.purchase(33, { credits: 9e9, standings: { terran: 0 }, systemName: 'Earth' });
+    lane?.resetReman();
+    p8.resetReman();
+    const remanLocked = catalog.purchase(53, { credits: 9e9, standings: { romulan: 100 } });
+    lane?.grantReman('recovery-mission');
+    p8.grantReman();
+    const remanBroke = catalog.purchase(53, { credits: 1, standings: { romulan: 100 } });
+    const independent = p8.injectIndependent({ restriction: 'embargo', good: 'munitions', marketId: 'mkt-ind-ban' });
+    const indDeal = p8.evaluateDeal({ marketId: independent.market.marketId, credits: 9e9, neutralStanding: 40 });
+    const hull53 = p8.wartimeHull(53, { credits: 9e9, hasRemanAccess: false });
+    const notice = p8.embargoNotice();
+    const fire = p8.mayAutoEngageAfterEmbargo();
+    return {
+      poorStanding: poorStanding.reason,
+      remanLocked: remanLocked.reason,
+      remanBroke: remanBroke.reason,
+      remanLockedAllowed: remanLocked.allowed,
+      remanBrokeAllowed: remanBroke.allowed,
+      independentAllowed: indDeal.allowed,
+      independentImmune: indDeal.independent?.immune,
+      sells53: p8.blackMarketSells53(),
+      hull53,
+      notice,
+      noFire: fire.noFire,
+    };
+  });
+  check(results, 'S13.6 money-ne-standing-ne-reman', s1367.poorStanding === 'faction-standing' && s1367.remanLocked === 'access-locked' && s1367.remanBroke === 'funds', JSON.stringify(s1367));
+  check(results, 'S13.7 independent-not-alliance', s1367.independentAllowed === false && s1367.independentImmune === false, JSON.stringify(s1367));
+  check(results, 'S13.15 no-second-bypass', s1367.sells53 === false && s1367.hull53.allowed === false && s1367.notice.standingWrite === false && s1367.noFire === true, JSON.stringify(s1367));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 4000, hull: 80 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase8), { timeout: 30000 });
+
+  const s13917 = await page.evaluate(() => {
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    p8.injectMarket({
+      marketId: 'mkt-loop',
+      good: 'fuel',
+      stock: 6,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    p8.setStanding('ferengi', 8);
+    const before = p8.snapshot().standing.ferengi;
+    const writesBefore = p8.snapshot().standingWriteCount;
+    const loop = p8.shopBuySell('fuel', { marketId: 'mkt-loop' });
+    const after = loop.snapshot.standing.ferengi;
+    const writesAfter = loop.snapshot.standingWriteCount;
+    const trip = p8.creditTrip('trip:once-1');
+    const replay = p8.creditTrip('trip:once-1');
+    const jumps = [p8.completeJump(), p8.completeJump(), p8.completeJump()];
+    const farm = p8.snapshot().book.markets['mkt-loop'];
+    return {
+      before,
+      after,
+      rose: after > before,
+      writes: writesAfter - writesBefore,
+      tripPaid: trip.paid,
+      replayPaid: replay.paid,
+      restocked: jumps.some((row) => row.restockedToCap === true),
+      stock: farm?.stock,
+      salvage: p8.snapshot().jumpFarm.salvagePaid,
+    };
+  });
+  check(results, 'S13.9 no-buysell-prestige', s13917.rose !== true && s13917.after <= 15 && s13917.writes === 0, JSON.stringify(s13917));
+  check(results, 'S13.10 no-jump-farm-infinity', s13917.restocked !== true && s13917.salvage <= 40, JSON.stringify(s13917));
+  check(results, 'S13.17 worthwhile-trip-once', s13917.tripPaid === true && s13917.replayPaid === false, JSON.stringify(s13917));
+
+  const s131116 = await page.evaluate(() => {
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const p7 = globalThis.__BM1_PROBE__.phase7;
+    const holding = p8.claimOrInjectHolding({ locationName: 'Occupied probe world', graceJumpsRemaining: 0 });
+    if (!holding.ok) return { missing: true, reason: holding.reason };
+    const neglected = p8.tickHoldings();
+    const neglectIncome = neglected.lastIncome?.income ?? neglected.holding?.incomePaid ?? 0;
+    const penalty = neglected.lastPenalty;
+    p8.setObligations({ all: true });
+    const met = p8.tickHoldings();
+    const metIncome = met.lastIncome?.income ?? 0;
+    const lost = p8.loseHolding();
+    const recovered = p8.recoverHolding('supply-convoy');
+    p7.commissionEscort({ id: 'pe-upkeep', name: 'Upkeep Wing', kind: 'escort' });
+    p7.holdOutside({ id: 'pe-upkeep' });
+    const beforeKind = p7.snapshot().orders.find((row) => row.kind === 'hold_outside')?.kind;
+    const upkeep = p8.applyUpkeep();
+    const afterKind = p7.snapshot().orders.find((row) => row.kind === 'hold_outside')?.kind
+      || p8.snapshot().fleetKind;
+    const job = p8.jobEligibility({ id: 18, capital: false, stockClass: 'light' }, {
+      upkeepBlocksCapital: true,
+      capitalHullIds: [61],
+      stockClass: 'light',
+    });
+    const capital = p8.jobEligibility({ id: 61, capital: true, stockClass: 'capital' }, {
+      upkeepBlocksCapital: true,
+      capitalHullIds: [61],
+      stockClass: 'light',
+    });
+    const preserved = p8.phase5Preserved();
+    const reman = p8.snapshot().reman;
+    return {
+      missing: false,
+      neglectIncome,
+      penalty,
+      metIncome,
+      recovered: recovered.ok && recovered.remanCheat === false,
+      lostRetained: Boolean(lost.holding || lost.holdings),
+      beforeKind,
+      afterKind,
+      upkeepCharge: upkeep.charge,
+      cheaper: job.allowed === true && capital.allowed === false,
+      overdueDestroyed: preserved.overdueIsDestroyed,
+      remanMeeting: reman.meeting != null || reman.reason === 'access-locked' || reman.reason === 'funds' || reman.allowed === true,
+    };
+  });
+  check(results, 'S13.11 conquest-not-free-income', s131116.missing !== true && s131116.neglectIncome === 0 && s131116.metIncome > 0, JSON.stringify(s131116));
+  check(results, 'S13.12 holding-responsibility', typeof s131116.penalty === 'string' && /neglect/i.test(s131116.penalty || ''), JSON.stringify({ penalty: s131116.penalty }));
+  check(results, 'S13.13 recovery-possible', s131116.recovered === true, JSON.stringify({ recovered: s131116.recovered }));
+  check(results, 'S13.16 fleet-upkeep-keeps-orders', s131116.afterKind === 'hold_outside' && s131116.upkeepCharge > 0, JSON.stringify({ before: s131116.beforeKind, after: s131116.afterKind, charge: s131116.upkeepCharge }));
+  check(results, 'S13.18 smaller-hulls-useful', s131116.cheaper === true, JSON.stringify({ cheaper: s131116.cheaper }));
+  check(results, 'S13.14 phase5-catalog-reman-preserved', s131116.overdueDestroyed === false && s131116.remanMeeting === true, JSON.stringify(s131116));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -3512,13 +3768,14 @@ async function main() {
     await runPhase65PowerSensors(page, results);
     await runCatalogWire(page, results);
     await runPhase7Fleet(page, results);
+    await runPhase8Markets(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
