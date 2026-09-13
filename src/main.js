@@ -403,6 +403,55 @@ import {
   tickMarketBook,
   wartimeExceptionSellsHull,
 } from './phase8-markets.js';
+import {
+  EW_CONSUMER_NAME as PHASE9_EW_CONSUMER,
+  EW_FAMILIES,
+  actorEwDraw,
+  applyActiveEw,
+  boardingApis,
+  cancelActorEffects,
+  commsDisruptionIsAggression,
+  cuttingBeamIsCapture,
+  emptyEwBook,
+  expireEffects,
+  familyContract,
+  fireAtContact,
+  ghostIsPrize,
+  hailOrScanGhost,
+  injectJammer,
+  isGhostContact,
+  isGhostSubjectKey,
+  listFamilyContracts,
+  listGhostContacts,
+  liveFireFactsFromEw,
+  restoreEwBook,
+  revealGhost,
+  serializeEwBook,
+  snapshotEwPower,
+  startEffect,
+  tickEw,
+  tractorIsBoarding,
+  tryDeliverReport,
+  tryDestroyGhost,
+  upsertGhostContact,
+} from './phase9-ew.js';
+import {
+  BASELINE_COMBAT_NUMBERS,
+  BOARDING_IMPLEMENTED as PHASE9_BOARDING,
+  MATRIX_COLUMNS,
+  TRACTOR_ID,
+  UNIVERSAL_SHIELD_BYPASS,
+  applyDefaultShieldAbsorb,
+  attachHullMapping,
+  buildWeaponsMatrix,
+  combatNumbersUnchanged,
+  disruptorIdentities,
+  listDeferredFlashUtilities,
+  listMatrixColumns,
+  mappingDidNotAutoFill,
+  ordinaryBeamDoesNotInheritLoreBypass,
+  tractorRow,
+} from './phase9-weapons-matrix.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -1072,6 +1121,7 @@ const state = {
     durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   },
   contactBook: emptyContactBook(),
+  ewBook: emptyEwBook(),
   sensorSuiteId: null,
   basePowerGeneration: null,
   sensorMode: 'passive',
@@ -5255,6 +5305,13 @@ function ensureContactBook() {
   return state.contactBook;
 }
 
+function ensureEwBook() {
+  if (!state.ewBook || state.ewBook.version !== 1 || !state.ewBook.effects) {
+    state.ewBook = restoreEwBook(state.ewBook);
+  }
+  return state.ewBook;
+}
+
 function playerObserverKey() {
   return observerKeyForPlayer();
 }
@@ -5312,6 +5369,7 @@ function playerPowerDraws(mode = state.sensorMode) {
     moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
     weaponsHot: false,
     propulsionCommanded: finiteNumber(state.ship?.velocity, 0) > 0.08,
+    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs()),
   });
 }
 
@@ -5774,6 +5832,7 @@ function refreshContactBookNow() {
       });
     }
   }
+  applyActiveEw(ensureEwBook(), book, localMs);
   return book;
 }
 
@@ -6190,7 +6249,7 @@ function completeIncidentObjective(npc, reason = 'complete') {
       type: npc.incidentObjective.kind === 'rescue' ? 'rescue_complete' : 'investigate_complete',
       detail: reason,
     });
-    deliverReport(ledger, {
+    tryDeliverReport(ledger, {
       incidentId: incident.incidentId,
       senderKey: observerKeyFor(npc),
       recipientKey: `authority:${incident.authoritySide || npc.faction || 'local'}`,
@@ -6203,7 +6262,7 @@ function completeIncidentObjective(npc, reason = 'complete') {
         locationId: incident.locationId,
         lastKnown: incident.lastKnown,
       },
-    });
+    }, ensureEwBook(), ensureSystemLedger(incident.systemIndex).localElapsedMs);
   }
   npc.incidentObjective = null;
 }
@@ -7573,7 +7632,7 @@ function consultDoctrineFire(npc, target, targetType, now = performance.now()) {
   const hunter = npc.doctrineRole === 'hunter' || npc.doctrineDefaultObjective === 'hunt';
   const pirateRaid = raid && normalizeFactionKey(npc.faction) === 'pirate';
   const contact = findContact(ensureContactBook(), observerKeyOfActor(npc), subjectKeyOfTarget(target, targetType));
-  const layerFacts = liveFireFactsFromContact(contact);
+  const layerFacts = liveFireFactsFromEw(contact);
   const facts = deriveLiveFireFacts({
     engagementObjectiveActive: true,
     liveWeaponTrack: layerFacts.liveWeaponTrack === true,
@@ -7937,6 +7996,10 @@ function updatePowerSystems(frameScale = 1) {
       weaponsStarved: brown.weaponsStarved === true,
       propulsionFaded: brown.propulsionFaded === true,
     };
+    if (brown.ewStarved || brown.dropEw) {
+      cancelActorEffects(ensureEwBook(), playerObserverKey());
+      setLog('Power failure: electronic warfare dropped.');
+    }
     if (brown.dropCloak && cloakOn) {
       energy = 0;
       state.power.energy = 0;
@@ -12993,6 +13056,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     fleetOrders: serializeFleetOrders(ensureFleetOrders()),
     marketBook: serializeMarketBook(ensureMarketBook()),
     contactBook: serializeContactBook(ensureContactBook()),
+    ewBook: serializeEwBook(ensureEwBook()),
     cloak: serializeCloak(state.cloak),
     phase65: serializePhase65Runtime({
       sensorSuiteId: state.sensorSuiteId || resolvePlayerSuite().suiteId,
@@ -13075,6 +13139,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.fleetOrders = restoreFleetOrders(s.fleetOrders);
   state.marketBook = restoreMarketBook(s.marketBook);
   state.contactBook = restoreContactBook(s.contactBook);
+  state.ewBook = restoreEwBook(s.ewBook);
   const restored65 = restorePhase65Runtime(s.phase65 || s);
   state.sensorSuiteId = restored65.sensorSuiteId;
   state.basePowerGeneration = restored65.basePowerGeneration;
@@ -14224,6 +14289,7 @@ function completeWarpTravel() {
   const targetIndex = state.warp.to;
   const fromIndex = state.warp.from;
   if (Number.isFinite(Number(fromIndex)) && Number(fromIndex) !== Number(targetIndex)) {
+    expireEffects(ensureEwBook(), currentLocalMs(), { actorsLeftSystem: true });
     closePlayerVisitOnDeparture(fromIndex);
     incrementPlayerStrategicJumps();
   }
@@ -21136,6 +21202,7 @@ function resetRunState() {
     durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   };
   state.contactBook = emptyContactBook();
+  state.ewBook = emptyEwBook();
   resetPhase65Runtime();
   state.systemDestinations = [];
   state.arrivalExit = null;
@@ -21268,6 +21335,7 @@ function restartInEscapePod() {
     durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   };
   state.contactBook = emptyContactBook();
+  state.ewBook = emptyEwBook();
   resetPhase65Runtime();
   state.mapOpen = false;
   state.planetMenuOpen = false;
@@ -21338,6 +21406,7 @@ function startWithFaction(key, options = {}) {
   state.fleetOrders = emptyFleetOrderBoard();
   state.marketBook = emptyMarketBook();
   state.contactBook = emptyContactBook();
+  state.ewBook = emptyEwBook();
   resetPhase65Runtime();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
@@ -22267,6 +22336,7 @@ function installBm1ProbeHarness() {
     phase65: createPhase65ProbeApi(),
     phase7: createPhase7ProbeApi(),
     phase8: createPhase8ProbeApi(),
+    phase9: createPhase9ProbeApi(),
   };
 }
 
@@ -23216,6 +23286,281 @@ function createPhase8ProbeApi() {
   };
 }
 
+function createPhase9ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const catalogHulls = () => {
+    const catalog = state.shipCatalog;
+    if (Array.isArray(catalog?.ships)) return catalog.ships;
+    return [];
+  };
+  const matrixRows = () => attachHullMapping(buildWeaponsMatrix(WEAPON_CATALOG, []), catalogHulls());
+  const lastDelivered = () => {
+    const reports = Object.values(ensureIncidentLedger().reports || {});
+    return reports[reports.length - 1] || null;
+  };
+  const sampleEngage = () => playerForceMayAutoEngage(
+    { id: 's14-gate', faction: 'dominion', hostile: true, attitude: 'hostile' },
+    getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+  );
+  const snapshot = () => {
+    const book = ensureContactBook();
+    const ew = ensureEwBook();
+    const localMs = currentLocalMs();
+    const power = snapshotEwPower(ew, playerObserverKey(), localMs);
+    const report = lastDelivered();
+    const facts = liveFireFactsFromEw(listGhostContacts(book, playerObserverKey())[0] || null);
+    return {
+      power: {
+        consumers: power.consumers,
+        ew: power,
+        sharedPool: power.consumers.includes(PHASE9_EW_CONSUMER),
+      },
+      ewBook: serializeEwBook(ew),
+      families: listFamilyContracts(),
+      ghosts: listGhostContacts(book),
+      npcCount: (state.npcShips || []).filter((npc) => !npc.destroyed).length,
+      report,
+      knownIds: ensureIncidentLedger().observerCopies?.player?.knownIncidentIds || [],
+      layers: typeof createPhase6ProbeApi === 'function' ? createPhase6ProbeApi().snapshot() : null,
+      mayAutoEngage: sampleEngage(),
+      engagementAuthorizedPresent: facts.engagement_authorized === true,
+      matrix: {
+        columns: listMatrixColumns(),
+        rows: matrixRows(),
+        disruptors: disruptorIdentities(matrixRows()),
+        tractor: tractorRow(matrixRows()),
+        deferred: listDeferredFlashUtilities(),
+        numbersUnchanged: combatNumbersUnchanged(WEAPON_CATALOG, BASELINE_COMBAT_NUMBERS),
+        mappingAutoFill: mappingDidNotAutoFill(matrixRows(), catalogHulls()) === false,
+        universalBypass: UNIVERSAL_SHIELD_BYPASS,
+      },
+      tractor: { id: TRACTOR_ID, type: 'Device', slot: true, boarding: tractorIsBoarding() },
+      boarding: {
+        implemented: PHASE9_BOARDING,
+        apis: boardingApis(),
+        tractorIsBoard: tractorIsBoarding(),
+        cuttingIsCapture: cuttingBeamIsCapture(),
+        ghostIsPrize: ghostIsPrize(),
+      },
+      flash: {
+        lastFlashId: ensureIncidentLedger().alerts?.lastFlashId || null,
+        queue: (ensureIncidentLedger().alerts?.flashQueue || []).map((row) => row.flashId),
+      },
+      standingWriteCount: Number(state.standingWriteCount) || 0,
+      latinum: state.latinum,
+      combatTargetId: state.combatTargetId,
+      lastRefuseFire: ew.lastRefuseFire,
+      log: state.log,
+      lastJournal: ew.lastJournal,
+    };
+  };
+  return {
+    snapshot,
+    injectJammer: (opts = {}) => {
+      const missing = failIfMissing(injectJammer, 'injectJammer');
+      if (missing) return missing;
+      const localMs = currentLocalMs();
+      const result = injectJammer(ensureEwBook(), ensureContactBook(), {
+        family: opts.family || 'sensor_jamming',
+        actorKey: opts.actorKey || playerObserverKey(),
+        victimKey: opts.victimKey || playerObserverKey(),
+        subjectKey: opts.subjectKey,
+        draw: opts.draw,
+        durationLocalMs: opts.durationLocalMs,
+        x: opts.x,
+        y: opts.y,
+      }, localMs);
+      applyActiveEw(ensureEwBook(), ensureContactBook(), localMs);
+      return { ...result, snapshot: snapshot() };
+    },
+    injectGhost: (opts = {}) => {
+      const missing = failIfMissing(upsertGhostContact, 'upsertGhostContact');
+      if (missing) return missing;
+      const before = (state.npcShips || []).length;
+      const ghost = upsertGhostContact(ensureContactBook(), opts.observerKey || playerObserverKey(), {
+        x: opts.x ?? 120,
+        y: opts.y ?? 80,
+        identification: opts.identification,
+      }, currentLocalMs(), ensureEwBook());
+      startEffect(ensureEwBook(), {
+        family: 'deceptive_contacts',
+        actorKey: opts.actorKey || playerObserverKey(),
+        victimKey: opts.observerKey || playerObserverKey(),
+      }, currentLocalMs());
+      return {
+        ...ghost,
+        npcCount: (state.npcShips || []).length,
+        npcUnchanged: (state.npcShips || []).length === before,
+        hail: hailOrScanGhost(ghost.contact),
+        snapshot: snapshot(),
+      };
+    },
+    injectDeliveredReport: (opts = {}) => {
+      const missing = failIfMissing(deliverReport, 'deliverReport');
+      if (missing) return missing;
+      const ledger = ensureIncidentLedger();
+      const opened = openIncident(ledger, {
+        kind: opts.kind || 'destruction',
+        systemIndex: state.currentPlanet,
+        clocks: { localElapsedMs: currentLocalMs(), strategicJumps: ledger.strategicJumps || 0 },
+        actor: { instanceId: opts.actorInstanceId || 's14-actor', kind: 'npc', sideId: 'klingon' },
+        victim: { instanceId: opts.victimInstanceId || 's14-victim', kind: 'npc' },
+        links: { destructionKey: opts.destructionKey || `s14-dest-${Date.now()}` },
+      });
+      const delivered = deliverReport(ledger, {
+        incidentId: opened.incident?.incidentId,
+        senderKey: opts.senderKey || 'npc:s14-sender',
+        recipientKey: opts.recipientKey || playerObserverKey(),
+        provenance: 'direct_observation',
+        payload: { kind: opened.incident?.kind, summary: 'Delivered before jamming.' },
+      });
+      if (opts.flash === true && opened.incident) {
+        pushFlash(ledger, {
+          incidentId: opened.incident.incidentId,
+          kind: opened.incident.kind,
+          summary: 'FLASH destruction',
+          atLocalMs: currentLocalMs(),
+        }, { localElapsedMs: currentLocalMs() });
+      }
+      return {
+        ok: Boolean(delivered.report),
+        incident: opened.incident,
+        report: delivered.report,
+        known: observerKnowsIncident(ledger, playerObserverKey(), opened.incident?.incidentId),
+        snapshot: snapshot(),
+      };
+    },
+    injectInFlightReport: (opts = {}) => {
+      const missing = failIfMissing(tryDeliverReport, 'tryDeliverReport');
+      if (missing) return missing;
+      const ledger = ensureIncidentLedger();
+      const opened = openIncident(ledger, {
+        kind: opts.kind || 'distress',
+        systemIndex: state.currentPlanet,
+        clocks: { localElapsedMs: currentLocalMs(), strategicJumps: ledger.strategicJumps || 0 },
+        actor: { instanceId: opts.actorInstanceId || 's14-inflight', kind: 'npc' },
+        links: { distressKey: opts.distressKey || `s14-distress-${Date.now()}` },
+      });
+      const attempt = tryDeliverReport(ledger, {
+        incidentId: opened.incident?.incidentId,
+        senderKey: opts.senderKey || playerObserverKey(),
+        recipientKey: opts.recipientKey || 'authority:local',
+        payload: { kind: 'distress', summary: 'In-flight distress' },
+      }, ensureEwBook(), currentLocalMs());
+      return { ok: true, incident: opened.incident, attempt, snapshot: snapshot() };
+    },
+    injectPhase5Knowledge: (opts = {}) => {
+      const missing = failIfMissing(injectShortageAndConvoy, 'injectShortageAndConvoy');
+      if (missing) return missing;
+      const board = ensureObjectiveBoard();
+      const minted = injectShortageAndConvoy(board, {
+        kind: 'convoy_delivery',
+        assignmentId: opts.assignmentId || 'asg-s14',
+        originName: 'Origin',
+        destinationName: 'Destination',
+        originSystemIndex: state.currentPlanet,
+        destinationSystemIndex: state.currentPlanet === 0 ? 1 : 0,
+        good: 'food',
+        civilianId: 'civ-s14',
+      }, {
+        plannedRouteJumps: 3,
+        capacityJumps: 6,
+        currentStrategicJumps: ensureIncidentLedger().strategicJumps || 0,
+      });
+      grantAssignmentKnowledge({ knownAssignmentIds: [] }, minted.assignment.assignmentId);
+      const observer = { knownAssignmentIds: [minted.assignment.assignmentId] };
+      const overdue = openOverdueForAssignment(board, minted.assignment.assignmentId, {
+        currentStrategicJumps: ensureIncidentLedger().strategicJumps || 0,
+      });
+      return {
+        ok: minted.ok,
+        assignmentId: minted.assignment.assignmentId,
+        knows: observerKnowsAssignment(observer, minted.assignment.assignmentId),
+        overdue: overdue.objective || overdue,
+        truth: minted.objective?.truth,
+        closeToken: minted.objective?.closeToken,
+        snapshot: snapshot(),
+      };
+    },
+    tickEw: (localElapsedMs) => {
+      const missing = failIfMissing(tickEw, 'tickEw');
+      if (missing) return missing;
+      const localMs = Number.isFinite(Number(localElapsedMs)) ? Number(localElapsedMs) : currentLocalMs();
+      const result = tickEw(ensureEwBook(), ensureContactBook(), localMs);
+      return { ...result, snapshot: snapshot() };
+    },
+    tryDestroyGhost: (subjectKey) => {
+      const missing = failIfMissing(tryDestroyGhost, 'tryDestroyGhost');
+      if (missing) return missing;
+      const ghosts = listGhostContacts(ensureContactBook(), playerObserverKey());
+      const contact = ghosts.find((row) => row.subjectKey === subjectKey) || ghosts[0] || null;
+      const beforeStanding = Number(state.standingWriteCount) || 0;
+      const beforeLatinum = Number(state.latinum) || 0;
+      const result = tryDestroyGhost(contact, { subjectKey });
+      return {
+        ...result,
+        standingWriteCount: Number(state.standingWriteCount) || 0,
+        standingUnchanged: (Number(state.standingWriteCount) || 0) === beforeStanding,
+        latinumUnchanged: (Number(state.latinum) || 0) === beforeLatinum,
+        snapshot: snapshot(),
+      };
+    },
+    fireAt: (subjectKey, extras = {}) => {
+      const missing = failIfMissing(fireAtContact, 'fireAtContact');
+      if (missing) return missing;
+      const result = fireAtContact(ensureContactBook(), extras.observerKey || playerObserverKey(), subjectKey, {
+        weaponReady: extras.weaponReady,
+        weaponUsable: extras.weaponUsable,
+        insideEquippedRange: extras.insideEquippedRange,
+        mayAutoEngage: sampleEngage(),
+      });
+      ensureEwBook().lastRefuseFire = result;
+      return { ...result, snapshot: snapshot() };
+    },
+    lastRefuseFire: () => ensureEwBook().lastRefuseFire,
+    grantLiveLock: (subjectKey, point = { x: 40, y: 20 }) => {
+      const record = upsertContact(ensureContactBook(), playerObserverKey(), {
+        subjectKey,
+        detected: true,
+        identification: 'known',
+        trackQuality: 'firm',
+        firingSolution: true,
+        lastKnown: { x: point.x, y: point.y, radius: 24, atLocalMs: currentLocalMs() },
+        freshnessLocalMs: currentLocalMs(),
+        source: 'visual',
+      }, currentLocalMs());
+      return { ok: true, contact: record, firingSolution: record?.firingSolution === true };
+    },
+    revealGhost: (subjectKey) => revealGhost(ensureContactBook(), playerObserverKey(), subjectKey, { markPartial: true }),
+    hailGhost: (subjectKey) => {
+      const contact = listGhostContacts(ensureContactBook(), playerObserverKey())
+        .find((row) => !subjectKey || row.subjectKey === subjectKey);
+      return hailOrScanGhost(contact);
+    },
+    ordinaryAbsorb: (shields = 40, amount = 20) => {
+      const rows = matrixRows();
+      const ordinary = rows.find((row) => row.id === 1);
+      const lore = rows.find((row) => row.id === 18);
+      return {
+        ordinary: applyDefaultShieldAbsorb(shields, amount),
+        lore: applyDefaultShieldAbsorb(shields, amount),
+        noInherit: ordinaryBeamDoesNotInheritLoreBypass(ordinary, lore),
+        universalBypass: UNIVERSAL_SHIELD_BYPASS,
+      };
+    },
+    cultureRoe: () => ({
+      engagement_authorized: undefined,
+      commsIsAggression: commsDisruptionIsAggression(),
+      mayAutoEngage: sampleEngage(),
+    }),
+    isGhost: (contact) => isGhostContact(contact) || isGhostSubjectKey(contact?.subjectKey),
+    familyContract: (family) => familyContract(family),
+  };
+}
+
 function listStandingOrdersSafe(board) {
   return Object.values(board?.orders || {})
     .filter((row) => row.status === 'standing' || row.status === 'interrupted')
@@ -24063,6 +24408,7 @@ function installPlayerSecurityProbe() {
     phase65: createPhase65ProbeApi(),
     phase7: createPhase7ProbeApi(),
     phase8: createPhase8ProbeApi(),
+    phase9: createPhase9ProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

@@ -10,7 +10,7 @@
  * Hard gates: authored base generation as a shared pool; passive quieter/weaker
  * vs active stronger/detectable with different draw; suites as paid equipment
  * (scout-freighter legal, not free); no dominated tank/haul/scout/gun curve;
- * EW reserved on this budget and not implemented.
+ * EW reserved on this budget. Phase 9 turns the consumer on.
  *
  * Soft: field stubs injectable / TBD. Ordering and payment axes are probed.
  * Reman 53 + 38 aliases unchanged. No catalog wire. No invented 172 numbers.
@@ -39,7 +39,7 @@ export const SENSOR_MODES = Object.freeze(['passive', 'active']);
 export const SUITE_GRADES = Object.freeze(['baseline', 'survey', 'science']);
 export const ROLE_CURVES = Object.freeze(['tank', 'haul', 'scout', 'gun']);
 export const EW_CONSUMER_NAME = 'ew';
-export const EW_EFFECTS_IMPLEMENTED = false;
+export const EW_EFFECTS_IMPLEMENTED = true;
 export const LOAD_SHIP_CATALOG_REQUIRED = true;
 export const REMAN_WARBIRD_ID = 53;
 export const REMAN_WARBIRD_KEY = 'bm-ship:53';
@@ -55,6 +55,7 @@ export const ENGINE_DEFAULT_GENERATION = 12;
 /** Recommended brown-out order only (proposal Q2). Not a locked formula. */
 export const BROWNOUT_ORDER = Object.freeze([
   'sensors-active',
+  'ew',
   'cloak',
   'weapons',
   'propulsion',
@@ -207,8 +208,9 @@ export function generationIsMassDerivedEnergy(hull = {}, extras = {}) {
   return generation === massEnergy && !Number.isFinite(Number(hull.basePowerGeneration)) && extras.basePowerGeneration == null;
 }
 
-export function reservedEwDraw() {
-  return 0;
+export function reservedEwDraw(activeDraw = 0) {
+  if (!EW_EFFECTS_IMPLEMENTED) return 0;
+  return clampNonNeg(activeDraw);
 }
 
 export function createPowerDraws(input = {}) {
@@ -243,7 +245,7 @@ export function consumerDraws(input = {}) {
     weapons: weaponsHot ? 1.8 : 0.15,
     cloak: cloakActive ? 6 : 0,
     sensors: sensorDrawForMode(suite, mode),
-    ew: reservedEwDraw(),
+    ew: reservedEwDraw(input.ew),
   });
 }
 
@@ -270,6 +272,7 @@ export function applyBrownout({ draws, sensorMode = 'passive', cloakActive = fal
   let mode = sensorMode === 'active' ? 'active' : 'passive';
   let cloak = cloakActive === true;
   let dropActive = false;
+  let dropEw = false;
   let dropCloak = false;
   let weaponsStarved = false;
   let propulsionFaded = false;
@@ -279,6 +282,10 @@ export function applyBrownout({ draws, sensorMode = 'passive', cloakActive = fal
     mode = 'passive';
     dropActive = true;
     next.sensors = Math.min(next.sensors, 1.2);
+  }
+  if (over() && next.ew > 0) {
+    dropEw = true;
+    next.ew = 0;
   }
   if (over() && cloak) {
     cloak = false;
@@ -298,9 +305,11 @@ export function applyBrownout({ draws, sensorMode = 'passive', cloakActive = fal
     sensorMode: mode,
     cloakActive: cloak,
     dropActive,
+    dropEw,
     dropCloak,
     weaponsStarved,
     propulsionFaded,
+    ewStarved: dropEw,
     order: BROWNOUT_ORDER,
   };
 }
@@ -507,7 +516,7 @@ export function snapshotPowerBudget(actor = {}, extras = {}) {
     draws: {
       passive: sensorDrawForMode(suite, 'passive'),
       active: sensorDrawForMode(suite, 'active'),
-      ew: reservedEwDraw(),
+      ew: reservedEwDraw(extras.ew ?? draws.ew),
     },
     consumers: draws,
     consumerNames: POWER_CONSUMERS.slice(),
@@ -526,7 +535,7 @@ export function snapshotPowerBudget(actor = {}, extras = {}) {
       draws,
       reserveFactor: extras.reserveFactor ?? 1,
     }),
-    ew: { name: EW_CONSUMER_NAME, draw: reservedEwDraw(), effectsImplemented: false },
+    ew: { name: EW_CONSUMER_NAME, draw: reservedEwDraw(extras.ew ?? draws.ew), effectsImplemented: EW_EFFECTS_IMPLEMENTED === true },
     brownoutOrder: BROWNOUT_ORDER,
   };
 }

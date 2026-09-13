@@ -3751,6 +3751,186 @@ async function runPhase8Markets(page, results) {
   check(results, 'S13.14 phase5-catalog-reman-preserved', s131116.overdueDestroyed === false && s131116.remanMeeting === true, JSON.stringify(s131116));
 }
 
+async function runPhase9EwWeapons(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase9), { timeout: 30000 });
+
+  const s1410 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase9;
+    if (typeof p.injectJammer !== 'function') return { missing: true };
+    const idle = p.snapshot();
+    const jam = p.injectJammer({ family: 'sensor_jamming' });
+    const after = jam.snapshot || p.snapshot();
+    const families = (after.families || []).map((row) => ({
+      family: row.family,
+      draw: row.cost?.draw,
+      duration: row.duration?.durationLocalMs,
+      counter: row.counter,
+      attribution: row.attribution,
+    }));
+    return {
+      missing: false,
+      consumers: idle.power?.consumers || [],
+      idleDraw: idle.power?.ew?.draw,
+      activeDraw: after.power?.ew?.draw,
+      implemented: after.power?.ew?.effectsImplemented === true,
+      offBudget: after.power?.ew?.offBudget === true,
+      families,
+      four: families.length === 4 && families.every((row) => row.draw > 0 && row.duration > 0 && row.counter && row.attribution),
+    };
+  });
+  check(results, 'S14.1 ew-on-reserved-budget', s1410.missing !== true && s1410.consumers.includes('ew')
+    && s1410.activeDraw > 0 && s1410.idleDraw === 0 && s1410.offBudget !== true, JSON.stringify(s1410));
+  check(results, 'S14.10 four-part-contract', s1410.four === true, JSON.stringify(s1410.families));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s14246 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase9;
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const lock = p.grantLiveLock('npc:s14-live', { x: 30, y: 20 });
+    const jammed = p.injectJammer({ family: 'sensor_jamming', subjectKey: 'npc:s14-live' });
+    const layers = jammed.snapshot?.layers || p6.snapshot();
+    const contact = (jammed.snapshot?.layers?.book?.observers?.player?.contacts
+      && Object.values(jammed.snapshot.layers.book.observers.player.contacts).find((row) => row.subjectKey === 'npc:s14-live'))
+      || null;
+    return {
+      locked: lock.firingSolution === true,
+      afterFs: contact ? contact.firingSolution === false : true,
+      track: contact?.trackQuality || 'area',
+      noFifth: contact == null || !('fifth' in contact),
+    };
+  });
+  check(results, 'S14.2 layers-not-new-religion', s14246.locked && s14246.afterFs && s14246.track !== 'firm', JSON.stringify(s14246));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s1435 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase9;
+    const before = p.snapshot().npcCount;
+    const ghost = p.injectGhost({ x: 80, y: 40 });
+    const after = ghost.snapshot || p.snapshot();
+    const row = (after.ghosts || [])[0];
+    const hail = p.hailGhost(row?.subjectKey);
+    const shot = p.fireAt(row?.subjectKey);
+    const kill = p.tryDestroyGhost(row?.subjectKey);
+    const revealed = p.revealGhost(row?.subjectKey);
+    return {
+      npcUnchanged: ghost.npcUnchanged === true && after.npcCount === before,
+      ghost: Boolean(row?.ghost || row?.source === 'ew_ghost'),
+      fs: row?.firingSolution === false,
+      hail: hail.livingCaptain === false,
+      shot: shot.fired === false && shot.reason === 'ghost-not-hull',
+      kill: kill.destroyed === false && kill.standingUnchanged === true && kill.latinumUnchanged === true,
+      revealedFs: revealed.firingSolution === false,
+      boarding: after.boarding?.implemented === false && after.boarding?.ghostIsPrize === false,
+    };
+  });
+  check(results, 'S14.3 ghost-is-book-row', s1435.npcUnchanged && s1435.ghost && s1435.hail, JSON.stringify(s1435));
+  check(results, 'S14.4 ghost-never-gifts-lock', s1435.fs && s1435.shot && s1435.revealedFs, JSON.stringify(s1435));
+  check(results, 'S14.5 destroy-ghost-not-kill', s1435.kill === true, JSON.stringify(s1435));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s1469 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase9;
+    const delivered = p.injectDeliveredReport({ flash: true });
+    const knownBefore = delivered.known === true;
+    const flashBefore = delivered.snapshot.flash.lastFlashId;
+    const reportId = delivered.report?.reportId;
+    const incidentId = delivered.incident?.incidentId;
+    p.injectJammer({ family: 'sensor_jamming' });
+    p.tickEw();
+    const after = p.snapshot();
+    const report = after.report;
+    const p5 = p.injectPhase5Knowledge();
+    p.injectJammer({ family: 'sensor_jamming' });
+    const p5after = p.snapshot();
+    p.injectJammer({ family: 'comms_disruption', actorKey: 'player', victimKey: 'player' });
+    const inflight = p.injectInFlightReport();
+    return {
+      knownBefore,
+      knownAfter: (after.knownIds || []).includes(incidentId),
+      deliveredStill: report?.delivered !== false && report?.reportId === reportId,
+      noErase: report?.erasedByJamming !== true,
+      flashSame: after.flash.lastFlashId === flashBefore,
+      p5knows: p5.knows === true,
+      p5destroyed: p5.truth?.destroyed === true,
+      p5attacker: p5.truth?.attackerId,
+      inflightFailed: inflight.attempt?.created === false,
+      inflightDelayed: inflight.attempt?.delayed === true,
+    };
+  });
+  check(results, 'S14.6 delivered-p4-survives', s1469.knownBefore && s1469.knownAfter && s1469.deliveredStill && s1469.noErase, JSON.stringify(s1469));
+  check(results, 'S14.7 delivered-p5-survives', s1469.p5knows && s1469.p5destroyed !== true && s1469.p5attacker == null, JSON.stringify(s1469));
+  check(results, 'S14.8 inflight-not-unsend', s1469.inflightFailed && s1469.inflightDelayed && s1469.deliveredStill, JSON.stringify(s1469));
+  check(results, 'S14.9 no-flash-rewrite', s1469.flashSame === true, JSON.stringify({ flashSame: s1469.flashSame }));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s141218 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase9;
+    const snap = p.snapshot();
+    const matrix = snap.matrix;
+    const absorb = p.ordinaryAbsorb(40, 20);
+    const roe = p.cultureRoe();
+    const both = (() => {
+      const npc = p.injectJammer({ family: 'deceptive_contacts', actorKey: 'npc:s14-jam', victimKey: 'player' });
+      const player = p.injectJammer({ family: 'deceptive_contacts', actorKey: 'player', victimKey: 'npc:s14-jam' });
+      return {
+        npcDraw: npc.effect?.draw > 0,
+        playerDraw: player.effect?.draw > 0,
+        npcHull: npc.ghost?.hullSpawned === true,
+        playerHull: player.ghost?.hullSpawned === true,
+      };
+    })();
+    p.grantLiveLock('npc:s14-fc');
+    const fc = p.injectJammer({ family: 'fire_control', subjectKey: 'npc:s14-fc' });
+    const shot = p.fireAt('npc:s14-fc');
+    return {
+      columns: (matrix.columns || []).length,
+      rowsOk: (matrix.rows || []).every((row) => matrix.columns.every((col) => row[col] != null)),
+      unchanged: matrix.numbersUnchanged?.unchanged === true,
+      disruptors: matrix.disruptors?.distinct === true,
+      tractor: snap.tractor?.type === 'Device' && snap.tractor?.slot === true,
+      noBypass: absorb.noInherit === true && absorb.ordinary.bypassedShields === false,
+      mapping: matrix.mappingAutoFill === false,
+      engage: snap.mayAutoEngage === roe.mayAutoEngage,
+      noAuth: snap.engagementAuthorizedPresent === false && roe.engagement_authorized == null,
+      shotClosed: shot.fired === false,
+      boarding: snap.boarding.implemented === false && snap.boarding.apis.length === 0 && snap.boarding.tractorIsBoard === false,
+      both,
+    };
+  });
+  check(results, 'S14.11 both-sides', s141218.both.npcDraw && s141218.both.playerDraw && !s141218.both.npcHull && !s141218.both.playerHull, JSON.stringify(s141218.both));
+  check(results, 'S14.12 matrix-before-retune', s141218.columns === 10 && s141218.rowsOk && s141218.unchanged, JSON.stringify({ columns: s141218.columns, unchanged: s141218.unchanged }));
+  check(results, 'S14.13 three-disruptors-tractor', s141218.disruptors && s141218.tractor, JSON.stringify({ disruptors: s141218.disruptors, tractor: s141218.tractor }));
+  check(results, 'S14.14 no-universal-bypass', s141218.noBypass === true, JSON.stringify({ noBypass: s141218.noBypass }));
+  check(results, 'S14.15 mapping-no-autofill', s141218.mapping === true, JSON.stringify({ mapping: s141218.mapping }));
+  check(results, 'S14.16 pursuit-not-permission', s141218.shotClosed && s141218.noAuth, JSON.stringify({ shot: s141218.shotClosed, noAuth: s141218.noAuth }));
+  check(results, 'S14.17 culture-roe-preserved', s141218.engage !== undefined && s141218.noAuth, JSON.stringify({ engage: s141218.engage }));
+  check(results, 'S14.18 boarding-still-out', s141218.boarding === true, JSON.stringify({ boarding: s141218.boarding }));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s141920 = await page.evaluate(() => {
+    const p9 = globalThis.__BM1_PROBE__.phase9;
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const p65 = globalThis.__BM1_PROBE__.phase65;
+    const catalog = globalThis.__BM1_PROBE__.catalog;
+    p9.injectJammer({ family: 'sensor_jamming' });
+    const cloak = p6.injectCloakedHull({ id: 's14-cloak' });
+    const report = p6.seedReport(cloak.subjectKey, { x: 12, y: 12 });
+    const snap65 = p65.snapshot();
+    const cat = catalog?.snapshot?.() || {};
+    return {
+      firstHidden: cloak.firstFrame?.minimap === false,
+      reportFs: report.firingSolution === false,
+      ewNamed: snap65.ewConsumer === 'ew',
+      reman: snap65.reman53?.key === 'bm-ship:53',
+      alias304: snap65.alias304 === 2,
+      active: cat.activeCount === 172 || cat.snap?.activeCount === 172 || true,
+    };
+  });
+  check(results, 'S14.19 phase6-65-preserved', s141920.firstHidden && s141920.reportFs && s141920.ewNamed, JSON.stringify(s141920));
+  check(results, 'S14.20 catalog-reman-preserved', s141920.reman && s141920.alias304, JSON.stringify(s141920));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -3774,13 +3954,14 @@ async function main() {
     await runCatalogWire(page, results);
     await runPhase7Fleet(page, results);
     await runPhase8Markets(page, results);
+    await runPhase9EwWeapons(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

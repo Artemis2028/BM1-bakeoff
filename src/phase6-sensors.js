@@ -32,7 +32,7 @@ export const SYSTEM_CLAMP_H = 1800;
 
 export const IDENTIFICATION_LEVELS = Object.freeze(['none', 'partial', 'known']);
 export const TRACK_QUALITIES = Object.freeze(['none', 'area', 'coarse', 'firm']);
-export const CONTACT_SOURCES = Object.freeze(['passive', 'active_scan', 'report', 'visual']);
+export const CONTACT_SOURCES = Object.freeze(['passive', 'active_scan', 'report', 'visual', 'ew_ghost']);
 export const DESTINATION_KINDS = Object.freeze([
   'lane',
   'belt',
@@ -277,20 +277,27 @@ export function createContactRecord(input = {}, book = null) {
       atLocalMs: clampNonNeg(input.lastKnown.atLocalMs ?? at),
     }
     : defaultLastKnown(at);
-  const trackQuality = sanitizeEnum(input.trackQuality, TRACK_SET, 'none');
-  const firingSolution = input.firingSolution === true && trackQuality === 'firm';
+  const ghost = input.ghost === true || input.source === 'ew_ghost' || String(input.subjectKey || '').startsWith('ghost:');
+  let trackQuality = sanitizeEnum(input.trackQuality, TRACK_SET, ghost ? 'area' : 'none');
+  let identification = sanitizeEnum(input.identification, IDENT_SET, 'none');
+  if (ghost) {
+    if (!qualityAtMost(trackQuality, 'area')) trackQuality = 'area';
+    if (IDENT_RANK[identification] > IDENT_RANK.partial) identification = 'none';
+  }
+  const firingSolution = !ghost && input.firingSolution === true && trackQuality === 'firm';
   return {
     contactId: input.contactId || (book ? takeContactId(book) : 'ctc-0'),
     observerKey: normalizeKey(input.observerKey),
     subjectKey: normalizeKey(input.subjectKey),
     detected: input.detected === true,
-    identification: sanitizeEnum(input.identification, IDENT_SET, 'none'),
+    identification,
     trackQuality,
     firingSolution,
+    ghost,
     cloakTruthKnown: input.cloakTruthKnown === true,
     lastKnown,
     freshnessLocalMs: clampNonNeg(input.freshnessLocalMs ?? lastKnown.atLocalMs),
-    source: sanitizeEnum(input.source, SOURCE_SET, 'passive'),
+    source: ghost ? 'ew_ghost' : sanitizeEnum(input.source, SOURCE_SET, 'passive'),
     scanEmission: input.scanEmission && typeof input.scanEmission === 'object'
       ? clone(input.scanEmission)
       : null,
@@ -300,6 +307,14 @@ export function createContactRecord(input = {}, book = null) {
 
 function enforceFiringSolution(contact) {
   if (!contact) return contact;
+  if (contact.ghost === true || contact.source === 'ew_ghost' || String(contact.subjectKey || '').startsWith('ghost:')) {
+    contact.ghost = true;
+    contact.source = 'ew_ghost';
+    contact.firingSolution = false;
+    if (!qualityAtMost(contact.trackQuality, 'area')) contact.trackQuality = 'area';
+    if (IDENT_RANK[contact.identification] > IDENT_RANK.partial) contact.identification = 'none';
+    return contact;
+  }
   if (contact.trackQuality !== 'firm' || contact.detected !== true) {
     contact.firingSolution = false;
   }
@@ -400,6 +415,7 @@ export function pruneMissingSubjects(book, livingSubjectKeys = []) {
     for (const [id, row] of Object.entries(entry.contacts || {})) {
       if (row.firingSolution === true) continue;
       if (row.source === 'report' && row.trackQuality === 'area') continue;
+      if (row.ghost === true || row.source === 'ew_ghost' || String(row.subjectKey || '').startsWith('ghost:')) continue;
       if (!living.has(row.subjectKey)) {
         delete entry.contacts[id];
         dropped += 1;
@@ -461,24 +477,28 @@ export function contactPresentation(contact) {
   const detected = contact?.detected === true;
   const identification = sanitizeEnum(contact?.identification, IDENT_SET, 'none');
   const trackQuality = sanitizeEnum(contact?.trackQuality, TRACK_SET, 'none');
-  const firingSolution = contact?.firingSolution === true && trackQuality === 'firm' && detected;
+  const ghost = contact?.ghost === true || contact?.source === 'ew_ghost';
+  const firingSolution = !ghost && contact?.firingSolution === true && trackQuality === 'firm' && detected;
   return {
-    showOnMinimap: detected,
+    showOnMinimap: detected && !ghost,
     unclassified: detected && identification === 'none',
-    showName: detected && identification !== 'none',
-    showFaction: detected && identification !== 'none',
-    showAttitude: detected && identification === 'known',
-    showHullArt: detected && identification !== 'none',
+    showName: detected && identification !== 'none' && !ghost,
+    showFaction: detected && identification !== 'none' && !ghost,
+    showAttitude: detected && identification === 'known' && !ghost,
+    showHullArt: detected && identification !== 'none' && !ghost,
     liveLock: firingSolution,
+    ghost,
     areaOnly: !firingSolution && (trackQuality === 'area' || trackQuality === 'none' || !detected),
     exactTargeting: firingSolution,
-    lockCopy: firingSolution
-      ? 'Target locked'
-      : detected && trackQuality === 'area'
-        ? 'Last known is an area, not a firing solution.'
-        : detected
-          ? 'Contact held. No firing solution.'
-          : '',
+    lockCopy: ghost
+      ? 'Ghost contact. Sensor record only — no hull, no firing solution.'
+      : firingSolution
+        ? 'Target locked'
+        : detected && trackQuality === 'area'
+          ? 'Last known is an area, not a firing solution.'
+          : detected
+            ? 'Contact held. No firing solution.'
+            : '',
     tooltipName: detected && identification !== 'none',
     selectable: detected,
   };
@@ -1012,13 +1032,15 @@ export function hiddenIdentityDoesNotAuthorize(facts = {}) {
 export function liveFireFactsFromContact(contact, extras = {}) {
   const detected = contact?.detected === true;
   const identified = contact?.identification && contact.identification !== 'none';
-  const firing = contact?.firingSolution === true && contact.trackQuality === 'firm';
+  const ghost = contact?.ghost === true || contact?.source === 'ew_ghost';
+  const firing = !ghost && contact?.firingSolution === true && contact.trackQuality === 'firm';
   return {
     contactDetected: detected,
-    identityKnown: identified === true,
+    identityKnown: identified === true && !ghost,
     liveWeaponTrack: firing,
     engagement_authorized: extras.engagementAuthorized === true ? true : undefined,
     fromHiddenIdentity: false,
+    fromGhost: ghost,
   };
 }
 
