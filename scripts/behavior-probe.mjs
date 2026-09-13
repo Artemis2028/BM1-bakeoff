@@ -3554,8 +3554,8 @@ async function runPhase8Markets(page, results) {
     });
     p5.injectShortageAndConvoy({
       good: 'parts',
-      originSystemIndex: here,
-      destinationSystemIndex: here === 0 ? 1 : 0,
+      originSystemIndex: here === 0 ? 1 : 0,
+      destinationSystemIndex: here,
     });
     const before = p8.snapshot().book.markets['mkt-loss'];
     const worsen = p8.applyPhase5Worsen(null, { marketId: 'mkt-loss', good: 'parts' });
@@ -3629,7 +3629,12 @@ async function runPhase8Markets(page, results) {
     const remanLocked = catalog.purchase(53, { credits: 9e9, standings: { romulan: 100 } });
     lane?.grantReman('recovery-mission');
     p8.grantReman();
-    const remanBroke = catalog.purchase(53, { credits: 1, standings: { romulan: 100 } });
+    const remanBroke = catalog.purchase(53, {
+      credits: 1,
+      standings: { romulan: 100 },
+      station: { name: 'Reman Starbase', stockIds: [53] },
+      systemName: 'Remus',
+    });
     const independent = p8.injectIndependent({ restriction: 'embargo', good: 'munitions', marketId: 'mkt-ind-ban' });
     const indDeal = p8.evaluateDeal({ marketId: independent.market.marketId, credits: 9e9, neutralStanding: 40 });
     const hull53 = p8.wartimeHull(53, { credits: 9e9, hasRemanAccess: false });

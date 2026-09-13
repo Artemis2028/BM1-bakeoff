@@ -23018,18 +23018,22 @@ function createPhase8ProbeApi() {
       const shortage = shortageId ? getShortage(board, shortageId) : Object.values(board.shortages || {})[0];
       const objective = listOpenObjectives(board).find((row) => row.shortageId === shortage?.shortageId)
         || listOpenObjectives(board)[0];
+      let choice = null;
       if (objective) {
-        const choice = applyPhase5PlayerChoice(objective.objectiveId, extras.choice || 'exploit');
-        return { ok: choice.ok, choice, marketWrite: choice.marketWrite, snapshot: snapshot() };
+        choice = applyPhase5PlayerChoice(objective.objectiveId, extras.choice || 'exploit');
+        if (choice.marketWrite?.ok && choice.marketWrite.skipped !== true) {
+          return { ok: choice.ok, choice, marketWrite: choice.marketWrite, snapshot: snapshot() };
+        }
       }
       const wrote = applyPhase5Worsen(ensureMarketBook(), {
         marketId: extras.marketId,
-        good: extras.good || 'food',
+        good: extras.good || shortage?.good || 'food',
         locationId: extras.locationId,
-        token: extras.token,
+        systemIndex: extras.systemIndex,
+        token: extras.token || (choice ? `${choice.choice}:${choice.objective?.assignmentId}` : null),
         atStrategicJumps: ensureIncidentLedger().strategicJumps,
       });
-      return { ok: wrote.ok, marketWrite: wrote, snapshot: snapshot() };
+      return { ok: wrote.ok, choice, marketWrite: wrote, snapshot: snapshot() };
     },
     shopBuy: (good, extras = {}) => {
       const book = ensureMarketBook();
