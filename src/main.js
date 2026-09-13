@@ -4903,6 +4903,24 @@ function shotMatchesSubject(shot, subjectKey) {
   return Boolean(npc && subjectKeyOfNpc(npc) === subjectKey);
 }
 
+function clearObserverSubject(observerKey, subjectKey) {
+  const contact = findContact(ensureContactBook(), observerKey, subjectKey);
+  if (!contact) return null;
+  const hadLock = contact.firingSolution === true;
+  contact.detected = false;
+  contact.firingSolution = false;
+  contact.trackQuality = 'none';
+  if (hadLock) {
+    applyLostTrackConsumers({
+      subjectKey,
+      dropTrackingHome: true,
+      dropExactTargeting: true,
+      dropAiAcquisition: true,
+    });
+  }
+  return contact;
+}
+
 function applyLostTrackConsumers(drop) {
   if (!drop) return drop;
   if (drop.dropTrackingHome) {
@@ -5011,6 +5029,7 @@ function refreshContactBookNow() {
   for (const npc of getLivingNpcShips()) {
     const ev = evaluatePassiveDetection(playerActor, sensorActorFromNpc(npc), distanceToPlayer(npc), localMs);
     if (ev.detected) applyPassiveUpdate(book, playerObserverKey(), subjectKeyOfNpc(npc), ev, npc, localMs);
+    else if (isHullCloaked(npc, localMs)) clearObserverSubject(playerObserverKey(), subjectKeyOfNpc(npc));
   }
   for (const station of getLivingStations()) {
     const ev = evaluatePassiveDetection(playerActor, sensorActorFromStation(station), distanceToPlayer(station), localMs);
@@ -5028,19 +5047,15 @@ function refreshContactBookNow() {
     );
     if (vsPlayer.detected) {
       applyPassiveUpdate(book, observer.key, subjectKeyForPlayer(), vsPlayer, playerWorldPosition(), localMs);
-    } else {
-      const existing = findContact(book, observer.key, subjectKeyForPlayer());
-      if (existing?.detected && isPlayerCloaked()) {
-        existing.detected = existing.trackQuality === 'area';
-        existing.firingSolution = false;
-        if (existing.trackQuality === 'firm' || existing.trackQuality === 'coarse') existing.trackQuality = 'area';
-      }
+    } else if (isPlayerCloaked()) {
+      clearObserverSubject(observer.key, subjectKeyForPlayer());
     }
     for (const other of getLivingNpcShips()) {
       if (other === npc) continue;
       const dist = Math.hypot(other.x - npc.x, other.y - npc.y);
       const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(other), dist, localMs);
       if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(other), ev, other, localMs);
+      else if (isHullCloaked(other, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(other));
     }
     if (isPlayerEscortNpc(npc)) {
       const playerPos = playerWorldPosition();
@@ -5061,10 +5076,12 @@ function refreshContactBookNow() {
       { cloaked: isPlayerCloaked() },
     );
     if (vsPlayer.detected) applyPassiveUpdate(book, observer.key, subjectKeyForPlayer(), vsPlayer, playerWorldPosition(), localMs);
+    else if (isPlayerCloaked()) clearObserverSubject(observer.key, subjectKeyForPlayer());
     for (const npc of getLivingNpcShips()) {
       const dist = Math.hypot(npc.x - station.x, npc.y - station.y);
       const ev = evaluatePassiveDetection(observer, sensorActorFromNpc(npc), dist, localMs);
       if (ev.detected) applyPassiveUpdate(book, observer.key, subjectKeyOfNpc(npc), ev, npc, localMs);
+      else if (isHullCloaked(npc, localMs)) clearObserverSubject(observer.key, subjectKeyOfNpc(npc));
     }
   }
 
@@ -21354,6 +21371,33 @@ function createPhase6ProbeApi() {
         })),
       ];
       return { ok: true, subjects };
+    },
+    cloakPlayer: (active = true) => {
+      setPlayerCloak(active === true, performance.now(), true);
+      refreshContactBookNow();
+      return { ok: true, active: isPlayerCloaked() };
+    },
+    spawnOrdinaryObserver: (opts = {}) => {
+      const spawned = probeSpawnShip({
+        id: opts.id || 'probe-ignorant',
+        faction: opts.faction || 'klingon',
+        role: 'patrol',
+        name: 'Ordinary Patrol',
+        hostile: true,
+        sensorEquipment: 'standard',
+        sensorAge: 8,
+        powerNorm: 1,
+        x: Number.isFinite(Number(opts.x)) ? Number(opts.x) : playerWorldPosition().x + 80,
+        y: Number.isFinite(Number(opts.y)) ? Number(opts.y) : playerWorldPosition().y,
+      });
+      const ship = probeFindShip(spawned.id);
+      if (ship) {
+        ship.sensorEquipment = 'standard';
+        ship.sensorAge = 8;
+        ship.powerNorm = 1;
+      }
+      refreshContactBookNow();
+      return { ok: Boolean(ship), ...spawned, key: ship ? observerKeyOfActor(ship) : null };
     },
     unknownAccessEnforced: () => shouldEnforceUnknownAccess(),
   };

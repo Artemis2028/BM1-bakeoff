@@ -3126,16 +3126,20 @@ async function runPhase6Sensors(page, results) {
     const p6 = globalThis.__BM1_PROBE__.phase6;
     const cloak = p6.injectCloakedHull({ id: 's93-cloak', hostile: true });
     const snap = p6.snapshot();
-    const ai = p6.listAiAcquisition(cloak.id);
+    const ordinary = p6.spawnOrdinaryObserver({ id: 's94-ignorant' });
+    p6.cloakPlayer(true);
+    const ai = p6.listAiAcquisition(ordinary.id);
+    const playerSeen = (ai.subjects || []).find((row) => row.type === 'player');
     return {
       minimap: (snap.minimapIds || []).includes(cloak.id),
       targets: (snap.targetIds || []).includes(cloak.id),
       playerLock: (snap.firing || []).includes(cloak.subjectKey),
-      cloakSeesPlayer: (ai.subjects || []).find((row) => row.type === 'player')?.detected === true,
+      ignorantSeesPlayer: playerSeen?.detected === true,
+      ignorantLocksPlayer: playerSeen?.lock === true,
     };
   });
   check(results, 'S9.3 hidden-player-ui', s934.minimap === false && s934.targets === false && s934.playerLock === false, JSON.stringify(s934));
-  check(results, 'S9.4 hidden-npc-ai', s934.cloakSeesPlayer === false, JSON.stringify(s934));
+  check(results, 'S9.4 hidden-npc-ai', s934.ignorantSeesPlayer === false && s934.ignorantLocksPlayer === false, JSON.stringify(s934));
 
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
   const s95 = await page.evaluate(() => {
