@@ -1,8 +1,8 @@
 # BM1 bake-off status
 
 Repo: https://github.com/Artemis2028/BM1-bakeoff  
-Updated: `2026-09-11T20:26:00Z` (Asia/Dubai `2026-09-12T00:26:00+04:00`)  
-Head: `092e530` on `main` (Phase 4 implement PR #13 merged)
+Updated: `2026-09-13T15:20:00Z` (content import on `content/hull-merges-balance-v2`)  
+Head: content-only full-roster-v2 import on `content/hull-merges-balance-v2` (base `main` @ `749393b`)
 
 Sibling of `BM1-remastered-work` for a **blind** Cloud Agent bake-off. Implement from `docs/` only. Do **not** crib the guided stack on `Artemis2028/BM1-remastered-work` PR #1 (answer key for scoring).
 
@@ -74,11 +74,13 @@ This status MD is docs-only on top of `092e530`.
 8. Phase 5 brief (persistent convoy / distress / `asset_overdue` objectives) — **proposal [PR #20](https://github.com/Artemis2028/BM1-bakeoff/pull/20)** from `main` @ `72cc984` (after side-lane engine PRs #18 / #19). Eight hard gates for scoring (clock only on completed warp/wormhole; stable close-once IDs; overdue ≠ destroyed ≠ attacker; delivered knowledge; reuse P4 + side-lane civilians; no invented attacker / no double standing; reachable urgency; urgency tiers). **No Referee Pass claimed.** Referee / One score the eight gates before any engine PR. Number Three probes only after engine.
 9. Phase 6 brief (sensors / cloak / contact uncertainty / purposeful system space) — **proposal [PR #22](https://github.com/Artemis2028/BM1-bakeoff/pull/22)** from `main` @ `9470a66`. Eight hard gates (first-frame cloak; four info layers; hidden stays hidden; lost tracks drop exact targeting; sensor variance; active scans useful+detectable; purposeful destinations; arrival/spacing/exit). Engine implemented from that brief on this tip. **No Referee Pass claimed.**
 10. **Convergence docs** — plan §16 + `docs/GUIDED-CONVERGENCE.md` ([PR #23](https://github.com/Artemis2028/BM1-bakeoff/pull/23)) port missing guided-roadmap product knowledge (weapon ledger, flags/passes, empty-armable, boarding, construction visuals, standing tiers, catalog wire, economy knobs, HTML review catalogs, Dominion/Gorn/mission-only cross-link). **Skipped** as Agreed next: Passed Phase 1–6 briefs, Phase 4–5 engine, side-lane engine, additive `bm-ships/`. Dual-track: guided remastered-work may land ships/economy earlier; bake-off already has P4–5 + side-lane. Docs only; no engine. Not a Referee Pass.
+11. **Content import (hull merges + full-roster-v2 balance)** — landed on `content/hull-merges-balance-v2` from staged `docs/incoming/full-roster-v2-guided.patch`. Applied `bm-ships/` + merge/balance docs only. **Skipped:** `src/main.js`, catalog/economy modules, `data/starship_manifest.json`, `data/stationData.json`, guided scripts, guided roadmap. Catalog wire still later. Reman **53 / `bm-ship:53`** remains; access stays durable unlock + later `meetPackPurchaseDecision`. `node bm-ships/validate.mjs` green. No engine / Phase 6 / side-lane behavior change.
 
 ## Version history
 
 Newest first.
 
+- **Content import** — `2026-09-13` — full-roster-v2 / approved hull merges extracted from `docs/incoming/full-roster-v2-guided.patch` onto `content/hull-merges-balance-v2`. `bm-ships/` + `docs/APPROVED-HULL-MERGES.md` + `docs/SHIP-ECONOMY-REVIEW.md` + `docs/ship-balance/**`. Catalog wire still later. Reman 53 durable unlock unchanged. `validate.mjs` 15/15.
 - **Referee** — `2026-09-11T20:26:00Z` (Asia/Dubai `2026-09-12T00:26:00+04:00`) — **Pass** — Phase 4 engine §6 on 7f926df (probe 89; hard gates closed; soft alertsActive snapshot note).
 - [`092e530`](https://github.com/Artemis2028/BM1-bakeoff/commit/092e530) — `2026-09-11T20:23:26Z` (Asia/Dubai `2026-09-12T00:23:26+04:00`) — Merge [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13) Phase 4 incidents/escalation/alerts engine. Implement tip [`7f926df`](https://github.com/Artemis2028/BM1-bakeoff/commit/7f926df)
 - **Referee** — `2026-09-11T19:53:36Z` (Asia/Dubai `2026-09-11T23:53:36+04:00`) — **Pass** — Phase 4 brief §6 on 1e8e98d (hard gates + S4-21/S6.13/S6.14 locks).

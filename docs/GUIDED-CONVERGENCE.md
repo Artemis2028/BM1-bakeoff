@@ -33,7 +33,7 @@ These are **done or brief-ready**. They are not “Agreed next from scratch.”
 | Side-lane: Reman durable unlock | **Engine landed** (soft `meetPackPurchaseDecision` remains) | Same; [PR #18](https://github.com/Artemis2028/BM1-bakeoff/pull/18) |
 | Side-lane: unrest → independence mint | **Engine landed** | Same; [PR #19](https://github.com/Artemis2028/BM1-bakeoff/pull/19) |
 | Phase 6 sensors / cloak / contact uncertainty / system space | **Brief ready** (PR #22). Engine **not** implemented. | `docs/phase6/` |
-| Additive `bm-ships/` pack | **On main** (PR #15). **No** full catalog wire. | `bm-ships/README.md`, `docs/INSTALL-SHIPS-PATCH.md` |
+| Additive `bm-ships/` pack | **On main** (PR #15). **Full-roster-v2 content import landed** (approved hull merges + balance docs). **No** catalog wire — live 66-hull path until a later slice. | `bm-ships/README.md`, `docs/APPROVED-HULL-MERGES.md`, `docs/ship-balance/` |
 
 Guided text about incidents, independence, repair arms, and Reman recovery describes work **already on bake-off**. Cite the Pass / merge. Do not open a second incident ledger, a second independence mint, or a second repair-arms overlay.
 
@@ -203,32 +203,38 @@ Phase 4 / 5 already forbid double standing for one destruction. A later standing
 
 ## 7. Catalog wire + purchase rules — Agreed next
 
-**Not yet implemented on bake-off.** `bm-ships/` is additive. Ambient traffic, yards, and markets still use the pre-pack roster. Guided may wire the catalog earlier; bake-off must still treat wire as future work.
+**Content import landed; catalog wire still later.** `bm-ships/` now holds the
+full-roster-v2 pack (174 records, 172 active, 38 old→survivor aliases). Ambient
+traffic, yards, and markets still use the pre-pack 66-hull roster. Guided may
+wire the catalog earlier; bake-off must still treat wire as future work.
 
 ### What already exists (do not reinvent)
 
-- Pack helpers: `getPurchaseDecision`, `eligibleForSpawn`, `spawnPool`, region rules in `bm-ships/catalog.mjs`.
+- Pack helpers: `getPurchaseDecision`, `eligibleForSpawn`, `eligibleForStock`, `spawnPool`, alias resolve, region rules in `bm-ships/catalog.mjs`.
+- Machine-readable aliases: `ships.json` `aliases` and `integration-rules.json` `hullAliases` (same 38 pairs as `docs/APPROVED-HULL-MERGES.md`).
 - Reman soft meeting point from side-lane [PR #18](https://github.com/Artemis2028/BM1-bakeoff/pull/18): `meetPackPurchaseDecision` in `src/side-lane-repair-reman.js`.
-  - Durable Reman unlock may satisfy pack `restricted-stock` (hull 53 has no `specialVendor`).
-  - `prestige-threshold-unconfigured` is **not** an access fail (knobs deferred).
+  - Hull **53 / `bm-ship:53` remains.** It is not a merge and is not a second Reman id.
+  - Durable Reman unlock may satisfy pack `restricted-stock`. Without a vendor context the pack still refuses hull 53 as `restricted-stock` (`shipyardEligible: false`).
+  - Pack metadata may tag `specialVendor: remus-secret` as a yard note. That does **not** make Remus station the sole key. Do not treat the tag as live stock until catalog wire.
+  - Standing-threshold-unconfigured is **not** an access fail when the hull already has explicit `purchaseRequirements` (full-roster-v2 does).
   - Granted access **survives** a `region` refuse (destroyed / off-Remus yard).
   - `funds` / `unavailable` / `balance-pending` stay pack refusals.
-  - Do **not** fabricate `specialVendor` on `ships.json`.
+  - Do **not** invent a second Reman hull id or replace durable unlock with Remus-only access.
 - S7.9: ordinary traffic/markets must not require `loadShipCatalog()` until this wire slice.
 
 ### Wire rules (when Tenth scopes)
 
-- Namespaced `bm-ship:<id>` or an explicit remap. Numeric pack IDs are pack-local.
+- Namespaced `bm-ship:<id>` or an explicit remap. Numeric pack IDs are pack-local. Resolve merge aliases; do not resurrect discarded IDs as extra hulls.
 - Empty legal `spawnPool` stays empty. No fallback into reserved Gorn or unknown regions.
-- Purchase consults pack decision **and** engine standing / unlock / Phase 1 authority. Money ≠ prestige ≠ Reman flag.
+- Purchase consults pack decision **and** engine standing / unlock / Phase 1 authority. Money ≠ standing ≠ Reman flag.
 - Keep `getShip` distinct from `resolveNewShipId` (owned hulls are not silently refitted).
-- Excalibur stays prototype until price/stats/size are set; 100 prestige alone does not sell it (`balance-pending`).
+- Excalibur 347 is now an active balanced pack row; 100 standing alone still does not sell it without the later wire + funds/vendor checks.
 
 ### Acceptance
 
-1. Full 212-hull wire is explicit and testable; S7.9 flips only in that slice.
-2. Reman still goes through `meetPackPurchaseDecision` (soft S7.8 stays the meeting point).
-3. No silent `specialVendor` invent.
+1. Full 174-hull wire is explicit and testable; S7.9 flips only in that slice.
+2. Reman still goes through `meetPackPurchaseDecision` (soft S7.8 stays the meeting point). Remus is not the sole key.
+3. No second Reman id; no silent unlock rewrite.
 
 ## 8. Broader economy / difficulty — Proposed
 
@@ -274,7 +280,7 @@ Adapt the guided order to **what bake-off has not done**. Do not restart Phases 
 2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire.
 3. **Flags / passes / utility inventory** (verify Thaleron Test Facility pass).
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
-5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only).
+5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
 6. **Boarding / capture / command transfer** (≤10% hull).
 7. **Station construction visuals** (scaffolds / workbees / blue beams). Repair arms stay the side-lane overlay.
 8. **HTML weapon / station catalogs** for review (working agreement).
