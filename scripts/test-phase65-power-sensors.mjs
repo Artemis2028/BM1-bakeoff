@@ -57,6 +57,7 @@ import {
   reman53Identity,
   resolveGeneration,
   resolveHullAlias,
+  reservedEwDraw,
   resolveSuite,
   restorePhase65Runtime,
   roleCurveQuartet,
@@ -85,7 +86,7 @@ function assert(id, condition, detail = '') {
 
 assert('s10.startup-smoke', typeof resolveGeneration === 'function' && typeof installSensorSuite === 'function');
 assert('s10.catalog-wire-flag', isLoadShipCatalogRequired() === true && LOAD_SHIP_CATALOG_REQUIRED === true);
-assert('s10.ew-not-implemented', ewEffectsImplemented() === false && listEwEffectApis().length === 0);
+assert('s10.ew-not-implemented', reservedEwDraw() === 0 && listEwEffectApis().length === 0);
 assert('s10.suite-not-fire-gate', suiteWritesFirePermission() === false);
 
 const sameMass = { mass: 6, role: 'patrol', cargoCapacity: 40, topSpeed: 14, sensorSuiteId: 'suite:baseline' };
