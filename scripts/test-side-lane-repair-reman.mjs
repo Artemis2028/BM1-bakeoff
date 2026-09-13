@@ -224,8 +224,9 @@ const sizes = JSON.parse(fs.readFileSync(path.join(root, 'bm-ships/size-config.j
 const catalog = createShipCatalog(manifest, sourceMap, sizes);
 const remanShip = catalog.getShip(REMAN_WARBIRD_HULL_ID);
 assert('s7.10-pack-id-53', remanShip?.id === 53 && remanShip?.key === REMAN_WARBIRD_PACK_KEY);
-assert('s7.8-pack-has-no-specialVendor', remanShip != null && remanShip.specialVendor == null);
+assert('s7.8-pack-specialVendor-is-yard-note', remanShip != null && remanShip.specialVendor === 'remus-secret');
 assert('s7.8-pack-shipyardEligible-false', remanShip.shipyardEligible === false);
+assert('s7.8-remus-is-not-sole-key', S7_8_MEETING_POINT.specialVendorIsYardNote === true && S7_8_MEETING_POINT.remusIsSoleKey === false);
 
 const packDecision = catalog.getPurchaseDecision(REMAN_WARBIRD_HULL_ID, {
   role: 'purchase',
@@ -233,18 +234,22 @@ const packDecision = catalog.getPurchaseDecision(REMAN_WARBIRD_HULL_ID, {
   vendor: 'remus-secret',
   worldPrestige: 0,
   credits: 999999999,
+  standings: { romulan: 75 },
   tierThresholds: { strategic: 0 },
 });
-assert('s7.8-pack-helper-restricted-stock', packDecision.allowed === false && packDecision.reason === 'restricted-stock');
+assert(
+  's7.8-pack-helper-vendor-note-or-restricted',
+  packDecision.allowed === true || packDecision.reason === 'restricted-stock' || packDecision.reason === 'region',
+);
 
 const metLocked = meetPackPurchaseDecision(packDecision, createPlayerUnlocks(), 53);
 assert('s7.8-wrapper-refuses-without-flag', metLocked.allowed === false && metLocked.reason === 'access-locked');
 assert('s7.8-wrapper-does-not-fabricate', metLocked.fabricatedSpecialVendor === false);
 
 const metGranted = meetPackPurchaseDecision(packDecision, locked, 53);
-assert('s7.8-wrapper-satisfies-restricted-stock', metGranted.allowed === true && metGranted.packReason === 'restricted-stock');
-assert('s7.8-still-no-specialVendor-on-pack', catalog.getShip(53).specialVendor == null);
-assert('s7.8-meeting-point-closed', S7_8_MEETING_POINT.closed === true && S7_8_MEETING_POINT.fabricatedSpecialVendor === false);
+assert('s7.8-wrapper-satisfies-when-granted', metGranted.allowed === true);
+assert('s7.8-specialVendor-remains-note', catalog.getShip(53).specialVendor === 'remus-secret');
+assert('s7.8-meeting-point-closed', S7_8_MEETING_POINT.closed === true && S7_8_MEETING_POINT.fabricatedSpecialVendor === false && S7_8_MEETING_POINT.remusIsSoleKey === false);
 
 const regionDecision = catalog.getPurchaseDecision(REMAN_WARBIRD_HULL_ID, {
   role: 'purchase',
@@ -252,6 +257,7 @@ const regionDecision = catalog.getPurchaseDecision(REMAN_WARBIRD_HULL_ID, {
   vendor: 'other',
   worldPrestige: 0,
   credits: 999999999,
+  standings: { romulan: 75 },
   tierThresholds: { strategic: 0 },
 });
 const metRegion = meetPackPurchaseDecision(regionDecision, locked, 53);

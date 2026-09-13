@@ -84,7 +84,7 @@ function assert(id, condition, detail = '') {
 }
 
 assert('s10.startup-smoke', typeof resolveGeneration === 'function' && typeof installSensorSuite === 'function');
-assert('s10.no-catalog-wire-flag', isLoadShipCatalogRequired() === false && LOAD_SHIP_CATALOG_REQUIRED === false);
+assert('s10.catalog-wire-flag', isLoadShipCatalogRequired() === true && LOAD_SHIP_CATALOG_REQUIRED === true);
 assert('s10.ew-not-implemented', ewEffectsImplemented() === false && listEwEffectApis().length === 0);
 assert('s10.suite-not-fire-gate', suiteWritesFirePermission() === false);
 
@@ -256,7 +256,7 @@ const active = pack.ships.filter((row) => row.rosterState === 'active');
 assert('s10.9-no-173rd-from-alias', active.length === 172 && !active.some((row) => Number(row.id) === 304));
 assert('s10.9-discarded-not-active', !active.some((row) => Number(row.id) === EXAMPLE_ALIAS_FROM));
 
-assert('s10.10-no-catalog-required', isLoadShipCatalogRequired() === false);
+assert('s10.10-catalog-required', isLoadShipCatalogRequired() === true);
 assert('s10.10-no-invented-roster-fill', pack.ships.every((row) => row.basePowerGeneration == null && row.defaultSensorSuiteId == null));
 assert('s10.10-probe-injects-not-yards', resolveGeneration({ basePowerGeneration: 22 }).toFixed(0) === '22');
 

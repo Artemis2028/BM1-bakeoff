@@ -10,15 +10,14 @@
  * It does not wire the 212-hull catalog into traffic or markets.
  * It does not invent repair cost knobs (existing 2L/% hull, 1L/% shields).
  *
- * S7.8 meeting point (closes the soft placeholder):
- * Pack `getPurchaseDecision` refuses hull 53 with `restricted-stock` because
- * `ships.json` has `shipyardEligible: false` and **no** `specialVendor`.
- * The engine must not fabricate that pack field. The durable
- * `playerUnlocks.remanWarbird.granted` flag is the engine-side substitute for
- * the missing vendor exception, applied only to pack id 53 / `bm-ship:53`.
- * `regionAllows('secret-remus')` stays a content-availability check for the
- * authored `remus-secret` grant source, not the unlock key. Culture `reman`
- * is never consulted. Other Warbird hulls never satisfy this rule.
+ * S7.8 meeting point (closed; post-#25 specialVendor is a yard note):
+ * Pack `ships.json` may tag hull 53 with `specialVendor: remus-secret`.
+ * That is a Remus vendor **note**, not the unlock key and not permission to
+ * sell without `playerUnlocks.remanWarbird.granted`. Destroying Remus must
+ * not erase granted access. The durable flag remains the engine substitute
+ * for pack `restricted-stock` / off-Remus `region` refuse, applied only to
+ * pack id 53 / `bm-ship:53`. Culture `reman` is never consulted. Other
+ * Warbird hulls never satisfy this rule.
  */
 
 export const PLAYER_UNLOCKS_VERSION = 1;
@@ -73,12 +72,13 @@ export const S7_8_MEETING_POINT = Object.freeze({
   packKey: REMAN_WARBIRD_PACK_KEY,
   packHelper: 'getPurchaseDecision',
   packRefusalWithoutFabrication: 'restricted-stock',
-  missingPackField: 'specialVendor',
+  specialVendorIsYardNote: true,
+  remusIsSoleKey: false,
   engineSubstitute: 'playerUnlocks.remanWarbird.granted',
   fabricatedSpecialVendor: false,
   cultureIsUnlock: false,
   regionAllowsIsUnlock: false,
-  note: 'Durable flag satisfies pack restricted-stock for hull 53 only. Do not write specialVendor onto ships.json. regionAllows(secret-remus) is content availability for remus-secret, not the key.',
+  note: 'Durable flag is the unlock key for hull 53. Pack specialVendor remus-secret is a Remus yard note, not the sole key. Destroying Remus does not revoke granted access. regionAllows(secret-remus) is content availability, not the key.',
 });
 
 function normalizeKey(value) {
@@ -373,10 +373,13 @@ export function evaluateRemanWarbirdAccess({
 }
 
 /**
- * Wrap pack getPurchaseDecision without editing ships.json.
+ * Wrap pack getPurchaseDecision. Remus / specialVendor is a yard note.
  *
- * restricted-stock → durable flag may satisfy (missing specialVendor).
- * prestige-threshold-unconfigured → knobs deferred; not an access fail.
+ * Without the durable flag, hull 53 stays locked even if the pack would
+ * allow a remus-secret vendor match (post-#25 ships.json tag).
+ * restricted-stock → durable flag may satisfy.
+ * standing/prestige-threshold-unconfigured → not an access fail when the
+ * hull already has explicit purchaseRequirements, or knobs are deferred.
  * region → content check for remus-secret yard; granted access survives
  * off-Remus / destroyed yard (recovery / alternate).
  * funds / unavailable / balance-pending remain pack refusals when a catalog
@@ -390,8 +393,10 @@ export function meetPackPurchaseDecision(catalogDecision, unlocks, hullId, packK
     return {
       allowed: false,
       reason: 'access-locked',
-      packReason: catalogDecision?.reason || null,
+      packReason: catalogDecision?.reason || (catalogDecision?.allowed ? 'vendor-note-not-unlock' : null),
+      packWouldAllowViaVendorNote: catalogDecision?.allowed === true,
       fabricatedSpecialVendor: false,
+      remusIsSoleKey: false,
       meeting: S7_8_MEETING_POINT,
     };
   }
@@ -400,11 +405,18 @@ export function meetPackPurchaseDecision(catalogDecision, unlocks, hullId, packK
       allowed: true,
       reason: 'unlock-granted',
       fabricatedSpecialVendor: false,
+      remusIsSoleKey: false,
       meeting: S7_8_MEETING_POINT,
     };
   }
   if (catalogDecision.allowed) {
-    return { ...catalogDecision, engineUnlock: true, fabricatedSpecialVendor: false, meeting: S7_8_MEETING_POINT };
+    return {
+      ...catalogDecision,
+      engineUnlock: true,
+      fabricatedSpecialVendor: false,
+      remusIsSoleKey: false,
+      meeting: S7_8_MEETING_POINT,
+    };
   }
   if (catalogDecision.reason === 'restricted-stock') {
     return {
@@ -412,15 +424,20 @@ export function meetPackPurchaseDecision(catalogDecision, unlocks, hullId, packK
       reason: 'unlock-satisfies-restricted-stock',
       packReason: 'restricted-stock',
       fabricatedSpecialVendor: false,
+      remusIsSoleKey: false,
       meeting: S7_8_MEETING_POINT,
     };
   }
-  if (catalogDecision.reason === 'prestige-threshold-unconfigured') {
+  if (
+    catalogDecision.reason === 'prestige-threshold-unconfigured'
+    || catalogDecision.reason === 'standing-threshold-unconfigured'
+  ) {
     return {
       allowed: true,
       reason: 'unlock-prestige-knobs-deferred',
       packReason: catalogDecision.reason,
       fabricatedSpecialVendor: false,
+      remusIsSoleKey: false,
       meeting: S7_8_MEETING_POINT,
     };
   }
@@ -430,10 +447,17 @@ export function meetPackPurchaseDecision(catalogDecision, unlocks, hullId, packK
       reason: 'unlock-survives-region',
       packReason: 'region',
       fabricatedSpecialVendor: false,
+      remusIsSoleKey: false,
       meeting: S7_8_MEETING_POINT,
     };
   }
-  return { ...catalogDecision, engineUnlock: true, fabricatedSpecialVendor: false, meeting: S7_8_MEETING_POINT };
+  return {
+    ...catalogDecision,
+    engineUnlock: true,
+    fabricatedSpecialVendor: false,
+    remusIsSoleKey: false,
+    meeting: S7_8_MEETING_POINT,
+  };
 }
 
 export function filterShipStockForRemanAccess(ships, unlocks) {

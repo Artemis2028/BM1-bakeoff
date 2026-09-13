@@ -365,7 +365,7 @@ function mintFixture(store, extras = {}) {
   const unrestWriter = raiseUnrestFromPiratePresence(createUnrestIndependenceStore(), 0);
   assert('s7.lock-unrest-writers-not-overdue', unrestWriter.phase5AssetOverdue === false && PHASE5_ASSET_OVERDUE === 'asset_overdue');
   assert('s7.lock-phase5-flag-flipped-when-real', ASSET_OVERDUE_IMPLEMENTED === true);
-  assert('s7.lock-no-catalog-wire', FULL_CATALOG_WIRED === false);
+  assert('s7.lock-catalog-wired', FULL_CATALOG_WIRED === true);
   assert('s7.lock-two-player-roe-modes', playerRoeModesUnchanged(['return-fire', 'defend']));
   const snap = snapshotIndependence(createUnrestIndependenceStore(), 0);
   assert('s7.lock-snapshot-shape', snap.unrest.level === 'below' && snap.flagShareGrantsControl === false);

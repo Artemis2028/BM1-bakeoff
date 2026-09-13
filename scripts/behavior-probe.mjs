@@ -2464,8 +2464,8 @@ async function runSideLaneRepairReman(page, results) {
   );
   check(
     results,
-    'S7.9 no-full-catalog-wire',
-    s7678.catalogWired === false,
+    'S7.9 catalog-wire-live',
+    s7678.catalogWired === true,
     JSON.stringify({ catalogWired: s7678.catalogWired }),
   );
   check(
@@ -3078,7 +3078,6 @@ async function runPhase5Objectives(page, results) {
     && s81516.shortage === 'filled'
     && s81516.remint === 'already_closed', JSON.stringify(s81516));
   check(results, 'S8.16 phase1-4-side-lane-still-hold', s81516.flagShare === false
-    && s81516.catalogWired === false
     && s81516.overdueImplemented === true, JSON.stringify(s81516));
 }
 
@@ -3364,13 +3363,53 @@ async function runPhase65PowerSensors(page, results) {
     return {
       remanKey: snap.reman53?.key === 'bm-ship:53' && snap.reman53?.aliased === false,
       alias304: snap.alias304 === 2,
-      catalog: snap.catalogWired === false,
+      catalog: snap.catalogWired === true,
       rosterOk: roster.ok && roster.remanKey === 'bm-ship:53' && roster.remanAliased === false
-        && roster.alias304 === 2 && roster.activeCount === 172 && roster.catalogWired === false,
+        && roster.alias304 === 2 && roster.activeCount === 172 && roster.catalogWired === true,
     };
   });
   check(results, 'S10.9 reman53-and-aliases', s10910.remanKey && s10910.alias304 && s10910.rosterOk, JSON.stringify(s10910));
-  check(results, 'S10.10 no-catalog-wire', s10910.catalog && s10910.rosterOk, JSON.stringify(s10910));
+  check(results, 'S10.10 catalog-wire-live', s10910.catalog && s10910.rosterOk, JSON.stringify(s10910));
+}
+
+async function runCatalogWire(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000 });
+  const s11 = await page.evaluate(() => {
+    const catalog = globalThis.__BM1_PROBE__?.catalog || globalThis.BM1Probe?.catalog;
+    const lane = globalThis.__BM1_PROBE__?.sideLane;
+    if (!catalog) return { missing: true };
+    const snap = catalog.snapshot();
+    const alias304 = catalog.resolve(304);
+    const alias18 = catalog.resolve(18);
+    const gorn = catalog.spawnPool({ role: 'traffic', systemName: 'Gorn' }, 'gorn');
+    const earth = catalog.spawnPool({ role: 'traffic', systemName: 'Earth' });
+    lane?.resetReman();
+    const locked = catalog.purchase(53);
+    lane?.grantReman('recovery-mission');
+    const granted = catalog.purchase(53);
+    const stock = catalog.stock({ name: 'Utopia Planitia', stockIds: [2, 304, 18, 316] });
+    const discarded = (stock || []).filter((id) => id === 304 || id === 18);
+    return {
+      missing: false,
+      snap,
+      alias304,
+      alias18,
+      gorn,
+      earthCount: Array.isArray(earth) ? earth.length : 0,
+      earthHas304: Array.isArray(earth) && earth.includes(304),
+      locked,
+      granted,
+      stock,
+      discarded,
+      homeStanding: snap.startingStandings?.ferengi,
+    };
+  });
+  check(results, 'S11.1 alias-resolve-old-to-survivor', s11.alias304?.getShip === 2 && s11.alias18?.getShip === 316, JSON.stringify(s11.alias304));
+  check(results, 'S11.2 reman-unlock-still-required', s11.locked?.allowed === false && s11.locked?.reason === 'access-locked', JSON.stringify(s11.locked));
+  check(results, 'S11.3 reman-grant-survives-off-remus', s11.granted?.allowed === true, JSON.stringify({ reason: s11.granted?.reason, pack: s11.granted?.packDecision }));
+  check(results, 'S11.4 stock-dedupe-no-discarded-ids', Array.isArray(s11.stock) && s11.discarded?.length === 0 && s11.stock.includes(2) && s11.stock.includes(316), JSON.stringify(s11.stock));
+  check(results, 'S11.5 gorn-pool-empty', Array.isArray(s11.gorn) && s11.gorn.length === 0 && s11.earthCount > 0 && s11.earthHas304 === false, JSON.stringify({ gorn: s11.gorn, earth: s11.earthCount }));
+  check(results, 'S11.6 roster-wired', s11.snap?.wired === true && s11.snap?.activeCount === 172 && s11.homeStanding === 20, JSON.stringify(s11.snap));
 }
 
 async function main() {
@@ -3393,6 +3432,7 @@ async function main() {
     await runPhase5Objectives(page, results);
     await runPhase6Sensors(page, results);
     await runPhase65PowerSensors(page, results);
+    await runCatalogWire(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });

@@ -190,8 +190,29 @@ import {
   serializePlayerUnlocks,
   shouldDrawRepairOverlay,
 } from './side-lane-repair-reman.js';
+import { loadShipCatalog } from '../bm-ships/catalog.mjs';
+import {
+  CATALOG_WIRED,
+  HOME_FACTION_STANDING,
+  PASO_PROJECT_X_HULLS,
+  PASO_PROJECT_X_VENDOR,
+  authoredStockIds,
+  catalogPurchaseContext,
+  catalogSpawnContext,
+  createStartingStandings,
+  evaluateWiredPurchase,
+  hullIsEmptyButArmable,
+  includeRemanWhenUnlocked,
+  packDefaultWeaponSlots,
+  resolvePackVendor,
+  spawnIdsFromCatalog,
+  stockIdsFromCatalog,
+  toEngineShipRecord,
+  unarmedNpcCannotFire,
+} from './ship-catalog-wire.js';
 import {
   ASSET_OVERDUE_IMPLEMENTED,
+  FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
   accessIsPermissionNotCeasefire,
   applyRelationWrites,
@@ -324,7 +345,7 @@ const SYSTEM_STAR_CORE_RADIUS = 96;
 const SYSTEM_STAR_GLOW_RADIUS = 520;
 const PLANET_MODEL_ASSET_VERSION = '20260616-tholian-expansion';
 const ENTITY_SPRITE_ASSET_VERSION = '20260708-delivery-continues';
-const ENTITY_MANIFEST_DATA_VERSION = '20260713-station-visual-live-v2';
+const ENTITY_MANIFEST_DATA_VERSION = '20260913-catalog-wire-v1';
 const SHIP_SIZE_CONFIG_VERSION = '20260713-ship-sizing-v2';
 const SOURCE_DATA_VERSION = '20260713-station-visual-live-v2';
 const AUDIO_ASSET_VERSION = '20260713-intro-audio-v1';
@@ -940,6 +961,8 @@ const state = {
   planetModelSprites: {},
   planetRingSprites: {},
   shipStatsById: {},
+  shipCatalog: null,
+  catalogWired: CATALOG_WIRED,
   shipImageById: {},
   shipImageCandidatesById: {},
   shipImageBoundsById: {},
@@ -1542,19 +1565,33 @@ function pickSeededPoolItem(pool = [], seedValue = 1, salt = 'pool') {
   return selected;
 }
 
-function getNpcShipId(seedValue) {
+function catalogSpawnIds(role = 'traffic', faction = null) {
+  if (state.shipCatalog) {
+    return spawnIdsFromCatalog(state.shipCatalog, currentCatalogSpawnContext(role), faction);
+  }
   const pool = state.npcShipIds?.length ? state.npcShipIds : FALLBACK_NPC_SHIP_IDS;
-  const allowed = pool.filter((id) => doctrineAllowsFactionGenerator(getShipFaction(id), 'traffic', { requireBudget: false }));
-  const use = allowed.length ? allowed : pool;
-  return pickSeededPoolItem(use, seedValue, 'npc-any-ship') || use[0];
+  return pool.map((id) => resolveNewLiveShipId(id) ?? resolveShipId(id)).filter((id, index, list) => (
+    Number.isInteger(Number(id)) && list.indexOf(id) === index
+  ));
 }
 
-function getNpcShipIdForFaction(faction = 'neutral', seedValue = 1) {
-  const pool = state.npcShipIds?.length ? state.npcShipIds : FALLBACK_NPC_SHIP_IDS;
-  const exact = pool.filter((id) => getShipFaction(id) === faction);
+function getNpcShipId(seedValue, role = 'traffic') {
+  const pool = catalogSpawnIds(role, null);
+  if (!pool.length) return null;
+  const allowed = pool.filter((id) => doctrineAllowsFactionGenerator(getShipFaction(id), 'traffic', { requireBudget: false }));
+  const use = allowed.length ? allowed : pool;
+  return pickSeededPoolItem(use, seedValue, 'npc-any-ship') || use[0] || null;
+}
+
+function getNpcShipIdForFaction(faction = 'neutral', seedValue = 1, role = 'traffic') {
+  const exact = catalogSpawnIds(role, faction);
+  if (!exact.length && role !== 'traffic') return null;
+  const pool = exact.length ? exact : catalogSpawnIds(role, null);
+  if (!pool.length) return null;
   const aligned = exact.length ? exact : pool.filter((id) => areFactionsAligned(getShipFaction(id), faction));
-  const candidates = aligned.length ? aligned : pool;
-  return pickSeededPoolItem(candidates, seedValue, `npc-faction-ship:${faction}`) || candidates[0];
+  const candidates = aligned.length ? aligned : [];
+  if (!candidates.length) return null;
+  return pickSeededPoolItem(candidates, seedValue, `npc-faction-ship:${faction}`) || candidates[0] || null;
 }
 
 const factionShipNamePrefixes = {
@@ -1684,6 +1721,14 @@ function getShipDisplayName(ship) {
   });
 }
 
+function getNpcDefaultWeaponSlots(shipId) {
+  const ship = state.shipCatalog?.getShip(shipId) || state.shipStatsById[Number(shipId)];
+  const packSlots = packDefaultWeaponSlots(ship);
+  if (packSlots) return packSlots.slice();
+  const original = getOriginalShipWeaponSlots(shipId);
+  return Array.isArray(original) ? original.slice(0, 3) : [null, null, null];
+}
+
 function createNpcShip({
   id,
   shipId,
@@ -1741,6 +1786,7 @@ function createNpcShip({
     attackId,
     securityInstanceId: null,
     securityObjective: null,
+    weaponSlots: getNpcDefaultWeaponSlots(shipId),
   };
   assignNpcSecurityInstance(ship);
   initHullCloak(ship, { active: cloakActive === true }, currentLocalMs());
@@ -2644,8 +2690,9 @@ function ensureSystemState(systemIndex) {
     const angle = seeded(shipSeed + 4) * Math.PI * 2;
     const role = i < localPatrolCount ? 'patrol' : i < localTrafficCount ? 'localTraffic' : 'traffic';
     const shipId = i < localTrafficCount
-      ? getNpcShipIdForFaction(localFaction, shipSeed + 10)
-      : getNpcShipId(shipSeed + 10);
+      ? getNpcShipIdForFaction(localFaction, shipSeed + 10, role)
+      : getNpcShipId(shipSeed + 10, role);
+    if (!shipId) return null;
     const faction = getShipFaction(shipId);
     const flight = getNpcFlightProfile(shipId, shipSeed);
     return {
@@ -2676,8 +2723,9 @@ function ensureSystemState(systemIndex) {
       lastShotAt: 0,
       destroyed: false,
       scale: getShipVisualScale(shipId) * getTrafficScaleMultiplier(shipSeed + 11),
+      weaponSlots: getNpcDefaultWeaponSlots(shipId),
     };
-  });
+  }).filter(Boolean);
   const systemDestinations = buildSystemDestinations({
     star,
     planet,
@@ -2738,10 +2786,10 @@ function applySystemState(systemIndex) {
       faction: ship.identityLocked ? ship.faction : '',
     }) && Boolean(ship.identityLocked || ship.fleetId || ship.attackId);
     const shipId = keepIdentity
-      ? ship.shipId
+      ? resolveShipId(ship.shipId)
       : (state.systemFaction !== 'neutral' && ship.role === 'patrol' && !ship.destroyed
-        ? getNpcShipIdForFaction(state.systemFaction, ship.seed + 10)
-        : ship.shipId);
+        ? (getNpcShipIdForFaction(state.systemFaction, ship.seed + 10, ship.role || 'patrol') ?? resolveShipId(ship.shipId))
+        : resolveShipId(ship.shipId));
     const faction = keepIdentity && ship.faction
       ? ship.faction
       : getShipFaction(shipId);
@@ -2767,6 +2815,7 @@ function applySystemState(systemIndex) {
       lastShotAt: Number.isFinite(Number(ship.lastShotAt)) && Number(ship.lastShotAt) > 0
         ? ship.lastShotAt
         : now + 700 + seeded(ship.seed + 13) * 1500,
+      weaponSlots: Array.isArray(ship.weaponSlots) ? ship.weaponSlots.slice(0, 3) : getNpcDefaultWeaponSlots(shipId),
     };
     if (!realized.securityInstanceId) assignNpcSecurityInstance(realized);
     initHullCloak(realized, {
@@ -3346,6 +3395,10 @@ function showPlanetCallout(index = state.currentPlanet) {
 
 function resolveShipId(playership = state.playership) {
   const requestedId = Number(playership) || playership;
+  if (state.shipCatalog) {
+    const ship = state.shipCatalog.getShip(requestedId);
+    return ship?.id ?? requestedId;
+  }
   const legacyId = Number(LEGACY_SHIP_ID_REPLACEMENTS[requestedId]);
   const currentId = Number.isFinite(legacyId) && state.shipStatsById[legacyId] ? legacyId : requestedId;
   const stats = state.shipStatsById[currentId];
@@ -3354,6 +3407,38 @@ function resolveShipId(playership = state.playership) {
     return replacementId;
   }
   return currentId;
+}
+
+function resolveNewLiveShipId(playership = state.playership) {
+  const requestedId = Number(playership) || playership;
+  if (state.shipCatalog) {
+    return state.shipCatalog.resolveNewShipId(requestedId)
+      ?? state.shipCatalog.getShip(requestedId)?.id
+      ?? null;
+  }
+  const resolved = resolveShipId(requestedId);
+  return Number.isFinite(Number(resolved)) ? Number(resolved) : null;
+}
+
+function currentCatalogPurchaseContext(station = getCurrentDockedStation()) {
+  return catalogPurchaseContext({
+    credits: state.latinum,
+    standings: state.factionStanding || {},
+    station,
+    systemName: state.planets[state.currentPlanet]?.name || '',
+  });
+}
+
+function currentCatalogSpawnContext(role = 'traffic') {
+  const planet = state.planets[state.currentPlanet] || {};
+  const name = String(planet.name || '').trim().toLowerCase();
+  const region = name === 'dominica' ? 'dominion-core' : '';
+  return catalogSpawnContext({
+    role,
+    systemName: planet.name || '',
+    region,
+    authorizedDeployment: role === 'fleetAttack' || role === 'mission',
+  });
 }
 
 function getShipStats(playership = state.playership) {
@@ -4273,34 +4358,51 @@ async function loadEntityManifests() {
 
 async function loadShipManifest() {
   try {
-    const [entities] = await Promise.all([
+    const catalogUrl = new URL('../bm-ships/', import.meta.url);
+    const [entities, catalog] = await Promise.all([
       loadEntityManifests(),
-      loadShipSizeConfig(),
+      loadShipSizeConfig().then(() => loadShipCatalog(catalogUrl).catch(() => null)),
     ]);
-    state.shipStatsById = Object.fromEntries(entities.map((ship) => [Number(ship.id), ship]));
+    const stationsAndPods = entities.filter((entity) => entity.assetType !== 'ship');
+    const packShips = catalog
+      ? catalog.ships.map((ship) => toEngineShipRecord(ship)).filter(Boolean)
+      : entities.filter((entity) => entity.assetType === 'ship');
+    const merged = [...packShips, ...stationsAndPods];
+    state.shipCatalog = catalog;
+    state.catalogWired = CATALOG_WIRED;
+    state.shipStatsById = Object.fromEntries(merged.map((ship) => [Number(ship.id), ship]));
     state.shipImageCandidatesById = Object.fromEntries(
-      entities.map((ship) => [Number(ship.id), imageCandidatesForEntity(ship)]),
+      merged.map((ship) => [Number(ship.id), imageCandidatesForEntity(ship)]),
     );
     state.shipImageBoundsById = Object.fromEntries(
-      entities
+      merged
         .filter((ship) => ship.trimBounds)
         .map((ship) => [Number(ship.id), ship.trimBounds]),
     );
     state.shipSpriteCandidateIndex = {};
     state.shipSprites = {};
     state.shipImageById = Object.fromEntries(
-      entities
+      merged
         .map((ship) => [Number(ship.id), imageCandidatesForEntity(ship)[0]])
         .filter(([, src]) => src),
     );
-    const trafficIds = entities
-      .filter((ship) => {
-        if (ship.assetType !== 'ship') return false;
-        if (Object.prototype.hasOwnProperty.call(ship, 'trafficEligible')) return ship.trafficEligible;
-        return !NON_TRAFFIC_SHIP_TERMS.some((term) => String(ship.name || '').toLowerCase().includes(term));
-      })
-      .map((ship) => Number(ship.id))
-      .filter((id) => Number.isFinite(id));
+    if (catalog) {
+      state.originalShipWeaponSlots = { ...(state.originalShipWeaponSlots || {}) };
+      for (const ship of catalog.ships) {
+        const slots = packDefaultWeaponSlots(ship);
+        if (slots) state.originalShipWeaponSlots[ship.id] = slots;
+      }
+    }
+    const trafficIds = catalog
+      ? spawnIdsFromCatalog(catalog, catalogSpawnContext({ role: 'traffic' }))
+      : merged
+        .filter((ship) => {
+          if (ship.assetType !== 'ship') return false;
+          if (Object.prototype.hasOwnProperty.call(ship, 'trafficEligible')) return ship.trafficEligible;
+          return !NON_TRAFFIC_SHIP_TERMS.some((term) => String(ship.name || '').toLowerCase().includes(term));
+        })
+        .map((ship) => Number(ship.id))
+        .filter((id) => Number.isFinite(id));
     state.npcShipIds = trafficIds.length ? trafficIds : FALLBACK_NPC_SHIP_IDS;
     state.systemStates = {};
     applySystemState(state.currentPlanet);
@@ -9157,7 +9259,7 @@ function getWeaponTypeIconSrc(weapon = getWeapon()) {
 }
 
 function getShipPreviewSrc(shipId) {
-  const numericId = Number(shipId);
+  const numericId = resolveShipId(Number(shipId));
   return state.shipImageById[numericId] || getShipImageCandidates(numericId)[0] || `assets/game/ships/${numericId}.png`;
 }
 
@@ -9425,14 +9527,18 @@ function getDefaultWeaponId(shipId = state.playership, faction = getShipFaction(
 }
 
 function getOriginalShipWeaponSlots(shipId = state.playership) {
-  const mass = Math.max(1, finiteNumber(getShipStats(shipId).mass, 1));
-  const originalSlots = state.originalShipWeaponSlots?.[Number(shipId)] || [];
+  const stats = getShipStats(shipId);
+  const mass = Math.max(1, finiteNumber(stats.mass, 1));
+  const packSlots = packDefaultWeaponSlots(state.shipCatalog?.getShip(shipId) || stats);
+  const originalSlots = packSlots || state.originalShipWeaponSlots?.[Number(shipId)] || [];
   const slots = [0, 1, 2].map((index) => {
     const weaponId = Number(originalSlots[index]);
     if (!weaponId || !hasWeaponDefinition(weaponId)) return null;
     return getWeapon(weaponId).minMass <= mass ? weaponId : null;
   });
-  if (!slots.some(Boolean)) slots[0] = getDefaultWeaponId(shipId);
+  if (!slots.some(Boolean) && !hullIsEmptyButArmable(state.shipCatalog?.getShip(shipId) || stats) && !packSlots) {
+    slots[0] = getDefaultWeaponId(shipId);
+  }
   return slots;
 }
 
@@ -9455,10 +9561,18 @@ function normalizeWeaponLoadout() {
   const mass = Math.max(1, finiteNumber(getShipStats().mass, 1));
   const inventory = Array.isArray(state.weaponInventory) ? state.weaponInventory : [];
   const defaultWeaponId = getDefaultWeaponId(state.playership, state.playerFaction);
+  const emptyByDesign = hullIsEmptyButArmable(state.shipCatalog?.getShip(state.playership) || getShipStats(state.playership));
+  const savedEmpty = Array.isArray(state.weaponSlots) && !state.weaponSlots.some(Boolean);
   const valid = inventory
     .map((id) => Number(id))
     .filter((id) => hasWeaponDefinition(id));
-  if (!valid.length) valid.push(defaultWeaponId);
+  if (!valid.length && !(emptyByDesign && savedEmpty) && !godMode) valid.push(defaultWeaponId);
+  if (!valid.length && emptyByDesign && savedEmpty) {
+    state.weaponInventory = [];
+    state.weaponSlots = [null, null, null];
+    state.equippedWeaponId = null;
+    return;
+  }
   if (!godMode && !valid.some((id) => getWeapon(id).minMass <= mass) && !valid.includes(defaultWeaponId)) {
     valid.unshift(defaultWeaponId);
   }
@@ -9646,18 +9760,58 @@ function scoreShipyardStock(ship, context) {
 }
 
 function getShipyardStock(station = getCurrentDockedStation()) {
+  const unlocks = ensurePlayerUnlocks();
+  const purchaseCtx = currentCatalogPurchaseContext(station);
+  const catalog = state.shipCatalog;
+  const shipsFromIds = (ids) => (ids || [])
+    .map((id) => state.shipStatsById[Number(id)] || catalog?.getShip(id))
+    .filter((ship) => ship && (ship.assetType || 'ship') === 'ship' && getShipPrice(ship) > 0);
+
+  if (station?.stockIds?.length || purchaseCtx.vendor === PASO_PROJECT_X_VENDOR) {
+    const authored = authoredStockIds(station?.stockIds || [], catalog, purchaseCtx, unlocks);
+    if (purchaseCtx.vendor === PASO_PROJECT_X_VENDOR) {
+      for (const id of PASO_PROJECT_X_HULLS) {
+        if (!authored.includes(id) && (!catalog || catalog.eligibleForStock(id, purchaseCtx))) authored.push(id);
+      }
+    }
+    const localStock = filterShipStockForRemanAccess(shipsFromIds(authored), unlocks);
+    if (localStock.length) return localStock;
+  }
+
+  if (catalog) {
+    const eligibleIds = includeRemanWhenUnlocked(
+      stockIdsFromCatalog(catalog, purchaseCtx, { unlocks }),
+      catalog,
+      unlocks,
+      purchaseCtx,
+    );
+    const context = getShipyardStockContext(station);
+    let stock = shipsFromIds(eligibleIds).filter((ship) => {
+      const price = getShipPrice(ship);
+      const mass = Math.max(1, finiteNumber(ship.mass, 1));
+      const faction = getShipFaction(ship.id);
+      return price <= context.maxPrice
+        && mass <= context.maxMass
+        && isFactionShipStockEligible(faction, context.localFaction);
+    });
+    if (stock.length < 4) {
+      stock = shipsFromIds(eligibleIds).filter((ship) => (
+        getShipPrice(ship) <= context.maxPrice * 1.25
+        && Math.max(1, finiteNumber(ship.mass, 1)) <= context.maxMass + 1
+      ));
+    }
+    return filterShipStockForRemanAccess(
+      stock
+        .sort((a, b) => scoreShipyardStock(a, context) - scoreShipyardStock(b, context))
+        .slice(0, context.stockSize)
+        .sort((a, b) => getShipPrice(a) - getShipPrice(b)),
+      unlocks,
+    );
+  }
+
   const ships = Object.values(state.shipStatsById)
     .filter((ship) => ship && ship.assetType === 'ship' && ship.trafficEligible !== false)
     .filter((ship) => getShipPrice(ship) > 0);
-  if (station?.stockIds?.length) {
-    const localStock = filterShipStockForRemanAccess(
-      station.stockIds
-        .map((id) => state.shipStatsById[Number(id)])
-        .filter((ship) => ship && ship.assetType === 'ship' && getShipPrice(ship) > 0),
-      ensurePlayerUnlocks(),
-    );
-    if (localStock.length) return localStock.slice(0, SHIPYARD_STOCK_SIZE);
-  }
   const context = getShipyardStockContext(station);
   let stock = ships
     .filter((ship) => {
@@ -9677,7 +9831,7 @@ function getShipyardStock(station = getCurrentDockedStation()) {
       .sort((a, b) => scoreShipyardStock(a, context) - scoreShipyardStock(b, context))
       .slice(0, context.stockSize)
       .sort((a, b) => getShipPrice(a) - getShipPrice(b)),
-    ensurePlayerUnlocks(),
+    unlocks,
   );
 }
 
@@ -10375,8 +10529,16 @@ function getFleetShipCost(ship) {
 }
 
 function canBuyFleetShip(shipId, systemIndex = state.currentPlanet) {
-  const ship = state.shipStatsById[Number(shipId)];
-  if (!ship || ship.assetType !== 'ship') return { ok: false, reason: 'Unavailable' };
+  const resolvedId = resolveNewLiveShipId(shipId) ?? resolveShipId(shipId);
+  const ship = state.shipStatsById[Number(resolvedId)] || state.shipCatalog?.getShip(resolvedId);
+  if (!ship || (ship.assetType && ship.assetType !== 'ship')) return { ok: false, reason: 'Unavailable' };
+  if (state.shipCatalog) {
+    const wired = evaluateWiredPurchase(state.shipCatalog, resolvedId, ensurePlayerUnlocks(), {
+      ...currentCatalogPurchaseContext(),
+      credits: state.latinum,
+    });
+    if (!wired.allowed && wired.reason !== 'funds') return { ok: false, reason: wiredPurchaseRefusal(wired, ship) };
+  }
   if (!isSystemControlled(systemIndex)) return { ok: false, reason: 'Control system' };
   if (getPlayerFleetShips(systemIndex).length >= MAX_PLAYER_FLEET_SHIPS_PER_SYSTEM) return { ok: false, reason: 'Fleet full' };
   const cost = getFleetShipCost(ship);
@@ -10385,8 +10547,16 @@ function canBuyFleetShip(shipId, systemIndex = state.currentPlanet) {
 }
 
 function canBuyEscortShip(shipId, systemIndex = state.currentPlanet) {
-  const ship = state.shipStatsById[Number(shipId)];
-  if (!ship || ship.assetType !== 'ship') return { ok: false, reason: 'Unavailable' };
+  const resolvedId = resolveNewLiveShipId(shipId) ?? resolveShipId(shipId);
+  const ship = state.shipStatsById[Number(resolvedId)] || state.shipCatalog?.getShip(resolvedId);
+  if (!ship || (ship.assetType && ship.assetType !== 'ship')) return { ok: false, reason: 'Unavailable' };
+  if (state.shipCatalog) {
+    const wired = evaluateWiredPurchase(state.shipCatalog, resolvedId, ensurePlayerUnlocks(), {
+      ...currentCatalogPurchaseContext(),
+      credits: state.latinum,
+    });
+    if (!wired.allowed && wired.reason !== 'funds') return { ok: false, reason: wiredPurchaseRefusal(wired, ship) };
+  }
   if (getPlayerEscortFleetShips().length >= MAX_PLAYER_ESCORT_SHIPS) return { ok: false, reason: 'Escort full' };
   const cost = getFleetShipCost(ship);
   if (state.latinum < cost) return { ok: false, reason: 'Need latinum' };
@@ -11770,26 +11940,57 @@ function renderRepairServiceButton() {
   return `<button data-planet-action="repair">Repair</button>`;
 }
 
+function wiredPurchaseRefusal(decision, ship) {
+  if (!decision || decision.allowed) return '';
+  if (decision.reason === 'access-locked') {
+    return evaluateRemanWarbirdAccess({
+      unlocks: ensurePlayerUnlocks(),
+      hullId: decision.hullId ?? ship?.id,
+      packKey: ship?.key,
+    }).sayable || 'Reman Warbird locked. Access is an unlock, not a live Remus starbase instance.';
+  }
+  if (decision.reason === 'faction-standing') {
+    return `${ship?.name || 'This hull'} requires ${decision.requiredStanding} ${decision.requiredFaction || 'faction'} standing (have ${decision.currentStanding ?? 0}).`;
+  }
+  if (decision.reason === 'funds') {
+    return `Need ${decision.price ?? getShipPrice(ship)} latinum to buy ${ship?.name || 'that ship'}.`;
+  }
+  if (decision.reason === 'region' || decision.reason === 'restricted-stock') {
+    return `${ship?.name || 'That ship'} is not stocked here.`;
+  }
+  if (decision.reason === 'unavailable' || decision.reason === 'balance-pending') {
+    return `${ship?.name || 'That ship'} is not available.`;
+  }
+  return `${ship?.name || 'That ship'} cannot be purchased (${decision.reason}).`;
+}
+
 function getShipPurchaseStatus(shipId) {
-  const ship = state.shipStatsById[Number(shipId)];
-  if (!ship || ship.assetType !== 'ship') {
+  const resolvedId = resolveNewLiveShipId(shipId) ?? resolveShipId(shipId);
+  const ship = state.shipStatsById[Number(resolvedId)] || state.shipCatalog?.getShip(resolvedId);
+  if (!ship || (ship.assetType && ship.assetType !== 'ship')) {
     return { ok: false, reason: 'That ship is not available.', ship: null };
   }
-  if (isRemanWarbirdHull(shipId, ship.key)) {
+  const unlocks = ensurePlayerUnlocks();
+  if (state.shipCatalog) {
+    const wired = evaluateWiredPurchase(state.shipCatalog, resolvedId, unlocks, currentCatalogPurchaseContext());
+    if (!wired.allowed) {
+      return { ok: false, reason: wiredPurchaseRefusal(wired, ship), ship, hullId: resolvedId };
+    }
+  } else if (isRemanWarbirdHull(resolvedId, ship.key)) {
     const access = evaluateRemanWarbirdAccess({
-      unlocks: ensurePlayerUnlocks(),
-      hullId: shipId,
+      unlocks,
+      hullId: resolvedId,
       packKey: ship.key,
     });
     if (!access.allowed) {
       return { ok: false, reason: access.sayable, ship };
     }
   }
-  const available = getShipyardStock().some((stockShip) => Number(stockShip.id) === Number(shipId));
+  const available = getShipyardStock().some((stockShip) => Number(stockShip.id) === Number(resolvedId));
   if (!available) {
     return { ok: false, reason: `${ship.name} is not stocked here.`, ship };
   }
-  if (Number(shipId) === Number(state.playership)) {
+  if (Number(resolvedId) === Number(resolveShipId(state.playership))) {
     return { ok: false, reason: `${ship.name} is already your current ship.`, ship };
   }
   const cargoCapacity = finiteNumber(ship.cargoCapacity, 0);
@@ -11804,7 +12005,7 @@ function getShipPurchaseStatus(shipId) {
   if (state.latinum < price) {
     return { ok: false, reason: `Need ${price} latinum to buy ${ship.name}.`, ship, price, cargoCapacity };
   }
-  return { ok: true, reason: 'Ready to purchase.', ship, price, cargoCapacity };
+  return { ok: true, reason: 'Ready to purchase.', ship, price, cargoCapacity, hullId: resolvedId };
 }
 
 function getShipPurchaseSummary(shipId) {
@@ -11927,7 +12128,7 @@ function completeShipPurchase(shipId) {
   const ship = status.ship;
   const price = status.price;
   state.latinum -= price;
-  state.playership = Number(shipId);
+  state.playership = Number(status.hullId ?? resolveNewLiveShipId(shipId) ?? shipId);
   state.hull = 100;
   applyCurrentShipStats(true);
   applyShipDefaultWeapons(state.playership, true);
@@ -11994,11 +12195,12 @@ function buyShip(shipId) {
 }
 
 function getFleetPurchaseStatus(shipId) {
-  const ship = state.shipStatsById[Number(shipId)];
-  if (!ship || ship.assetType !== 'ship') {
+  const resolvedId = resolveNewLiveShipId(shipId) ?? resolveShipId(shipId);
+  const ship = state.shipStatsById[Number(resolvedId)] || state.shipCatalog?.getShip(resolvedId);
+  if (!ship || (ship.assetType && ship.assetType !== 'ship')) {
     return { ok: false, reason: 'That fleet ship is not available.', ship: null };
   }
-  const available = getShipyardStock().some((stockShip) => Number(stockShip.id) === Number(shipId));
+  const available = getShipyardStock().some((stockShip) => Number(stockShip.id) === Number(resolvedId));
   if (!available) {
     return { ok: false, reason: `${ship.name} is not stocked here.`, ship };
   }
@@ -12090,8 +12292,9 @@ function confirmFleetPurchase(assignment) {
 function buyFleetShip(shipId, systemIndex = state.currentPlanet) {
   if (state.gameOver || !state.gameStarted) return;
   if (!requireDocked()) return;
-  const ship = state.shipStatsById[Number(shipId)];
-  if (!ship || ship.assetType !== 'ship') {
+  shipId = resolveNewLiveShipId(shipId) ?? resolveShipId(shipId);
+  const ship = state.shipStatsById[Number(shipId)] || state.shipCatalog?.getShip(shipId);
+  if (!ship || (ship.assetType && ship.assetType !== 'ship')) {
     setLog('That fleet ship is not available.');
     return;
   }
@@ -12140,8 +12343,9 @@ function buyFleetShip(shipId, systemIndex = state.currentPlanet) {
 function buyEscortShip(shipId) {
   if (state.gameOver || !state.gameStarted) return;
   if (!requireDocked()) return;
-  const ship = state.shipStatsById[Number(shipId)];
-  if (!ship || ship.assetType !== 'ship') {
+  shipId = resolveNewLiveShipId(shipId) ?? resolveShipId(shipId);
+  const ship = state.shipStatsById[Number(shipId)] || state.shipCatalog?.getShip(shipId);
+  if (!ship || (ship.assetType && ship.assetType !== 'ship')) {
     setLog('That escort ship is not available.');
     return;
   }
@@ -14363,8 +14567,20 @@ function getPlayerWeaponRange() {
   return Math.max(...state.weaponSlots.filter(Boolean).map((weaponId) => getWeapon(weaponId).range || PLAYER_WEAPON_RANGE), PLAYER_WEAPON_RANGE);
 }
 
+function getNpcCombatWeaponId(npc) {
+  const slots = Array.isArray(npc?.weaponSlots) ? npc.weaponSlots : getNpcDefaultWeaponSlots(npc?.shipId);
+  const ship = state.shipCatalog?.getShip(npc?.shipId) || getShipStats(npc?.shipId);
+  if (unarmedNpcCannotFire(ship, slots, (weaponId) => isCombatWeapon(getWeapon(weaponId)))) return null;
+  const fromSlots = slots.find((weaponId) => weaponId && isCombatWeapon(getWeapon(weaponId)));
+  if (fromSlots) return fromSlots;
+  if (hullIsEmptyButArmable(ship)) return null;
+  return getDefaultWeaponId(npc.shipId, npc.faction, true);
+}
+
 function getNpcWeaponRange(npc) {
-  const weapon = getWeapon(getDefaultWeaponId(npc.shipId, npc.faction, true));
+  const weaponId = getNpcCombatWeaponId(npc);
+  if (!weaponId) return 0;
+  const weapon = getWeapon(weaponId);
   return weapon.range || NPC_WEAPON_RANGE;
 }
 
@@ -15544,6 +15760,8 @@ function processHeldWeaponInputs() {
 }
 
 function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player', now = performance.now()) {
+  const weaponId = getNpcCombatWeaponId(npc);
+  if (!weaponId) return;
   if (!observerLocksTarget(npc, 'ship', targetType === 'player' ? null : target, targetType)) return;
   consultDoctrineFire(npc, target, targetType, now);
   if (targetType === 'player') {
@@ -15551,7 +15769,6 @@ function fireNpcWeapon(npc, target = playerWorldPosition(), targetType = 'player
   } else if (target && (isPlayerSideShip(target, getPlayerSecurityContext(now)) || isPlayerOwnedInstallation(target, getPlayerSecurityContext(now, { targetType: 'station' })))) {
     recordAttackOnPlayerSide(npc, target.stationTypeId ? 'station' : 'ship', now);
   }
-  const weaponId = getDefaultWeaponId(npc.shipId, npc.faction, true);
   const weapon = getWeapon(weaponId);
   const targetPoint = targetType === 'player' ? playerWorldPosition() : target;
   const fireRange = getNpcWeaponRange(npc);
@@ -16355,9 +16572,11 @@ function spawnFleetAttack(systemIndex = state.currentPlanet, attackerFaction = c
     const seed = hashString(`${attackId}-${index}`);
     const spread = (index - (size - 1) / 2) * 56;
     const sideAngle = originAngle + Math.PI / 2;
+    const shipId = getNpcShipIdForFaction(attackerFaction, seed + 41, 'fleetAttack');
+    if (!shipId) return null;
     return createNpcShip({
       id: `${attackId}-${index}`,
-      shipId: getNpcShipIdForFaction(attackerFaction, seed + 41),
+      shipId,
       faction: attackerFaction,
       attitude: 'hostile',
       hostile: true,
@@ -16374,7 +16593,7 @@ function spawnFleetAttack(systemIndex = state.currentPlanet, attackerFaction = c
       role: 'fleetAttack',
       attackId,
     });
-  });
+  }).filter(Boolean);
   state.npcShips.push(...ships);
   state.activeFleetAttack = {
     id: attackId,
@@ -20463,7 +20682,7 @@ function startWithFaction(key, options = {}) {
   if (!f) return;
   resetRunState();
   state.currentSaveSlot = getFirstEmptySaveSlot();
-  state.playership = f.playership;
+  state.playership = resolveNewLiveShipId(f.playership) ?? f.playership;
   state.playerFaction = f.faction || key;
   state.playerSide = f.faction || key;
   state.playerSecurity = createPlayerSecurityState(state.playerSide);
@@ -20477,7 +20696,7 @@ function startWithFaction(key, options = {}) {
   state.selectedIncidentId = null;
   state.standingWriteCount = 0;
   state.playerFlags = [state.playerFaction];
-  state.factionStanding = {};
+  state.factionStanding = createStartingStandings(state.playerFaction);
   state.feats = {};
   state.power = { energy: 200, dist: { reserve: 5, engines: 5, weapons: 5, shields: 5 } };
   normalizePlayerFlags();
@@ -20731,6 +20950,8 @@ function probeShipSummary(ship) {
     playerDistance: Math.hypot((ship.x || 0) - player.x, (ship.y || 0) - player.y),
     fireRange: getNpcWeaponRange(ship),
     huntRange: getNpcHuntRange(ship),
+    shipId: ship.shipId ?? null,
+    weaponSlots: Array.isArray(ship.weaponSlots) ? ship.weaponSlots.slice() : [],
   };
 }
 
@@ -20861,6 +21082,9 @@ function probeSpawnShip(options = {}) {
   if (options.detectabilityBias != null) ship.detectabilityBias = Number(options.detectabilityBias);
   if (options.energy != null) ship.energy = Number(options.energy);
   if (options.energyMax != null) ship.energyMax = Number(options.energyMax);
+  if (Object.prototype.hasOwnProperty.call(options, 'weaponSlots')) {
+    ship.weaponSlots = Array.isArray(options.weaponSlots) ? options.weaponSlots.slice(0, 3) : [null, null, null];
+  }
   if (options.cloakActive === true || options.cloaked === true) {
     initHullCloak(ship, { active: true }, currentLocalMs());
   }
@@ -20952,7 +21176,10 @@ function probeFireNpc(attackerId, targetSpec = {}) {
   const targetPoint = targetType === 'player' ? playerWorldPosition() : target;
   const fireRange = getNpcWeaponRange(attacker);
   const distance = Math.hypot((targetPoint?.x || 0) - attacker.x, (targetPoint?.y || 0) - attacker.y);
-  const weaponId = getDefaultWeaponId(attacker.shipId, attacker.faction, true);
+  const weaponId = getNpcCombatWeaponId(attacker);
+  if (!weaponId) {
+    return { fired: false, unarmed: true, projectileDelta: 0, weaponId: null };
+  }
   const weapon = getWeapon(weaponId);
   const cooldown = getScaledWeaponCooldown(attacker.shipId, weapon, NPC_WEAPON_COOLDOWN_SCALE, NPC_WEAPON_FLOOR_SCALE);
   const now = performance.now();
@@ -21095,6 +21322,54 @@ function probeForceFleetSeize(faction = 'klingon') {
   };
 }
 
+function createCatalogProbeApi() {
+  return {
+    wired: () => CATALOG_WIRED && Boolean(state.shipCatalog),
+    snapshot: () => {
+      const catalog = state.shipCatalog;
+      const aliases = catalog?.aliases || {};
+      const active = catalog?.ships?.filter((ship) => ship.rosterState === 'active') || [];
+      const discarded = Object.keys(aliases).map(Number);
+      return {
+        wired: CATALOG_WIRED && Boolean(catalog),
+        activeCount: active.length,
+        aliasCount: discarded.length,
+        alias304: catalog ? catalog.getShip(304)?.id : null,
+        alias18: catalog ? catalog.getShip(18)?.id : null,
+        reman53: reman53Identity(),
+        startingStandings: { ...(state.factionStanding || {}) },
+        homeStanding: HOME_FACTION_STANDING,
+      };
+    },
+    resolve: (id) => ({
+      getShip: state.shipCatalog?.getShip(id)?.id ?? null,
+      resolveNew: state.shipCatalog?.resolveNewShipId(id) ?? null,
+      engine: resolveShipId(id),
+    }),
+    spawnPool: (context = {}, faction = null) => (
+      state.shipCatalog ? state.shipCatalog.spawnPool(catalogSpawnContext(context), faction).map((ship) => ship.id) : []
+    ),
+    stock: (station = getCurrentDockedStation()) => getShipyardStock(station).map((ship) => Number(ship.id)),
+    purchase: (shipId, extras = {}) => {
+      if (!state.shipCatalog) return { allowed: false, reason: 'catalog-missing' };
+      return evaluateWiredPurchase(
+        state.shipCatalog,
+        shipId,
+        ensurePlayerUnlocks(),
+        catalogPurchaseContext({
+          ...currentCatalogPurchaseContext(),
+          credits: extras.credits ?? 9e9,
+          standings: extras.standings || { ...(state.factionStanding || {}), romulan: 75 },
+          station: extras.station,
+          systemName: extras.systemName || 'Earth',
+        }),
+      );
+    },
+    vendor: (station, systemName = '') => resolvePackVendor(station, { systemName }),
+    emptySlots: (shipId) => packDefaultWeaponSlots(state.shipCatalog?.getShip(shipId) || getShipStats(shipId)),
+  };
+}
+
 function installBm1ProbeHarness() {
   globalThis.BM1Probe = {
     ready() {
@@ -21119,6 +21394,7 @@ function installBm1ProbeHarness() {
     snapshot: probeSnapshot,
     spawnShip: probeSpawnShip,
     spawnStation: probeSpawnStation,
+    catalog: createCatalogProbeApi(),
     placePlayer: probePlacePlayer,
     destroy: probeDestroy,
     fireNpc: probeFireNpc,
@@ -21826,7 +22102,7 @@ function createPhase5ProbeApi() {
         lastJournal: board.lastJournal,
         overdueImplemented: PHASE5_OVERDUE_IMPLEMENTED === true,
         flagShareGrantsControl: flagShareGrantsSystemControl(),
-        catalogWired: false,
+        catalogWired: FULL_CATALOG_WIRED,
         warpActive: Boolean(state.warp?.active),
         wormholeActive: Boolean(state.wormholeTransit?.active),
         antimatter: state.antimatter,
@@ -22244,7 +22520,7 @@ function createSideLaneProbeApi() {
           hull: REPAIR_HULL_LATINUM_PER_PERCENT,
           shields: REPAIR_SHIELD_LATINUM_PER_PERCENT,
         },
-        catalogWired: false,
+        catalogWired: FULL_CATALOG_WIRED,
         location,
         ...snapshotIndependence(ensureUnrestIndependence(), state.currentPlanet, {
           concessionOwner: (() => {
@@ -22632,6 +22908,7 @@ function installPlayerSecurityProbe() {
     phase5: createPhase5ProbeApi(),
     phase6: createPhase6ProbeApi(),
     phase65: createPhase65ProbeApi(),
+    catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
     raiseFlag: (faction) => {
