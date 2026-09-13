@@ -269,6 +269,32 @@ import {
   subjectKeyForPlayer,
   subjectKeyForStation,
 } from './phase6-sensors.js';
+import {
+  EW_CONSUMER_NAME,
+  applySuitePaymentsToStats,
+  applySuiteToSensorActor,
+  consumerDraws,
+  installSensorSuite,
+  isLoadShipCatalogRequired,
+  performBudgetedActiveScan,
+  powerNormFromBudget,
+  reman53Identity,
+  resolveDefaultSuiteForActor,
+  resolveGeneration,
+  resolveHullAlias,
+  resolveSuite,
+  restorePhase65Runtime,
+  roleCurveQuartet,
+  scoutFreighterComparison,
+  serializePhase65Runtime,
+  snapshotPowerBudget,
+  suiteEquipment,
+  sumDraws,
+  applyBrownout,
+  findDominatedCurve,
+  EXAMPLE_ALIAS_FROM,
+  EXAMPLE_ALIAS_TO,
+} from './phase65-power.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -933,6 +959,11 @@ const state = {
     durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   },
   contactBook: emptyContactBook(),
+  sensorSuiteId: null,
+  basePowerGeneration: null,
+  sensorMode: 'passive',
+  sensorAge: 0,
+  powerBudget: { weaponsStarved: false, propulsionFaded: false },
   systemDestinations: [],
   arrivalExit: null,
   lastInboundArrival: null,
@@ -4057,20 +4088,24 @@ function applyCurrentShipStats(resetCondition = false) {
   const handling = getShipHandlingProfile(state.playership);
   const turnRate = handling.turnRate;
 
+  const { paid } = applyPlayerSuitePayments();
+  const paidSpeed = Math.max(1, paid.topSpeed || topSpeed);
+  const paidCargo = Math.max(0, paid.cargoCapacity);
   state.mymass = mass;
   state.antimatteruse = finiteNumber(stats.antimatterUse, 3);
   state.tothull = finiteNumber(stats.hull, state.tothull);
   state.totshields = finiteNumber(stats.shields, state.totshields);
-  state.totspeed = topSpeed;
+  state.totspeed = paidSpeed;
   state.totturn = turnRate;
-  state.cargoCap = Math.max(state.cargo, finiteNumber(stats.cargoCapacity, state.cargoCap));
+  state.cargoCap = Math.max(state.cargo, paidCargo || finiteNumber(stats.cargoCapacity, state.cargoCap));
   state.totcargo = state.cargoCap;
 
   const flashTurnRate = Math.max(1, Math.round(8 - mass));
   const flashThrust = 2 / Math.max(0.5, (8 - flashTurnRate) / 2);
-  const baseMaxSpeed = Math.max(2.5, Math.min(8.5, topSpeed / 4));
+  const baseMaxSpeed = Math.max(2.5, Math.min(8.5, paidSpeed / 4));
   state.ship.baseMaxSpeed = baseMaxSpeed;
-  state.ship.maxSpeed = baseMaxSpeed * getPowerEnginesFactor();
+  const propulsionFade = state.powerBudget?.propulsionFaded ? 0.45 : 1;
+  state.ship.maxSpeed = baseMaxSpeed * getPowerEnginesFactor() * propulsionFade;
   state.ship.acceleration = Math.max(0.18, Math.min(1.15, flashThrust / 4));
   state.ship.brake = state.ship.acceleration;
   state.ship.turnAcceleration = handling.turnAcceleration;
@@ -4747,20 +4782,82 @@ function observerKeyOfActor(actor, kind = 'ship') {
   return actor?.securityInstanceId ? observerKeyForNpc(actor.securityInstanceId) : observerKeyFor(actor);
 }
 
+function resetPhase65Runtime() {
+  state.sensorSuiteId = null;
+  state.basePowerGeneration = null;
+  state.sensorMode = 'passive';
+  state.sensorAge = 0;
+  state.powerBudget = { weaponsStarved: false, propulsionFaded: false };
+}
+
+function resolvePlayerSuite() {
+  if (state.sensorSuiteId) return resolveSuite(state.sensorSuiteId);
+  const stats = getShipStats(state.playership);
+  return resolveDefaultSuiteForActor({
+    name: stats.name || state.shipName,
+    shipClass: stats.shipClass,
+    role: state.sensorRole,
+    defaultSensorSuiteId: stats.defaultSensorSuiteId,
+  });
+}
+
+function resolvePlayerGeneration() {
+  const stats = getShipStats(state.playership);
+  return resolveGeneration({
+    basePowerGeneration: state.basePowerGeneration ?? stats.basePowerGeneration ?? null,
+    reactorUpgrade: state.reactorUpgrade ?? stats.reactorUpgrade ?? null,
+    mass: stats.mass,
+  });
+}
+
+function playerPowerDraws(mode = state.sensorMode) {
+  const suite = resolvePlayerSuite();
+  return consumerDraws({
+    suite,
+    sensorMode: mode === 'active' ? 'active' : 'passive',
+    cloakActive: state.cloak?.active === true,
+    moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
+    weaponsHot: false,
+    propulsionCommanded: finiteNumber(state.ship?.velocity, 0) > 0.08,
+  });
+}
+
+function applyPlayerSuitePayments() {
+  const stats = getShipStats();
+  const suite = resolvePlayerSuite();
+  const paid = applySuitePaymentsToStats({
+    cargoCapacity: finiteNumber(stats.cargoCapacity, state.cargoCap),
+    topSpeed: finiteNumber(stats.topSpeed, 15),
+  }, suite);
+  return { suite, paid };
+}
+
 function sensorActorFromPlayer() {
   const stats = getShipStats(state.playership);
   const name = String(stats.name || state.shipName || '');
-  const science = name.toLowerCase().includes('science') || String(stats.shipClass || '').toLowerCase() === 'science';
+  const suite = resolvePlayerSuite();
   const energy = finiteNumber(state.power?.energy, 200);
   const maxEnergy = Math.max(1, getPowerMaxEnergy());
   const reserve = getPowerDist('reserve');
-  return {
+  const generation = resolvePlayerGeneration();
+  const draws = playerPowerDraws();
+  const role = classifySensorRole({
+    name,
+    shipClass: stats.shipClass,
+    role: state.sensorRole,
+  });
+  const actor = applySuiteToSensorActor({
     key: observerKeyForPlayer(),
     observerKey: observerKeyForPlayer(),
-    role: science ? 'science' : 'ordinary',
-    sensorEquipment: science ? 'science' : 'standard',
+    role,
     sensorAge: Number(state.sensorAge) || 0,
-    powerNorm: clamp((energy / maxEnergy) * (reserve >= 2 ? 1 : 0.35), 0, 1),
+    powerNorm: powerNormFromBudget({
+      energy,
+      energyMax: maxEnergy,
+      generation,
+      draws,
+      reserveFactor: reserve >= 2 ? 1 : 0.35,
+    }),
     hullRatio: clamp(finiteNumber(state.hull, 100) / 100, 0, 1),
     mass: Math.max(1, finiteNumber(stats.mass, 1)),
     name,
@@ -4768,7 +4865,15 @@ function sensorActorFromPlayer() {
     x: state.camera.x,
     y: state.camera.y,
     cloak: state.cloak,
-  };
+    sensorMode: state.sensorMode === 'active' ? 'active' : 'passive',
+    sensorSuiteId: suite.suiteId,
+    cargoCapacity: finiteNumber(stats.cargoCapacity, 0),
+    topSpeed: finiteNumber(stats.topSpeed, 15),
+    basePowerGeneration: generation,
+    energy,
+    energyMax: maxEnergy,
+  }, suite);
+  return actor;
 }
 
 function sensorActorFromNpc(npc) {
@@ -4783,14 +4888,45 @@ function sensorActorFromNpc(npc) {
   const hullRatio = npc.maxCombatHull > 0
     ? clamp(finiteNumber(npc.combatHull, npc.maxCombatHull) / npc.maxCombatHull, 0, 1)
     : 1;
-  return {
+  const suite = npc.sensorSuiteId
+    ? resolveSuite(npc.sensorSuiteId)
+    : resolveDefaultSuiteForActor({
+      role: npc.sensorRole || role,
+      name: npc.name || stats.name,
+      shipClass: stats.shipClass,
+      sensorSuiteId: npc.sensorSuiteId,
+      defaultSensorSuiteId: npc.defaultSensorSuiteId,
+    });
+  const generation = resolveGeneration({
+    basePowerGeneration: npc.basePowerGeneration,
+    reactorUpgrade: npc.reactorUpgrade,
+    mass: stats.mass,
+  });
+  const draws = consumerDraws({
+    suite,
+    sensorMode: npc.sensorMode === 'active' ? 'active' : 'passive',
+    cloakActive: isHullCloaked(npc, currentLocalMs()),
+    moving: finiteNumber(npc.speed, 0) > 0.08,
+  });
+  const computedNorm = powerNormFromBudget({
+    energy: Number.isFinite(Number(npc.energy)) ? Number(npc.energy) : 1,
+    energyMax: Number.isFinite(Number(npc.energyMax)) ? Number(npc.energyMax) : 1,
+    generation,
+    draws,
+    reserveFactor: 1,
+  });
+  const equipment = npc.sensorEquipment || suiteEquipment(suite) || roleDefaultEquipment(role);
+  const actor = applySuiteToSensorActor({
     key: observerKeyOfActor(npc),
     observerKey: observerKeyOfActor(npc),
     role: npc.sensorRole || role,
     doctrineRole: npc.doctrineRole,
-    sensorEquipment: npc.sensorEquipment || roleDefaultEquipment(role),
+    sensorEquipment: equipment,
+    sensorEquipmentLocked: Boolean(npc.sensorEquipment),
     sensorAge: Number(npc.sensorAge) || 0,
-    powerNorm: Number.isFinite(Number(npc.powerNorm)) ? clamp(Number(npc.powerNorm), 0, 1) : 1,
+    powerNorm: Number.isFinite(Number(npc.powerNorm))
+      ? clamp(Number(npc.powerNorm), 0, 1)
+      : (npc.basePowerGeneration != null ? computedNorm : 1),
     hullRatio,
     mass: Math.max(1, finiteNumber(stats.mass, 1)),
     name: npc.name || stats.name,
@@ -4799,7 +4935,14 @@ function sensorActorFromNpc(npc) {
     y: npc.y,
     cloak: npc.cloak,
     securityInstanceId: npc.securityInstanceId,
-  };
+    sensorMode: npc.sensorMode === 'active' ? 'active' : 'passive',
+    sensorSuiteId: suite.suiteId,
+    cargoCapacity: finiteNumber(stats.cargoCapacity, 0),
+    topSpeed: finiteNumber(stats.topSpeed, 15),
+    basePowerGeneration: generation,
+    detectabilityBias: npc.detectabilityBias,
+  }, suite);
+  return actor;
 }
 
 function sensorActorFromStation(station) {
@@ -7139,11 +7282,20 @@ function getWeaponEnergyCost(weapon) {
 function consumeWeaponEnergy(cost) {
   const max = getPowerMaxEnergy();
   const energy = clamp(finiteNumber(state.power?.energy, max), 0, max);
-  if (energy < cost) {
+  if (state.powerBudget?.weaponsStarved || energy < cost) {
     setLog('Warning: Power Failure.');
     return false;
   }
   state.power.energy = energy - cost;
+  return true;
+}
+
+function consumeSensorEnergy(cost) {
+  const max = getPowerMaxEnergy();
+  const energy = clamp(finiteNumber(state.power?.energy, max), 0, max);
+  const need = Math.max(0, Number(cost) || 0);
+  if (energy < need) return false;
+  state.power.energy = energy - need;
   return true;
 }
 const POWER_DIST_BUDGET = 20;
@@ -7210,17 +7362,48 @@ function updatePowerSystems(frameScale = 1) {
   const max = getPowerMaxEnergy();
   const dt = Math.max(0, finiteNumber(frameScale, 1)) / 60;
   let energy = clamp(finiteNumber(state.power?.energy, max), 0, max);
-  energy = clamp(energy + 4 * getPowerReserveFactor() * dt, 0, max);
-  if (state.cloak?.active) {
-    energy -= 6 * dt;
-    if (energy <= 0) {
+  const generation = resolvePlayerGeneration();
+  let mode = state.sensorMode === 'active' ? 'active' : 'passive';
+  const book = state.contactBook;
+  const emission = book?.observers?.[observerKeyForPlayer()]?.scanEmission;
+  if (mode === 'active' && !scanEmissionActive(emission, currentLocalMs())) {
+    mode = 'passive';
+    state.sensorMode = 'passive';
+  }
+  const cloakOn = state.cloak?.active === true;
+  const draws = playerPowerDraws(mode);
+  energy = clamp(energy + generation * 0.35 * getPowerReserveFactor() * dt, 0, max);
+  energy -= sumDraws(draws) * dt;
+  if (energy <= 0) {
+    const brown = applyBrownout({
+      draws,
+      sensorMode: mode,
+      cloakActive: cloakOn,
+      generation,
+    });
+    if (brown.dropActive && mode === 'active') {
+      state.sensorMode = 'passive';
+      setLog('Power failure: active sensors dropped to passive.');
+    }
+    state.powerBudget = {
+      weaponsStarved: brown.weaponsStarved === true,
+      propulsionFaded: brown.propulsionFaded === true,
+    };
+    if (brown.dropCloak && cloakOn) {
       energy = 0;
-      state.power.energy = energy;
+      state.power.energy = 0;
       setPlayerCloak(false, performance.now());
-      setLog('Warning: Power Failure.');
+      setLog('No reserve. Cloak collapsed. Track quality fell with it.');
       updateStats();
       return;
     }
+    energy = 0;
+  } else {
+    state.powerBudget = { weaponsStarved: false, propulsionFaded: false };
+  }
+  if (state.ship?.baseMaxSpeed) {
+    const fade = state.powerBudget?.propulsionFaded ? 0.45 : 1;
+    state.ship.maxSpeed = state.ship.baseMaxSpeed * getPowerEnginesFactor() * fade;
   }
   const before = Math.round(clamp(finiteNumber(state.power?.energy, max), 0, max));
   state.power.energy = energy;
@@ -12129,6 +12312,12 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     objectiveBoard: serializeObjectiveBoard(ensureObjectiveBoard()),
     contactBook: serializeContactBook(ensureContactBook()),
     cloak: serializeCloak(state.cloak),
+    phase65: serializePhase65Runtime({
+      sensorSuiteId: state.sensorSuiteId || resolvePlayerSuite().suiteId,
+      basePowerGeneration: state.basePowerGeneration,
+      sensorMode: state.sensorMode,
+      sensorAge: state.sensorAge,
+    }),
     playerUnlocks: serializePlayerUnlocks(ensurePlayerUnlocks()),
     unrestIndependence: serializeUnrestIndependence(ensureUnrestIndependence()),
     autoTarget: state.autoTarget !== false,
@@ -12202,6 +12391,11 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.incidentLedger = restoreIncidentLedger(s.incidentLedger);
   state.objectiveBoard = restoreObjectiveBoard(s.objectiveBoard);
   state.contactBook = restoreContactBook(s.contactBook);
+  const restored65 = restorePhase65Runtime(s.phase65 || s);
+  state.sensorSuiteId = restored65.sensorSuiteId;
+  state.basePowerGeneration = restored65.basePowerGeneration;
+  state.sensorMode = restored65.sensorMode;
+  state.sensorAge = restored65.sensorAge;
   state.playerUnlocks = restorePlayerUnlocks(s.playerUnlocks);
   state.unrestIndependence = restoreUnrestIndependence(s.unrestIndependence);
   state.repairSession = clearRepairSession();
@@ -12573,8 +12767,15 @@ function scanSelectedShip() {
   }
   const localMs = currentLocalMs();
   const scanner = sensorActorFromPlayer();
+  const preview = snapshotPowerBudget(scanner, { sensorMode: 'active', moving: finiteNumber(state.ship?.velocity, 0) > 0.08 });
+  if (!consumeSensorEnergy(preview.draws.active)) {
+    setLog('Active scan aborted — reactor cannot feed the suite.');
+    state.sensorMode = 'passive';
+    return;
+  }
   const subject = { ...sensorActorFromNpc(npc), key: subjectKeyOfNpc(npc), subjectKey: subjectKeyOfNpc(npc), cloaked: isHullCloaked(npc, localMs) };
-  const result = performActiveScan(ensureContactBook(), scanner, subject, distanceToPlayer(npc), localMs);
+  state.sensorMode = 'active';
+  const result = performBudgetedActiveScan(ensureContactBook(), scanner, subject, distanceToPlayer(npc), localMs);
   const playerActor = sensorActorFromPlayer();
   for (const other of getLivingNpcShips()) {
     noticeScanEmission(ensureContactBook(), sensorActorFromNpc(other), playerActor, result.emission, localMs, {
@@ -20066,6 +20267,7 @@ function resetRunState() {
     durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   };
   state.contactBook = emptyContactBook();
+  resetPhase65Runtime();
   state.systemDestinations = [];
   state.arrivalExit = null;
   state.lastInboundArrival = null;
@@ -20195,6 +20397,7 @@ function restartInEscapePod() {
     durationLocalMs: finiteNumber(getCloakItemSettings().durationMs, CLOAK_DURATION_MS),
   };
   state.contactBook = emptyContactBook();
+  resetPhase65Runtime();
   state.mapOpen = false;
   state.planetMenuOpen = false;
   state.dockMenuTab = 'services';
@@ -20262,6 +20465,7 @@ function startWithFaction(key, options = {}) {
   state.incidentLedger = createIncidentLedger();
   state.objectiveBoard = emptyObjectiveBoard();
   state.contactBook = emptyContactBook();
+  resetPhase65Runtime();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
   state.standingWriteCount = 0;
@@ -20644,6 +20848,12 @@ function probeSpawnShip(options = {}) {
   if (options.sensorEquipment) ship.sensorEquipment = options.sensorEquipment;
   if (options.sensorAge != null) ship.sensorAge = Number(options.sensorAge);
   if (options.powerNorm != null) ship.powerNorm = Number(options.powerNorm);
+  if (options.sensorSuiteId) ship.sensorSuiteId = options.sensorSuiteId;
+  if (options.basePowerGeneration != null) ship.basePowerGeneration = Number(options.basePowerGeneration);
+  if (options.sensorMode) ship.sensorMode = options.sensorMode;
+  if (options.detectabilityBias != null) ship.detectabilityBias = Number(options.detectabilityBias);
+  if (options.energy != null) ship.energy = Number(options.energy);
+  if (options.energyMax != null) ship.energyMax = Number(options.energyMax);
   if (options.cloakActive === true || options.cloaked === true) {
     initHullCloak(ship, { active: true }, currentLocalMs());
   }
@@ -21120,6 +21330,7 @@ function installBm1ProbeHarness() {
     sideLane: createSideLaneProbeApi(),
     phase5: createPhase5ProbeApi(),
     phase6: createPhase6ProbeApi(),
+    phase65: createPhase65ProbeApi(),
   };
 }
 
@@ -21400,6 +21611,160 @@ function createPhase6ProbeApi() {
       return { ok: Boolean(ship), ...spawned, key: ship ? observerKeyOfActor(ship) : null };
     },
     unknownAccessEnforced: () => shouldEnforceUnknownAccess(),
+  };
+}
+
+function createPhase65ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const findObserver = (observerKey) => {
+    const key = String(observerKey || observerKeyForPlayer());
+    if (key === observerKeyForPlayer() || key === 'player') return { kind: 'player', actor: sensorActorFromPlayer() };
+    const npc = getLivingNpcShips().find((row) => observerKeyOfActor(row) === key || subjectKeyOfNpc(row) === key || row.id === key);
+    return npc ? { kind: 'npc', npc, actor: sensorActorFromNpc(npc) } : null;
+  };
+  const snapshot = () => {
+    const player = sensorActorFromPlayer();
+    const snap = snapshotPowerBudget(player, {
+      sensorMode: state.sensorMode,
+      cloakActive: state.cloak?.active === true,
+      moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
+      energy: finiteNumber(state.power?.energy, 0),
+      energyMax: getPowerMaxEnergy(),
+      reserveFactor: getPowerDist('reserve') >= 2 ? 1 : 0.35,
+    });
+    return {
+      generation: {
+        player: snap.generation,
+        massDerivedEnergy: snap.massDerivedEnergy,
+        usesMassDerivedAsGeneration: false,
+      },
+      draws: snap.draws,
+      consumers: snap.consumers,
+      consumerNames: snap.consumerNames,
+      suiteId: snap.suiteId,
+      payments: snap.payments,
+      powerNorm: snap.powerNorm,
+      sensorMode: state.sensorMode === 'active' ? 'active' : 'passive',
+      layers: typeof createPhase6ProbeApi === 'function' ? createPhase6ProbeApi().snapshot() : null,
+      reman53: reman53Identity(),
+      alias304: EXAMPLE_ALIAS_TO,
+      aliasFrom: EXAMPLE_ALIAS_FROM,
+      catalogWired: isLoadShipCatalogRequired(),
+      ew: snap.ew,
+      ewConsumer: EW_CONSUMER_NAME,
+      weaponSlots: Array.isArray(state.weaponSlots) ? state.weaponSlots.slice() : [],
+      cargoCap: state.cargoCap,
+      topSpeed: state.totspeed,
+    };
+  };
+  return {
+    snapshot,
+    injectGeneration: (observerKey, value) => {
+      const missing = failIfMissing(resolveGeneration, 'resolveGeneration');
+      if (missing) return missing;
+      const found = findObserver(observerKey);
+      if (!found) return { ok: false, reason: 'observer-missing' };
+      if (found.kind === 'player') state.basePowerGeneration = Number(value);
+      else found.npc.basePowerGeneration = Number(value);
+      return { ok: true, generation: resolveGeneration(found.kind === 'player' ? { basePowerGeneration: Number(value) } : found.npc), snapshot: snapshot() };
+    },
+    injectSuite: (observerKey, suiteId) => {
+      const missing = failIfMissing(installSensorSuite, 'installSensorSuite');
+      if (missing) return missing;
+      const found = findObserver(observerKey);
+      if (!found) return { ok: false, reason: 'observer-missing' };
+      const target = found.kind === 'player' ? {
+        cargoCapacity: finiteNumber(getShipStats().cargoCapacity, state.cargoCap),
+        topSpeed: finiteNumber(getShipStats().topSpeed, 15),
+        basePowerGeneration: resolvePlayerGeneration(),
+        mass: getShipStats().mass,
+      } : found.npc;
+      const beforeSlots = Array.isArray(state.weaponSlots) ? state.weaponSlots.slice() : [];
+      const installed = installSensorSuite(target, suiteId, { weaponSlots: beforeSlots });
+      if (found.kind === 'player') {
+        state.sensorSuiteId = installed.suiteId;
+        applyCurrentShipStats(false);
+      } else {
+        found.npc.sensorSuiteId = installed.suiteId;
+        found.npc.sensorEquipment = suiteEquipment(installed.suite);
+      }
+      const afterSlots = Array.isArray(state.weaponSlots) ? state.weaponSlots.slice() : [];
+      return {
+        ok: installed.ok,
+        ...installed,
+        weaponSlotsUnchanged: JSON.stringify(beforeSlots) === JSON.stringify(afterSlots),
+        snapshot: snapshot(),
+      };
+    },
+    setSensorMode: (observerKey, mode) => {
+      const next = mode === 'active' ? 'active' : 'passive';
+      const found = findObserver(observerKey);
+      if (!found) return { ok: false, reason: 'observer-missing' };
+      if (found.kind === 'player') state.sensorMode = next;
+      else found.npc.sensorMode = next;
+      return { ok: true, sensorMode: next, snapshot: snapshot() };
+    },
+    injectRoleCurveQuartet: (overrides = {}) => {
+      const missing = failIfMissing(roleCurveQuartet, 'roleCurveQuartet');
+      if (missing) return missing;
+      const quartet = roleCurveQuartet(overrides);
+      const trade = scoutFreighterComparison(overrides);
+      return {
+        ok: true,
+        quartet,
+        trade,
+        dominated: findDominatedCurve(quartet),
+      };
+    },
+    budgetedScan: (observerKey, subjectKey) => {
+      const missing = failIfMissing(performBudgetedActiveScan, 'performBudgetedActiveScan');
+      if (missing) return missing;
+      const observerNpc = getLivingNpcShips().find((npc) => observerKeyOfActor(npc) === observerKey);
+      const subjectNpc = getLivingNpcShips().find((npc) => subjectKeyOfNpc(npc) === subjectKey);
+      const observer = observerKey === observerKeyForPlayer()
+        ? sensorActorFromPlayer()
+        : (observerNpc ? sensorActorFromNpc(observerNpc) : null);
+      const subject = subjectKey === subjectKeyForPlayer()
+        ? { ...sensorActorFromPlayer(), key: subjectKeyForPlayer(), subjectKey: subjectKeyForPlayer(), cloaked: isPlayerCloaked() }
+        : (subjectNpc ? { ...sensorActorFromNpc(subjectNpc), key: subjectKeyOfNpc(subjectNpc), subjectKey: subjectKeyOfNpc(subjectNpc), cloaked: isHullCloaked(subjectNpc, currentLocalMs()) } : null);
+      if (!observer || !subject) return { ok: false, reason: 'scan-actors-missing' };
+      if (observerKey === observerKeyForPlayer() || observerKey === 'player') state.sensorMode = 'active';
+      else if (observerNpc) observerNpc.sensorMode = 'active';
+      const dist = Math.hypot((observer.x || 0) - (subject.x || 0), (observer.y || 0) - (subject.y || 0));
+      const result = performBudgetedActiveScan(ensureContactBook(), observer, subject, dist, currentLocalMs());
+      for (const npc of getLivingNpcShips()) {
+        noticeScanEmission(ensureContactBook(), sensorActorFromNpc(npc), observer, result.emission, currentLocalMs(), {
+          emissionDistance: Math.hypot((observer.x || 0) - npc.x, (observer.y || 0) - npc.y),
+        });
+      }
+      return { ok: true, ...result, snapshot: snapshot() };
+    },
+    preserveRoster: async () => {
+      const reman = reman53Identity();
+      let pack = null;
+      try {
+        const response = await fetch('bm-ships/ships.json');
+        if (response.ok) pack = await response.json();
+      } catch {
+        pack = null;
+      }
+      const aliases = pack?.aliases || {};
+      const active = Array.isArray(pack?.ships) ? pack.ships.filter((row) => row.rosterState === 'active') : [];
+      const remanRow = Array.isArray(pack?.ships) ? pack.ships.find((row) => Number(row.id) === 53) : null;
+      return {
+        ok: true,
+        reman53: reman,
+        remanKey: remanRow?.key || reman.key,
+        remanAliased: aliases['53'] != null || aliases[53] != null,
+        alias304: resolveHullAlias(304, aliases),
+        activeCount: active.length,
+        catalogWired: isLoadShipCatalogRequired(),
+        loadShipCatalogRequired: isLoadShipCatalogRequired(),
+      };
+    },
   };
 }
 
@@ -22234,6 +22599,7 @@ function installPlayerSecurityProbe() {
     sideLane: createSideLaneProbeApi(),
     phase5: createPhase5ProbeApi(),
     phase6: createPhase6ProbeApi(),
+    phase65: createPhase65ProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
     raiseFlag: (faction) => {

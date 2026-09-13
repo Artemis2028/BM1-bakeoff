@@ -3246,6 +3246,118 @@ async function runPhase6Sensors(page, results) {
   check(results, 'S9.12 unknown-still-unenforced', s911.unknown === false, JSON.stringify(s911));
 }
 
+async function runPhase65PowerSensors(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase65), { timeout: 30000 });
+
+  const s1017 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase65;
+    if (typeof p.injectGeneration !== 'function') return { missing: true };
+    const low = p.injectGeneration('player', 7);
+    const lowSnap = low.snapshot;
+    const high = p.injectGeneration('player', 18);
+    const highSnap = high.snapshot;
+    return {
+      missing: false,
+      lowGen: lowSnap.generation.player,
+      highGen: highSnap.generation.player,
+      massEnergySame: lowSnap.generation.massDerivedEnergy === highSnap.generation.massDerivedEnergy,
+      notMass: highSnap.generation.usesMassDerivedAsGeneration === false,
+      highBetterNorm: highSnap.powerNorm > lowSnap.powerNorm || highSnap.generation.player > lowSnap.generation.player,
+      ew: highSnap.ew?.draw === 0 && highSnap.ewConsumer === 'ew' && highSnap.draws?.ew === 0,
+      consumers: (highSnap.consumerNames || []).join(','),
+    };
+  });
+  check(results, 'S10.1 base-generation-budget', s1017.missing !== true && s1017.highGen > s1017.lowGen
+    && s1017.massEnergySame && s1017.notMass && s1017.highBetterNorm, JSON.stringify(s1017));
+  check(results, 'S10.7 ew-reserved-not-implemented', s1017.ew === true && s1017.consumers.includes('ew'), JSON.stringify(s1017));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s1023 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const p = globalThis.__BM1_PROBE__.phase65;
+    const science = p6.injectScienceVsOrdinary();
+    const passive = p.setSensorMode(science.science.key, 'passive');
+    const draws = passive.snapshot.draws;
+    const scan = p.budgetedScan(science.science.key, science.target.subjectKey);
+    const report = p6.seedReport('npc:s10-report', { x: 400, y: 400 });
+    return {
+      drawSplit: draws.passive < draws.active,
+      useful: scan.useful === true,
+      emission: Boolean(scan.emission) || scan.wroteEmission === true,
+      emptyOrRaised: scan.empty === true || scan.raised === true,
+      reportFs: report.firingSolution === false,
+      scanFsOk: scan.firingSolution !== true || scan.raised === true,
+      noEngage: scan.engagement_authorized !== true,
+    };
+  });
+  check(results, 'S10.2 passive-vs-active-draw', s1023.drawSplit && s1023.useful && s1023.emission && s1023.emptyOrRaised, JSON.stringify(s1023));
+  check(results, 'S10.3 active-cannot-invent-layers', s1023.reportFs && s1023.noEngage, JSON.stringify(s1023));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s1045 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase65;
+    const before = p.snapshot();
+    const fitted = p.injectSuite('player', 'suite:science');
+    const after = fitted.snapshot;
+    const trade = p.injectRoleCurveQuartet();
+    const cargoWorse = after.payments.cargo < before.payments.cargo
+      || after.cargoCap < before.cargoCap
+      || after.payments.powerHeadroom < before.payments.powerHeadroom
+      || after.payments.speed < before.payments.speed
+      || after.payments.detectability > before.payments.detectability;
+    return {
+      suiteId: after.suiteId,
+      paid: cargoWorse,
+      slots: fitted.weaponSlotsUnchanged === true,
+      sensorRise: trade.trade?.sensorRise === true,
+      notFree: trade.trade?.notFreeVsScout === true,
+      dominated: trade.dominated == null,
+    };
+  });
+  check(results, 'S10.4 suite-is-equipment', s1045.suiteId === 'suite:science' && s1045.paid && s1045.slots, JSON.stringify(s1045));
+  check(results, 'S10.5 scout-freighter-paid', s1045.sensorRise && s1045.notFree, JSON.stringify(s1045));
+  check(results, 'S10.6 no-dominated-curve', s1045.dominated === true, JSON.stringify(s1045));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s108 = await page.evaluate(() => {
+    const p6 = globalThis.__BM1_PROBE__.phase6;
+    const cloak = p6.injectCloakedHull({ id: 's108-cloak' });
+    const first = cloak.firstFrame;
+    const report = p6.seedReport(cloak.subjectKey, { x: 20, y: 20 });
+    const granted = p6.grantLiveLock(cloak.subjectKey);
+    const aged = p6.applyLostTrack(cloak.subjectKey);
+    const science = p6.injectScienceVsOrdinary();
+    return {
+      firstHidden: first?.minimap === false && first?.aiAcquisition === false,
+      reportFs: report.firingSolution === false,
+      granted: granted.firingSolution === true,
+      dropped: aged.firingSolution === false && aged.sameTick === true,
+      scienceSees: science.scienceSees === true,
+      ordinarySees: science.ordinarySees === false,
+      unknown: p6.unknownAccessEnforced() === false,
+    };
+  });
+  check(results, 'S10.8 phase6-preservation', s108.firstHidden && s108.reportFs && s108.granted && s108.dropped
+    && s108.scienceSees && s108.ordinarySees === false && s108.unknown, JSON.stringify(s108));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s10910 = await page.evaluate(async () => {
+    const p = globalThis.__BM1_PROBE__.phase65;
+    const snap = p.snapshot();
+    const roster = typeof p.preserveRoster === 'function' ? await p.preserveRoster() : { ok: false };
+    return {
+      remanKey: snap.reman53?.key === 'bm-ship:53' && snap.reman53?.aliased === false,
+      alias304: snap.alias304 === 2,
+      catalog: snap.catalogWired === false,
+      rosterOk: roster.ok && roster.remanKey === 'bm-ship:53' && roster.remanAliased === false
+        && roster.alias304 === 2 && roster.activeCount === 172 && roster.catalogWired === false,
+    };
+  });
+  check(results, 'S10.9 reman53-and-aliases', s10910.remanKey && s10910.alias304 && s10910.rosterOk, JSON.stringify(s10910));
+  check(results, 'S10.10 no-catalog-wire', s10910.catalog && s10910.rosterOk, JSON.stringify(s10910));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -3265,13 +3377,14 @@ async function main() {
     await runSideLaneUnrestIndependence(page, results);
     await runPhase5Objectives(page, results);
     await runPhase6Sensors(page, results);
+    await runPhase65PowerSensors(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
