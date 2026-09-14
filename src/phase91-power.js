@@ -28,7 +28,6 @@ export const PHASE91_DEFAULTS = Object.freeze({
   clearRatio: 0.05,
   sTable: Object.freeze({
     none: 0,
-    '': 0,
     baseline: 4,
     'suite:baseline': 4,
     survey: 7,
@@ -183,15 +182,15 @@ export function getActor(book, actorKey) {
 }
 
 export function mapSensorsPoints(actor = {}, extras = {}) {
-  if (actor.S != null && Number.isFinite(Number(actor.S))) return clampNonNeg(actor.S);
   if (extras.S != null && Number.isFinite(Number(extras.S))) return clampNonNeg(extras.S);
   const defaults = resolvePhase91Defaults(extras.defaults || extras.book?.defaults);
-  const suite = normalizeKey(actor.suiteGrade || actor.sensorSuiteId || extras.sensorSuiteId || extras.suiteGrade);
-  if (Object.prototype.hasOwnProperty.call(defaults.sTable, suite)) {
+  const suite = normalizeKey(extras.sensorSuiteId || extras.suiteGrade || actor.suiteGrade || actor.sensorSuiteId);
+  if (suite && Object.prototype.hasOwnProperty.call(defaults.sTable, suite)) {
     return clampNonNeg(defaults.sTable[suite]);
   }
+  if (actor.S != null && Number.isFinite(Number(actor.S))) return clampNonNeg(actor.S);
   if (actor.sensorScore != null) return clampNonNeg(actor.sensorScore);
-  if (extras.funded === false) return 0;
+  if (extras.funded === false || extras.S === 0) return 0;
   return clampNonNeg(defaults.sTable.baseline);
 }
 

@@ -5423,7 +5423,10 @@ function playerPowerDraws(mode = state.sensorMode) {
     moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
     weaponsHot: false,
     propulsionCommanded: finiteNumber(state.ship?.velocity, 0) > 0.08,
-    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs(), { ew91: ensureEw91Book() }),
+    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs(), {
+      ew91: ensureEw91Book(),
+      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    }),
   });
 }
 
@@ -5893,6 +5896,7 @@ function refreshContactBookNow() {
       generation: resolvePlayerGeneration(),
       draws: playerPowerDraws(),
     }),
+    sensorSuiteId: resolvePlayerSuite()?.suiteId,
   });
   applyActiveEw(ensureEwBook(), book, localMs);
   snapshotContest(ensureEw91Book(), {
