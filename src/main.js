@@ -15754,6 +15754,7 @@ function cycleCombatTarget() {
     state.combatTargetId = null;
     state.combatTargetType = 'ship';
     setLog('No targets in weapons range.');
+    rerenderTargetWindowNow();
     return;
   }
   const current = targets.findIndex((entry) => (
@@ -15769,6 +15770,7 @@ function cycleCombatTarget() {
   } else {
     setLog(view.lockCopy || `Contact: ${name}.`);
   }
+  rerenderTargetWindowNow();
 }
 
 function selectClosestContact() {

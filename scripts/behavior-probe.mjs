@@ -4167,6 +4167,7 @@ async function runPhase92EwDepth(page, results) {
   check(results, 'S16.12 decoy-not-hull', s1613.decoyNpc && !s1613.decoyFs && !s1613.decoyGhost, JSON.stringify(s1613));
   check(results, 'S16.13 silent-not-cloak', s1613.silentDraw > 0 && !s1613.silentCloak, JSON.stringify(s1613));
 
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
   const s161910 = await page.evaluate(() => {
     const p = globalThis.__BM1_PROBE__.phase92;
     const p7 = globalThis.__BM1_PROBE__.phase7;
@@ -4182,7 +4183,7 @@ async function runPhase92EwDepth(page, results) {
       known: delivered.known === true,
       erased: inflight.attempt?.erasedByJamming === true,
       delayedNew: inflight.attempt?.delayed === true,
-      holdKind: afterHold?.kind || hold.order?.kind,
+      holdKind: afterHold?.kind || hold.holdOutsideKind || hold.order?.kind,
       newDelayed: follow.delayed === true,
       holdStatus: afterHold?.status,
     };

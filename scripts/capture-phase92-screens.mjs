@@ -222,7 +222,7 @@ async function main() {
     await shot(page, '04-settings');
     fs.writeFileSync(path.join(outDir, '04-settings-overflow.json'), JSON.stringify(setDump, null, 2));
 
-    await page.evaluate(() => {
+    const targetInfo = await page.evaluate(() => {
       document.querySelector('[data-top-action="close-panel"]')?.click();
       const p = globalThis.BM1Probe;
       p.placePlayer?.(1200, 900);
@@ -230,22 +230,14 @@ async function main() {
         id: 'shot-target',
         faction: 'klingon',
         role: 'patrol',
-        x: 1280,
+        x: 1260,
         y: 900,
         hostile: false,
       });
-      const key = victim?.securityInstanceId
-        ? `npc:${victim.securityInstanceId}`
-        : (victim?.id ? `npc:${victim.id}` : null);
-      if (key) {
-        globalThis.__BM1_PROBE__?.phase6?.grantLiveLock?.(key);
-        globalThis.__BM1_PROBE__?.phase9?.grantLiveLock?.(key);
-      }
-      return { victim, key };
-    });
-    await page.waitForTimeout(200);
-    await page.evaluate(() => {
+      const key = victim?.securityInstanceId ? `npc:${victim.securityInstanceId}` : null;
+      const lock = key ? globalThis.__BM1_PROBE__?.phase6?.grantLiveLock?.(key) : null;
       document.querySelector('[data-dock-action="target"]')?.click();
+      return { victim, key, lockOk: lock?.ok === true, firing: lock?.firingSolution === true };
     });
     await page.waitForTimeout(200);
     const tgtDump = await page.evaluate(measureScript());
@@ -372,6 +364,7 @@ ${JSON.stringify({ overflowX: tgtDump.overflowX, clippedControls: tgtDump.clippe
       invClipped: invDump.clippedControls.length,
       settingsClipped: setDump.clippedControls.length,
       targetHidden: tgtDump.target?.hidden,
+      targetInfo,
     }));
   } finally {
     await browser.close();
