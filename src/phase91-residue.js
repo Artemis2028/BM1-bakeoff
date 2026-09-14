@@ -32,7 +32,7 @@ export function isResidueContact(contact) {
 }
 
 export function residueCopy() {
-  return 'Interference. Burn-through available — not a cloak. Track degraded; residue held.';
+  return 'Interference. Burn-through available — not a cloak.';
 }
 
 /**

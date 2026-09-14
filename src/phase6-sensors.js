@@ -519,7 +519,7 @@ export function contactPresentation(contact) {
     lockCopy: ghost
       ? 'Ghost contact. Sensor record only — no hull, no firing solution.'
       : (contact?.residue === true || contact?.source === 'ew_residue')
-        ? 'Interference. Burn-through available — not a cloak. Track degraded; residue held.'
+        ? 'Interference. Burn-through available — not a cloak.'
         : firingSolution
           ? 'Target locked'
           : detected && trackQuality === 'area'

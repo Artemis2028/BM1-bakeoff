@@ -4346,7 +4346,7 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 .ew-row .security-roe-row {
-  grid-column: 2 / -1;
+  min-width: 0;
 }
 .ew-row .security-roe-row button {
   min-height: 28px;

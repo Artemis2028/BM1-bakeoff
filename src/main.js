@@ -8197,6 +8197,8 @@ function renderPhase91OpsControls() {
   actor.sideId = getPlayerSide();
   actor.securityInstanceId = 'player';
   if (state.ewEquipmentId && !actor.ewEquipmentId) actor.ewEquipmentId = state.ewEquipmentId;
+  const maxEnergy = Math.max(1, getPowerMaxEnergy());
+  const tankH = clamp(finiteNumber(state.power?.energy, maxEnergy) / maxEnergy, 0, 1);
   const snap = snapshotJammer(book, playerObserverKey(), currentLocalMs(), {
     fitted: actor.ewEquipmentId,
     sensorSuiteId: resolvePlayerSuite()?.suiteId,
@@ -8213,7 +8215,7 @@ function renderPhase91OpsControls() {
     sideId: getPlayerSide(),
     eccm: actor.eccm,
     S: snap.S,
-  }, currentLocalMs(), { H: snap.H, S: snap.S });
+  }, currentLocalMs(), { H: Math.max(snap.H, tankH), S: snap.S });
   const claim = actor.transponderClaim || { mode: 'true', spoofedFaction: null };
   const claimMode = claim.mode || 'true';
   const slotBtns = ['empty', 'compact', 'tactical', 'fleet'].map((tier) => {
