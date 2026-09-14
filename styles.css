@@ -1086,7 +1086,7 @@ body.ui-theme-cardassian .target-meter-track {
   max-height: min(680px, calc(100vh - 132px));
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 54px 14px 14px;
+  padding: 54px 14px 72px;
   overscroll-behavior: contain;
   scrollbar-color: var(--lcars-orange) rgba(0, 0, 0, 0.45);
   scrollbar-gutter: stable;
@@ -4305,24 +4305,27 @@ button:disabled {
 }
 
 .ew-ops {
-  margin-top: 10px;
-  padding-top: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid rgba(255, 180, 84, 0.28);
   min-width: 0;
 }
 .ew-ops .meta {
   overflow-wrap: anywhere;
   max-width: 100%;
+  font-size: 11px;
+  margin: 2px 0 4px;
 }
 .ew-ops .panel-head {
-  margin-top: 4px;
+  margin-top: 2px;
+  margin-bottom: 2px;
 }
 .ew-row {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) auto;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px 8px;
-  margin: 6px 0;
+  gap: 4px 8px;
+  margin: 3px 0;
   min-width: 0;
 }
 .ew-row span {

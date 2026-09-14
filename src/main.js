@@ -480,7 +480,6 @@ import {
 } from './phase91-contest.js';
 import {
   listResidueContacts,
-  residueCopy,
 } from './phase91-residue.js';
 import {
   applyForgettingLadder,
@@ -8230,20 +8229,21 @@ function renderPhase91OpsControls() {
   const claimBtns = ['off', 'true', 'spoof'].map((mode) => (
     `<button type="button" data-ew-claim="${mode}" class="${claimMode === mode ? 'active' : ''}">${mode === 'spoof' ? 'Spoof' : mode}</button>`
   )).join('');
-  const source = contest.source === 'unlabeled' ? 'unlabeled noise' : contest.source;
+  const source = contest.source === 'unlabeled' || contest.label === 'clear' || contest.label === 'unfunded'
+    ? ''
+    : contest.source;
   const hoj = proposedHojRow();
   const residues = listResidueContacts(ensureContactBook(), playerObserverKey());
   return `<div class="ew-ops" data-ew-ops="true">
     <div class="panel-head">Electronic Warfare</div>
-    <div class="meta">Reserved ew. Magnitudes injectable. Burn-through available — not a cloak.</div>
+    <div class="meta">Reserved ew · burn-through available · magnitudes injectable</div>
     <div class="ew-row"><span>Slot</span><div class="security-roe-row">${slotBtns}</div></div>
     <div class="ew-row"><span>Jammer</span><div class="security-roe-row">${jammerBtns}</div><small>${escapeHtml(snap.status)}</small></div>
-    <div class="ew-row"><span>ECCM</span><div class="security-roe-row">${eccmBtns}</div><small>via suite</small></div>
+    <div class="ew-row"><span>ECCM</span><div class="security-roe-row">${eccmBtns}</div></div>
     <div class="ew-row"><span>Transponder</span><div class="security-roe-row">${claimBtns}</div></div>
-    <div class="ew-row"><span>Receiver</span><b>${escapeHtml(contest.label)}</b><small>${escapeHtml(String(source))}</small></div>
-    <div class="meta">${escapeHtml(residueCopy())}</div>
+    <div class="ew-row"><span>Receiver</span><b>${escapeHtml(contest.label)}</b>${source ? `<small>${escapeHtml(String(source))}</small>` : ''}</div>
     <div class="meta">HoJ: ${escapeHtml(hoj.family)} · ${escapeHtml(hoj.mapping)} · ${escapeHtml(hoj.provenance)}</div>
-    ${residues.length ? `<div class="meta">Residue contacts: ${residues.length} (area / emission, no firing solution)</div>` : ''}
+    ${residues.length ? `<div class="meta">Residue ${residues.length}: area / emission, no firing solution</div>` : ''}
   </div>`;
 }
 
@@ -16162,7 +16162,6 @@ function updateTargetWindow() {
         <div class="target-meta">${escapeHtml(meta)}</div>
         <div class="target-class">${escapeHtml(typeLabel)}</div>
         ${view.liveLock ? '' : `<div class="target-hail-note">${escapeHtml(view.lockCopy || 'Lock lost. Last known is an area, not a firing solution.')}</div>`}
-        ${view.residue ? `<div class="target-hail-note">${escapeHtml(residueCopy())}</div>` : ''}
         ${view.showName ? `${renderTargetMeter('Shield', target.combatShields, target.maxCombatShields, shieldColor)}${renderTargetMeter('Hull', target.combatHull, target.maxCombatHull, hullColor)}` : ''}
       </div>
     </div>

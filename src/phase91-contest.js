@@ -180,7 +180,7 @@ export function snapshotContest(book, receiver = {}, localElapsedMs = 0, extras 
   const B = extras.B != null ? Number(extras.B) : defaults.burnThroughB;
   const rfRadius = burnThroughRadius(B, Q);
   const ratio = E > 0 ? N / E : (N > 0 ? Infinity : 0);
-  const receiverState = E <= 0 ? 'unfunded' : (ratio <= defaults.clearRatio ? 'clear' : 'interference');
+  const receiverState = E <= 0 ? 'unfunded' : (N <= 0 || ratio <= defaults.clearRatio ? 'clear' : 'interference');
   const source = interferenceLabel(contributions, receiver, extras);
   const snapshot = {
     contributions: contributions.map((row) => ({
@@ -196,7 +196,7 @@ export function snapshotContest(book, receiver = {}, localElapsedMs = 0, extras 
     Q,
     B,
     rfRadius,
-    label: receiverState === 'clear' ? 'clear' : 'interference',
+    label: receiverState,
     receiverState,
     source: source.source,
     inventedFaction: false,

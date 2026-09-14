@@ -230,9 +230,8 @@ export function jammerSpend(actorOrTarget = {}, extras = {}) {
   if (!equipment) status = 'off';
   else if (S <= 0) status = 'unavailable';
   else if (cooling) status = 'cooldown';
-  else if (commandedOn && H < 1 && H > 0) status = 'power-limited';
-  else if (commandedOn && H <= 0) status = 'power-limited';
   else if (commandedOn && spinning) status = 'spin-up';
+  else if (commandedOn && H < 1) status = 'power-limited';
   else if (commandedOn) status = 'on';
   return {
     S,
@@ -303,6 +302,7 @@ export function commandJammer(book, actorKey, on, localElapsedMs = 0, extras = {
     actor.spinUpUntilLocalMs = now + defaults.spinUpLocalMs;
     actor.cooldownUntilLocalMs = 0;
     actor.status = 'spin-up';
+    actor.S = spend.S;
     actor.sideId = extras.sideId || actor.sideId;
     actor.securityInstanceId = extras.securityInstanceId || actor.securityInstanceId;
     if (extras.fitted) actor.ewEquipmentId = extras.fitted;
