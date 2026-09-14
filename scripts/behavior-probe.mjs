@@ -4081,6 +4081,127 @@ async function runPhase91EwRobustness(page, results) {
   check(results, 'S15.22 reman-catalog-preserved', s151822.reman === true && s151822.cloak !== true, JSON.stringify(s151822));
 }
 
+async function runPhase92EwDepth(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.phase92));
+  if (!present) {
+    check(results, 'S16.setup phase92-api', false, 'phase92 probe API missing');
+    return;
+  }
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase92), { timeout: 30000 });
+
+  const s1614 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase92;
+    if (typeof p.injectMagnitudes !== 'function' || typeof p.injectLobe !== 'function') return { missing: true };
+    const idle = p.snapshot();
+    const mag = p.injectMagnitudes({ lobeHalfAngleDeg: 20, shareRadius: 99 });
+    const after = p.snapshot();
+    p.injectMagnitudes({});
+    return {
+      missing: false,
+      consumers: idle.power?.consumers || [],
+      defaultAlpha: idle.magnitudes?.lobeHalfAngleDeg,
+      injectedAlpha: after.magnitudes?.lobeHalfAngleDeg,
+      lock: after.magnitudesLockedFromRemastered === true,
+    };
+  });
+  check(results, 'S16.setup phase92-api', s1614.missing !== true, JSON.stringify(s1614));
+  check(results, 'S16.14 magnitude-override', s1614.injectedAlpha === 20 && s1614.defaultAlpha === 50 && s1614.lock !== true, JSON.stringify(s1614));
+  check(results, 'S16.18 five-consumers', Array.isArray(s1614.consumers) && s1614.consumers.join(',') === 'propulsion,weapons,cloak,sensors,ew', JSON.stringify(s1614.consumers));
+
+  const s1613 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase92;
+    const p91 = globalThis.__BM1_PROBE__.phase91;
+    p91.injectJammerSlot({ tier: 'compact', replace: true });
+    p91.commandJammer(true, { fitted: 'compact', S: 5, H: 1 });
+    const inLobe = p.injectLobe({
+      fitted: 'compact', S: 4, E: 4, H: 1,
+      inLobeFor: { player: true },
+      lobeHalfAngleDeg: 50,
+    });
+    const outLobe = p.injectLobe({
+      fitted: 'compact', S: 4, E: 4, H: 1,
+      inLobeFor: { player: false },
+      lobeHalfAngleDeg: 50,
+    });
+    const share = p.injectEscortShare({ residue: true, escortFs: true, inFormation: true, playerDist: 40 });
+    const catchScan = p.injectFocusedScan({
+      claim: { mode: 'spoof', spoofedFaction: 'klingon' },
+      trueSide: 'ferengi',
+      observed: { observedFaction: 'ferengi' },
+      completeNow: true,
+    });
+    p.injectCommsDisruption({});
+    const decoy = p.injectDecoy({});
+    const silent = p.injectSilentRunning({ on: true, H: 1 });
+    const heat = p.injectHeatSuppress({ on: true, jammerOn: true, jammerDraw: 1, catalogDraw: 1.2, H: 1 });
+    const snap = p.snapshot();
+    return {
+      inC: inLobe.contest?.contributions?.[0]?.c,
+      outC: outLobe.contest?.contributions?.[0]?.c,
+      rf: inLobe.contest?.rfRadius,
+      shareFs: share.firingSolution === true,
+      shareDetected: share.flagship?.detected === true,
+      suite: share.suiteUnchanged === true,
+      exposed: catchScan.spoofExposed === true,
+      faction: catchScan.playerFactionAfter,
+      rewritten: catchScan.rewritten === true,
+      emission: catchScan.emissionWritten === true,
+      auth: catchScan.engagement_authorized != null,
+      decoyNpc: decoy.npcUnchanged === true,
+      decoyFs: decoy.contact?.firingSolution === true,
+      decoyGhost: decoy.contact?.ghost === true,
+      silentDraw: silent.snapshot?.silent?.draw,
+      silentCloak: silent.cloak === true,
+      heatDraw: heat.snapshot?.heat?.draw,
+      lock: snap.magnitudesLockedFromRemastered === true,
+      consumers: snap.power?.consumers,
+    };
+  });
+  check(results, 'S16.1 lobe-mask', s1613.inC > 0 && s1613.outC === 0, JSON.stringify(s1613));
+  check(results, 'S16.3 burn-through', s1613.rf > 0, JSON.stringify({ rf: s1613.rf }));
+  check(results, 'S16.4 share-no-fs', s1613.shareDetected && !s1613.shareFs, JSON.stringify(s1613));
+  check(results, 'S16.5 suite-unchanged', s1613.suite === true, JSON.stringify({ suite: s1613.suite }));
+  check(results, 'S16.7 catch-no-identity', s1613.exposed && s1613.faction === 'ferengi' && !s1613.rewritten && !s1613.auth && s1613.emission, JSON.stringify(s1613));
+  check(results, 'S16.11 heat-extra', s1613.heatDraw > 0, JSON.stringify({ heat: s1613.heatDraw }));
+  check(results, 'S16.12 decoy-not-hull', s1613.decoyNpc && !s1613.decoyFs && !s1613.decoyGhost, JSON.stringify(s1613));
+  check(results, 'S16.13 silent-not-cloak', s1613.silentDraw > 0 && !s1613.silentCloak, JSON.stringify(s1613));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const s161910 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase92;
+    const p7 = globalThis.__BM1_PROBE__.phase7;
+    const p9 = globalThis.__BM1_PROBE__.phase9;
+    const hold = p7.holdOutside({});
+    const delivered = p9.injectDeliveredReport({ flash: true });
+    p.injectCommsDisruption({});
+    const follow = p.injectNewFleetOrder({ kind: 'follow' });
+    const inflight = p9.injectInFlightReport({});
+    const afterHold = (p7.snapshot().orders || []).find((row) => row.kind === 'hold_outside');
+    return {
+      delivered: delivered.report?.delivered !== false,
+      known: delivered.known === true,
+      erased: inflight.attempt?.erasedByJamming === true,
+      delayedNew: inflight.attempt?.delayed === true,
+      holdKind: afterHold?.kind || hold.holdOutsideKind || hold.order?.kind,
+      newDelayed: follow.delayed === true,
+      holdStatus: afterHold?.status,
+    };
+  });
+  check(results, 'S16.9 delivered-untouched', s161910.delivered && s161910.known && !s161910.erased, JSON.stringify(s161910));
+  check(results, 'S16.10 new-order-delay-hold-persists', s161910.newDelayed && s161910.holdKind === 'hold_outside', JSON.stringify(s161910));
+
+  const s1615 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__;
+    p.openSettings?.();
+    document.querySelector('[data-top-left-tab="power"]')?.click();
+    const dock = globalThis.__BM1_PROBE__.phase92.snapshotDockFit();
+    return dock;
+  });
+  check(results, 'S16.15 dock-no-clip', Array.isArray(s1615.clippedControls) && s1615.clippedControls.length === 0 && s1615.overflowX !== true, JSON.stringify(s1615));
+  check(results, 'S16.15 dock-clear', s1615.dockClear === true, JSON.stringify(s1615));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -4106,13 +4227,14 @@ async function main() {
     await runPhase8Markets(page, results);
     await runPhase9EwWeapons(page, results);
     await runPhase91EwRobustness(page, results);
+    await runPhase92EwDepth(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

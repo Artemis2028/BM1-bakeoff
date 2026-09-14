@@ -244,7 +244,7 @@ export function consumerDraws(input = {}) {
     propulsion: moving ? 2.2 : 0.35,
     weapons: weaponsHot ? 1.8 : 0.15,
     cloak: cloakActive ? 6 : 0,
-    sensors: sensorDrawForMode(suite, mode),
+    sensors: sensorDrawForMode(suite, mode) + Math.max(0, Number(input.sensorsExtra) || 0),
     ew: reservedEwDraw(input.ew),
   });
 }
