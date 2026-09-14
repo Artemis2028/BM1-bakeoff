@@ -31,6 +31,8 @@ import {
   reservedEwDraw,
 } from './phase65-power.js';
 import { deliverReport, observerKnowsIncident } from './phase4-incidents.js';
+import { applyResidueMark, isGhostLike } from './phase91-residue.js';
+import { actorJammerDraw, fieldIsLive } from './phase91-power.js';
 
 export const EW_BOOK_VERSION = 1;
 export const EW_FAMILIES = Object.freeze([
@@ -202,10 +204,17 @@ export function effectsOnVictim(book, victimKey, localElapsedMs = 0, family = nu
   ));
 }
 
-export function actorEwDraw(book, actorKey, localElapsedMs = 0) {
+export function actorEwDraw(book, actorKey, localElapsedMs = 0, extras = {}) {
   const rows = effectsForActor(book, actorKey, localElapsedMs);
-  const draw = rows.reduce((sum, row) => sum + clampNonNeg(row.draw), 0);
-  return reservedEwDraw(draw);
+  const effectDraw = rows.reduce((sum, row) => sum + clampNonNeg(row.draw), 0);
+  let jammerDraw = 0;
+  if (extras.jammerDraw != null) jammerDraw = clampNonNeg(extras.jammerDraw);
+  else if (extras.ew91) jammerDraw = actorJammerDraw(extras.ew91, actorKey, localElapsedMs, extras);
+  const jamEffect = rows.find((row) => row.family === 'sensor_jamming');
+  if (jamEffect && jammerDraw > 0) {
+    return reservedEwDraw(effectDraw - jamEffect.draw + Math.max(jamEffect.draw, jammerDraw));
+  }
+  return reservedEwDraw(effectDraw + jammerDraw);
 }
 
 export function snapshotEwPower(book, actorKey, localElapsedMs = 0) {
@@ -418,18 +427,28 @@ export function tryDestroyGhost(contact, extras = {}) {
 }
 
 export function degradeLiveLayers(contact, steps = 1) {
-  if (!contact || isGhostContact(contact)) return { contact, droppedLock: false };
+  if (!contact || isGhostLike(contact) || isGhostContact(contact)) return { contact, droppedLock: false };
   const hadLock = contact.firingSolution === true && contact.trackQuality === 'firm';
   let quality = contact.trackQuality || 'none';
   let ident = contact.identification || 'none';
+  let floored = false;
   for (let i = 0; i < Math.max(1, Number(steps) || 1); i += 1) {
-    quality = QUALITY_DOWN[quality] || 'none';
+    const nextQ = QUALITY_DOWN[quality] || 'none';
+    if (quality === 'area' || nextQ === 'none') {
+      quality = 'area';
+      ident = IDENT_DOWN[ident] || 'none';
+      floored = true;
+      break;
+    }
+    quality = nextQ;
     ident = IDENT_DOWN[ident] || 'none';
   }
   contact.trackQuality = quality;
   contact.identification = ident;
-  if (quality === 'none') contact.detected = false;
   if (quality !== 'firm') contact.firingSolution = false;
+  if (floored || quality === 'area') {
+    applyResidueMark(contact, { identification: ident, trackQuality: quality });
+  }
   return { contact, droppedLock: hadLock && contact.firingSolution !== true };
 }
 
@@ -438,7 +457,7 @@ export function applySensorJamming(book, victimKey, localElapsedMs = 0, extras =
   for (const contact of listContacts(book, victimKey)) {
     if (isGhostContact(contact)) continue;
     if (extras.subjectKey && contact.subjectKey !== extras.subjectKey) continue;
-    if (!contact.detected && contact.trackQuality === 'none') continue;
+    if (!contact.detected && contact.trackQuality === 'none' && !contact.residue) continue;
     const { droppedLock } = degradeLiveLayers(contact, extras.steps || 1);
     if (droppedLock) {
       const drop = applyLostTrackSameTick(book, victimKey, contact.contactId, localElapsedMs);
@@ -541,6 +560,48 @@ export function tickEw(ewBook, contactBook, localElapsedMs = 0, extras = {}) {
   return applyActiveEw(ewBook, contactBook, localElapsedMs, extras);
 }
 
+export function syncPhase91Jammers(ew91, ewBook, localElapsedMs = 0, extras = {}) {
+  if (!ew91 || !ewBook) return { ok: false, reason: 'ew-helper-missing' };
+  const synced = [];
+  for (const actor of Object.values(ew91.actors || {})) {
+    if (!actor.ewEquipmentId) continue;
+    const draw = actorJammerDraw(ew91, actor.actorKey, localElapsedMs, extras);
+    const live = fieldIsLive(actor, localElapsedMs) && draw > 0;
+    const existing = effectsForActor(ewBook, actor.actorKey, localElapsedMs)
+      .find((row) => row.family === 'sensor_jamming');
+    if (live) {
+      if (existing) {
+        existing.draw = draw;
+        existing.endsAtLocalMs = Math.max(existing.endsAtLocalMs, localElapsedMs + 8000);
+      } else {
+        startEffect(ewBook, {
+          family: 'sensor_jamming',
+          actorKey: actor.actorKey,
+          victimKey: extras.victimKey || actor.actorKey,
+          draw,
+        }, localElapsedMs);
+      }
+      synced.push({ actorKey: actor.actorKey, draw });
+    } else if (existing && actor.commanded !== 'on') {
+      cancelEffect(ewBook, existing.effectId);
+    } else if (existing && draw <= 0) {
+      cancelEffect(ewBook, existing.effectId);
+    }
+  }
+  return { ok: true, synced };
+}
+
+export function injectDeepJam(ewBook, contactBook, opts = {}, localElapsedMs = 0) {
+  const jam = injectJammer(ewBook, contactBook, { ...opts, family: 'sensor_jamming' }, localElapsedMs);
+  if (contactBook) {
+    applySensorJamming(contactBook, opts.victimKey || observerKeyForPlayer(), localElapsedMs, {
+      subjectKey: opts.subjectKey,
+      steps: opts.steps || 4,
+    });
+  }
+  return jam;
+}
+
 export function injectJammer(ewBook, contactBook, opts = {}, localElapsedMs = 0) {
   if (!ewBook || typeof startEffect !== 'function') return { ok: false, reason: 'ew-helper-missing' };
   const family = FAMILY_SET.has(opts.family) ? opts.family : 'sensor_jamming';
@@ -609,9 +670,10 @@ export function fireAtContact(book, observerKey, subjectKey, extras = {}) {
 export function liveFireFactsFromEw(contact, extras = {}) {
   const facts = liveFireFactsFromContact(contact, extras);
   delete facts.engagement_authorized;
-  if (isGhostContact(contact)) {
+  if (isGhostContact(contact) || contact?.residue === true || contact?.source === 'ew_residue') {
     facts.liveWeaponTrack = false;
-    facts.fromGhost = true;
+    facts.fromGhost = isGhostContact(contact);
+    facts.fromResidue = contact?.residue === true || contact?.source === 'ew_residue';
   }
   return facts;
 }

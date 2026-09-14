@@ -32,7 +32,7 @@ export const SYSTEM_CLAMP_H = 1800;
 
 export const IDENTIFICATION_LEVELS = Object.freeze(['none', 'partial', 'known']);
 export const TRACK_QUALITIES = Object.freeze(['none', 'area', 'coarse', 'firm']);
-export const CONTACT_SOURCES = Object.freeze(['passive', 'active_scan', 'report', 'visual', 'ew_ghost']);
+export const CONTACT_SOURCES = Object.freeze(['passive', 'active_scan', 'report', 'visual', 'ew_ghost', 'ew_residue']);
 export const DESTINATION_KINDS = Object.freeze([
   'lane',
   'belt',
@@ -278,26 +278,38 @@ export function createContactRecord(input = {}, book = null) {
     }
     : defaultLastKnown(at);
   const ghost = input.ghost === true || input.source === 'ew_ghost' || String(input.subjectKey || '').startsWith('ghost:');
-  let trackQuality = sanitizeEnum(input.trackQuality, TRACK_SET, ghost ? 'area' : 'none');
+  const earnedFirm = input.detected === true && sanitizeEnum(input.trackQuality, TRACK_SET, 'none') === 'firm' && input.firingSolution === true;
+  const residueRequested = !ghost && (input.residue === true || input.source === 'ew_residue');
+  const residue = residueRequested && !earnedFirm;
+  let trackQuality = sanitizeEnum(input.trackQuality, TRACK_SET, ghost || residue ? 'area' : 'none');
   let identification = sanitizeEnum(input.identification, IDENT_SET, 'none');
   if (ghost) {
     if (!qualityAtMost(trackQuality, 'area')) trackQuality = 'area';
     if (IDENT_RANK[identification] > IDENT_RANK.partial) identification = 'none';
   }
-  const firingSolution = !ghost && input.firingSolution === true && trackQuality === 'firm';
+  if (residue) {
+    if (!qualityAtMost(trackQuality, 'area')) trackQuality = 'area';
+  }
+  const firingSolution = !ghost && !residue && input.firingSolution === true && trackQuality === 'firm';
+  const source = ghost
+    ? 'ew_ghost'
+    : (residue && input.source === 'ew_residue' ? 'ew_residue' : sanitizeEnum(input.source, SOURCE_SET, residue ? 'passive' : 'passive'));
   return {
     contactId: input.contactId || (book ? takeContactId(book) : 'ctc-0'),
     observerKey: normalizeKey(input.observerKey),
     subjectKey: normalizeKey(input.subjectKey),
-    detected: input.detected === true,
+    detected: residue ? true : input.detected === true,
     identification,
     trackQuality,
     firingSolution,
     ghost,
+    residue,
+    emission: residue ? input.emission !== false : input.emission === true,
+    transponderClaim: input.transponderClaim == null ? null : input.transponderClaim,
     cloakTruthKnown: input.cloakTruthKnown === true,
     lastKnown,
     freshnessLocalMs: clampNonNeg(input.freshnessLocalMs ?? lastKnown.atLocalMs),
-    source: ghost ? 'ew_ghost' : sanitizeEnum(input.source, SOURCE_SET, 'passive'),
+    source,
     scanEmission: input.scanEmission && typeof input.scanEmission === 'object'
       ? clone(input.scanEmission)
       : null,
@@ -310,9 +322,21 @@ function enforceFiringSolution(contact) {
   if (contact.ghost === true || contact.source === 'ew_ghost' || String(contact.subjectKey || '').startsWith('ghost:')) {
     contact.ghost = true;
     contact.source = 'ew_ghost';
+    contact.residue = false;
     contact.firingSolution = false;
     if (!qualityAtMost(contact.trackQuality, 'area')) contact.trackQuality = 'area';
     if (IDENT_RANK[contact.identification] > IDENT_RANK.partial) contact.identification = 'none';
+    return contact;
+  }
+  if (contact.residue === true || contact.source === 'ew_residue') {
+    if (contact.detected === true && contact.trackQuality === 'firm' && contact.firingSolution === true) {
+      contact.residue = false;
+      return contact;
+    }
+    contact.ghost = false;
+    contact.detected = true;
+    contact.firingSolution = false;
+    if (!qualityAtMost(contact.trackQuality, 'area')) contact.trackQuality = 'area';
     return contact;
   }
   if (contact.trackQuality !== 'firm' || contact.detected !== true) {
@@ -415,6 +439,7 @@ export function pruneMissingSubjects(book, livingSubjectKeys = []) {
     for (const [id, row] of Object.entries(entry.contacts || {})) {
       if (row.firingSolution === true) continue;
       if (row.source === 'report' && row.trackQuality === 'area') continue;
+      if (row.residue === true || row.source === 'ew_residue') continue;
       if (row.ghost === true || row.source === 'ew_ghost' || String(row.subjectKey || '').startsWith('ghost:')) continue;
       if (!living.has(row.subjectKey)) {
         delete entry.contacts[id];
@@ -490,15 +515,18 @@ export function contactPresentation(contact) {
     ghost,
     areaOnly: !firingSolution && (trackQuality === 'area' || trackQuality === 'none' || !detected),
     exactTargeting: firingSolution,
+    residue: contact?.residue === true || contact?.source === 'ew_residue',
     lockCopy: ghost
       ? 'Ghost contact. Sensor record only — no hull, no firing solution.'
-      : firingSolution
-        ? 'Target locked'
-        : detected && trackQuality === 'area'
-          ? 'Last known is an area, not a firing solution.'
-          : detected
-            ? 'Contact held. No firing solution.'
-            : '',
+      : (contact?.residue === true || contact?.source === 'ew_residue')
+        ? 'Interference. Burn-through available — not a cloak. Track degraded; residue held.'
+        : firingSolution
+          ? 'Target locked'
+          : detected && trackQuality === 'area'
+            ? 'Last known is an area, not a firing solution.'
+            : detected
+              ? 'Contact held. No firing solution.'
+              : '',
     tooltipName: detected && identification !== 'none',
     selectable: detected,
   };

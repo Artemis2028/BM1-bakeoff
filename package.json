@@ -15,6 +15,7 @@
     "test:phase7": "node scripts/test-phase7-fleet.mjs",
     "test:phase8": "node scripts/test-phase8-markets.mjs",
     "test:phase9": "node scripts/test-phase9-ew-weapons.mjs",
+    "test:phase91": "node scripts/test-phase91-ew-robustness.mjs",
     "test:side-lane": "node scripts/test-side-lane-repair-reman.mjs && node scripts/test-side-lane-unrest-independence.mjs",
     "test:catalog": "node scripts/test-catalog-wire.mjs",
     "check:ship-manifest": "node scripts/sync-ship-roster.mjs --check",

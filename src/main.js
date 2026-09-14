@@ -293,6 +293,8 @@ import {
 } from './phase6-sensors.js';
 import {
   EW_CONSUMER_NAME,
+  EW_CONSUMER_NAME,
+  POWER_CONSUMERS,
   applySuitePaymentsToStats,
   applySuiteToSensorActor,
   consumerDraws,
@@ -418,6 +420,7 @@ import {
   ghostIsPrize,
   hailOrScanGhost,
   injectJammer,
+  injectDeepJam,
   isGhostContact,
   isGhostSubjectKey,
   listFamilyContracts,
@@ -428,6 +431,7 @@ import {
   serializeEwBook,
   snapshotEwPower,
   startEffect,
+  syncPhase91Jammers,
   tickEw,
   tractorIsBoarding,
   tryDeliverReport,
@@ -437,6 +441,7 @@ import {
 import {
   BASELINE_COMBAT_NUMBERS,
   BOARDING_IMPLEMENTED as PHASE9_BOARDING,
+  HOJ_MATRIX_ROW,
   MATRIX_COLUMNS,
   TRACTOR_ID,
   UNIVERSAL_SHIELD_BYPASS,
@@ -449,8 +454,49 @@ import {
   listMatrixColumns,
   mappingDidNotAutoFill,
   ordinaryBeamDoesNotInheritLoreBypass,
+  proposedHojRow,
   tractorRow,
 } from './phase9-weapons-matrix.js';
+import {
+  EW_SLOT_KIND,
+  MAGNITUDES_LOCKED_FROM_REMASTERED,
+  installEwEquipment,
+  listEwEquipmentCatalog,
+  readFittedTier,
+  serializeEwSlot,
+} from './phase91-ew-slot.js';
+import {
+  commandEccm,
+  commandJammer,
+  emptyEw91Book,
+  getActor,
+  jammerSpend,
+  restoreEw91Book,
+  serializeEw91Book,
+  snapshotJammer,
+} from './phase91-power.js';
+import {
+  injectJamField,
+  snapshotContest,
+} from './phase91-contest.js';
+import {
+  listResidueContacts,
+  residueCopy,
+} from './phase91-residue.js';
+import {
+  applyForgettingLadder,
+  claimAsBroadcast,
+  claimEnum,
+  setTransponderClaim,
+  silentIsCloak,
+} from './phase91-transponder.js';
+import {
+  jamAloneAutoFires,
+  launchHoj,
+  silenceEmitter,
+  snapshotHoj,
+  transferIncarnation,
+} from './phase91-hoj.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -1121,7 +1167,9 @@ const state = {
   },
   contactBook: emptyContactBook(),
   ewBook: emptyEwBook(),
+  ew91: emptyEw91Book(),
   sensorSuiteId: null,
+  ewEquipmentId: null,
   basePowerGeneration: null,
   sensorMode: 'passive',
   sensorAge: 0,
@@ -5311,6 +5359,13 @@ function ensureEwBook() {
   return state.ewBook;
 }
 
+function ensureEw91Book() {
+  if (!state.ew91 || state.ew91.version !== 1 || !state.ew91.actors) {
+    state.ew91 = restoreEw91Book(state.ew91);
+  }
+  return state.ew91;
+}
+
 function playerObserverKey() {
   return observerKeyForPlayer();
 }
@@ -5333,6 +5388,7 @@ function observerKeyOfActor(actor, kind = 'ship') {
 
 function resetPhase65Runtime() {
   state.sensorSuiteId = null;
+  state.ewEquipmentId = null;
   state.basePowerGeneration = null;
   state.sensorMode = 'passive';
   state.sensorAge = 0;
@@ -5368,7 +5424,7 @@ function playerPowerDraws(mode = state.sensorMode) {
     moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
     weaponsHot: false,
     propulsionCommanded: finiteNumber(state.ship?.velocity, 0) > 0.08,
-    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs()),
+    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs(), { ew91: ensureEw91Book() }),
   });
 }
 
@@ -5831,7 +5887,22 @@ function refreshContactBookNow() {
       });
     }
   }
+  syncPhase91Jammers(ensureEw91Book(), ensureEwBook(), localMs, {
+    H: powerNormFromBudget({
+      energy: finiteNumber(state.power?.energy, 200),
+      energyMax: Math.max(1, getPowerMaxEnergy()),
+      generation: resolvePlayerGeneration(),
+      draws: playerPowerDraws(),
+    }),
+  });
   applyActiveEw(ensureEwBook(), book, localMs);
+  snapshotContest(ensureEw91Book(), {
+    actorKey: playerObserverKey(),
+    sideId: getPlayerSide(),
+    observerKey: playerObserverKey(),
+    eccm: getActor(ensureEw91Book(), playerObserverKey()).eccm,
+    S: getActor(ensureEw91Book(), playerObserverKey()).S,
+  }, localMs);
   return book;
 }
 
@@ -6568,6 +6639,10 @@ function listCheckpointEncounters(systemIndex = state.currentPlanet) {
 }
 
 function playerBroadcast() {
+  const actor = getActor(ensureEw91Book(), playerObserverKey());
+  if (actor?.transponderClaim) {
+    return claimAsBroadcast(actor.transponderClaim, state.playerFaction);
+  }
   return makeBroadcast({ faction: state.playerFaction, source: 'declared' });
 }
 
@@ -7961,6 +8036,7 @@ function renderPowerPanel() {
   return `<div class="panel-head">Power Distribution (OPS) Control</div>`
     + `<div class="meta">Energy ${energy}/${max} (${pct}%) | Budget ${total}/${POWER_DIST_BUDGET} | Drag a tank or use -/+</div>`
     + `<div class="power-tanks">${tanks}</div>`
+    + renderPhase91OpsControls()
     + `<div class="ship-actions"><button data-top-action="close-panel">Close</button></div>`;
 }
 function updatePowerSystems(frameScale = 1) {
@@ -7997,6 +8073,10 @@ function updatePowerSystems(frameScale = 1) {
     };
     if (brown.ewStarved || brown.dropEw) {
       cancelActorEffects(ensureEwBook(), playerObserverKey());
+      const actor = getActor(ensureEw91Book(), playerObserverKey());
+      if (actor.commanded === 'on') {
+        commandJammer(ensureEw91Book(), playerObserverKey(), false, currentLocalMs(), { H: 0, ewStarved: true });
+      }
       setLog('Power failure: electronic warfare dropped.');
     }
     if (brown.dropCloak && cloakOn) {
@@ -8107,6 +8187,61 @@ function renderFlagMarket() {
         </div>
       </div>
     </div>`;
+}
+
+function renderPhase91OpsControls() {
+  const book = ensureEw91Book();
+  const actor = getActor(book, playerObserverKey());
+  actor.sideId = getPlayerSide();
+  actor.securityInstanceId = 'player';
+  if (state.ewEquipmentId && !actor.ewEquipmentId) actor.ewEquipmentId = state.ewEquipmentId;
+  const snap = snapshotJammer(book, playerObserverKey(), currentLocalMs(), {
+    fitted: actor.ewEquipmentId,
+    sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    H: powerNormFromBudget({
+      energy: finiteNumber(state.power?.energy, 200),
+      energyMax: Math.max(1, getPowerMaxEnergy()),
+      generation: resolvePlayerGeneration(),
+      draws: playerPowerDraws(),
+    }),
+  });
+  const contest = snapshotContest(book, {
+    actorKey: playerObserverKey(),
+    observerKey: playerObserverKey(),
+    sideId: getPlayerSide(),
+    eccm: actor.eccm,
+    S: snap.S,
+  }, currentLocalMs(), { H: snap.H, S: snap.S });
+  const claim = actor.transponderClaim || { mode: 'true', spoofedFaction: null };
+  const claimMode = claim.mode || 'true';
+  const slotBtns = ['empty', 'compact', 'tactical', 'fleet'].map((tier) => {
+    const active = (tier === 'empty' && !snap.fitted) || snap.fitted === tier;
+    return `<button type="button" data-ew-slot="${tier}" class="${active ? 'active' : ''}">${tier === 'empty' ? 'Empty' : tier}</button>`;
+  }).join('');
+  const jammerBtns = ['off', 'on'].map((mode) => (
+    `<button type="button" data-ew-jammer="${mode}" class="${(actor.commanded || 'off') === mode ? 'active' : ''}" ${snap.S <= 0 && mode === 'on' ? 'disabled' : ''}>${mode}</button>`
+  )).join('');
+  const eccmBtns = ['off', 'boost'].map((mode) => (
+    `<button type="button" data-ew-eccm="${mode}" class="${actor.eccm === mode ? 'active' : ''}" ${snap.S <= 0 && mode === 'boost' ? 'disabled' : ''}>${mode}</button>`
+  )).join('');
+  const claimBtns = ['off', 'true', 'spoof'].map((mode) => (
+    `<button type="button" data-ew-claim="${mode}" class="${claimMode === mode ? 'active' : ''}">${mode === 'spoof' ? 'Spoof' : mode}</button>`
+  )).join('');
+  const source = contest.source === 'unlabeled' ? 'unlabeled noise' : contest.source;
+  const hoj = proposedHojRow();
+  const residues = listResidueContacts(ensureContactBook(), playerObserverKey());
+  return `<div class="ew-ops" data-ew-ops="true">
+    <div class="panel-head">Electronic Warfare</div>
+    <div class="meta">Reserved ew. Magnitudes injectable. Burn-through available — not a cloak.</div>
+    <div class="ew-row"><span>Slot</span><div class="security-roe-row">${slotBtns}</div></div>
+    <div class="ew-row"><span>Jammer</span><div class="security-roe-row">${jammerBtns}</div><small>${escapeHtml(snap.status)}</small></div>
+    <div class="ew-row"><span>ECCM</span><div class="security-roe-row">${eccmBtns}</div><small>via suite</small></div>
+    <div class="ew-row"><span>Transponder</span><div class="security-roe-row">${claimBtns}</div></div>
+    <div class="ew-row"><span>Receiver</span><b>${escapeHtml(contest.label)}</b><small>${escapeHtml(String(source))}</small></div>
+    <div class="meta">${escapeHtml(residueCopy())}</div>
+    <div class="meta">HoJ: ${escapeHtml(hoj.family)} · ${escapeHtml(hoj.mapping)} · ${escapeHtml(hoj.provenance)}</div>
+    ${residues.length ? `<div class="meta">Residue contacts: ${residues.length} (area / emission, no firing solution)</div>` : ''}
+  </div>`;
 }
 
 function getShieldColorForFaction(faction = 'neutral') {
@@ -9710,6 +9845,8 @@ function renderTopLeftPanel() {
     return `<span class="weapon-inventory-item"><img class="weapon-mini-icon" src="${escapeHtml(getWeaponIconSrc(weapon))}" alt=""><span class="weapon-name">${escapeHtml(weapon.name)}</span><span class="weapon-slot-buttons">${slotButtons}</span></span>`;
   }).join('');
   const weaponLine = `<div class="weapon-panel"><div class="weapon-slots">${slotLine}</div><div class="weapon-inventory">${inventoryLine}</div></div>`;
+  const ewFitted = readFittedTier(getActor(ensureEw91Book(), playerObserverKey())) || state.ewEquipmentId || 'Empty';
+  const ewSlotLine = `<div class="ew-slot-line"><div class="panel-head">EW equipment</div><span class="weapon-slot ${ewFitted && ewFitted !== 'Empty' ? 'filled' : 'empty'}"><span class="weapon-name">EW: ${escapeHtml(ewFitted === 'Empty' || !ewFitted ? 'Empty' : `${ewFitted} jammer`)}</span></span><div class="meta">Dedicated slot — not a weapon mount, not the sensor suite.</div></div>`;
   const stationPlanLine = getOwnedStationPlanTypes().map((stationStats) => (
     `<span class="station-plan-item">${escapeHtml(stationStats.name)}</span>`
   )).join('');
@@ -9736,7 +9873,7 @@ function renderTopLeftPanel() {
     ? powerContent
     : state.topLeftTab === 'settings'
     ? `<div class="panel-head">Settings</div>${gameOptions}<div class="panel-head">Security</div>${renderSecurityPanel()}<div class="panel-head">Save & Debug</div>${settingsActions}<div class="meta">${escapeHtml(godStatus)}</div><div class="panel-head">God Ship Switcher</div><div class="god-ship-switcher">${renderGodModeShipSwitcher()}</div>`
-    : `<div class="panel-head">Inventory</div>${resources}${flags}${stationPlans}${weaponLine}${contract}<div class="panel-head">Cargo Pods</div><div class="pods">${pods}</div>`;
+    : `<div class="panel-head">Inventory</div>${resources}${flags}${stationPlans}${weaponLine}${ewSlotLine}${contract}<div class="panel-head">Cargo Pods</div><div class="pods">${pods}</div>`;
   topLeftPanelEl.innerHTML = `<button class="panel-close top-left-panel-close" data-top-action="close-panel" aria-label="Close ${escapeHtml(state.topLeftTab)} panel">&times;</button><div class="top-left-panel-content">${panelContent}</div>`;
   const restoredScrollTarget = state.topLeftTab === 'settings'
     ? topLeftPanelEl.querySelector('.god-ship-switcher')
@@ -13056,6 +13193,8 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     marketBook: serializeMarketBook(ensureMarketBook()),
     contactBook: serializeContactBook(ensureContactBook()),
     ewBook: serializeEwBook(ensureEwBook()),
+    ew91: serializeEw91Book(ensureEw91Book()),
+    ewEquipmentId: state.ewEquipmentId || null,
     cloak: serializeCloak(state.cloak),
     phase65: serializePhase65Runtime({
       sensorSuiteId: state.sensorSuiteId || resolvePlayerSuite().suiteId,
@@ -13139,6 +13278,10 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.marketBook = restoreMarketBook(s.marketBook);
   state.contactBook = restoreContactBook(s.contactBook);
   state.ewBook = restoreEwBook(s.ewBook);
+  state.ew91 = restoreEw91Book(s.ew91);
+  state.ewEquipmentId = s.ewEquipmentId
+    || getActor(state.ew91, playerObserverKey())?.ewEquipmentId
+    || null;
   const restored65 = restorePhase65Runtime(s.phase65 || s);
   state.sensorSuiteId = restored65.sensorSuiteId;
   state.basePowerGeneration = restored65.basePowerGeneration;
@@ -14662,6 +14805,64 @@ statsEl?.addEventListener('click', (e) => {
 });
 
 topLeftPanelEl?.addEventListener('click', (e) => {
+  const ewSlot = e.target.closest('[data-ew-slot]');
+  if (ewSlot) {
+    const tier = ewSlot.dataset.ewSlot;
+    const actor = getActor(ensureEw91Book(), playerObserverKey());
+    const beforeSlots = (state.weaponSlots || []).slice();
+    const beforeSuite = state.sensorSuiteId;
+    const result = installEwEquipment(actor, tier === 'empty' ? null : tier, {
+      weaponSlots: beforeSlots,
+      sensorSuiteId: beforeSuite,
+      replace: true,
+    });
+    if (result.ok) {
+      state.ewEquipmentId = actor.ewEquipmentId;
+      actor.sideId = getPlayerSide();
+    }
+    renderTopLeftPanel();
+    return;
+  }
+  const ewJammer = e.target.closest('[data-ew-jammer]');
+  if (ewJammer) {
+    const on = ewJammer.dataset.ewJammer === 'on';
+    const actor = getActor(ensureEw91Book(), playerObserverKey());
+    actor.sideId = getPlayerSide();
+    actor.securityInstanceId = 'player';
+    const result = commandJammer(ensureEw91Book(), playerObserverKey(), on, currentLocalMs(), {
+      fitted: actor.ewEquipmentId,
+      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+      sideId: getPlayerSide(),
+    });
+    if (result.ok) {
+      syncPhase91Jammers(ensureEw91Book(), ensureEwBook(), currentLocalMs());
+      setLog(on ? `Jammer ${result.spend?.status || 'on'}. Reserved ew billed.` : 'Jammer off.');
+    } else {
+      setLog(`Jammer unavailable (${result.reason}).`);
+    }
+    renderTopLeftPanel();
+    return;
+  }
+  const ewEccm = e.target.closest('[data-ew-eccm]');
+  if (ewEccm) {
+    const boost = ewEccm.dataset.ewEccm === 'boost';
+    const result = commandEccm(ensureEw91Book(), playerObserverKey(), boost, {
+      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    });
+    setLog(result.ok ? `ECCM ${result.eccm}.` : 'ECCM unavailable (S=0).');
+    renderTopLeftPanel();
+    return;
+  }
+  const ewClaim = e.target.closest('[data-ew-claim]');
+  if (ewClaim) {
+    const mode = ewClaim.dataset.ewClaim;
+    const claim = mode === 'spoof' ? { mode: 'spoof', spoofedFaction: 'klingon' } : mode;
+    setTransponderClaim(ensureEw91Book(), playerObserverKey(), claim, {
+      identity: { playerFaction: state.playerFaction, playerSide: getPlayerSide() },
+    });
+    renderTopLeftPanel();
+    return;
+  }
   const empireRoe = e.target.closest('[data-security-empire-roe]');
   if (empireRoe) {
     setEmpireRoe(empireRoe.dataset.securityEmpireRoe);
@@ -15958,6 +16159,7 @@ function updateTargetWindow() {
         <div class="target-meta">${escapeHtml(meta)}</div>
         <div class="target-class">${escapeHtml(typeLabel)}</div>
         ${view.liveLock ? '' : `<div class="target-hail-note">${escapeHtml(view.lockCopy || 'Lock lost. Last known is an area, not a firing solution.')}</div>`}
+        ${view.residue ? `<div class="target-hail-note">${escapeHtml(residueCopy())}</div>` : ''}
         ${view.showName ? `${renderTargetMeter('Shield', target.combatShields, target.maxCombatShields, shieldColor)}${renderTargetMeter('Hull', target.combatHull, target.maxCombatHull, hullColor)}` : ''}
       </div>
     </div>
@@ -21202,6 +21404,7 @@ function resetRunState() {
   };
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
+  state.ew91 = emptyEw91Book();
   resetPhase65Runtime();
   state.systemDestinations = [];
   state.arrivalExit = null;
@@ -21335,6 +21538,7 @@ function restartInEscapePod() {
   };
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
+  state.ew91 = emptyEw91Book();
   resetPhase65Runtime();
   state.mapOpen = false;
   state.planetMenuOpen = false;
@@ -21406,6 +21610,7 @@ function startWithFaction(key, options = {}) {
   state.marketBook = emptyMarketBook();
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
+  state.ew91 = emptyEw91Book();
   resetPhase65Runtime();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
@@ -22336,6 +22541,7 @@ function installBm1ProbeHarness() {
     phase7: createPhase7ProbeApi(),
     phase8: createPhase8ProbeApi(),
     phase9: createPhase9ProbeApi(),
+    phase91: createPhase91ProbeApi(),
   };
 }
 
@@ -23295,7 +23501,7 @@ function createPhase9ProbeApi() {
     if (Array.isArray(catalog?.ships)) return catalog.ships;
     return [];
   };
-  const matrixRows = () => attachHullMapping(buildWeaponsMatrix(WEAPON_CATALOG, []), catalogHulls());
+  const matrixRows = () => buildWeaponsMatrix(WEAPON_CATALOG, catalogHulls());
   const lastDelivered = () => {
     const reports = Object.values(ensureIncidentLedger().reports || {});
     return reports[reports.length - 1] || null;
@@ -23557,6 +23763,208 @@ function createPhase9ProbeApi() {
     }),
     isGhost: (contact) => isGhostContact(contact) || isGhostSubjectKey(contact?.subjectKey),
     familyContract: (family) => familyContract(family),
+  };
+}
+
+function createPhase91ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const sampleEngage = () => playerForceMayAutoEngage(
+    { id: 's15-gate', faction: 'dominion', hostile: true, attitude: 'hostile' },
+    getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+  );
+  const snapshot = () => {
+    const book = ensureContactBook();
+    const ew = ensureEwBook();
+    const ew91 = ensureEw91Book();
+    const localMs = currentLocalMs();
+    const actor = getActor(ew91, playerObserverKey());
+    const jam = snapshotJammer(ew91, playerObserverKey(), localMs, {
+      fitted: actor.ewEquipmentId,
+      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    });
+    const contest = snapshotContest(ew91, {
+      actorKey: playerObserverKey(),
+      observerKey: playerObserverKey(),
+      sideId: getPlayerSide(),
+      eccm: actor.eccm,
+      S: jam.S,
+    }, localMs, { H: jam.H, S: jam.S });
+    const hoj = snapshotHoj(ew91);
+    const facts = liveFireFactsFromEw(listResidueContacts(book, playerObserverKey())[0] || null);
+    const beforeSlots = (state.weaponSlots || []).slice();
+    return {
+      power: {
+        consumers: POWER_CONSUMERS.slice ? POWER_CONSUMERS.slice() : ['propulsion', 'weapons', 'cloak', 'sensors', 'ew'],
+        ew: {
+          name: 'ew',
+          draw: actorEwDraw(ew, playerObserverKey(), localMs, { ew91 }),
+          effectsImplemented: true,
+        },
+        A: jam.A,
+        H: jam.H,
+        S: jam.S,
+        offBudget: jam.offBudget,
+        ewStarved: jam.H <= 0 && actor.commanded === 'on',
+      },
+      slot: {
+        kind: EW_SLOT_KIND,
+        fitted: jam.fitted,
+        weaponSlotsUnchanged: JSON.stringify(beforeSlots) === JSON.stringify(state.weaponSlots || []),
+        sensorSuiteIdUnchanged: true,
+        stacked: false,
+      },
+      contest,
+      residue: listResidueContacts(book),
+      ghosts: listGhostContacts(book),
+      npcCount: (state.npcShips || []).filter((npc) => !npc.destroyed).length,
+      claim: claimEnum(actor.transponderClaim || 'true'),
+      playerFaction: state.playerFaction,
+      playerSide: getPlayerSide(),
+      reman53: reman53Identity(),
+      mayAutoEngage: sampleEngage(),
+      engagementAuthorizedPresent: facts.engagement_authorized === true,
+      hoj: {
+        matrixRow: hoj.matrixRow,
+        numbersUnchanged: combatNumbersUnchanged(WEAPON_CATALOG, BASELINE_COMBAT_NUMBERS),
+        seeker: hoj.seekers[0] || null,
+        ready: hoj.ready,
+        giftedFs: hoj.giftedFs,
+      },
+      jammer: jam,
+      report: Object.values(ensureIncidentLedger().reports || {}).slice(-1)[0] || null,
+      knownIds: ensureIncidentLedger().observerCopies?.player?.knownIncidentIds || [],
+      magnitudesLockedFromRemastered: MAGNITUDES_LOCKED_FROM_REMASTERED,
+      jamAloneAutoFire: jamAloneAutoFires(),
+      silentIsCloak: silentIsCloak(),
+      log: state.log,
+    };
+  };
+  return {
+    snapshot,
+    injectJammerSlot: (opts = {}) => {
+      const missing = failIfMissing(installEwEquipment, 'installEwEquipment');
+      if (missing) return missing;
+      const actor = getActor(ensureEw91Book(), opts.actorKey || playerObserverKey());
+      const beforeSlots = (state.weaponSlots || []).slice();
+      const beforeSuite = state.sensorSuiteId;
+      const fitted = installEwEquipment(actor, opts.tier || opts.fitted || 'compact', {
+        weaponSlots: beforeSlots,
+        sensorSuiteId: beforeSuite,
+        replace: opts.replace === true,
+        magnitudes: opts.magnitudes,
+      });
+      if (fitted.ok && (opts.actorKey || playerObserverKey()) === playerObserverKey()) {
+        state.ewEquipmentId = actor.ewEquipmentId;
+      }
+      if (opts.S != null) actor.S = opts.S;
+      if (opts.sideId) actor.sideId = opts.sideId;
+      actor.securityInstanceId = opts.securityInstanceId || actor.securityInstanceId;
+      return { ...fitted, weaponSlotsUnchanged: JSON.stringify(beforeSlots) === JSON.stringify(state.weaponSlots || []), sensorSuiteIdUnchanged: state.sensorSuiteId === beforeSuite, snapshot: snapshot() };
+    },
+    injectJamField: (opts = {}) => {
+      const missing = failIfMissing(injectJamField, 'injectJamField');
+      if (missing) return missing;
+      const result = injectJamField(ensureEw91Book(), opts.emitters || [{
+        actorKey: opts.actorKey || playerObserverKey(),
+        fitted: opts.fitted || 'compact',
+        sideId: opts.sideId || getPlayerSide(),
+        S: opts.S,
+        securityInstanceId: opts.securityInstanceId,
+      }], currentLocalMs(), {
+        receiver: opts.receiver || { actorKey: playerObserverKey(), sideId: getPlayerSide(), S: opts.receiverS ?? opts.S ?? 4, E: opts.E },
+        E: opts.E,
+        S: opts.S,
+        H: opts.H,
+        B: opts.B,
+        magnitudes: opts.magnitudes,
+      });
+      syncPhase91Jammers(ensureEw91Book(), ensureEwBook(), currentLocalMs(), { H: opts.H, S: opts.S });
+      return { ...result, snapshot: snapshot() };
+    },
+    injectDeepJam: (opts = {}) => {
+      const missing = failIfMissing(injectDeepJam, 'injectDeepJam');
+      if (missing) return missing;
+      const result = injectDeepJam(ensureEwBook(), ensureContactBook(), opts, currentLocalMs());
+      return { ...result, snapshot: snapshot() };
+    },
+    injectBurnThroughObserver: (opts = {}) => {
+      const contest = snapshotContest(ensureEw91Book(), {
+        actorKey: opts.observerKey || playerObserverKey(),
+        observerKey: opts.observerKey || playerObserverKey(),
+        sideId: opts.sideId || getPlayerSide(),
+        S: opts.S,
+        eccm: opts.eccm,
+      }, currentLocalMs(), { E: opts.E, N: opts.N, B: opts.B, H: opts.H, S: opts.S });
+      return { ok: contest.rfRadius > 0 || contest.E <= 0, contest, snapshot: snapshot() };
+    },
+    injectTransponderClaim: (opts = {}) => {
+      const missing = failIfMissing(setTransponderClaim, 'setTransponderClaim');
+      if (missing) return missing;
+      const before = { playerFaction: state.playerFaction, playerSide: getPlayerSide() };
+      const result = setTransponderClaim(ensureEw91Book(), opts.actorKey || playerObserverKey(), opts.claim, {
+        identity: before,
+        playerFaction: before.playerFaction,
+        playerSide: before.playerSide,
+        mayAutoEngage: sampleEngage(),
+      });
+      if (opts.forget === true) {
+        result.forgetting = applyForgettingLadder({
+          claim: opts.claim,
+          trueSide: before.playerSide,
+          ledger: opts.openIncident ? ensureIncidentLedger() : null,
+          openIncident: opts.openIncident === true,
+          kind: opts.kind || 'access_noncompliance',
+          systemIndex: state.currentPlanet,
+          localElapsedMs: currentLocalMs(),
+          actorInstanceId: opts.actorInstanceId || 's15-spoof',
+        });
+      }
+      result.playerFactionAfter = state.playerFaction;
+      result.playerSideAfter = getPlayerSide();
+      return { ...result, snapshot: snapshot() };
+    },
+    injectHojLaunch: (opts = {}) => {
+      const missing = failIfMissing(launchHoj, 'launchHoj');
+      if (missing) return missing;
+      if (!HOJ_MATRIX_ROW) return { ok: false, reason: 'matrix-row-missing' };
+      const result = launchHoj(ensureEw91Book(), {
+        actorKey: opts.actorKey || playerObserverKey(),
+        securityInstanceId: opts.securityInstanceId || opts.incarnation || 'vis-hoj',
+        npcId: opts.npcId,
+        emitterDraw: opts.emitterDraw ?? 1.2,
+        emission: opts.emission,
+        heading: opts.heading,
+        mayAutoEngage: sampleEngage(),
+      }, currentLocalMs());
+      return { ...result, snapshot: snapshot() };
+    },
+    silenceEmitter: (opts = {}) => {
+      const result = silenceEmitter(ensureEw91Book(), opts.securityInstanceId || opts.incarnation, currentLocalMs());
+      const actor = getActor(ensureEw91Book(), opts.actorKey || playerObserverKey());
+      if (opts.actorKey || opts.dropDraw) {
+        actor.commanded = 'off';
+        actor.lastDraw = 0;
+      }
+      return { ...result, snapshot: snapshot() };
+    },
+    transferIncarnation: (opts = {}) => transferIncarnation(ensureEw91Book(), opts.oldIncarnation, opts.newNpcId),
+    tick91: (localElapsedMs) => {
+      const localMs = Number.isFinite(Number(localElapsedMs)) ? Number(localElapsedMs) : currentLocalMs();
+      syncPhase91Jammers(ensureEw91Book(), ensureEwBook(), localMs);
+      tickEw(ensureEwBook(), ensureContactBook(), localMs);
+      snapshotContest(ensureEw91Book(), {
+        actorKey: playerObserverKey(),
+        observerKey: playerObserverKey(),
+        sideId: getPlayerSide(),
+      }, localMs);
+      return { ok: true, snapshot: snapshot() };
+    },
+    lastRefuseFire: () => ensureEwBook().lastRefuseFire || ensureEw91Book().lastRefuseFire,
+    commandJammer: (on, opts = {}) => commandJammer(ensureEw91Book(), opts.actorKey || playerObserverKey(), on, currentLocalMs(), opts),
+    commandEccm: (boost, opts = {}) => commandEccm(ensureEw91Book(), opts.actorKey || playerObserverKey(), boost, opts),
   };
 }
 
@@ -24408,6 +24816,7 @@ function installPlayerSecurityProbe() {
     phase7: createPhase7ProbeApi(),
     phase8: createPhase8ProbeApi(),
     phase9: createPhase9ProbeApi(),
+    phase91: createPhase91ProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
