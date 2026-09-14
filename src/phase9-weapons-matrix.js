@@ -252,9 +252,53 @@ function buildRow(item) {
   };
 }
 
+/**
+ * Phase 9.1 HoJ / anti-emitter row. Unmounted / proposed. Provenance `new`.
+ * Not a catalog id. Not a combat retune. Flash prices are not live locks.
+ */
+export const HOJ_MATRIX_ROW = Object.freeze({
+  id: 'hoj-anti-emitter',
+  name: 'Home-on-Jam / anti-emitter (proposed)',
+  flashIdentity: 'Home-on-Jam (proposed)',
+  flashName: null,
+  flashPrice: null,
+  flashPriceIsLiveLock: false,
+  family: 'anti-emitter',
+  catalogType: null,
+  range: 'seeker-vs-emitter-coverage (not pursuit permission)',
+  arc: 'forward-or-dedicated-mount',
+  tracking: 'emission-only; incarnation-lock; silence→coast; does-not-write-firingSolution',
+  shieldInteraction: 'shields-then-hull',
+  shieldNote: 'Default shields-then-hull. No universal bypass.',
+  bypassShields: false,
+  hullSubsystem: 'physical hit / collateral legal — not boarding',
+  energyAmmunition: 'weapons-consumer and/or finite ammo — not hidden ew',
+  counters: Object.freeze(['silence', 'cloak', 'leave-volume', 'decoy-emitters', 'eccm']),
+  factionAccess: 'catalog-wire / standing; Reman 53 unrewired',
+  provenance: 'new',
+  slot: false,
+  cargo: false,
+  tractor: false,
+  boarding: false,
+  capture: false,
+  commandTransfer: false,
+  inheritedNotInFlash: false,
+  mapping: 'unmounted',
+  proposed: true,
+  unmounted: true,
+  catalogId: null,
+  fittedHulls: Object.freeze([]),
+  emptySlotsAutoFilled: false,
+});
+
+export function proposedHojRow() {
+  return { ...HOJ_MATRIX_ROW, fittedHulls: [], counters: HOJ_MATRIX_ROW.counters.slice() };
+}
+
 export function buildWeaponsMatrix(items = [], hulls = []) {
   const rows = (Array.isArray(items) ? items : []).map((item) => buildRow(item));
-  return attachHullMapping(rows, hulls);
+  const mapped = attachHullMapping(rows, hulls);
+  return [...mapped, proposedHojRow()];
 }
 
 export function attachHullMapping(rows = [], hulls = []) {

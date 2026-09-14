@@ -3931,6 +3931,156 @@ async function runPhase9EwWeapons(page, results) {
   check(results, 'S14.20 catalog-reman-preserved', s141920.reman && s141920.alias304, JSON.stringify(s141920));
 }
 
+async function runPhase91EwRobustness(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.phase91));
+  if (!present) {
+    check(results, 'S15.setup phase91-api', false, 'phase91 probe API missing');
+    return;
+  }
+  await page.waitForFunction(() => Boolean(globalThis.__BM1_PROBE__?.phase91), { timeout: 30000 });
+
+  const s1513 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase91;
+    if (typeof p.injectJammerSlot !== 'function') return { missing: true };
+    const idle = p.snapshot();
+    const slot = p.injectJammerSlot({ tier: 'compact', replace: true });
+    const on = p.commandJammer(true, { fitted: 'compact', S: 5, H: 1 });
+    p.tick91();
+    const after = p.snapshot();
+    const s0 = p.commandJammer(true, { actorKey: 'npc:blind', fitted: 'compact', S: 0, H: 1 });
+    const eccm0 = p.commandEccm(true, { actorKey: 'npc:blind', S: 0 });
+    const stacked = p.injectJammerSlot({ tier: 'tactical', replace: false });
+    return {
+      missing: false,
+      consumers: idle.power?.consumers || [],
+      idleDraw: idle.power?.ew?.draw,
+      activeDraw: after.power?.ew?.draw,
+      A: after.power?.A,
+      H: after.power?.H,
+      S: after.power?.S,
+      offBudget: after.power?.offBudget === true,
+      slotKind: slot.slotKind || after.slot?.kind,
+      weapons: slot.weaponSlotsUnchanged === true && after.slot?.weaponSlotsUnchanged === true,
+      suite: slot.sensorSuiteIdUnchanged === true,
+      stacked: stacked.ok === false,
+      s0fail: s0.ok === false,
+      eccm0: eccm0.ok === false,
+      onOk: on.ok === true,
+    };
+  });
+  check(results, 'S15.1 spend-to-suppress', s1513.missing !== true && s1513.consumers.includes('ew')
+    && s1513.activeDraw > 0 && s1513.offBudget !== true, JSON.stringify(s1513));
+  check(results, 'S15.2 dedicated-slot', s1513.slotKind === 'ew_equipment' && s1513.weapons && s1513.suite && s1513.stacked, JSON.stringify(s1513));
+  check(results, 'S15.3 s-zero-unavailable', s1513.s0fail && s1513.eccm0, JSON.stringify({ s0: s1513.s0fail, eccm: s1513.eccm0 }));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s15410 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase91;
+    const field = p.injectJamField({
+      emitters: [
+        { actorKey: 'player', fitted: 'compact', sideId: 'ferengi', S: 5 },
+        { actorKey: 'npc:ally', fitted: 'compact', sideId: 'ferengi', S: 5, securityInstanceId: 'vis-ally' },
+      ],
+      E: 4,
+      H: 1,
+      S: 5,
+      receiver: { actorKey: 'player', sideId: 'ferengi', S: 5 },
+    });
+    const funded = p.injectBurnThroughObserver({ E: 4, N: 9, B: 200, S: 5 });
+    const unfunded = p.injectBurnThroughObserver({ E: 0, N: 9, B: 200, S: 0 });
+    return {
+      N: field.contest?.N,
+      Q: funded.contest?.Q,
+      rf: funded.contest?.rfRadius,
+      unfundedRf: unfunded.contest?.rfRadius,
+      unfundedQ: unfunded.contest?.Q,
+      source: field.contest?.source,
+      usedClaim: field.contest?.usedClaim === true,
+      invented: field.contest?.inventedFaction === true,
+      rss: field.contest?.strongestThree === true,
+    };
+  });
+  check(results, 'S15.4 burn-through-positive', s15410.rf > 0 && s15410.Q > 0 && s15410.Q <= 1, JSON.stringify(s15410));
+  check(results, 'S15.5 unfunded-q0', s15410.unfundedRf === 0 && s15410.unfundedQ === 0, JSON.stringify(s15410));
+  check(results, 'S15.8 rss-all-paid', s15410.rss !== true && s15410.N > 0, JSON.stringify(s15410));
+  check(results, 'S15.10 true-side-labels', (s15410.source === 'own' || s15410.source === 'friendly') && !s15410.usedClaim && !s15410.invented, JSON.stringify(s15410));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s1567 = await page.evaluate(() => {
+    const p9 = globalThis.__BM1_PROBE__.phase9;
+    const p = globalThis.__BM1_PROBE__.phase91;
+    p9.grantLiveLock('npc:s15-live', { x: 30, y: 20 });
+    const before = p.snapshot().npcCount;
+    p.injectDeepJam({ subjectKey: 'npc:s15-live', victimKey: 'player' });
+    const after = p.snapshot();
+    const row = (after.residue || []).find((c) => c.subjectKey === 'npc:s15-live')
+      || Object.values(after.residue || {})[0];
+    const contacts = after.residue || [];
+    return {
+      npcUnchanged: after.npcCount === before,
+      residue: contacts.some((c) => c.subjectKey === 'npc:s15-live' && c.detected === true && c.ghost !== true),
+      fs: contacts.every((c) => c.subjectKey !== 'npc:s15-live' || c.firingSolution === false),
+      gifted: after.engagementAuthorizedPresent === true,
+    };
+  });
+  check(results, 'S15.6 residue-survives', s1567.residue && s1567.npcUnchanged, JSON.stringify(s1567));
+  check(results, 'S15.7 residue-no-lock', s1567.fs && !s1567.gifted, JSON.stringify(s1567));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s151216 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase91;
+    const p9 = globalThis.__BM1_PROBE__.phase9;
+    const snap = p.snapshot();
+    const hoj = p.injectHojLaunch({ securityInstanceId: 'vis-jammer', npcId: 'npc-old', emitterDraw: 2 });
+    const silenced = p.silenceEmitter({ incarnation: 'vis-jammer' });
+    const transfer = p.transferIncarnation({ oldIncarnation: 'vis-jammer', newNpcId: 'npc-new' });
+    const claim = p.injectTransponderClaim({ claim: { mode: 'spoof', spoofedFaction: 'klingon' }, forget: true, openIncident: true });
+    p9.injectDeliveredReport({ flash: true });
+    p.injectDeepJam({ family: 'sensor_jamming' });
+    const after = p.snapshot();
+    return {
+      row: Boolean(snap.hoj?.matrixRow) && snap.hoj.matrixRow.provenance === 'new',
+      unchanged: snap.hoj?.numbersUnchanged?.unchanged === true,
+      launchFs: hoj.giftedFs === true,
+      auth: hoj.engagement_authorized === true || snap.engagementAuthorizedPresent === true,
+      coast: silenced.coasting === true,
+      miss: transfer.miss === true && transfer.transferred === false,
+      faction: claim.playerFactionAfter,
+      side: claim.playerSideAfter,
+      rewritten: claim.rewritten === true,
+      fire: claim.engagement_authorized != null,
+      report: after.report?.delivered !== false,
+      boarding: after.jamAloneAutoFire === true,
+    };
+  });
+  check(results, 'S15.11 hoj-matrix-before-retune', s151216.row && s151216.unchanged, JSON.stringify(s151216));
+  check(results, 'S15.12 silence-coast-no-fs', s151216.coast && !s151216.launchFs && !s151216.auth, JSON.stringify(s151216));
+  check(results, 'S15.13 incarnation-lock', s151216.miss, JSON.stringify({ miss: s151216.miss }));
+  check(results, 'S15.14 claim-not-identity', s151216.faction === 'ferengi' && !s151216.rewritten, JSON.stringify(s151216));
+  check(results, 'S15.16 forgetting-no-autofire', !s151216.fire, JSON.stringify({ fire: s151216.fire }));
+  check(results, 'S15.17 reports-untouched', s151216.report === true, JSON.stringify({ report: s151216.report }));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800 });
+  const s151822 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase91;
+    const p9 = globalThis.__BM1_PROBE__.phase9;
+    const ghost = p9.injectGhost({ x: 40, y: 20 });
+    const snap = p.snapshot();
+    return {
+      ghostRow: Boolean((ghost.snapshot?.ghosts || snap.ghosts || [])[0]),
+      hull: ghost.hullSpawned === true,
+      reman: snap.reman53?.key === 'bm-ship:53',
+      lockedWatts: snap.magnitudesLockedFromRemastered === true,
+      boarding: snap.jamAloneAutoFire === true,
+      cloak: snap.silentIsCloak === true,
+    };
+  });
+  check(results, 'S15.18 ghosts-boarding-preserved', s151822.ghostRow && !s151822.hull && !s151822.boarding, JSON.stringify(s151822));
+  check(results, 'S15.20 no-remastered-watts', s151822.lockedWatts !== true, JSON.stringify(s151822));
+  check(results, 'S15.22 reman-catalog-preserved', s151822.reman === true && s151822.cloak !== true, JSON.stringify(s151822));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -3955,13 +4105,14 @@ async function main() {
     await runPhase7Fleet(page, results);
     await runPhase8Markets(page, results);
     await runPhase9EwWeapons(page, results);
+    await runPhase91EwRobustness(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

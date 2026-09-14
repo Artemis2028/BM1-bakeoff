@@ -1,0 +1,8 @@
+{
+  "overflowX": false,
+  "overflowY": true,
+  "scrollH": 2014,
+  "clientH": 588,
+  "hasEw": true,
+  "text": "×\nSETTINGS\nMUTE GAME SOUNDS\nOFF\nSilences game audio when sound hooks are active.\nHIGH PERFORMANCE\nOFF\nReduces decorative rendering and expensive visual passes.\nREDUCED EFFECTS\nOFF\nSoftens explosions, nebula overlays, and transient visual effects.\nSECURITY\nStanding orders for your side (Ferengi). They survive flag changes. Challenge requests a movement and identity check. Closed requests withdrawal. Refusal alone does not authorize weapons; your rules of engagement still apply. Unknown access remains reserved until sensors exist. Alerts change what you are told, not what happened. Silent does not clear a refusal or a kill. Refusal and inability never authorize weapons.\nEMPIRE DEFAULT ROE\nRETURN FIRE\nDEFEND\nEngage hostiles toward you and anyone at war with the flag you fly.\nEMPIRE ALERTS\nALL\nINCIDENTS\nSILENT\nEMPIRE ACCESS\nWARFLAG\nOPEN\nCHALLENGE\nCLOSED\nINDEPENDENT\nOPEN\nCHALLENGE\nCLOSED\nUNKNOWN unavailable until sensors exist\nOPEN\nCHALLENGE\nCLOSED\nOTHER\nOPEN\nCHALLENGE\nCLOSED\nHOLDINGS\nORION\nusing empire default\nEMPIRE DEFAULT\nRETURN FIRE\nDEFEND\nEffective ROE: defend\nEMPIRE ALERTS\nALL\nINCIDENTS\nSILENT\nWARFLAG\nOPEN\nCHALLENGE\nCLOSED\nINDEPENDENT\nOPEN\nCHALLENGE\nCLOSED\nUNKNOWN unavailable unt"
+}

@@ -1086,7 +1086,7 @@ body.ui-theme-cardassian .target-meter-track {
   max-height: min(680px, calc(100vh - 132px));
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 54px 14px 14px;
+  padding: 54px 14px 72px;
   overscroll-behavior: contain;
   scrollbar-color: var(--lcars-orange) rgba(0, 0, 0, 0.45);
   scrollbar-gutter: stable;
@@ -4302,6 +4302,65 @@ button:disabled {
 .power-tank-val {
   font-size: 12px;
   font-weight: 700;
+}
+
+.ew-ops {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 180, 84, 0.28);
+  min-width: 0;
+}
+.ew-ops .meta {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: 11px;
+  margin: 2px 0 4px;
+}
+.ew-ops .panel-head {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+.ew-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 3px 0;
+  min-width: 0;
+}
+.ew-row span {
+  color: var(--lcars-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.ew-row b {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.ew-row small {
+  color: var(--lcars-cyan);
+  font-size: 10px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.ew-row .security-roe-row {
+  min-width: 0;
+}
+.ew-row .security-roe-row button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
+  text-transform: capitalize;
+}
+.ew-slot-line {
+  margin: 8px 0;
+  min-width: 0;
+}
+.ew-slot-line .weapon-slot {
+  display: inline-flex;
+  max-width: 100%;
 }
 
 .top-slot.top-ship.alert-green { background: var(--lcars-orange); }

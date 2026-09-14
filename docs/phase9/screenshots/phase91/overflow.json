@@ -1,0 +1,73 @@
+{
+  "jammerOff": {
+    "hidden": false,
+    "panelW": 720,
+    "panelH": 588,
+    "scrollW": 701,
+    "scrollH": 595,
+    "clientW": 701,
+    "clientH": 588,
+    "overflowX": false,
+    "overflowY": true,
+    "clippedControls": [],
+    "text": "ELECTRONIC WARFARE\nReserved ew · burn-through available · magnitudes injectable\nSLOT\nEmpty\nCompact\nTactical\nFleet\nJAMMER\nOff\nOn\nOFF\nECCM\nOff\nBoost\nTRANSPONDER\nOff\nTrue\nSpoof\nRECEIVER\nCLEAR\nHoJ: anti-emitter · unmounted · new"
+  },
+  "jammerSpinUp": {
+    "hidden": false,
+    "panelW": 720,
+    "panelH": 588,
+    "scrollW": 701,
+    "scrollH": 595,
+    "clientW": 701,
+    "clientH": 588,
+    "overflowX": false,
+    "overflowY": true,
+    "clippedControls": [],
+    "text": "ELECTRONIC WARFARE\nReserved ew · burn-through available · magnitudes injectable\nSLOT\nEmpty\nCompact\nTactical\nFleet\nJAMMER\nOff\nOn\nSPIN-UP\nECCM\nOff\nBoost\nTRANSPONDER\nOff\nTrue\nSpoof\nRECEIVER\nCLEAR\nHoJ: anti-emitter · unmounted · new"
+  },
+  "eccmClaim": {
+    "hidden": false,
+    "panelW": 720,
+    "panelH": 588,
+    "scrollW": 701,
+    "scrollH": 595,
+    "clientW": 701,
+    "clientH": 588,
+    "overflowX": false,
+    "overflowY": true,
+    "clippedControls": [],
+    "text": "ELECTRONIC WARFARE\nReserved ew · burn-through available · magnitudes injectable\nSLOT\nEmpty\nCompact\nTactical\nFleet\nJAMMER\nOff\nOn\nSPIN-UP\nECCM\nOff\nBoost\nTRANSPONDER\nOff\nTrue\nSpoof\nRECEIVER\nCLEAR\nHoJ: anti-emitter · unmounted · new"
+  },
+  "interference": {
+    "hidden": false,
+    "panelW": 720,
+    "panelH": 588,
+    "scrollW": 701,
+    "scrollH": 595,
+    "clientW": 701,
+    "clientH": 588,
+    "overflowX": false,
+    "overflowY": true,
+    "clippedControls": [],
+    "text": "ELECTRONIC WARFARE\nReserved ew · burn-through available · magnitudes injectable\nSLOT\nEmpty\nCompact\nTactical\nFleet\nJAMMER\nOff\nOn\nPOWER-LIMITED\nECCM\nOff\nBoost\nTRANSPONDER\nOff\nTrue\nSpoof\nRECEIVER\nINTERFERENCE\nFRIENDLY\nHoJ: anti-emitter · unmounted · new"
+  },
+  "inventory": {
+    "hidden": false,
+    "panelW": 720,
+    "panelH": 588,
+    "scrollW": 701,
+    "scrollH": 597,
+    "clientW": 701,
+    "clientH": 588,
+    "overflowX": false,
+    "overflowY": true,
+    "clippedControls": [],
+    "text": "EW EQUIPMENT\nEW: compact jammer\nDedicated slot — not a weapon mount, not the sensor suite."
+  },
+  "residue": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "text": "LAST KNOWN\nUNIDENTIFIED CONTACT\nNo identification\nUnclassified | 40\nUNKNOWN\nInterference. Burn-through available — not a cloak."
+  }
+}
