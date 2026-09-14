@@ -1,0 +1,61 @@
+{
+  "viewport": {
+    "w": 1280,
+    "h": 720
+  },
+  "ops": null,
+  "panel": {
+    "hidden": true,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 0,
+    "scrollH": 0,
+    "clientW": 0,
+    "clientH": 0,
+    "panelW": 0,
+    "panelH": 0,
+    "top": 0,
+    "bottom": 0,
+    "left": 0,
+    "right": 0,
+    "text": ""
+  },
+  "inventory": null,
+  "settings": null,
+  "target": {
+    "hidden": true,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 0,
+    "scrollH": 0,
+    "clientW": 0,
+    "clientH": 0,
+    "panelW": 0,
+    "panelH": 0,
+    "top": 0,
+    "bottom": 0,
+    "left": 0,
+    "right": 0,
+    "text": ""
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  },
+  "clippedControls": [],
+  "overflowX": false,
+  "dockClear": false,
+  "hasEw": false
+}

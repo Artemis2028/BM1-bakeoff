@@ -71,6 +71,7 @@
   --lcars-text: #ffe4bd;
   --lcars-muted: #b6b1d7;
   --lcars-line: rgba(255, 180, 84, 0.38);
+  --bm1-dock-clear: 88px;
 }
 * { box-sizing: border-box; }
 body {
@@ -1044,7 +1045,7 @@ body.ui-theme-cardassian .target-meter-track {
   z-index: 71;
   width: min(720px, calc(100vw - 36px));
   height: auto;
-  max-height: min(680px, calc(100vh - 132px));
+  max-height: min(680px, calc(100vh - 48px - var(--bm1-dock-clear) - 40px));
   min-height: 220px;
   transform: translate(-50%, -50%);
   overflow: hidden;
@@ -1083,10 +1084,10 @@ body.ui-theme-cardassian .target-meter-track {
 .top-left-panel-content {
   position: relative;
   z-index: 1;
-  max-height: min(680px, calc(100vh - 132px));
+  max-height: min(680px, calc(100vh - 48px - var(--bm1-dock-clear) - 40px));
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 54px 14px 72px;
+  padding: 54px 14px 16px;
   overscroll-behavior: contain;
   scrollbar-color: var(--lcars-orange) rgba(0, 0, 0, 0.45);
   scrollbar-gutter: stable;
@@ -3989,10 +3990,10 @@ button:disabled {
   }
   .top-left-panel {
     width: calc(100vw - 24px);
-    max-height: calc(100vh - 132px);
+    max-height: calc(100vh - 48px - var(--bm1-dock-clear) - 40px);
   }
   .top-left-panel-content {
-    max-height: calc(100vh - 132px);
+    max-height: calc(100vh - 48px - var(--bm1-dock-clear) - 40px);
     padding-left: 14px;
   }
   .top-left-panel::after {
@@ -4322,26 +4323,26 @@ button:disabled {
 }
 .ew-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) auto;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 4px 8px;
-  margin: 3px 0;
+  gap: 2px 6px;
+  margin: 1px 0;
   min-width: 0;
 }
 .ew-row span {
   color: var(--lcars-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 .ew-row b {
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 .ew-row small {
   color: var(--lcars-cyan);
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
@@ -4349,9 +4350,9 @@ button:disabled {
   min-width: 0;
 }
 .ew-row .security-roe-row button {
-  min-height: 28px;
-  padding: 4px 8px;
-  font-size: 11px;
+  min-height: 22px;
+  padding: 2px 6px;
+  font-size: 10px;
   text-transform: capitalize;
 }
 .ew-slot-line {
@@ -4361,6 +4362,12 @@ button:disabled {
 .ew-slot-line .weapon-slot {
   display: inline-flex;
   max-width: 100%;
+}
+.ew-ops .ew-sayable {
+  font-size: 11px;
+  color: var(--lcars-cyan);
+  margin: 4px 0 2px;
+  overflow-wrap: anywhere;
 }
 
 .top-slot.top-ship.alert-green { background: var(--lcars-orange); }

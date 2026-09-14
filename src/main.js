@@ -258,6 +258,7 @@ import {
   isCloakActive,
   isHullCloaked,
   isIndependentlyAddressable,
+  listContacts,
   listDestinationKinds,
   listFiringSolutions,
   listObserverKeys,
@@ -465,6 +466,7 @@ import {
   serializeEwSlot,
 } from './phase91-ew-slot.js';
 import {
+  actorJammerDraw,
   commandEccm,
   commandJammer,
   emptyEw91Book,
@@ -495,6 +497,50 @@ import {
   snapshotHoj,
   transferIncarnation,
 } from './phase91-hoj.js';
+import {
+  MAGNITUDES_LOCKED_FROM_REMASTERED as PHASE92_LOCK,
+  emptyEw92Book,
+  getPhase92Actor,
+  resolvePhase92Defaults,
+  restoreEw92Book,
+  serializeEw92Book,
+  snapshotPhase92Magnitudes,
+} from './phase92-magnitudes.js';
+import {
+  applyLobeMask,
+  inLobe,
+} from './phase92-lobes.js';
+import {
+  inShareEnvelope,
+  shareEscortToFlagship,
+} from './phase92-escort-share.js';
+import {
+  focusedScanSensorsExtra,
+  runFocusedScan,
+} from './phase92-spoof-catch.js';
+import {
+  EW_COMMS_DELAY_IMPLEMENTED,
+  issueOrderWithEwComms,
+  tryDeliverReport92,
+} from './phase92-comms.js';
+import {
+  commandHeatSuppress,
+  heatSayable,
+  phase92ReservedDraw,
+} from './phase92-heat.js';
+import {
+  commandDecoy,
+  decoyIsHull,
+  expireDecoys,
+  listDecoyContacts,
+  tryDestroyDecoy,
+  upsertDecoyContact,
+} from './phase92-decoys.js';
+import {
+  commandSilentRunning,
+  silentRunningIsCloak,
+  silentSayable,
+} from './phase92-silent.js';
 
 const canvas = document.getElementById('game');
 const gameCtx = canvas.getContext('2d');
@@ -1166,6 +1212,7 @@ const state = {
   contactBook: emptyContactBook(),
   ewBook: emptyEwBook(),
   ew91: emptyEw91Book(),
+  ew92: emptyEw92Book(),
   sensorSuiteId: null,
   ewEquipmentId: null,
   basePowerGeneration: null,
@@ -5246,7 +5293,7 @@ function issuePlayerFleetOrder(kind, extras = {}) {
       }
       : { name: extras.label || 'seek', systemIndex: state.currentPlanet });
   }
-  const result = issueOrder(board, {
+  const result = issueOrderWithEwComms(board, {
     kind,
     assignedShipIds: ids,
     assignedSystemIndex: state.currentPlanet,
@@ -5255,7 +5302,13 @@ function issuePlayerFleetOrder(kind, extras = {}) {
     destination,
     label: extras.label || kind,
     jumpPolicy: extras.jumpPolicy || defaultJumpPolicyForKind(kind),
-  }, { atStrategicJumps: at, contacts: ensureContactBook() });
+  }, {
+    atStrategicJumps: at,
+    contacts: ensureContactBook(),
+    senderKey: playerObserverKey(),
+    book92: ensureEw92Book(),
+    defaults: ensureEw92Book().defaults,
+  }, ensureEwBook(), currentLocalMs());
   retaskEscortWing();
   refreshFleetOrderPanel(true);
   return result;
@@ -5364,6 +5417,13 @@ function ensureEw91Book() {
   return state.ew91;
 }
 
+function ensureEw92Book() {
+  if (!state.ew92 || state.ew92.version !== 1 || !state.ew92.actors) {
+    state.ew92 = restoreEw92Book(state.ew92);
+  }
+  return state.ew92;
+}
+
 function playerObserverKey() {
   return observerKeyForPlayer();
 }
@@ -5415,6 +5475,37 @@ function resolvePlayerGeneration() {
 
 function playerPowerDraws(mode = state.sensorMode) {
   const suite = resolvePlayerSuite();
+  const localMs = currentLocalMs();
+  const ew91 = ensureEw91Book();
+  const ew92 = ensureEw92Book();
+  const actor91 = getActor(ew91, playerObserverKey());
+  const jamDraw = actorJammerDraw(ew91, playerObserverKey(), localMs, {
+    sensorSuiteId: suite?.suiteId,
+  });
+  const extras92 = {
+    jammerOn: actor91?.commanded === 'on',
+    commanded: actor91?.commanded,
+    jammerDraw: jamDraw,
+    catalogDraw: jammerSpend(actor91, {
+      commanded: actor91?.commanded,
+      fitted: actor91?.ewEquipmentId,
+      sensorSuiteId: suite?.suiteId,
+    }).catalogDraw,
+    H: powerNormFromBudget({
+      energy: finiteNumber(state.power?.energy, 200),
+      energyMax: Math.max(1, getPowerMaxEnergy()),
+      generation: resolvePlayerGeneration(),
+      draws: consumerDraws({
+        suite,
+        sensorMode: mode === 'active' ? 'active' : 'passive',
+        cloakActive: state.cloak?.active === true,
+        moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
+        ew: 0,
+      }),
+    }),
+    observerKey: playerObserverKey(),
+  };
+  const extra92 = phase92ReservedDraw(ew92, playerObserverKey(), localMs, extras92);
   return consumerDraws({
     suite,
     sensorMode: mode === 'active' ? 'active' : 'passive',
@@ -5422,9 +5513,11 @@ function playerPowerDraws(mode = state.sensorMode) {
     moving: finiteNumber(state.ship?.velocity, 0) > 0.08,
     weaponsHot: false,
     propulsionCommanded: finiteNumber(state.ship?.velocity, 0) > 0.08,
-    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs(), {
-      ew91: ensureEw91Book(),
-      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    sensorsExtra: focusedScanSensorsExtra(ew92, playerObserverKey(), localMs),
+    ew: actorEwDraw(ensureEwBook(), playerObserverKey(), localMs, {
+      ew91,
+      sensorSuiteId: suite?.suiteId,
+      phase92Draw: extra92.draw,
     }),
   });
 }
@@ -5850,6 +5943,27 @@ function refreshContactBookNow() {
         && (Math.hypot(npc.x - formation.x, npc.y - formation.y) < 110
           || Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y) < 300);
       if (inFormation) shareFormationDetection(book, playerObserverKey(), observer.key, localMs);
+      const p92 = ensureEw92Book();
+      const shareEnv = inShareEnvelope({
+        inFormation,
+        playerDist: Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y),
+        formationPointDist: Math.hypot(npc.x - formation.x, npc.y - formation.y),
+        sameSystem: true,
+      }, { magnitudes: p92.magnitudes || p92.defaults });
+      if (shareEnv) {
+        shareEscortToFlagship(book, observer.key, playerObserverKey(), localMs, {
+          escort: true,
+          inFormation,
+          playerDist: Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y),
+          formationPointDist: Math.hypot(npc.x - formation.x, npc.y - formation.y),
+          sameSystem: true,
+          S: observer.S ?? 4,
+          book92: p92,
+          magnitudes: p92.magnitudes || p92.defaults,
+          flagshipSuiteId: state.sensorSuiteId,
+          flagshipSuiteIdAfter: state.sensorSuiteId,
+        });
+      }
     }
   }
 
@@ -5898,13 +6012,27 @@ function refreshContactBookNow() {
     sensorSuiteId: resolvePlayerSuite()?.suiteId,
   });
   applyActiveEw(ensureEwBook(), book, localMs);
+  const p92 = ensureEw92Book();
+  const playerActor92 = getPhase92Actor(p92, playerObserverKey());
+  playerActor92.heading = Number(state.ship?.rotation) || 0;
+  playerActor92.sideId = getPlayerSide();
+  expireDecoys(p92, book, localMs);
   snapshotContest(ensureEw91Book(), {
     actorKey: playerObserverKey(),
     sideId: getPlayerSide(),
     observerKey: playerObserverKey(),
     eccm: getActor(ensureEw91Book(), playerObserverKey()).eccm,
     S: getActor(ensureEw91Book(), playerObserverKey()).S,
-  }, localMs);
+  }, localMs, {
+    heading: playerActor92.heading,
+    headingFor: { [playerObserverKey()]: playerActor92.heading },
+    receiverPosition: playerWorldPosition(),
+    positionFor: {
+      [playerObserverKey()]: playerWorldPosition(),
+    },
+    halfAngleDeg: resolvePhase92Defaults(p92.defaults || p92.magnitudes).lobeHalfAngleDeg,
+    defaults: p92.defaults || p92.magnitudes,
+  });
   return book;
 }
 
@@ -8236,16 +8364,56 @@ function renderPhase91OpsControls() {
     : contest.source;
   const hoj = proposedHojRow();
   const residues = listResidueContacts(ensureContactBook(), playerObserverKey());
+  const p92 = ensureEw92Book();
+  const actor92 = getPhase92Actor(p92, playerObserverKey());
+  actor92.heading = Number(state.ship?.rotation) || 0;
+  const mag = resolvePhase92Defaults(p92.defaults || p92.magnitudes);
+  const extra92 = phase92ReservedDraw(p92, playerObserverKey(), currentLocalMs(), {
+    jammerOn: actor.commanded === 'on',
+    commanded: actor.commanded,
+    jammerDraw: snap.draw,
+    catalogDraw: snap.catalogDraw,
+    H: snap.H,
+  });
+  const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
+  const playerPos = playerWorldPosition();
+  const shareIn = escorts.some((npc) => {
+    const formation = getPlayerEscortFormationPoint(npc.escortIndex || 0);
+    return inShareEnvelope({
+      inFormation: Math.hypot(npc.x - formation.x, npc.y - formation.y) < mag.formationDist
+        || Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y) < mag.playerDist,
+      playerDist: Math.hypot(npc.x - playerPos.x, npc.y - playerPos.y),
+      sameSystem: true,
+    }, { defaults: mag });
+  });
+  const decoyCount = listDecoyContacts(ensureContactBook(), playerObserverKey()).length;
+  const heatBtns = ['off', 'paying'].map((mode) => {
+    const on = mode === 'paying';
+    return `<button type="button" data-ew-heat="${on ? 'on' : 'off'}" class="${actor92.heatSuppress === on ? 'active' : ''}">${mode}</button>`;
+  }).join('');
+  const silentBtns = ['off', 'on'].map((mode) => (
+    `<button type="button" data-ew-silent="${mode}" class="${(actor92.silentRunning ? 'on' : 'off') === mode ? 'active' : ''}">${mode}</button>`
+  )).join('');
+  const decoyBtns = ['off', 'on'].map((mode) => (
+    `<button type="button" data-ew-decoy="${mode}" class="${(actor92.decoyOn ? 'on' : 'off') === mode ? 'active' : ''}">${mode}</button>`
+  )).join('');
   return `<div class="ew-ops" data-ew-ops="true">
     <div class="panel-head">Electronic Warfare</div>
     <div class="meta">Reserved ew · burn-through available · magnitudes injectable</div>
     <div class="ew-row"><span>Slot</span><div class="security-roe-row">${slotBtns}</div></div>
     <div class="ew-row"><span>Jammer</span><div class="security-roe-row">${jammerBtns}</div><small>${escapeHtml(snap.status)}</small></div>
+    <div class="ew-row"><span>Lobe</span><b>${escapeHtml(String(Math.round(actor92.heading)))}° / ${escapeHtml(String(mag.lobeHalfAngleDeg))}°</b><small>in-beam ≠ cloak</small></div>
     <div class="ew-row"><span>ECCM</span><div class="security-roe-row">${eccmBtns}</div></div>
+    <div class="ew-row"><span>Share</span><b>${shareIn ? 'in-range' : 'out'}</b><small>detection only</small></div>
     <div class="ew-row"><span>Transponder</span><div class="security-roe-row">${claimBtns}</div></div>
+    <div class="ew-row"><span>Focus Scan</span><div class="security-roe-row"><button type="button" data-ew-focus="start">Scan</button></div><small>${escapeHtml(p92.lastCatch?.status || 'idle')}</small></div>
+    <div class="ew-row"><span>Heat</span><div class="security-roe-row">${heatBtns}</div><small>${escapeHtml(String(extra92.emissionScale))}</small></div>
+    <div class="ew-row"><span>Decoys</span><div class="security-roe-row">${decoyBtns}</div><small>${decoyCount}</small></div>
+    <div class="ew-row"><span>Silent</span><div class="security-roe-row">${silentBtns}</div></div>
     <div class="ew-row"><span>Receiver</span><b>${escapeHtml(contest.label)}</b>${source ? `<small>${escapeHtml(String(source))}</small>` : ''}</div>
     <div class="meta">HoJ: ${escapeHtml(hoj.family)} · ${escapeHtml(hoj.mapping)} · ${escapeHtml(hoj.provenance)}</div>
     ${residues.length ? `<div class="meta">Residue ${residues.length}: area / emission, no firing solution</div>` : ''}
+    <div class="ew-sayable">Jamming lobe. In-beam: interference. Burn-through available — not a cloak. Friendlies in-lobe take it.</div>
   </div>`;
 }
 
@@ -13199,6 +13367,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     contactBook: serializeContactBook(ensureContactBook()),
     ewBook: serializeEwBook(ensureEwBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
+    ew92: serializeEw92Book(ensureEw92Book()),
     ewEquipmentId: state.ewEquipmentId || null,
     cloak: serializeCloak(state.cloak),
     phase65: serializePhase65Runtime({
@@ -13284,6 +13453,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.contactBook = restoreContactBook(s.contactBook);
   state.ewBook = restoreEwBook(s.ewBook);
   state.ew91 = restoreEw91Book(s.ew91);
+  state.ew92 = restoreEw92Book(s.ew92);
   state.ewEquipmentId = s.ewEquipmentId
     || getActor(state.ew91, playerObserverKey())?.ewEquipmentId
     || null;
@@ -14855,6 +15025,75 @@ topLeftPanelEl?.addEventListener('click', (e) => {
       sensorSuiteId: resolvePlayerSuite()?.suiteId,
     });
     setLog(result.ok ? `ECCM ${result.eccm}.` : 'ECCM unavailable (S=0).');
+    renderTopLeftPanel();
+    return;
+  }
+  const ewHeat = e.target.closest('[data-ew-heat]');
+  if (ewHeat) {
+    const on = ewHeat.dataset.ewHeat === 'on';
+    const actor = getActor(ensureEw91Book(), playerObserverKey());
+    const jam = snapshotJammer(ensureEw91Book(), playerObserverKey(), currentLocalMs(), {
+      fitted: actor.ewEquipmentId,
+      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    });
+    const result = commandHeatSuppress(ensureEw92Book(), playerObserverKey(), on, {
+      jammerOn: actor.commanded === 'on',
+      jammerDraw: jam.draw,
+      catalogDraw: jam.catalogDraw,
+      H: jam.H,
+    });
+    setLog(result.ok ? heatSayable(on) : `Heat suppress unavailable (${result.reason}).`);
+    renderTopLeftPanel();
+    return;
+  }
+  const ewSilent = e.target.closest('[data-ew-silent]');
+  if (ewSilent) {
+    const on = ewSilent.dataset.ewSilent === 'on';
+    const result = commandSilentRunning(ensureEw92Book(), playerObserverKey(), on, {
+      H: 1,
+    });
+    setLog(result.ok ? silentSayable() : `Silent-running unavailable (${result.reason}).`);
+    renderTopLeftPanel();
+    return;
+  }
+  const ewDecoy = e.target.closest('[data-ew-decoy]');
+  if (ewDecoy) {
+    const on = ewDecoy.dataset.ewDecoy === 'on';
+    const pos = playerWorldPosition();
+    const result = commandDecoy(ensureEw92Book(), ensureContactBook(), playerObserverKey(), on, currentLocalMs(), {
+      observerKey: playerObserverKey(),
+      x: pos.x + 40,
+      y: pos.y,
+      H: 1,
+    });
+    setLog(result.ok ? (result.sayable || 'Decoy updated.') : `Decoy unavailable (${result.reason}).`);
+    renderTopLeftPanel();
+    return;
+  }
+  const ewFocus = e.target.closest('[data-ew-focus]');
+  if (ewFocus) {
+    const target = getSelectedCombatTarget?.() || state.combatTargetId;
+    const npc = typeof target === 'object' ? target : (state.npcShips || []).find((row) => row.id === target);
+    const subjectKey = npc ? subjectKeyOfNpc(npc) : 'npc:focus-scan';
+    const result = runFocusedScan(ensureEw92Book(), ensureContactBook(), {
+      key: playerObserverKey(),
+      observerKey: playerObserverKey(),
+    }, {
+      key: subjectKey,
+      subjectKey,
+      x: npc?.x,
+      y: npc?.y,
+    }, currentLocalMs(), {
+      completeNow: true,
+      S: 4,
+      identity: { playerFaction: state.playerFaction, playerSide: getPlayerSide() },
+      claim: getActor(ensureEw91Book(), subjectKey)?.transponderClaim || npc && getActor(ensureEw91Book(), observerKeyForNpc(npc.securityInstanceId || npc.id))?.transponderClaim,
+      trueSide: npc?.faction || npc?.sideId,
+      observed: { observedFaction: npc?.faction, visualClass: npc?.shipClass },
+      eccm: getActor(ensureEw91Book(), playerObserverKey()).eccm,
+      distance: npc ? distanceToPlayer(npc) : 80,
+    });
+    setLog(result.sayable || 'Focused Scan.');
     renderTopLeftPanel();
     return;
   }
@@ -21409,6 +21648,7 @@ function resetRunState() {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.ew91 = emptyEw91Book();
+  state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
   state.systemDestinations = [];
   state.arrivalExit = null;
@@ -21543,6 +21783,7 @@ function restartInEscapePod() {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.ew91 = emptyEw91Book();
+  state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
   state.mapOpen = false;
   state.planetMenuOpen = false;
@@ -21615,6 +21856,7 @@ function startWithFaction(key, options = {}) {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.ew91 = emptyEw91Book();
+  state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
@@ -22546,6 +22788,7 @@ function installBm1ProbeHarness() {
     phase8: createPhase8ProbeApi(),
     phase9: createPhase9ProbeApi(),
     phase91: createPhase91ProbeApi(),
+    phase92: createPhase92ProbeApi(),
   };
 }
 
@@ -23972,6 +24215,365 @@ function createPhase91ProbeApi() {
   };
 }
 
+function snapshotDockFit() {
+  const panel = document.getElementById('top-left-panel');
+  const content = panel?.querySelector('.top-left-panel-content');
+  const dock = document.getElementById('bottom-dock');
+  const target = document.getElementById('target-window');
+  const overlap = (a, b) => a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  const intersect = (a, b) => {
+    if (!a || !b) return null;
+    const left = Math.max(a.left, b.left);
+    const right = Math.min(a.right, b.right);
+    const top = Math.max(a.top, b.top);
+    const bottom = Math.min(a.bottom, b.bottom);
+    if (right <= left || bottom <= top) return null;
+    return { left, right, top, bottom };
+  };
+  const dockRect = dock && !dock.classList.contains('hidden') ? dock.getBoundingClientRect() : null;
+  const panelRect = panel && !panel.classList.contains('hidden') ? panel.getBoundingClientRect() : null;
+  const targetRect = target && !target.classList.contains('hidden') ? target.getBoundingClientRect() : null;
+  const clippedControls = [];
+  const nodes = [
+    ...(panel && !panel.classList.contains('hidden') ? [...panel.querySelectorAll('button')] : []),
+    ...(target && !target.classList.contains('hidden') ? [...target.querySelectorAll('button')] : []),
+  ];
+  for (const el of nodes) {
+    const style = getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    const host = panel?.contains(el) ? panelRect : (target?.contains(el) ? targetRect : null);
+    const visible = host ? intersect(r, host) : null;
+    if (!visible || (visible.bottom - visible.top) < 2) continue;
+    if (dockRect && overlap(visible, dockRect) && visible.bottom > dockRect.top + 1) {
+      clippedControls.push(String(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 80));
+    }
+  }
+  const dockClear = Boolean(panelRect && dockRect && panelRect.bottom <= dockRect.top + 1);
+  return {
+    clippedControls,
+    overflowX: Boolean(content && content.scrollWidth > content.clientWidth + 1),
+    overflowY: Boolean(content && content.scrollHeight > content.clientHeight + 1),
+    dockClear,
+    panelBottom: panelRect ? Math.round(panelRect.bottom) : null,
+    dockTop: dockRect ? Math.round(dockRect.top) : null,
+  };
+}
+
+function createPhase92ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const sampleEngage = () => playerForceMayAutoEngage(
+    { id: 's16-gate', faction: 'dominion', hostile: true, attitude: 'hostile' },
+    getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+  );
+  const snapshot = () => {
+    const book = ensureContactBook();
+    const ew = ensureEwBook();
+    const ew91 = ensureEw91Book();
+    const ew92 = ensureEw92Book();
+    const localMs = currentLocalMs();
+    const actor = getActor(ew91, playerObserverKey());
+    const actor92 = getPhase92Actor(ew92, playerObserverKey());
+    const jam = snapshotJammer(ew91, playerObserverKey(), localMs, {
+      fitted: actor.ewEquipmentId,
+      sensorSuiteId: resolvePlayerSuite()?.suiteId,
+    });
+    const extra92 = phase92ReservedDraw(ew92, playerObserverKey(), localMs, {
+      jammerOn: actor.commanded === 'on',
+      commanded: actor.commanded,
+      jammerDraw: jam.draw,
+      catalogDraw: jam.catalogDraw,
+      H: jam.H,
+    });
+    const contest = snapshotContest(ew91, {
+      actorKey: playerObserverKey(),
+      observerKey: playerObserverKey(),
+      sideId: getPlayerSide(),
+      eccm: actor.eccm,
+      S: jam.S,
+    }, localMs, {
+      H: jam.H,
+      S: jam.S,
+      heading: actor92.heading,
+      headingFor: { [playerObserverKey()]: actor92.heading },
+      receiverPosition: playerWorldPosition(),
+      positionFor: { [playerObserverKey()]: playerWorldPosition() },
+      halfAngleDeg: resolvePhase92Defaults(ew92.defaults || ew92.magnitudes).lobeHalfAngleDeg,
+      defaults: ew92.defaults || ew92.magnitudes,
+    });
+    const decoys = listDecoyContacts(book);
+    const mag = snapshotPhase92Magnitudes(ew92.magnitudes || ew92.defaults);
+    const offBudget = jam.draw + extra92.draw === 0 && (actor.commanded === 'on' || actor92.heatSuppress || actor92.silentRunning || actor92.decoyOn);
+    return {
+      power: {
+        consumers: POWER_CONSUMERS.slice ? POWER_CONSUMERS.slice() : ['propulsion', 'weapons', 'cloak', 'sensors', 'ew'],
+        ew: {
+          name: 'ew',
+          draw: actorEwDraw(ew, playerObserverKey(), localMs, { ew91, phase92Draw: extra92.draw }),
+          effectsImplemented: true,
+        },
+        offBudget,
+      },
+      lobe: {
+        halfAngleDeg: mag.lobeHalfAngleDeg,
+        heading: actor92.heading,
+        inLobe: contest.contributions?.some((row) => row.inLobe !== false) || false,
+        cMasked: contest.contributions?.[0]?.c ?? 0,
+        friendlyInLobeTookN: contest.source === 'own' || contest.source === 'friendly' || contest.source === 'mixed',
+        rfRadius: contest.rfRadius,
+        Q: contest.Q,
+        contributions: contest.contributions,
+      },
+      share: ew92.lastShare || {
+        escortToFlagship: null,
+        flagshipToEscort: true,
+        giftedFs: false,
+        flagshipSuiteUnchanged: true,
+        inEnvelope: false,
+      },
+      catch: {
+        claim: actor.transponderClaim || 'true',
+        spoofExposed: ew92.lastCatch?.spoofExposed === true,
+        playerFaction: state.playerFaction,
+        playerSide: getPlayerSide(),
+        reman53: reman53Identity(),
+        emissionWritten: ew92.lastCatch?.emissionWritten === true,
+        engagementAuthorizedPresent: false,
+      },
+      comms: {
+        newDeliverDelayed: ew92.lastComms?.delayed === true,
+        erasedByJamming: false,
+        deliveredStill: true,
+        holdOutsideKind: ew92.lastComms?.holdOutsideKind || null,
+        cultureFire: false,
+        implemented: EW_COMMS_DELAY_IMPLEMENTED,
+      },
+      heat: {
+        suppressOn: actor92.heatSuppress === true,
+        draw: extra92.heat?.draw || 0,
+        emissionScale: extra92.emissionScale,
+      },
+      decoy: {
+        rows: decoys,
+        npcCount: (state.npcShips || []).filter((npc) => !npc.destroyed).length,
+        firingSolutionAny: decoys.some((row) => row.firingSolution === true),
+        ghostFlagged: decoys.some((row) => row.ghost === true),
+        hull: decoyIsHull(),
+      },
+      silent: {
+        on: actor92.silentRunning === true,
+        draw: extra92.silent?.draw || 0,
+        cloak: silentRunningIsCloak(),
+        residueHeld: true,
+      },
+      magnitudesLockedFromRemastered: PHASE92_LOCK === true || MAGNITUDES_LOCKED_FROM_REMASTERED === true,
+      magnitudes: mag,
+      dock: snapshotDockFit(),
+      mayAutoEngage: sampleEngage(),
+      log: state.log,
+    };
+  };
+  return {
+    snapshot,
+    injectLobe: (opts = {}) => {
+      const missing = failIfMissing(inLobe, 'inLobe');
+      if (missing) return missing;
+      const missingMask = failIfMissing(applyLobeMask, 'applyLobeMask');
+      if (missingMask) return missingMask;
+      const ew92 = ensureEw92Book();
+      if (opts.magnitudes) ew92.magnitudes = { ...ew92.magnitudes, ...opts.magnitudes };
+      if (opts.lobeHalfAngleDeg != null) {
+        ew92.defaults = resolvePhase92Defaults({ ...(ew92.defaults || {}), lobeHalfAngleDeg: opts.lobeHalfAngleDeg });
+      }
+      const actor = getPhase92Actor(ew92, opts.actorKey || playerObserverKey());
+      if (opts.heading != null) actor.heading = opts.heading;
+      const result = injectJamField(ensureEw91Book(), opts.emitters || [{
+        actorKey: opts.actorKey || playerObserverKey(),
+        fitted: opts.fitted || 'compact',
+        sideId: opts.sideId || getPlayerSide(),
+        S: opts.S ?? 4,
+      }], currentLocalMs(), {
+        receiver: opts.receiver || { actorKey: playerObserverKey(), sideId: getPlayerSide(), S: opts.S ?? 4, E: opts.E },
+        E: opts.E,
+        S: opts.S ?? 4,
+        H: opts.H ?? 1,
+        inLobeFor: opts.inLobeFor,
+        headingFor: opts.headingFor || { [opts.actorKey || playerObserverKey()]: opts.heading ?? actor.heading },
+        receiverPosition: opts.receiverPosition,
+        positionFor: opts.positionFor,
+        halfAngleDeg: opts.lobeHalfAngleDeg ?? resolvePhase92Defaults(ew92.defaults).lobeHalfAngleDeg,
+        defaults: ew92.defaults,
+      });
+      return { ...result, snapshot: snapshot() };
+    },
+    injectEscortShare: (opts = {}) => {
+      const missing = failIfMissing(shareEscortToFlagship, 'shareEscortToFlagship');
+      if (missing) return missing;
+      const book = ensureContactBook();
+      const escortKey = opts.escortKey || observerKeyForNpc(opts.escortInstanceId || 'security-instance-4');
+      const subjectKey = opts.subjectKey || 'npc:security-instance-9';
+      upsertContact(book, escortKey, {
+        subjectKey,
+        detected: true,
+        identification: opts.identification || 'known',
+        trackQuality: opts.trackQuality || 'firm',
+        firingSolution: opts.escortFs === true,
+        residue: opts.residue === true,
+        lastKnown: opts.lastKnown || { x: 40, y: 20, radius: 80, atLocalMs: currentLocalMs() },
+        source: 'passive',
+      }, currentLocalMs());
+      const beforeSuite = state.sensorSuiteId;
+      const beforeDraw = actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs(), { ew91: ensureEw91Book() });
+      const shared = shareEscortToFlagship(book, escortKey, playerObserverKey(), currentLocalMs(), {
+        escort: opts.escort !== false,
+        inFormation: opts.inFormation !== false,
+        playerDist: opts.playerDist ?? 50,
+        sameSystem: opts.sameSystem !== false,
+        parkedOtherSystem: opts.parkedOtherSystem === true,
+        S: opts.S ?? 4,
+        book92: ensureEw92Book(),
+        flagshipSuiteId: beforeSuite,
+        flagshipSuiteIdAfter: state.sensorSuiteId,
+      });
+      const flagship = findContact(book, playerObserverKey(), subjectKey);
+      return {
+        ...shared,
+        flagship,
+        firingSolution: flagship?.firingSolution === true,
+        giftedFs: flagship?.firingSolution === true,
+        suiteUnchanged: state.sensorSuiteId === beforeSuite,
+        drawUnchanged: actorEwDraw(ensureEwBook(), playerObserverKey(), currentLocalMs(), { ew91: ensureEw91Book() }) === beforeDraw,
+        snapshot: snapshot(),
+      };
+    },
+    injectFocusedScan: (opts = {}) => {
+      const missing = failIfMissing(runFocusedScan, 'runFocusedScan');
+      if (missing) return missing;
+      const before = { playerFaction: state.playerFaction, playerSide: getPlayerSide() };
+      const result = runFocusedScan(ensureEw92Book(), ensureContactBook(), {
+        key: opts.observerKey || playerObserverKey(),
+        observerKey: opts.observerKey || playerObserverKey(),
+      }, {
+        key: opts.subjectKey || 'npc:spoof-blip',
+        subjectKey: opts.subjectKey || 'npc:spoof-blip',
+      }, currentLocalMs(), {
+        completeNow: opts.completeNow !== false,
+        S: opts.S ?? 4,
+        identity: before,
+        playerFaction: before.playerFaction,
+        playerSide: before.playerSide,
+        claim: opts.claim || { mode: 'spoof', spoofedFaction: 'klingon' },
+        trueSide: opts.trueSide || 'ferengi',
+        observed: opts.observed || { observedFaction: 'ferengi', visualClass: 'ferengi' },
+        eccm: opts.eccm,
+        mismatch: opts.mismatch,
+        forget: opts.forget === true,
+        reman53: reman53Identity(),
+        mayAutoEngage: sampleEngage(),
+      });
+      result.playerFactionAfter = state.playerFaction;
+      result.playerSideAfter = getPlayerSide();
+      return { ...result, snapshot: snapshot() };
+    },
+    injectSpoofClaim: (opts = {}) => {
+      const missing = failIfMissing(setTransponderClaim, 'setTransponderClaim');
+      if (missing) return missing;
+      return {
+        ...setTransponderClaim(ensureEw91Book(), opts.actorKey || playerObserverKey(), opts.claim, {
+          identity: { playerFaction: state.playerFaction, playerSide: getPlayerSide() },
+        }),
+        snapshot: snapshot(),
+      };
+    },
+    injectCommsDisruption: (opts = {}) => {
+      const missing = failIfMissing(tryDeliverReport92, 'tryDeliverReport');
+      if (missing) return missing;
+      startEffect(ensureEwBook(), {
+        family: 'comms_disruption',
+        actorKey: opts.actorKey || playerObserverKey(),
+        victimKey: opts.victimKey || playerObserverKey(),
+      }, currentLocalMs());
+      return { ok: true, snapshot: snapshot() };
+    },
+    injectNewFleetOrder: (opts = {}) => {
+      const missing = failIfMissing(issueOrderWithEwComms, 'issueOrderWithEwComms');
+      if (missing) return missing;
+      const result = issuePlayerFleetOrder(opts.kind || 'follow', {
+        assignedShipIds: opts.assignedShipIds,
+        label: opts.label,
+      });
+      return { ...result, snapshot: snapshot() };
+    },
+    injectHeatSuppress: (opts = {}) => {
+      const missing = failIfMissing(commandHeatSuppress, 'commandHeatSuppress');
+      if (missing) return missing;
+      const actor = getActor(ensureEw91Book(), opts.actorKey || playerObserverKey());
+      const jam = snapshotJammer(ensureEw91Book(), opts.actorKey || playerObserverKey(), currentLocalMs(), {
+        fitted: actor.ewEquipmentId,
+        S: opts.S,
+      });
+      const result = commandHeatSuppress(ensureEw92Book(), opts.actorKey || playerObserverKey(), opts.on !== false, {
+        jammerOn: opts.jammerOn ?? actor.commanded === 'on',
+        jammerDraw: opts.jammerDraw ?? jam.draw,
+        catalogDraw: opts.catalogDraw ?? jam.catalogDraw,
+        H: opts.H ?? jam.H,
+      });
+      return { ...result, snapshot: snapshot() };
+    },
+    injectDecoy: (opts = {}) => {
+      const missing = failIfMissing(upsertDecoyContact, 'upsertDecoyContact');
+      if (missing) return missing;
+      const before = (state.npcShips || []).length;
+      const result = upsertDecoyContact(ensureContactBook(), opts.observerKey || playerObserverKey(), {
+        x: opts.x ?? 80,
+        y: opts.y ?? 40,
+        subjectKey: opts.subjectKey,
+      }, currentLocalMs(), { ew92: ensureEw92Book(), actorKey: opts.actorKey || playerObserverKey() });
+      commandDecoy(ensureEw92Book(), ensureContactBook(), opts.actorKey || playerObserverKey(), true, currentLocalMs(), {
+        observerKey: opts.observerKey || playerObserverKey(),
+        H: opts.H ?? 1,
+      });
+      return {
+        ...result,
+        npcCount: (state.npcShips || []).length,
+        npcUnchanged: (state.npcShips || []).length === before,
+        destroy: tryDestroyDecoy(),
+        snapshot: snapshot(),
+      };
+    },
+    injectSilentRunning: (opts = {}) => {
+      const missing = failIfMissing(commandSilentRunning, 'commandSilentRunning');
+      if (missing) return missing;
+      const result = commandSilentRunning(ensureEw92Book(), opts.actorKey || playerObserverKey(), opts.on !== false, {
+        H: opts.H ?? 1,
+        draw: opts.draw,
+      });
+      return { ...result, cloak: silentRunningIsCloak(), snapshot: snapshot() };
+    },
+    injectMagnitudes: (opts = {}) => {
+      const missing = failIfMissing(resolvePhase92Defaults, 'resolvePhase92Defaults');
+      if (missing) return missing;
+      const ew92 = ensureEw92Book();
+      ew92.magnitudes = opts;
+      ew92.defaults = resolvePhase92Defaults(opts);
+      return { ok: true, magnitudes: snapshotPhase92Magnitudes(opts), snapshot: snapshot() };
+    },
+    snapshotDockFit,
+    tick92: (localElapsedMs) => {
+      const localMs = Number.isFinite(Number(localElapsedMs)) ? Number(localElapsedMs) : currentLocalMs();
+      expireDecoys(ensureEw92Book(), ensureContactBook(), localMs);
+      syncPhase91Jammers(ensureEw91Book(), ensureEwBook(), localMs);
+      tickEw(ensureEwBook(), ensureContactBook(), localMs);
+      return { ok: true, snapshot: snapshot() };
+    },
+    lastRefuseFire: () => ensureEwBook().lastRefuseFire,
+  };
+}
+
 function listStandingOrdersSafe(board) {
   return Object.values(board?.orders || {})
     .filter((row) => row.status === 'standing' || row.status === 'interrupted')
@@ -24821,6 +25423,7 @@ function installPlayerSecurityProbe() {
     phase8: createPhase8ProbeApi(),
     phase9: createPhase9ProbeApi(),
     phase91: createPhase91ProbeApi(),
+    phase92: createPhase92ProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

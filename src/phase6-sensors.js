@@ -32,7 +32,7 @@ export const SYSTEM_CLAMP_H = 1800;
 
 export const IDENTIFICATION_LEVELS = Object.freeze(['none', 'partial', 'known']);
 export const TRACK_QUALITIES = Object.freeze(['none', 'area', 'coarse', 'firm']);
-export const CONTACT_SOURCES = Object.freeze(['passive', 'active_scan', 'report', 'visual', 'ew_ghost', 'ew_residue']);
+export const CONTACT_SOURCES = Object.freeze(['passive', 'active_scan', 'report', 'visual', 'ew_ghost', 'ew_residue', 'ew_decoy', 'escort_share']);
 export const DESTINATION_KINDS = Object.freeze([
   'lane',
   'belt',
@@ -278,34 +278,45 @@ export function createContactRecord(input = {}, book = null) {
     }
     : defaultLastKnown(at);
   const ghost = input.ghost === true || input.source === 'ew_ghost' || String(input.subjectKey || '').startsWith('ghost:');
+  const decoy = !ghost && (
+    input.decoy === true
+    || input.source === 'ew_decoy'
+    || String(input.subjectKey || '').startsWith('decoy:')
+  );
   const earnedFirm = input.detected === true && sanitizeEnum(input.trackQuality, TRACK_SET, 'none') === 'firm' && input.firingSolution === true;
-  const residueRequested = !ghost && (input.residue === true || input.source === 'ew_residue');
+  const residueRequested = !ghost && !decoy && (input.residue === true || input.source === 'ew_residue');
   const residue = residueRequested && !earnedFirm;
-  let trackQuality = sanitizeEnum(input.trackQuality, TRACK_SET, ghost || residue ? 'area' : 'none');
+  let trackQuality = sanitizeEnum(input.trackQuality, TRACK_SET, ghost || residue || decoy ? 'area' : 'none');
   let identification = sanitizeEnum(input.identification, IDENT_SET, 'none');
   if (ghost) {
     if (!qualityAtMost(trackQuality, 'area')) trackQuality = 'area';
     if (IDENT_RANK[identification] > IDENT_RANK.partial) identification = 'none';
   }
-  if (residue) {
+  if (residue || decoy) {
     if (!qualityAtMost(trackQuality, 'area')) trackQuality = 'area';
   }
-  const firingSolution = !ghost && !residue && input.firingSolution === true && trackQuality === 'firm';
+  if (decoy) identification = 'none';
+  const firingSolution = !ghost && !residue && !decoy && input.firingSolution === true && trackQuality === 'firm';
   const source = ghost
     ? 'ew_ghost'
-    : (residue && input.source === 'ew_residue' ? 'ew_residue' : sanitizeEnum(input.source, SOURCE_SET, residue ? 'passive' : 'passive'));
+    : (decoy ? 'ew_decoy' : (residue && input.source === 'ew_residue' ? 'ew_residue' : sanitizeEnum(input.source, SOURCE_SET, residue ? 'passive' : 'passive')));
   return {
     contactId: input.contactId || (book ? takeContactId(book) : 'ctc-0'),
     observerKey: normalizeKey(input.observerKey),
     subjectKey: normalizeKey(input.subjectKey),
-    detected: residue ? true : input.detected === true,
+    detected: residue || decoy ? true : input.detected === true,
     identification,
     trackQuality,
     firingSolution,
     ghost,
     residue,
-    emission: residue ? input.emission !== false : input.emission === true,
+    decoy,
+    emission: decoy ? true : (residue ? input.emission !== false : input.emission === true),
     transponderClaim: input.transponderClaim == null ? null : input.transponderClaim,
+    spoofExposed: input.spoofExposed === true,
+    catchPath: input.catchPath || null,
+    suspicion: input.suspicion === true,
+    sharedFrom: input.sharedFrom ? normalizeKey(input.sharedFrom) : null,
     cloakTruthKnown: input.cloakTruthKnown === true,
     lastKnown,
     freshnessLocalMs: clampNonNeg(input.freshnessLocalMs ?? lastKnown.atLocalMs),
@@ -326,6 +337,16 @@ function enforceFiringSolution(contact) {
     contact.firingSolution = false;
     if (!qualityAtMost(contact.trackQuality, 'area')) contact.trackQuality = 'area';
     if (IDENT_RANK[contact.identification] > IDENT_RANK.partial) contact.identification = 'none';
+    return contact;
+  }
+  if (contact.decoy === true || contact.source === 'ew_decoy' || String(contact.subjectKey || '').startsWith('decoy:')) {
+    contact.decoy = true;
+    contact.ghost = false;
+    contact.source = 'ew_decoy';
+    contact.detected = true;
+    contact.firingSolution = false;
+    contact.identification = 'none';
+    if (!qualityAtMost(contact.trackQuality, 'area')) contact.trackQuality = 'area';
     return contact;
   }
   if (contact.residue === true || contact.source === 'ew_residue') {
@@ -352,6 +373,9 @@ function pruneObserverContacts(entry) {
     const aLive = a.firingSolution === true ? 1 : 0;
     const bLive = b.firingSolution === true ? 1 : 0;
     if (aLive !== bLive) return aLive - bLive;
+    const aDecoy = a.decoy === true || a.source === 'ew_decoy' ? 0 : 1;
+    const bDecoy = b.decoy === true || b.source === 'ew_decoy' ? 0 : 1;
+    if (aDecoy !== bDecoy) return aDecoy - bDecoy;
     const aFresh = a.trackQuality === 'none' || !a.detected ? 0 : QUALITY_RANK[a.trackQuality];
     const bFresh = b.trackQuality === 'none' || !b.detected ? 0 : QUALITY_RANK[b.trackQuality];
     if (aFresh !== bFresh) return aFresh - bFresh;
@@ -1061,14 +1085,16 @@ export function liveFireFactsFromContact(contact, extras = {}) {
   const detected = contact?.detected === true;
   const identified = contact?.identification && contact.identification !== 'none';
   const ghost = contact?.ghost === true || contact?.source === 'ew_ghost';
-  const firing = !ghost && contact?.firingSolution === true && contact.trackQuality === 'firm';
+  const decoy = contact?.decoy === true || contact?.source === 'ew_decoy';
+  const firing = !ghost && !decoy && contact?.firingSolution === true && contact.trackQuality === 'firm';
   return {
     contactDetected: detected,
-    identityKnown: identified === true && !ghost,
+    identityKnown: identified === true && !ghost && !decoy,
     liveWeaponTrack: firing,
     engagement_authorized: extras.engagementAuthorized === true ? true : undefined,
     fromHiddenIdentity: false,
     fromGhost: ghost,
+    fromDecoy: decoy,
   };
 }
 

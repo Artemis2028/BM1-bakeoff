@@ -16,6 +16,7 @@ import {
   mapSensorsPoints,
   resolvePhase91Defaults,
 } from './phase91-power.js';
+import { applyLobeMask } from './phase92-lobes.js';
 
 function clampNonNeg(value) {
   return Math.max(0, Number(value) || 0);
@@ -164,11 +165,18 @@ export function interferenceLabel(contributions, observer = {}, extras = {}) {
 
 export function snapshotContest(book, receiver = {}, localElapsedMs = 0, extras = {}) {
   const defaults = resolvePhase91Defaults(extras.defaults || book?.defaults);
-  const contributions = extras.contributions || collectPaidEmitters(book, localElapsedMs, {
+  let contributions = extras.contributions || collectPaidEmitters(book, localElapsedMs, {
     ...extras,
     observerKey: receiver.actorKey || receiver.observerKey,
     defaults,
   });
+  if (extras.lobe !== false) {
+    contributions = applyLobeMask(contributions, {
+      ...extras,
+      receiver,
+      observerSide: receiver.sideId || extras.sideId,
+    });
+  }
   const N = extras.N != null ? clampNonNeg(extras.N) : rssNoise(contributions.map((row) => row.c));
   const S = mapSensorsPoints(receiver, extras);
   let E = extras.E != null ? clampNonNeg(extras.E) : (S > 0 ? apertureFromReceiver(receiver, extras) : 0);
@@ -188,8 +196,11 @@ export function snapshotContest(book, receiver = {}, localElapsedMs = 0, extras 
       securityInstanceId: row.securityInstanceId,
       sideId: row.sideId,
       c: row.c,
+      cUnmasked: row.cUnmasked,
       draw: row.draw,
       paid: row.paid === true,
+      inLobe: row.inLobe !== false,
+      heading: row.heading,
     })),
     N,
     E,
