@@ -293,7 +293,6 @@ import {
 } from './phase6-sensors.js';
 import {
   EW_CONSUMER_NAME,
-  EW_CONSUMER_NAME,
   POWER_CONSUMERS,
   applySuitePaymentsToStats,
   applySuiteToSensorActor,
