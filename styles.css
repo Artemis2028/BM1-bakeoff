@@ -839,6 +839,42 @@ body.ui-theme-cardassian .planet-menu::before {
 .target-window.hidden {
   display: none;
 }
+.phase10-readout {
+  position: fixed;
+  left: 18px;
+  top: 70px;
+  right: auto;
+  z-index: 28;
+  width: min(280px, calc(100vw - 360px));
+  max-height: min(220px, calc(100vh - 70px - var(--bm1-dock-clear)));
+  padding: 10px 12px;
+  color: var(--lcars-text);
+  background: rgba(5, 7, 14, 0.9);
+  border: 4px solid var(--lcars-purple);
+  border-radius: 14px 4px 14px 4px;
+  box-shadow: inset 0 0 0 2px #000, 0 0 14px rgba(0, 0, 0, 0.6);
+  overflow-x: hidden;
+  overflow-y: auto;
+  pointer-events: auto;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.phase10-readout.hidden {
+  display: none;
+}
+.phase10-readout .p10-k {
+  font-weight: 700;
+  color: #ffd66e;
+  margin-bottom: 4px;
+}
+.phase10-readout .p10-line {
+  color: #c9d7ef;
+  margin: 2px 0;
+}
+.phase10-readout .p10-meta {
+  color: var(--lcars-muted);
+  font-size: 11px;
+}
 .target-window-head {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);

@@ -1,0 +1,215 @@
+# Phase 10 after-implementation screenshots
+
+Captured from the running game after the Dominion-first engine. Viewport 1280×720 Chromium (Playwright). Compare with `docs/phase10/screenshots/baseline-main/`.
+
+**No Referee Pass claimed.** Stories remain knowledge layers. Tractor remains not boarding.
+
+## Shots
+
+| File | What |
+| --- | --- |
+| `01-flight-hud-blender-dominion.png` | Flight HUD at Dominion / Blender start (Gamma still hidden) |
+| `02-starchart-dominion-start.png` | Star chart — no Dominica / Founders Watch labels |
+| `03-knowledge-rumor.png` | Knowledge readout: rumor ≠ FS |
+| `04-starchart-dominica-discovered.png` | After discovery inject for listed systems only |
+| `05-ops.png` | OPS / EW preserved, dock-clear |
+| `06-inventory.png` | Inventory preserved |
+| `07-settings.png` | Settings + campaign / knowledge readout |
+| `08-target.png` | Target window preserved |
+
+## UI fit
+
+`clippedControls: []` continues.
+
+OPS:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": true,
+  "targetDockClear": false,
+  "knowledgeDockClear": true,
+  "leakedNames": [],
+  "hasPhase10": true,
+  "hasKnowledge": true,
+  "mapOpen": false,
+  "ops": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": true,
+    "scrollW": 701,
+    "scrollH": 643,
+    "clientW": 701,
+    "clientH": 544,
+    "panelW": 716,
+    "panelH": 544,
+    "top": 90,
+    "bottom": 634,
+    "left": 282,
+    "right": 998,
+    "text": "POWER (OPS)\nPOWER DISTRIBUTION (OPS) CONTROL\nEnergy 150/150 (100%) | Budget 20/20 | Drag a tank or use -/+\nRESERVE\n5\nENGINES\n5\nWEAPONS\n5\nSHIELDS\n5\nELECTRONIC WARFARE\nReserved ew · burn-through available · magnitudes injectable\nSLOT\nEmpty\nCompact\nTactical\nFleet\nJAMMER\nOff\nOn\nOFF\nLOBE\n0° / 50°\nIN-BEAM ≠ CLOAK\nECCM\nOff\nBoost\nSHARE\nOUT\nDETECTION ONLY\nTRANSPONDER\nOff\nTrue\nSpoof\nFOCUS SCAN\nScan\nIDLE\nHEAT\nOff\nPaying\n1\nDECOYS\nOff\nOn\n0\nSILENT\nOff\nOn\nRECEIVER\nCLEAR\nHoJ: anti-emitter · unmounted · new\nJamming lobe. In-beam: interference. Burn-through available — not a cloak. Friendlies in-lobe take it.\nCLOSE"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Inventory:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": true,
+  "targetDockClear": false,
+  "knowledgeDockClear": true,
+  "leakedNames": [],
+  "hasPhase10": true,
+  "hasKnowledge": true,
+  "mapOpen": false,
+  "inventory": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": true,
+    "scrollW": 701,
+    "scrollH": 575,
+    "clientW": 701,
+    "clientH": 544,
+    "panelW": 716,
+    "panelH": 544,
+    "top": 90,
+    "bottom": 634,
+    "left": 282,
+    "right": 998,
+    "text": "INVENTORY\n1600\n0\n8/90\n0/50\nFLAGS\nDominion\nRAISED\nSTATION PLANS\nNo station plans owned.\n1: Polaron Phaser\n2: Photon Torpedo\n3: Empty\nPolaron Phaser\n1\n2\n3\nPhoton Torpedo\n1\n2\n3\nEW EQUIPMENT\nEW: Empty\nDedicated slot — not a weapon mount, not the sensor suite.\nCONTRACTS\nNo active contracts.\nCARGO PODS\n1: 0t Empty\n2: 0t Empty\n3: 0t Empty\n4: 0t Empty\n5: 0t Empty\n6: 0t Empty\n7: 0t Empty\n8: 0t Empty\n9: 0t Empty\n10: 0t Empty"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Settings:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": true,
+  "targetDockClear": false,
+  "knowledgeDockClear": true,
+  "leakedNames": [],
+  "hasPhase10": true,
+  "hasKnowledge": true,
+  "mapOpen": false,
+  "settings": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": true,
+    "scrollW": 701,
+    "scrollH": 2174,
+    "clientW": 701,
+    "clientH": 544,
+    "panelW": 716,
+    "panelH": 544,
+    "top": 88,
+    "bottom": 632,
+    "left": 282,
+    "right": 998,
+    "text": "SETTINGS\nMUTE GAME SOUNDS\nOFF\nSilences game audio when sound hooks are active.\nHIGH PERFORMANCE\nOFF\nReduces decorative rendering and expensive visual passes.\nREDUCED EFFECTS\nOFF\nSoftens explosions, nebula overlays, and transient visual effects.\nSECURITY\nStanding orders for your side (Dominion). They survive flag changes. Challenge requests a movement and identity check. Closed requests withdrawal. Refusal alone does not authorize weapons; your rules of engagement still apply. Unknown access remains reserved until sensors exist. Alerts change what you are told, not what happened. Silent does not clear a refusal or a kill. Refusal and inability never authorize weapons.\nEMPIRE DEFAULT ROE\nRETURN FIRE\nDEFEND\nEngage hostiles toward you and anyone at war with the flag you fly.\nEMPIRE ALERTS\nALL\n"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Target:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": false,
+  "targetDockClear": true,
+  "knowledgeDockClear": true,
+  "leakedNames": [],
+  "hasPhase10": true,
+  "hasKnowledge": true,
+  "mapOpen": false,
+  "target": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 316,
+    "scrollH": 283,
+    "clientW": 316,
+    "clientH": 283,
+    "panelW": 330,
+    "panelH": 297,
+    "top": 327,
+    "bottom": 624,
+    "left": 18,
+    "right": 348,
+    "text": "CONTACT\nIKS FIRE BLADE\nKlingon | neutral | 40\nVOR'CHA ATTACK CRUISER\nContact held. No firing solution.\nSHIELD\n100%\nHULL\n100%\nHAIL SHIP\nBOARD REFUSED\nCAPTURE\nSCUTTLE\nFAIL\nHull above 10%. Boarding refused.\nTractor hold is not a capture. · hull-above-threshold\nAway-team XP: Not tracked yet · tracked: false"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Star chart (hidden) leakedNames:
+```json
+[]
+```

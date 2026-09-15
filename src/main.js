@@ -496,6 +496,73 @@ import {
   transferCommand,
 } from './command-transfer.js';
 import {
+  DISCOVERY_ODDS_LOCKED,
+  INVASION_ODDS_LOCKED,
+  MAGNITUDES_INJECTABLE,
+  MAGNITUDES_LOCKED_FROM_REMASTERED as PHASE10_MAGNITUDES_LOCKED,
+} from './phase10-magnitudes.js';
+import {
+  ISOLATED_DOMINION_SYSTEM_NAMES,
+  collectLeakedNames,
+  hiddenSystemNames,
+  isIsolatedDominionSystem,
+  isSystemSayable,
+} from './phase10-discovery.js';
+import {
+  actorKnowsAgreement,
+  agreementsSnapshot,
+  emptyAgreements,
+  injectAgreement,
+  ordinaryCaptainKnowsPact,
+} from './phase10-agreements.js';
+import {
+  BATTLESHIP_HULL_ID,
+  CORE_HULL_IDS,
+  DEBUG_AUTHORIZE_ALL_DEPLOYMENTS,
+  GORN_FACTION,
+  blenderStockAllows,
+  isBattleshipHull,
+  isCoreHull,
+  liveCatalogSpawnContext,
+  packSnapshot,
+  refuseAmbientCore,
+  resolveAuthorizedDeployment,
+  spawnIdsLive,
+} from './phase10-pack-gates.js';
+import {
+  filterRoutePreview,
+  filterWormholeOptions,
+  hideSnapshot,
+  labelForSystem,
+  redactPlanetDescription,
+  redactHiddenText,
+  refuseUnearnedTransit,
+  shouldDrawSystemLabel,
+  wormholeDefaultNamesDominica,
+  preferWormholeDestination,
+} from './phase10-map-hide.js';
+import {
+  DOMINION_BOOK_VERSION,
+  FORBIDDEN_FIRE_INJECT as PHASE10_FORBIDDEN_FIRE,
+  PHASE10_ROSTER,
+  attachOccupationHolding,
+  clearAuthorization,
+  emptyDominionBook,
+  getObserverKnowledge,
+  injectDiscoveryWrite,
+  injectDominionStage,
+  injectFailure,
+  injectKnowledge,
+  injectOperation,
+  knowledgeDoesNotGiftFire,
+  restoreDominionBook,
+  sayableKnowledgeLine,
+  seedProcurementStores,
+  serializeDominionBook,
+  snapshotDominionBook,
+  spendProcurementStores,
+} from './phase10-dominion-book.js';
+import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
   installEwEquipment,
@@ -1250,6 +1317,7 @@ const state = {
   contactBook: emptyContactBook(),
   ewBook: emptyEwBook(),
   boardingBook: emptyBoardingBook(),
+  dominionBook: emptyDominionBook(),
   ew91: emptyEw91Book(),
   ew92: emptyEw92Book(),
   sensorSuiteId: null,
@@ -1846,7 +1914,10 @@ function catalogSpawnIds(role = 'traffic', faction = null) {
 }
 
 function getNpcShipId(seedValue, role = 'traffic') {
-  const pool = catalogSpawnIds(role, null);
+  const pool = refuseAmbientCore(catalogSpawnIds(role, null), {
+    systemName: state.planets[state.currentPlanet]?.name || '',
+    authorizedDeployment: resolveAuthorizedDeployment(ensureDominionBook(), role),
+  });
   if (!pool.length) return null;
   const allowed = pool.filter((id) => doctrineAllowsFactionGenerator(getShipFaction(id), 'traffic', { requireBudget: false }));
   const use = allowed.length ? allowed : pool;
@@ -1854,12 +1925,15 @@ function getNpcShipId(seedValue, role = 'traffic') {
 }
 
 function getNpcShipIdForFaction(faction = 'neutral', seedValue = 1, role = 'traffic') {
+  if (String(faction || '').toLowerCase() === GORN_FACTION) return null;
   const exact = catalogSpawnIds(role, faction);
-  if (!exact.length && role !== 'traffic') return null;
-  const pool = exact.length ? exact : catalogSpawnIds(role, null);
-  if (!pool.length) return null;
-  const aligned = exact.length ? exact : pool.filter((id) => areFactionsAligned(getShipFaction(id), faction));
-  const candidates = aligned.length ? aligned : [];
+  if (!exact.length) return null;
+  const planetName = state.planets[state.currentPlanet]?.name || '';
+  const filtered = refuseAmbientCore(exact, {
+    systemName: planetName,
+    authorizedDeployment: resolveAuthorizedDeployment(ensureDominionBook(), role),
+  });
+  const candidates = filtered.length ? filtered : exact.filter((id) => !isCoreHull(id) && !isBattleshipHull(id));
   if (!candidates.length) return null;
   return pickSeededPoolItem(candidates, seedValue, `npc-faction-ship:${faction}`) || candidates[0] || null;
 }
@@ -1928,13 +2002,12 @@ function cleanShipNameRoot(name = '') {
 
 function getShipNameRootsForFaction(faction = 'neutral') {
   const factionRoots = factionShipNameRoots[faction];
-  if (faction === 'neutral' || !factionRoots?.length) {
-    return [
-      ...(factionRoots || []),
-      ...fallbackShipNameRoots,
-    ];
-  }
-  return factionRoots;
+  const base = (faction === 'neutral' || !factionRoots?.length)
+    ? [...(factionRoots || []), ...fallbackShipNameRoots]
+    : [...factionRoots];
+  const filtered = base.filter((root) => isSystemSayable(playerDiscovery(), playerObserverKey(), root)
+    && collectLeakedNames([root], playerDiscovery(), playerObserverKey()).length === 0);
+  return filtered.length ? filtered : [...fallbackShipNameRoots];
 }
 
 function getShipNameRootFromDisplayName(name = '') {
@@ -2578,7 +2651,7 @@ function selectRouteNeighbor(direction = 1) {
     ? (direction > 0 ? 0 : neighbors.length - 1)
     : (current + direction + neighbors.length) % neighbors.length;
   state.selectedPlanet = neighbors[next];
-  setLog(`Route target: ${state.planets[state.selectedPlanet].name}`);
+  setLog(`Route target: ${sayablePlanetName(state.planets[state.selectedPlanet], 'plotted system')}`);
   updateStats();
 }
 
@@ -3703,11 +3776,10 @@ function currentCatalogSpawnContext(role = 'traffic') {
   const planet = state.planets[state.currentPlanet] || {};
   const name = String(planet.name || '').trim().toLowerCase();
   const region = name === 'dominica' ? 'dominion-core' : '';
-  return catalogSpawnContext({
+  return liveCatalogSpawnContext(ensureDominionBook(), {
     role,
     systemName: planet.name || '',
     region,
-    authorizedDeployment: role === 'fleetAttack' || role === 'mission',
   });
 }
 
@@ -4153,7 +4225,7 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
   state.ship.turnVelocity = 0;
   state.ship.forwardThrustStartedAt = 0;
   state.ship.systemWarpIntensity = 0;
-  if (!options.silent) setLog(`Exited ${wormholeName} at ${target.name}.`);
+  if (!options.silent) setLog(`Exited ${wormholeName} at ${sayablePlanetName(target, 'destination system')}.`);
   syncLegacyState();
   updateStats();
   return true;
@@ -4162,6 +4234,11 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
 function startWormholeTransit(targetIndex, wormhole = state.wormhole) {
   const target = state.planets[targetIndex];
   if (!target) return false;
+  const refuse = refuseUnearnedTransit(playerDiscovery(), playerObserverKey(), target.name);
+  if (!refuse.ok) {
+    setLog(refuse.sayable);
+    return false;
+  }
   const wormholeName = wormhole?.name || 'wormhole';
   closePlanetMenu();
   state.mapOpen = false;
@@ -4208,7 +4285,7 @@ function updateWormholeTransit(now = performance.now()) {
       switched: false,
     };
     playGameSound('warpDrop', { cooldownKey: 'wormhole:exit', volume: 0.65 });
-    setLog(`Exited ${transit.name || 'wormhole'} at ${target?.name || 'destination system'}.`);
+    setLog(`Exited ${transit.name || 'wormhole'} at ${sayablePlanetName(target, 'destination system')}.`);
     updateStats();
   }
 }
@@ -4230,6 +4307,11 @@ function tryEnterWormhole(wormhole = state.wormhole) {
   const targetIndex = Number(wormhole.targetIndex);
   if (!Number.isFinite(targetIndex) || !state.planets[targetIndex]) {
     setLog('This wormhole is unstable.');
+    return false;
+  }
+  const refuse = refuseUnearnedTransit(playerDiscovery(), playerObserverKey(), state.planets[targetIndex]?.name);
+  if (!refuse.ok) {
+    setLog(refuse.sayable);
     return false;
   }
   const distance = distanceToPlayer(wormhole);
@@ -5474,6 +5556,26 @@ function ensureBoardingBook() {
     state.boardingBook = restoreBoardingBook(state.boardingBook);
   }
   return state.boardingBook;
+}
+
+function ensureDominionBook() {
+  if (!state.dominionBook || state.dominionBook.version !== DOMINION_BOOK_VERSION) {
+    state.dominionBook = restoreDominionBook(state.dominionBook);
+  }
+  if (!state.dominionBook.discovery) state.dominionBook.discovery = {};
+  if (!state.dominionBook.agreements) state.dominionBook.agreements = emptyAgreements();
+  state.dominionBook.debugAuthorizeAllDeployments = false;
+  state.dominionBook.weaknessDidAuthorize = false;
+  return state.dominionBook;
+}
+
+function playerDiscovery() {
+  return ensureDominionBook().discovery;
+}
+
+function sayablePlanetName(planetOrName, fallback = '') {
+  const name = typeof planetOrName === 'string' ? planetOrName : (planetOrName?.name || '');
+  return labelForSystem(playerDiscovery(), playerObserverKey(), name) || fallback;
 }
 
 function findNpcByBoardingId(id) {
@@ -10326,6 +10428,47 @@ function getGodModeShipGroups() {
   });
 }
 
+function renderPhase10CampaignHtml() {
+  const book = ensureDominionBook();
+  const knowledge = getObserverKnowledge(book, playerObserverKey());
+  const authorized = resolveAuthorizedDeployment(book, 'fleetAttack');
+  const hidden = hiddenSystemNames(book.discovery, playerObserverKey());
+  const agreements = agreementsSnapshot(book.agreements, {
+    faction: state.playerFaction,
+    actorKey: playerObserverKey(),
+    command: false,
+  });
+  const layer = knowledge.layer || 'none';
+  const deploy = authorized
+    ? `Authorized operation ${book.liveOperationId}`
+    : 'Unauthorized. Debug-all off.';
+  return `<div class="phase10-campaign" data-phase10-knowledge="${escapeHtml(layer)}" data-phase10-deployment="${authorized ? 'authorized' : 'unauthorized'}">
+    <div class="p10-k">${escapeHtml(sayableKnowledgeLine(knowledge))}</div>
+    <div class="p10-line">Layer: ${escapeHtml(layer)} — not a firing solution, not engagement authorized.</div>
+    <div class="p10-line">Deployment: ${escapeHtml(deploy)}</div>
+    <div class="p10-line">Hidden region: ${hidden.length ? `${hidden.length} distant systems unsayable until discovery.` : 'Listed systems revealed for this observer.'}</div>
+    <div class="p10-meta">${escapeHtml(agreements.sayable)}</div>
+    <div class="p10-meta">Paths use roles and knowledge. Two-mode ROE unchanged. Weakness is not an invasion order.</div>
+  </div>`;
+}
+
+function renderPhase10Readout() {
+  const el = document.getElementById('phase10-readout');
+  if (!el) return;
+  if (!state.gameStarted) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  const visible = Boolean(!state.mapOpen && !state.topLeftPanelOpen && !state.planetMenuOpen);
+  el.classList.toggle('hidden', !visible);
+  if (!visible) return;
+  el.innerHTML = renderPhase10CampaignHtml();
+  const knowledge = getObserverKnowledge(ensureDominionBook(), playerObserverKey());
+  el.dataset.phase10Knowledge = knowledge.layer || 'none';
+  el.dataset.phase10Deployment = resolveAuthorizedDeployment(ensureDominionBook(), 'fleetAttack') ? 'authorized' : 'unauthorized';
+}
+
 function renderGodModeShipSwitcher() {
   const groups = getGodModeShipGroups();
   if (!groups.length) return '<div class="meta">No ship manifest entries loaded.</div>';
@@ -10361,6 +10504,7 @@ function renderTopLeftPanel() {
     topLeftMenuEl.classList.add('hidden');
     topLeftPanelEl.classList.add('hidden');
     topLeftPanelEl.innerHTML = '';
+    renderPhase10Readout();
     return;
   }
   topLeftMenuEl.classList.remove('hidden');
@@ -10371,6 +10515,7 @@ function renderTopLeftPanel() {
   if (!state.topLeftPanelOpen) {
     topLeftPanelEl.classList.add('hidden');
     topLeftPanelEl.innerHTML = '';
+    renderPhase10Readout();
     return;
   }
   topLeftPanelEl.classList.remove('hidden');
@@ -10424,7 +10569,7 @@ function renderTopLeftPanel() {
   const panelContent = state.topLeftTab === 'power'
     ? powerContent
     : state.topLeftTab === 'settings'
-    ? `<div class="panel-head">Settings</div>${gameOptions}<div class="panel-head">Security</div>${renderSecurityPanel()}<div class="panel-head">Save & Debug</div>${settingsActions}<div class="meta">${escapeHtml(godStatus)}</div><div class="panel-head">God Ship Switcher</div><div class="god-ship-switcher">${renderGodModeShipSwitcher()}</div>`
+    ? `<div class="panel-head">Settings</div>${gameOptions}<div class="panel-head">Security</div>${renderSecurityPanel()}<div class="panel-head">Campaign</div>${renderPhase10CampaignHtml()}<div class="panel-head">Save & Debug</div>${settingsActions}<div class="meta">${escapeHtml(godStatus)}</div><div class="panel-head">God Ship Switcher</div><div class="god-ship-switcher">${renderGodModeShipSwitcher()}</div>`
     : `<div class="panel-head">Inventory</div>${resources}${flags}${stationPlans}${weaponLine}${ewSlotLine}${contract}<div class="panel-head">Cargo Pods</div><div class="pods">${pods}</div>`;
   topLeftPanelEl.innerHTML = `<button class="panel-close top-left-panel-close" data-top-action="close-panel" aria-label="Close ${escapeHtml(state.topLeftTab)} panel">&times;</button><div class="top-left-panel-content">${panelContent}</div>`;
   const restoredScrollTarget = state.topLeftTab === 'settings'
@@ -10433,6 +10578,7 @@ function renderTopLeftPanel() {
   if (restoredScrollTarget) {
     restoredScrollTarget.scrollTop = state.topLeftPanelScrollByTab[state.topLeftTab] || 0;
   }
+  renderPhase10Readout();
 }
 
 function getShipPrice(ship) {
@@ -10977,9 +11123,14 @@ function getShipyardStock(station = getCurrentDockedStation()) {
   const unlocks = ensurePlayerUnlocks();
   const purchaseCtx = currentCatalogPurchaseContext(station);
   const catalog = state.shipCatalog;
+  const planetName = state.planets[state.currentPlanet]?.name || '';
+  const authorized = resolveAuthorizedDeployment(ensureDominionBook(), 'mission');
   const shipsFromIds = (ids) => (ids || [])
     .map((id) => state.shipStatsById[Number(id)] || catalog?.getShip(id))
-    .filter((ship) => ship && (ship.assetType || 'ship') === 'ship' && getShipPrice(ship) > 0);
+    .filter((ship) => ship && (ship.assetType || 'ship') === 'ship' && getShipPrice(ship) > 0)
+    .filter((ship) => blenderStockAllows(ship.id, { systemName: planetName, authorizedDeployment: authorized }))
+    .filter((ship) => !isBattleshipHull(ship.id) || authorized === true)
+    .filter((ship) => !isCoreHull(ship.id) || String(planetName).toLowerCase() === 'dominica' || authorized === true);
 
   if (station?.stockIds?.length || purchaseCtx.vendor === PASO_PROJECT_X_VENDOR) {
     const authored = authoredStockIds(station?.stockIds || [], catalog, purchaseCtx, unlocks);
@@ -12296,13 +12447,14 @@ function claimCurrentSystem() {
 }
 
 function getWormholeBuildDestinationOptions() {
-  return state.planets
+  const raw = state.planets
     .map((planet, index) => {
       if (index === state.currentPlanet) return null;
       const existingWormhole = getSystemWormholeLinks(index)[0] || null;
       return {
         index,
         name: planet.name || `System ${index + 1}`,
+        trueName: planet.name || `System ${index + 1}`,
         faction: getSystemFaction(index),
         disabled: Boolean(existingWormhole),
         reason: existingWormhole ? `${existingWormhole.name} already has a terminus here` : '',
@@ -12310,12 +12462,16 @@ function getWormholeBuildDestinationOptions() {
     })
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name));
+  return filterWormholeOptions(raw, playerDiscovery(), playerObserverKey());
 }
 
 function getDefaultWormholeDestinationIndex(options = getWormholeBuildDestinationOptions()) {
-  const preferred = getSystemIndexByName(WORMHOLE_DOMINION_SYSTEM_NAME);
-  const preferredOption = options.find((option) => option.index === preferred && !option.disabled);
-  return preferredOption?.index ?? options.find((option) => !option.disabled)?.index ?? options[0]?.index ?? null;
+  return preferWormholeDestination(
+    options,
+    playerDiscovery(),
+    playerObserverKey(),
+    WORMHOLE_DOMINION_SYSTEM_NAME,
+  );
 }
 
 function getWormholeBuildValidation(destinationIndex, pending = state.pendingWormholeBuild) {
@@ -12629,7 +12785,12 @@ function renderPlanetMenu() {
   const stationMeta = station
     ? `${escapeHtml(stationStats.name || 'Station')} | Defense ${Math.round(station.defenseRange || 0)} | ${formatFaction(station.faction || state.systemFaction)} station`
     : `${formatFaction(state.systemFaction)} space | ${state.systemAttitude}${state.systemHasNebula ? ' | Nebula' : ''}`;
-  const planetDescription = String(planet.description || state.systemData[state.currentPlanet]?.[7] || '').trim();
+  const planetDescription = redactPlanetDescription(
+    String(planet.description || state.systemData[state.currentPlanet]?.[7] || '').trim(),
+    playerDiscovery(),
+    playerObserverKey(),
+    planet.name,
+  );
   const serviceDescription = !station && planetDescription
     ? `<div class="service-description">${escapeHtml(planetDescription)}</div>`
     : '';
@@ -12915,15 +13076,18 @@ function updateStats() {
   state.totcargo = state.cargoCap;
   const mode = state.warp.active ? 'WARP' : state.mapOpen ? 'MAP' : 'FLIGHT';
   const flash = currentFlash(ensureIncidentLedger());
-  const message = state.log || (state.docked
-    ? getCurrentDockedStation()?.name || state.planets[state.dockedPlanetIndex]?.name || 'Docked'
-    : 'In Flight');
   const flashAck = flash
     ? `<button type="button" class="flash-ack" data-flash-ack="${escapeHtml(flash.flashId)}">Acknowledge</button>`
     : '';
+  const dockName = state.docked
+    ? redactHiddenText(getCurrentDockedStation()?.name || state.planets[state.dockedPlanetIndex]?.name || 'Docked', playerDiscovery(), playerObserverKey())
+    : null;
+  const safeMessage = state.log
+    ? redactHiddenText(state.log, playerDiscovery(), playerObserverKey())
+    : (dockName || 'In Flight');
   statsEl.innerHTML = `<div class="top-strip">
       <div class="top-slot top-ship alert-${getAlertStatus()}">${escapeHtml(mode)} &middot; ${getAlertStatus().toUpperCase()}</div>
-      <div class="top-slot top-message">${escapeHtml(message)}${flashAck}</div>
+      <div class="top-slot top-message">${escapeHtml(safeMessage)}${flashAck}</div>
       <div class="top-stat"><span>AM</span>${state.antimatter}/${state.fuelCap}</div>
       <div class="top-stat"><span>SHLD</span>${Math.round(clamp(finiteNumber(state.shields, 0), 0, 100))}%</div>
       <div class="top-stat"><span>Hull</span>${Math.round(clamp(finiteNumber(state.hull, 0), 0, 100))}%</div>
@@ -12950,6 +13114,7 @@ function updateStats() {
   if (state.pendingWormholeBuild || !wormholeModalEl?.classList.contains('hidden')) {
     renderWormholeBuildModal();
   }
+  renderPhase10Readout();
 }
 
 function getFlightPlanetMarker() {
@@ -13762,6 +13927,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     contactBook: serializeContactBook(ensureContactBook()),
     ewBook: serializeEwBook(ensureEwBook()),
     boardingBook: serializeBoardingBook(ensureBoardingBook()),
+    dominionBook: serializeDominionBook(ensureDominionBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ewEquipmentId: state.ewEquipmentId || null,
@@ -13849,6 +14015,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.contactBook = restoreContactBook(s.contactBook);
   state.ewBook = restoreEwBook(s.ewBook);
   state.boardingBook = restoreBoardingBook(s.boardingBook);
+  state.dominionBook = restoreDominionBook(s.dominionBook);
   state.ew91 = restoreEw91Book(s.ew91);
   state.ew92 = restoreEw92Book(s.ew92);
   state.ewEquipmentId = s.ewEquipmentId
@@ -14964,6 +15131,19 @@ function jumpPlanet() {
     setLog(`Need ${jumpAntiMatterCost} antimatter to travel this plotted route.`);
     return;
   }
+  const destName = state.planets[state.selectedPlanet]?.name;
+  const refuse = refuseUnearnedTransit(playerDiscovery(), playerObserverKey(), destName);
+  if (!refuse.ok) {
+    setLog(refuse.sayable);
+    return;
+  }
+  if ((plan.systems || []).some((index) => {
+    const name = state.planets[index]?.name;
+    return refuseUnearnedTransit(playerDiscovery(), playerObserverKey(), name).ok === false;
+  })) {
+    setLog('You have not discovered this destination.');
+    return;
+  }
   state.antimatter -= jumpAntiMatterCost;
   syncFuelToAntimatter();
   beginWarpTravel(state.selectedPlanet, plan);
@@ -14990,8 +15170,8 @@ function beginWarpTravel(targetIndex, plan) {
     startedAt: performance.now(),
     duration: WARP_DURATION_MS,
     message: plan?.legs?.length > 1
-      ? `Warp drive engaged for ${target?.name || 'target system'} over ${plan.legs.length} route legs...`
-      : `Warp drive engaged for ${target?.name || 'target system'}...`,
+      ? `Warp drive engaged for ${sayablePlanetName(target, 'target system')} over ${plan.legs.length} route legs...`
+      : `Warp drive engaged for ${sayablePlanetName(target, 'target system')}...`,
   };
   playGameSound('warpEnter', { cooldownKey: 'warp:enter' });
   setLog(state.warp.message);
@@ -18168,6 +18348,7 @@ function spawnFleetAttack(systemIndex = state.currentPlanet, attackerFaction = c
       attackId,
     });
   }).filter(Boolean);
+  if (!ships.length) return false;
   state.npcShips.push(...ships);
   state.activeFleetAttack = {
     id: attackId,
@@ -20214,10 +20395,13 @@ function drawMapLegend() {
         ? `Out of ship range: ${rangeStatus.distance}/${rangeStatus.shipRange}`
         : `Need ${plan.antimatter} antimatter | Current covers ${rangeStatus.fuelRange}`
     : 'No plotted route';
-  const boxX = 54;
-  const boxY = 76;
-  const boxW = Math.min(740, Math.max(320, canvas.width - 108));
-  const boxH = 68;
+  const viewport = getStarChartViewport();
+  const boxX = viewport.left + 10;
+  const boxY = viewport.top + 10;
+  const boxW = Math.min(640, Math.max(280, viewport.right - viewport.left - 20));
+  const boxH = 84;
+  const knowledge = getObserverKnowledge(ensureDominionBook(), playerObserverKey());
+  const targetLabel = sayablePlanetName(target, '—') || '—';
   ctx.save();
   ctx.fillStyle = 'rgba(4, 10, 20, 0.82)';
   ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -20225,18 +20409,19 @@ function drawMapLegend() {
   ctx.strokeRect(boxX, boxY, boxW, boxH);
   ctx.fillStyle = '#dfeaff';
   ctx.font = canvasUiFont(13);
-  drawFittedMapText(`Current: ${p?.name || 'Unknown'}    Target: ${target?.name || 'None'}`, boxX + 14, boxY + 20, boxW - 28);
+  drawFittedMapText(`Current: ${sayablePlanetName(p, p?.name || 'Unknown')}    Target: ${targetLabel}`, boxX + 14, boxY + 20, boxW - 28);
+  drawFittedMapText(`Knowledge: ${sayableKnowledgeLine(knowledge)}`, boxX + 14, boxY + 36, boxW - 28);
   ctx.fillStyle = getMapFactionColor(systemInfo.faction);
   ctx.font = canvasUiFont(12, 'bold');
   drawFittedMapText(
     `${systemInfo.relation} | Power ${systemInfo.power} | Stations ${systemInfo.stations} | Patrols ${systemInfo.patrols} | Fleet ${systemInfo.fleet} | ${systemInfo.visited ? 'Visited' : 'Unvisited'}`,
     boxX + 14,
-    boxY + 39,
+    boxY + 52,
     boxW - 28,
   );
   ctx.fillStyle = plan?.legs?.length ? (rangeStatus?.canTravel ? '#ffd66e' : '#ffb0b0') : '#9fb2d0';
   ctx.font = canvasUiFont(12);
-  drawFittedMapText(`${cost}    First click plots | Second click warps`, boxX + 14, boxY + 57, boxW - 28);
+  drawFittedMapText(`${cost}    First click plots | Second click warps`, boxX + 14, boxY + 70, boxW - 28);
   ctx.restore();
 }
 
@@ -20288,11 +20473,17 @@ function drawPlanetMarker(p, i) {
     const selectedPlan = getPlottedRoute(state.currentPlanet, state.selectedPlanet);
     const inSelectedPlan = selectedPlan?.systems?.includes(i);
     if (i === state.currentPlanet || i === state.selectedPlanet || routeNeighbor || inSelectedPlan) {
+      if (!shouldDrawSystemLabel(playerDiscovery(), playerObserverKey(), p.name)) return;
       const screen = getStarChartSystemScreen(i);
       ctx.fillStyle = i === state.selectedPlanet ? '#ffd66e' : '#dfeaff';
       ctx.font = canvasUiFont(11);
       ctx.textAlign = 'center';
-      const label = p.name.length > 14 ? `${p.name.slice(0, 13)}.` : p.name;
+      const rawLabel = sayablePlanetName(p, '');
+      if (!rawLabel) {
+        ctx.textAlign = 'start';
+        return;
+      }
+      const label = rawLabel.length > 14 ? `${rawLabel.slice(0, 13)}.` : rawLabel;
       ctx.fillText(label, screen.x, screen.y - size / 2 - 8);
       ctx.textAlign = 'start';
     }
@@ -20369,7 +20560,7 @@ function drawPlanetCallout(marker, now = performance.now()) {
   const elbowY = startY - 38;
   const endX = elbowX + direction * 112;
   const alpha = Math.min(1, age / 160) * Math.min(1, (callout.ttl - age) / 500);
-  const text = marker.name || 'Planet';
+  const text = sayablePlanetName(marker, 'Planet');
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -21834,6 +22025,7 @@ function drawInterstellarMapOverlay() {
       drawPlanetMarker(state.planets[i], i);
     }
     ctx.restore();
+    drawMapLegend();
     drawWorldPops();
   } finally {
     ctx = previousCtx;
@@ -22085,6 +22277,7 @@ function resetRunState() {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
+  state.dominionBook = emptyDominionBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
@@ -22221,6 +22414,7 @@ function restartInEscapePod() {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
+  state.dominionBook = emptyDominionBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
@@ -22295,6 +22489,7 @@ function startWithFaction(key, options = {}) {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
+  state.dominionBook = emptyDominionBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
@@ -22987,6 +23182,10 @@ function installBm1ProbeHarness() {
     },
     freezeLoop,
     tick: probeTick,
+    paint: () => {
+      probeTick(1, 1);
+      render();
+    },
     skipIntro: skipIntroStory,
     startGame(faction = 'ferengi', options = {}) {
       skipIntroStory();
@@ -23229,6 +23428,256 @@ function installBm1ProbeHarness() {
     phase9: createPhase9ProbeApi(),
     phase91: createPhase91ProbeApi(),
     phase92: createPhase92ProbeApi(),
+    phase10: createPhase10ProbeApi(),
+  };
+}
+
+function createPhase10ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const chromeStrings = () => {
+    const book = ensureDominionBook();
+    const observerKey = playerObserverKey();
+    const labels = (state.planets || []).map((planet) => labelForSystem(book.discovery, observerKey, planet.name));
+    const descriptions = (state.planets || []).map((planet) => redactPlanetDescription(
+      planet.description || '',
+      book.discovery,
+      observerKey,
+      planet.name,
+    ));
+    const wormhole = getWormholeBuildDestinationOptions().map((option) => option.name);
+    const current = state.planets[state.currentPlanet]?.name || '';
+    const selected = state.planets[state.selectedPlanet]?.name || '';
+    const routes = filterRoutePreview([current, selected], book.discovery, observerKey);
+    return { labels, descriptions, wormhole, routes };
+  };
+  const snapshot = () => {
+    const book = ensureDominionBook();
+    const observerKey = playerObserverKey();
+    const knowledge = getObserverKnowledge(book, observerKey);
+    const chrome = chromeStrings();
+    const blenderIds = state.shipCatalog
+      ? spawnIdsLive(state.shipCatalog, book, { role: 'patrol', systemName: 'Blender', faction: 'dominion' })
+      : [];
+    const earthIds = state.shipCatalog
+      ? spawnIdsLive(state.shipCatalog, book, { role: 'traffic', systemName: 'Earth', faction: 'dominion' })
+      : [];
+    const gornPool = state.shipCatalog
+      ? spawnIdsLive(state.shipCatalog, book, { role: 'traffic', systemName: 'Earth', faction: GORN_FACTION })
+      : [];
+    const fleetAttackCtx = liveCatalogSpawnContext(book, { role: 'fleetAttack', systemName: state.planets[state.currentPlanet]?.name || '' });
+    const sampleEngage = playerForceMayAutoEngage(
+      { id: 's18-gate', faction: 'klingon', hostile: true, attitude: 'hostile' },
+      getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+    );
+    const hide = hideSnapshot(book.discovery, observerKey, {
+      startFaction: state.playerFaction,
+      currentSystem: state.planets[state.currentPlanet]?.name || null,
+      labels: chrome.labels,
+      descriptions: chrome.descriptions,
+      routePreview: chrome.routes,
+      wormholeNames: chrome.wormhole,
+      wormholeDefaultNamesDominica: wormholeDefaultNamesDominica(
+        getWormholeBuildDestinationOptions(),
+        book.discovery,
+        observerKey,
+      ) && !isSystemSayable(book.discovery, observerKey, 'Dominica') ? true : wormholeDefaultNamesDominica(
+        [{ name: WORMHOLE_DOMINION_SYSTEM_NAME }],
+        book.discovery,
+        observerKey,
+      ) && isSystemSayable(book.discovery, observerKey, 'Dominica'),
+    });
+    hide.wormholeDefaultNamesDominica = isSystemSayable(book.discovery, observerKey, 'Dominica')
+      && getDefaultWormholeDestinationIndex() === getSystemIndexByName(WORMHOLE_DOMINION_SYSTEM_NAME);
+    if (!isSystemSayable(book.discovery, observerKey, 'Dominica')) {
+      hide.wormholeDefaultNamesDominica = false;
+    }
+    return {
+      scope: PHASE10_ROSTER,
+      rosterPlayable: { independent: false, ferengi: false, vulcan: false },
+      rareCommanders: false,
+      debugAuthorizeAllDeployments: false,
+      discoveryOddsLocked: DISCOVERY_ODDS_LOCKED,
+      invasionOddsLocked: INVASION_ODDS_LOCKED,
+      magnitudesInjectable: MAGNITUDES_INJECTABLE,
+      magnitudesLockedFromRemastered: PHASE10_MAGNITUDES_LOCKED,
+      fire: {
+        firingSolutionGifted: knowledge.firingSolution === true,
+        engagement_authorized: undefined,
+        playerFaction: state.playerFaction,
+        playerSide: getPlayerSide(),
+        reman53: reman53Identity(),
+        mayAutoEngage: sampleEngage,
+      },
+      knowledge: {
+        observerKey,
+        layer: knowledge.layer,
+        confidence: knowledge.confidence,
+        mapRevealed: hiddenSystemNames(book.discovery, observerKey).length === 0,
+        firingSolution: false,
+        sayable: sayableKnowledgeLine(knowledge),
+        giftOk: knowledgeDoesNotGiftFire(knowledge),
+      },
+      hide,
+      pack: packSnapshot(book, {
+        blenderSpawnIds: blenderIds,
+        earthSpawnIds: earthIds,
+        gornPool,
+        role: 'fleetAttack',
+      }),
+      liveContext: fleetAttackCtx,
+      stage: {
+        value: book.stage,
+        weaknessOpportunity: book.weaknessOpportunity === true,
+        weaknessDidAuthorize: false,
+      },
+      agreements: agreementsSnapshot(book.agreements, {
+        faction: state.playerFaction,
+        actorKey: observerKey,
+        command: false,
+      }),
+      boarding: {
+        tractorIsBoard: tractorIsBoarding() === true,
+        implemented: BOARDING_IMPLEMENTED === true,
+      },
+      stores: { ...book.stores },
+      lastFailure: book.lastFailure,
+      occupationHoldingId: book.occupationHoldingId,
+      profile: book.profile,
+      objectives: book.objectives,
+      clocks: { ...book.clocks },
+      leakedChrome: collectLeakedNames(
+        [...chrome.labels, ...chrome.descriptions, ...chrome.wormhole, ...chrome.routes, state.log || ''],
+        book.discovery,
+        observerKey,
+      ),
+      standing: { ...(state.factionStanding || {}) },
+      flash: book.lastFlash === true,
+    };
+  };
+  return {
+    snapshot,
+    failIfMissing: true,
+    injectKnowledge: (opts = {}) => {
+      const missing = failIfMissing(injectKnowledge, 'injectKnowledge');
+      if (missing) return missing;
+      const standingBefore = JSON.stringify(state.factionStanding || {});
+      const factionBefore = state.playerFaction;
+      const sideBefore = getPlayerSide();
+      const result = injectKnowledge(ensureDominionBook(), {
+        observerKey: opts.observerKey || playerObserverKey(),
+        layer: opts.layer || 'rumor',
+        provenance: opts.provenance || 'report',
+        lastKnown: opts.lastKnown || null,
+        localElapsedMs: currentLocalMs(),
+        firingSolution: opts.firingSolution,
+        engagement_authorized: opts.engagement_authorized,
+        playerFaction: opts.playerFaction,
+        playerSide: opts.playerSide,
+      });
+      if (opts.lastKnown && result.ok && result.knowledge?.lastKnown) {
+        seedFromReport(
+          ensureContactBook(),
+          opts.observerKey || playerObserverKey(),
+          opts.subjectKey || 'wider-dominion',
+          opts.lastKnown,
+          currentLocalMs(),
+        );
+      }
+      renderPhase10Readout();
+      return {
+        ...result,
+        standingUnchanged: JSON.stringify(state.factionStanding || {}) === standingBefore,
+        playerFactionUnchanged: state.playerFaction === factionBefore,
+        playerSideUnchanged: getPlayerSide() === sideBefore,
+        snapshot: snapshot(),
+      };
+    },
+    selectNamedSystem: (name) => {
+      const index = getSystemIndexByName(name);
+      if (!Number.isInteger(index) || index < 0) return { ok: false, reason: 'missing-system' };
+      state.selectedPlanet = index;
+      focusStarChartOnSystem(index);
+      renderPhase10Readout();
+      return { ok: true, index, name: state.planets[index]?.name || name };
+    },
+    injectDiscovery: (opts = {}) => {
+      const missing = failIfMissing(injectDiscoveryWrite, 'injectDiscovery');
+      if (missing) return missing;
+      const result = injectDiscoveryWrite(ensureDominionBook(), {
+        observerKey: opts.observerKey || playerObserverKey(),
+        systemNames: opts.systemNames || [],
+      });
+      updateStats();
+      renderPhase10Readout();
+      return { ...result, snapshot: snapshot() };
+    },
+    injectStage: (opts = {}) => {
+      const missing = failIfMissing(injectDominionStage, 'injectDominionStage');
+      if (missing) return missing;
+      const result = injectDominionStage(ensureDominionBook(), {
+        stage: opts.stage,
+        weaknessOpportunity: opts.weaknessOpportunity === true,
+        authorizedDeployment: opts.authorizedDeployment === true,
+        operationId: opts.operationId || null,
+      });
+      renderPhase10Readout();
+      return { ...result, snapshot: snapshot() };
+    },
+    injectOperation: (opts = {}) => {
+      const missing = failIfMissing(injectOperation, 'injectOperation');
+      if (missing) return missing;
+      const result = injectOperation(ensureDominionBook(), {
+        operationId: opts.operationId || 'op-s18',
+        authorizedDeployment: opts.authorizedDeployment !== false,
+        kind: opts.kind || 'mission',
+      });
+      return { ...result, snapshot: snapshot() };
+    },
+    injectFailure: (kind = 'sabotaged') => {
+      const result = injectFailure(ensureDominionBook(), kind);
+      return { ...result, snapshot: snapshot() };
+    },
+    injectProcurement: (opts = {}) => {
+      seedProcurementStores(ensureDominionBook(), { good: opts.good || 'munitions', amount: opts.amount ?? 4 });
+      if (opts.spend) {
+        return { ...spendProcurementStores(ensureDominionBook(), { good: opts.good || 'munitions', amount: opts.spend }, ensureMarketBook()), snapshot: snapshot() };
+      }
+      return { ok: true, snapshot: snapshot() };
+    },
+    injectOccupation: (opts = {}) => {
+      const minted = mintHoldingOnClaim(ensureMarketBook(), {
+        systemIndex: opts.systemIndex != null ? opts.systemIndex : state.currentPlanet,
+        locationId: locationIdForSystem(state.currentPlanet, state.planets[state.currentPlanet]?.name),
+        locationName: state.planets[state.currentPlanet]?.name,
+      });
+      attachOccupationHolding(ensureDominionBook(), minted.holding?.holdingId);
+      return { ok: true, holding: minted.holding, freeIncome: false, snapshot: snapshot() };
+    },
+    injectAgreement: (opts = {}) => {
+      const result = injectAgreement(ensureDominionBook().agreements, opts);
+      return { ...result, snapshot: snapshot() };
+    },
+    catalogSpawnContext: (opts = {}) => liveCatalogSpawnContext(ensureDominionBook(), opts),
+    spawnIds: (opts = {}) => spawnIdsLive(state.shipCatalog, ensureDominionBook(), opts),
+    startFaction: (key = 'dominion') => {
+      skipIntroStory();
+      freezeLoop();
+      startWithFaction(key, { captainName: 'Probe', shipName: 'Probe Ship' });
+      freezeLoop();
+      return snapshot();
+    },
+    serialize: () => serializeDominionBook(ensureDominionBook()),
+    restore: (saved) => {
+      state.dominionBook = restoreDominionBook(saved);
+      return snapshot();
+    },
+    wipeSystemStates: () => {
+      state.systemStates = {};
+      return { ok: true, snapshot: snapshot() };
+    },
   };
 }
 
@@ -26072,6 +26521,7 @@ function installPlayerSecurityProbe() {
     phase91: createPhase91ProbeApi(),
     phase92: createPhase92ProbeApi(),
     boarding: createBoardingProbeApi(),
+    phase10: createPhase10ProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
