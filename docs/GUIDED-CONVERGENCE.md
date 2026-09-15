@@ -127,11 +127,11 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 2. That NPC never emits a projectile.
 3. After the player (or a legal yard) installs a weapon, fire uses that installed def only.
 
-## 4. Boarding / capture / command transfer — Agreed next
+## 4. Boarding / capture / command transfer — Locked (engine landed)
 
-**Engine not yet implemented on bake-off.** Phase 4 / 5 / 6 / 9–9.2 briefs explicitly deferred boarding. `bm-ships/integration-rules.json` lists `boarding/capture`, `fleet transfer`, and `away-team XP` as missing engine features.
+**Engine landed** on bake-off (`docs/boarding/`; brief PR #38, engine PR #39 @ `de1f857`). **Stay locked** — do not reopen in Phase 10. Phase 4 / 5 / 6 / 9–9.2 briefs had deferred boarding; that gap is closed. `bm-ships/integration-rules.json` `missingFeatures` text may still list the names; runtime `BOARDING_IMPLEMENTED === true` with `tractorIsBoarding() === false`.
 
-**Scoreable brief now open (docs-only, 15 September 2026):** [`docs/boarding/BM1-BOARDING-CAPTURE-PROPOSAL.md`](boarding/BM1-BOARDING-CAPTURE-PROPOSAL.md) + [`docs/boarding/BM1-BOARDING-ENGINE-DEPENDENCIES.md`](boarding/BM1-BOARDING-ENGINE-DEPENDENCIES.md), from `main` @ `f9f077f` after Phase 9.2 engine PR #37. That brief is **boarding**, not Phase 10 Dominion. It reconciles the locks below. Success odds and XP magnitudes stay **TBD / injectable** — do not invent percentages or an XP table. **No Referee Pass claimed.**
+**Do not reopen** from the Phase 10 Dominion-first brief. Success odds and XP magnitudes stay **TBD / injectable** — do not invent percentages or an XP table. **No Referee Pass claimed.** **Keep #38 / #39 locked.**
 
 ### Locked enough to write a later brief
 
@@ -263,7 +263,9 @@ Review catalogs for weapons and stations are **HTML**, without requiring the ori
 
 ## 10. Dominion distribution / Gorn reserved / major-threat mission-only — Cross-link
 
-Doctrine already states this. The pack already encodes it. What is missing on bake-off is **wiring** those pack rules into live spawn/purchase (package 7).
+Doctrine already states this. The pack already encodes it. Catalog wire (PR #28) calls pack helpers; **live** spawn/purchase still needs the Phase 10 gates (debug `authorizedDeployment` from role, map/tooltip leaks, hidden campaign).
+
+**Scoreable brief now open (docs-only, 15 September 2026):** [`docs/phase10/BM1-PHASE10-DOMINION-FIRST-PROPOSAL.md`](phase10/BM1-PHASE10-DOMINION-FIRST-PROPOSAL.md) + [`docs/phase10/BM1-PHASE10-ENGINE-DEPENDENCIES.md`](phase10/BM1-PHASE10-ENGINE-DEPENDENCIES.md), from `main` @ `de1f857` after boarding engine PR #39. That brief is **Dominion-first Phase 10**, not a full faction roster and not a reopen of EW (#33/#35/#37) or boarding (#38/#39). Discovery timing, invasion odds, and map-revelation UX stay **TBD / injectable** — do not invent percentages. **No Referee Pass claimed.**
 
 | Rule | Doctrine | Pack |
 | --- | --- | --- |
@@ -274,7 +276,7 @@ Doctrine already states this. The pack already encodes it. What is missing on ba
 
 Do not recreate a Gorn state from a leftover name pool. Do not let ordinary Earth traffic spawn Dominion core hulls. Authorized invasion/mission flags must be real operations, not a debug default.
 
-Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Dominion campaign; `bm-ships/README.md` “Using it in a browser game”; `bm-ships/integration-rules.json` `dominion` / reserved Gorn.
+Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Dominion campaign; `bm-ships/README.md` “Using it in a browser game”; `bm-ships/integration-rules.json` `dominion` / reserved Gorn; Phase 10 brief `docs/phase10/`.
 
 ## Suggested remaining build order (bake-off)
 
@@ -285,7 +287,7 @@ Adapt the guided order to **what bake-off has not done**. Do not restart Phases 
 3. **Flags / passes / utility inventory** (verify Thaleron Test Facility pass).
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
-6. **Boarding / capture / command transfer** (≤10% hull) — scoreable brief in `docs/boarding/`; engine still later.
+6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
 7. **Station construction visuals** (scaffolds / workbees / blue beams). Repair arms stay the side-lane overlay.
 8. **HTML weapon / station catalogs** for review (working agreement).
 9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity.
@@ -308,4 +310,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons, boarding engine, catalog wire, or standing tiers. Boarding **docs** now live under `docs/boarding/`.
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **docs** now live under `docs/phase10/`.
