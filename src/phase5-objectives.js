@@ -726,6 +726,26 @@ export function applyPlayerChoice(board, objectiveId, choice, extras = {}) {
   };
 }
 
+export function markAssignmentCaptured(board, assignmentId, extras = {}) {
+  const store = board || createObjectiveBoard();
+  const rows = listObjectives(store).filter((row) => row.assignmentId === assignmentId);
+  if (!rows.length) return { ok: false, reason: 'missing', captured: false, destroyed: false };
+  for (const objective of rows) {
+    objective.truth.destroyed = false;
+    objective.truth.captured = true;
+    objective.truth.attackerId = extras.attackerId != null ? extras.attackerId : null;
+    if (extras.punishmentToken) objective.links.punishmentToken = extras.punishmentToken;
+    appendHistory(objective, 'captured', extras.sayable || 'assignment captured — not destroyed', extras.atStrategicJumps || 0);
+    if (objective.status === 'open') {
+      closeObjective(store, objective.objectiveId, 'captured', {
+        atStrategicJumps: extras.atStrategicJumps || 0,
+        tokenKind: objective.kind,
+      });
+    }
+  }
+  return { ok: true, captured: true, destroyed: false, attackerId: null };
+}
+
 export function markAssignmentDestroyed(board, assignmentId, extras = {}) {
   const store = board || createObjectiveBoard();
   const rows = listObjectives(store).filter((row) => row.assignmentId === assignmentId);
@@ -733,6 +753,10 @@ export function markAssignmentDestroyed(board, assignmentId, extras = {}) {
   const credit = extras.credit || null;
   const attackerId = extras.attackerId || (credit === 'player' || credit === 'playerEscort' ? credit : null);
   for (const objective of rows) {
+    if (objective.truth?.captured === true) {
+      appendHistory(objective, 'prize-loss', extras.sayable || 'prize lost — not a second original kill', extras.atStrategicJumps || 0);
+      continue;
+    }
     objective.truth.destroyed = true;
     objective.truth.attackerId = attackerId;
     if (extras.punishmentToken) objective.links.punishmentToken = extras.punishmentToken;

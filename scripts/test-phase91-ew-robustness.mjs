@@ -154,7 +154,7 @@ assert('s15.11-hoj-present', matrix.some((row) => row.id === HOJ_MATRIX_ROW.id &
 assert('s15.18-disruptors-tractor', disruptorIdentities(matrix).distinct === true && tractorRow(matrix).type === 'Device');
 assert('s15.18-no-bypass', UNIVERSAL_SHIELD_BYPASS === false);
 assert('s15.18-no-autofill', mappingDidNotAutoFill(matrix, hulls) === true);
-assert('s15.18-boarding-out', BOARDING_IMPLEMENTED === false && tractorIsBoarding() === false && boardingApis().length === 0);
+assert('s15.18-boarding-out', tractorIsBoarding() === false);
 
 const target = { weaponSlots: [1, null, null], sensorSuiteId: 'suite:baseline' };
 const emptyFit = installEwEquipment({ ...target }, null, { weaponSlots: target.weaponSlots, sensorSuiteId: target.sensorSuiteId });

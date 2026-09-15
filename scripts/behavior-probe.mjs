@@ -3821,7 +3821,7 @@ async function runPhase9EwWeapons(page, results) {
       shot: shot.fired === false && shot.reason === 'ghost-not-hull',
       kill: kill.destroyed === false && kill.standingUnchanged === true && kill.latinumUnchanged === true,
       revealedFs: revealed.firingSolution === false,
-      boarding: after.boarding?.implemented === false && after.boarding?.ghostIsPrize === false,
+      boarding: after.boarding?.ghostIsPrize === false && after.boarding?.tractorIsBoard === false,
     };
   });
   check(results, 'S14.3 ghost-is-book-row', s1435.npcUnchanged && s1435.ghost && s1435.hail, JSON.stringify(s1435));
@@ -3894,7 +3894,7 @@ async function runPhase9EwWeapons(page, results) {
       engage: snap.mayAutoEngage === roe.mayAutoEngage,
       noAuth: snap.engagementAuthorizedPresent === false && roe.engagement_authorized == null,
       shotClosed: shot.fired === false,
-      boarding: snap.boarding.implemented === false && snap.boarding.apis.length === 0 && snap.boarding.tractorIsBoard === false,
+      boarding: snap.boarding.tractorIsBoard === false && snap.boarding.ghostIsPrize === false,
       both,
     };
   });
@@ -4202,6 +4202,165 @@ async function runPhase92EwDepth(page, results) {
   check(results, 'S16.15 dock-clear', s1615.dockClear === true, JSON.stringify(s1615));
 }
 
+async function runBoardingCapture(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.boarding));
+  if (!present) {
+    check(results, 'S17.setup boarding-api', false, 'boarding probe API missing');
+    return;
+  }
+
+  const s17125 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.boarding;
+    if (typeof p.injectHullRatio !== 'function' || typeof p.injectBoardingAttempt !== 'function') {
+      return { missing: true };
+    }
+    const probe = globalThis.BM1Probe;
+    const ship = probe.spawnShip({
+      id: 's17-hull',
+      faction: 'klingon',
+      role: 'patrol',
+      x: probe.snapshot?.()?.player?.x || 1200,
+      y: probe.snapshot?.()?.player?.y || 900,
+      hostile: false,
+      weaponSlots: [null, null, null],
+    });
+    const id = ship.securityInstanceId || ship.id;
+    const above = p.injectHullRatio(id, 0.11);
+    const aboveOrder = p.injectBoardingOrder({ id });
+    const atTen = p.injectHullRatio(id, 0.10);
+    p.injectDetection({ id, detected: true, firingSolution: false });
+    const tenSnap = p.snapshot();
+    const hold = p.injectTractorHoldOnly(id);
+    const snap = p.snapshot();
+    return {
+      missing: false,
+      implemented: snap.implemented === true,
+      tractorIsBoard: snap.tractorIsBoard === true,
+      ghostIsPrize: snap.ghostIsPrize === true,
+      cuttingIsCapture: snap.cuttingIsCapture === true,
+      aboveOrderOk: aboveOrder.ok === true,
+      aboveEligible: above.snapshot?.hull?.eligible === true,
+      aboveRatio: above.ratio,
+      aboveReason: aboveOrder.reason || above.snapshot?.hull?.reason,
+      eligibleOk: tenSnap.hull?.eligible === true && tenSnap.hull?.ratio <= 0.10,
+      holdCaptured: hold.captured === true,
+      holdScuttled: hold.scuttled === true,
+      holdBoard: hold.tractorIsBoard === true,
+      xp: snap.awayTeamXp,
+    };
+  });
+  check(results, 'S17.setup boarding-api', s17125.missing !== true, JSON.stringify(s17125));
+  check(results, 'S17.1 hull-above-refuses', s17125.aboveOrderOk !== true && s17125.aboveEligible !== true && s17125.aboveRatio > 0.10, JSON.stringify(s17125));
+  check(results, 'S17.2 ten-percent-eligible', s17125.eligibleOk === true, JSON.stringify(s17125));
+  check(results, 'S17.5 tractor-hold-not-capture', s17125.holdCaptured !== true && s17125.holdScuttled !== true && s17125.holdBoard !== true, JSON.stringify(s17125));
+  check(results, 'S17.5 tractor-is-board-false', s17125.tractorIsBoard !== true && s17125.ghostIsPrize !== true && s17125.cuttingIsCapture !== true, JSON.stringify(s17125));
+  check(results, 'S17.4 xp-not-tracked', s17125.xp?.tracked === false && s17125.xp?.rule === 'not_tracked_yet' && s17125.xp?.tablePresent === false, JSON.stringify(s17125.xp));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const s1737 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.boarding;
+    const probe = globalThis.BM1Probe;
+    const ship = probe.spawnShip({
+      id: 's17-capture',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+      weaponSlots: [null, null, null],
+    });
+    const id = ship.securityInstanceId || ship.id;
+    const standingBefore = JSON.stringify(p.snapshot().credit.standing || {});
+    p.injectHullRatio(id, 0.08);
+    p.injectDetection({ id, detected: true, firingSolution: false });
+    const asg = p.injectPhase5Assignment({ id });
+    const capture = p.injectBoardingAttempt({ id, victimInstanceId: id, outcome: 'capture' });
+    const snap = capture.snapshot || p.snapshot();
+    const later = p.injectPrizeDestroy(snap.playerFleet?.[0]?.id || id);
+    const foreign = p.injectCommandTransfer('npc-foreign-not-yours');
+    return {
+      xor: snap.attempt?.captured === true && snap.attempt?.scuttled !== true && snap.attempt?.xorOk === true,
+      token: String(snap.credit?.captureToken || '').startsWith('capture:'),
+      killAbsent: snap.credit?.killTokenForOriginal == null,
+      standingSame: JSON.stringify(snap.credit?.standing || {}) === standingBefore,
+      salvage: (Number(capture.salvageLatinumDelta) || 0) === 0,
+      shipId: snap.identity?.shipId === ship.shipId || snap.identity?.shipId != null,
+      empty: snap.identity?.emptySlotsStayEmpty === true,
+      faction: snap.identity?.playerFaction === 'ferengi',
+      reman: snap.identity?.reman53?.id === 53 || snap.identity?.reman53?.key === 'bm-ship:53' || snap.identity?.reman53 != null,
+      fs: snap.reach?.firingSolution === true,
+      giftedAuth: snap.engagementAuthorizedPresent === true,
+      phase5cap: snap.phase5?.captured === true,
+      phase5des: snap.phase5?.destroyed === true,
+      attacker: snap.phase5?.attackerId,
+      laterStanding: later.standingUnchanged === true,
+      foreignRefuse: foreign.ok === false && (foreign.foreignRefuse === true || foreign.reason === 'foreign-not-captured' || foreign.reason === 'missing-target'),
+      npcPath: snap.npcBoardingImplemented === true,
+      lockedOdds: snap.magnitudesLockedFromRemastered === true,
+      assignment: asg.ok === true,
+    };
+  });
+  check(results, 'S17.3 xor-capture', s1737.xor === true, JSON.stringify(s1737));
+  check(results, 'S17.7 capture-not-kill', s1737.token && s1737.killAbsent && s1737.standingSame, JSON.stringify(s1737));
+  check(results, 'S17.7 no-salvage', s1737.salvage === true, JSON.stringify(s1737));
+  check(results, 'S17.9 prize-destroy-no-double-charge', s1737.laterStanding === true, JSON.stringify(s1737));
+  check(results, 'S17.10 identity-preserved', s1737.shipId && s1737.empty && s1737.faction, JSON.stringify(s1737));
+  check(results, 'S17.6 no-gifted-fs-auth', s1737.fs !== true && s1737.giftedAuth !== true, JSON.stringify(s1737));
+  check(results, 'S17.11 foreign-transfer-refuse', s1737.foreignRefuse === true, JSON.stringify(s1737));
+  check(results, 'S17.14 captured-not-destroyed', s1737.phase5cap === true && s1737.phase5des !== true && s1737.attacker == null, JSON.stringify(s1737));
+  check(results, 'S17.16 npc-path-explicit', s1737.npcPath !== true, JSON.stringify(s1737));
+  check(results, 'S17.4 odds-not-locked', s1737.lockedOdds !== true, JSON.stringify(s1737));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const s171213 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.boarding;
+    const probe = globalThis.BM1Probe;
+    const ship = probe.spawnShip({
+      id: 's17-cloak',
+      faction: 'romulan',
+      role: 'patrol',
+      hostile: false,
+    });
+    const id = ship.securityInstanceId || ship.id;
+    p.injectHullRatio(id, 0.08);
+    const noDetect = p.injectBoardingOrder({ id, detected: false });
+    const cloaked = p.injectCloakHidden({ id });
+    const cloakOrder = p.injectBoardingOrder({ id });
+    return {
+      noDetect: noDetect.ok === false && (noDetect.reason === 'not-detected' || String(noDetect.reason || '').includes('detect')),
+      cloakHidden: cloaked.cloakedHidden === true,
+      cloakRefuse: cloakOrder.ok === false,
+    };
+  });
+  check(results, 'S17.12 detection-required', s171213.noDetect === true, JSON.stringify(s171213));
+  check(results, 'S17.12 cloak-hidden-refuse', s171213.cloakHidden && s171213.cloakRefuse, JSON.stringify(s171213));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const s178 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.boarding;
+    const probe = globalThis.BM1Probe;
+    const ship = probe.spawnShip({
+      id: 's17-scuttle',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+    });
+    const id = ship.securityInstanceId || ship.id;
+    p.injectHullRatio(id, 0.07);
+    p.injectDetection({ id, detected: true, firingSolution: false });
+    const scuttle = p.injectBoardingAttempt({ id, victimInstanceId: id, outcome: 'scuttle' });
+    const snap = scuttle.snapshot || p.snapshot();
+    return {
+      scuttled: snap.attempt?.scuttled === true && snap.attempt?.captured !== true,
+      xorOk: snap.attempt?.xorOk === true,
+    };
+  });
+  check(results, 'S17.8 scuttle-of-original', s178.scuttled && s178.xorOk, JSON.stringify(s178));
+  check(results, 'S17.17 tractor-still-false', s17125.tractorIsBoard !== true && s17125.implemented === true, JSON.stringify({
+    tractorIsBoard: s17125.tractorIsBoard,
+    implemented: s17125.implemented,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -4228,13 +4387,14 @@ async function main() {
     await runPhase9EwWeapons(page, results);
     await runPhase91EwRobustness(page, results);
     await runPhase92EwDepth(page, results);
+    await runBoardingCapture(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

@@ -821,9 +821,10 @@ body.ui-theme-cardassian .planet-menu::before {
 .target-window {
   position: fixed;
   left: 18px;
-  bottom: 18px;
+  bottom: calc(var(--bm1-dock-clear) + 8px);
   z-index: 28;
   width: min(330px, calc(100vw - 36px));
+  max-height: min(420px, calc(100vh - 70px - var(--bm1-dock-clear)));
   color: var(--lcars-text);
   background: rgba(5, 7, 14, 0.9);
   border: 7px solid var(--lcars-orange);
@@ -831,7 +832,8 @@ body.ui-theme-cardassian .planet-menu::before {
   border-bottom-color: var(--lcars-amber);
   border-radius: 26px 6px 26px 6px;
   box-shadow: inset 0 0 0 2px #000, 0 0 18px rgba(0, 0, 0, 0.72);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   pointer-events: auto;
 }
 .target-window.hidden {
@@ -916,6 +918,34 @@ body.ui-theme-cardassian .target-meter-track {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+}
+.target-boarding {
+  display: grid;
+  gap: 4px;
+  padding: 0 10px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--lcars-muted);
+}
+.target-boarding-row,
+.target-boarding-transfer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.target-boarding button,
+.fleet-order-transfer button {
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 4px 7px;
+}
+.target-boarding-note {
+  color: var(--lcars-cream);
+}
+.fleet-order-transfer {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
 }
 .target-meter {
   display: grid;
@@ -3806,7 +3836,7 @@ button:disabled {
     bottom: auto;
   }
   .target-window {
-    bottom: 18px;
+    bottom: calc(var(--bm1-dock-clear) + 8px);
     left: 18px;
     width: min(300px, calc(100vw - 36px));
   }
@@ -3974,7 +4004,7 @@ button:disabled {
   }
   .target-window {
     left: 12px;
-    bottom: 12px;
+    bottom: calc(var(--bm1-dock-clear) + 8px);
     width: calc(100vw - 24px);
   }
   .target-window-body {

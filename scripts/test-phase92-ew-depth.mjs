@@ -45,6 +45,7 @@ import {
   upsertGhostContact,
   listGhostContacts,
   liveFireFactsFromEw,
+  tractorIsBoarding,
 } from '../src/phase9-ew.js';
 import {
   MAGNITUDES_LOCKED_FROM_REMASTERED as SLOT_LOCK,
@@ -361,7 +362,7 @@ assert('s16.18-ew-still-reserved', extraOnIdle === combined.draw);
 
 assert('s16.17-no-auth-decoy', liveFireFactsFromContact(decoy.contact).engagement_authorized == null);
 assert('s16.17-ew-facts', liveFireFactsFromEw(decoy.contact).engagement_authorized == null);
-assert('s16.17-boarding-out', BOARDING_IMPLEMENTED === false);
+assert('s16.17-boarding-out', tractorIsBoarding() === false);
 assert('s16.20-hoj-ready', hojMatrixReady() === true);
 const hoj = launchHoj(emptyEw91Book(), {
   actorKey: player,
