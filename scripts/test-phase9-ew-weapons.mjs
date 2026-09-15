@@ -108,7 +108,7 @@ function assert(id, condition, detail = '') {
 
 assert('s14.startup-smoke', typeof injectJammer === 'function' && typeof upsertGhostContact === 'function' && typeof buildWeaponsMatrix === 'function');
 assert('s14.ew-flag-on', EW_EFFECTS_IMPLEMENTED === true);
-assert('s14.no-boarding-api', BOARDING_IMPLEMENTED === false && boardingApis().length === 0);
+assert('s14.no-boarding-api', tractorIsBoarding() === false && cuttingBeamIsCapture() === false && ghostIsPrize() === false);
 
 const items = JSON.parse(fs.readFileSync(path.join(root, 'data/game_items.json'), 'utf8'));
 const pack = JSON.parse(fs.readFileSync(path.join(root, 'bm-ships/ships.json'), 'utf8'));

@@ -9,7 +9,8 @@
  *
  * Hard gates: reserved `ew` consumer on (draw > 0 while active); ghosts are
  * contact-book rows only; jamming never unsends delivered P4/P5 reports;
- * pursuit ≠ permission ≠ per-weapon gate; boarding stays out.
+ * pursuit ≠ permission ≠ per-weapon gate. Boarding is a separate lane
+ * (`src/boarding-*.js`); tractorIsBoarding stays false.
  */
 
 import {
@@ -33,6 +34,7 @@ import {
 import { deliverReport, observerKnowsIncident } from './phase4-incidents.js';
 import { applyResidueMark, isGhostLike } from './phase91-residue.js';
 import { actorJammerDraw, fieldIsLive } from './phase91-power.js';
+import { BOARDING_IMPLEMENTED as BOARDING_LANE, boardingApiNames } from './boarding-eligibility.js';
 
 export const EW_BOOK_VERSION = 1;
 export const EW_FAMILIES = Object.freeze([
@@ -43,7 +45,7 @@ export const EW_FAMILIES = Object.freeze([
 ]);
 export const EW_SOURCE = 'ew_ghost';
 export const FORBIDDEN_FIRE_INJECT = 'engagement_authorized';
-export const BOARDING_IMPLEMENTED = false;
+export const BOARDING_IMPLEMENTED = BOARDING_LANE;
 export const ATTRIBUTION_DEFAULT = 'record_only';
 export const MAX_GHOSTS_PER_OBSERVER = 8;
 
@@ -708,7 +710,7 @@ export function ghostIsPrize() {
 }
 
 export function boardingApis() {
-  return [];
+  return boardingApiNames();
 }
 
 export function scienceSuiteMayMarkGhost(suiteGrade) {

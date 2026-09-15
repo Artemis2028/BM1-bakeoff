@@ -147,6 +147,7 @@ import {
   grantAssignmentKnowledge,
   injectShortageAndConvoy,
   listOpenObjectives,
+  markAssignmentCaptured,
   markAssignmentDestroyed,
   noteUnloadIsNotDisappearance,
   observerKnowsAssignment,
@@ -457,6 +458,43 @@ import {
   proposedHojRow,
   tractorRow,
 } from './phase9-weapons-matrix.js';
+import {
+  AWAY_TEAM_XP,
+  BOARDING_IMPLEMENTED,
+  NPC_BOARDING_IMPLEMENTED,
+  REFUSE_REASONS,
+  boardingApiNames,
+  evaluateBoardingEligibility,
+  hullRatio,
+} from './boarding-eligibility.js';
+import { evaluateBoardingReach, boardingRangeEnvelope } from './boarding-reach.js';
+import {
+  awayTeamXpSnapshot,
+  cancelInFlight,
+  emptyBoardingBook,
+  injectBoardingAttempt,
+  issueBoardingAttempt,
+  resolveBoardingAttempt,
+  restoreBoardingBook,
+  serializeBoardingBook,
+  snapshotAttempt,
+  tickBoarding,
+} from './boarding-attempt.js';
+import {
+  applyCaptureCredit,
+  hasCaptureForVictim,
+  killTokenForOriginal,
+  shouldSkipOriginalKillStanding,
+} from './boarding-credit.js';
+import {
+  capturePrizeHull,
+  cloneSlots,
+} from './boarding-identity.js';
+import {
+  evaluateCommandTransfer,
+  listTransferEligible,
+  transferCommand,
+} from './command-transfer.js';
 import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
@@ -1211,6 +1249,7 @@ const state = {
   },
   contactBook: emptyContactBook(),
   ewBook: emptyEwBook(),
+  boardingBook: emptyBoardingBook(),
   ew91: emptyEw91Book(),
   ew92: emptyEw92Book(),
   sensorSuiteId: null,
@@ -5378,7 +5417,13 @@ function refreshFleetOrderPanel(force = false) {
       <button type="button" data-fleet-order="regroup">Regroup</button>
       <button type="button" data-fleet-order="withdraw">Withdraw</button>
     </div>
-    <div class="meta">Hold-outside stays behind a jump. Follow / escort / regroup travel with the flagship. Defense interrupts resume the standing order.</div>`;
+    <div class="meta">Hold-outside stays behind a jump. Follow / escort / regroup travel with the flagship. Defense interrupts resume the standing order.</div>
+    <div class="fleet-order-transfer">
+      <small>COMMAND TRANSFER · Away-team XP: Not tracked yet</small>
+      ${(state.playerFleet || []).filter((row) => !row.destroyed).map((row) => (
+        `<button type="button" data-command-transfer="${escapeHtml(row.id)}">Command: ${escapeHtml(row.name || row.id)}</button>`
+      )).join('')}
+    </div>`;
 }
 
 function incrementPlayerStrategicJumps() {
@@ -5423,6 +5468,339 @@ function ensureEw92Book() {
   }
   return state.ew92;
 }
+
+function ensureBoardingBook() {
+  if (!state.boardingBook || state.boardingBook.version !== 1 || !state.boardingBook.attempts) {
+    state.boardingBook = restoreBoardingBook(state.boardingBook);
+  }
+  return state.boardingBook;
+}
+
+function findNpcByBoardingId(id) {
+  const key = String(id || '');
+  return (state.npcShips || []).find((npc) => (
+    npc.securityInstanceId === key
+    || npc.id === key
+    || subjectKeyOfNpc(npc) === key
+    || npc.sourceInstanceId === key
+    || npc.fleetId === key
+  )) || null;
+}
+
+function noteBoardingRefuse(reason, sayable, extra = {}) {
+  const book = ensureBoardingBook();
+  book.lastRefuse = { reason, sayable, ...extra, atLocalMs: currentLocalMs() };
+  return { ok: false, reason, sayable, ...extra };
+}
+
+function liveBoardingReach(npc, extras = {}) {
+  const contact = findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(npc));
+  const detected = extras.detected != null ? extras.detected === true : contact?.detected === true;
+  const distance = extras.distance != null ? extras.distance : distanceToPlayer(npc);
+  const envelope = Number.isFinite(Number(extras.boardingRange)) && Number(extras.boardingRange) > 0
+    ? Number(extras.boardingRange)
+    : boardingRangeEnvelope();
+  return evaluateBoardingReach({
+    detected,
+    firingSolution: extras.firingSolution != null ? extras.firingSolution === true : contact?.firingSolution === true,
+    cloakedHidden: extras.cloakedHidden === true || (isHullCloaked(npc, currentLocalMs()) && detected !== true),
+    residueOnly: extras.residueOnly === true || (contact?.residue === true && detected !== true),
+    reportOnly: extras.reportOnly === true || contact?.source === 'report',
+    inRange: extras.inRange,
+    distance,
+    boardingRange: envelope,
+    sameSystem: extras.sameSystem !== false,
+    otherSystem: extras.otherSystem === true,
+    checkpointEnforcement: extras.checkpointEnforcement === true,
+    ghost: extras.ghost === true || isGhostContact(contact) || npc.source === 'ew_ghost',
+    decoy: extras.decoy === true || npc.source === 'ew_decoy' || npc.decoy === true,
+  });
+}
+
+function evaluateLiveBoarding(npc, extras = {}) {
+  if (!npc) {
+    const miss = { ok: false, reason: REFUSE_REASONS.NOT_DETECTED, sayable: 'No detection. Cannot board a hull you have not found.' };
+    if (extras.recordRefuse !== false) noteBoardingRefuse(miss.reason, miss.sayable);
+    return miss;
+  }
+  const eligibility = evaluateBoardingEligibility(npc, extras);
+  if (!eligibility.ok) {
+    if (extras.recordRefuse !== false && extras.fromUi !== true) {
+      noteBoardingRefuse(eligibility.reason, eligibility.sayable, { ratio: eligibility.ratio });
+    }
+    return { ok: false, reason: eligibility.reason, sayable: eligibility.sayable, ratio: eligibility.ratio };
+  }
+  const reach = liveBoardingReach(npc, extras);
+  if (!reach.ok) {
+    if (extras.recordRefuse !== false && extras.fromUi !== true) {
+      noteBoardingRefuse(reach.reason, reach.sayable, { reach });
+    }
+    return { ok: false, reason: reach.reason, sayable: reach.sayable, reach };
+  }
+  return { ok: true, eligibility, reach, ratio: eligibility.ratio, sayable: eligibility.sayable };
+}
+
+function overlayPrizeOnNpc(npc, fleetShip) {
+  if (!npc || !fleetShip) return npc;
+  npc.fleetId = fleetShip.id;
+  npc.captured = fleetShip.captured === true;
+  npc.sourceInstanceId = fleetShip.sourceInstanceId || npc.securityInstanceId;
+  if (fleetShip.sourceInstanceId) npc.securityInstanceId = fleetShip.sourceInstanceId;
+  npc.formerFaction = fleetShip.formerFaction || npc.formerFaction || npc.faction;
+  npc.faction = state.playerFaction;
+  npc.attitude = 'friendly';
+  npc.hostile = false;
+  npc.name = fleetShip.name || npc.name;
+  npc.shipId = fleetShip.shipId;
+  if (Array.isArray(fleetShip.weaponSlots)) npc.weaponSlots = cloneSlots(fleetShip.weaponSlots);
+  if (Number.isFinite(Number(fleetShip.combatHull))) npc.combatHull = Number(fleetShip.combatHull);
+  if (Number.isFinite(Number(fleetShip.maxCombatHull))) npc.maxCombatHull = Number(fleetShip.maxCombatHull);
+  if (fleetShip.sensorSuiteId) npc.sensorSuiteId = fleetShip.sensorSuiteId;
+  if (fleetShip.ewEquipmentId) npc.ewEquipmentId = fleetShip.ewEquipmentId;
+  npc.role = fleetShip.assignment === 'escort' || fleetShip.assignment === 'prize' ? 'playerEscort' : 'playerFleet';
+  return npc;
+}
+
+function snapshotFlagshipAsFleetRow(id) {
+  const stats = getShipStats(state.playership);
+  const maxHull = Math.max(1, finiteNumber(stats.hull, 100));
+  return {
+    id,
+    systemIndex: state.currentPlanet,
+    shipId: Number(state.playership),
+    name: state.shipName,
+    faction: state.playerFaction,
+    assignment: 'escort',
+    captured: Boolean(ensureBoardingBook().prizes?.[id]?.captured),
+    sourceInstanceId: ensureBoardingBook().prizes?.[id]?.sourceInstanceId || null,
+    weaponSlots: cloneSlots(state.weaponSlots),
+    sensorSuiteId: state.sensorSuiteId || null,
+    ewEquipmentId: state.ewEquipmentId || null,
+    cargoArray: cloneJson(state.cargoArray),
+    hullPercent: Number(state.hull),
+    combatHull: maxHull * (Number(state.hull) / 100),
+    maxCombatHull: maxHull,
+    seed: hashString(`${id}-flagship`),
+    builtAt: Date.now(),
+  };
+}
+
+function applyFlagshipFromFleetRow(row) {
+  state.preserveFittedWeaponSlots = true;
+  state.playership = Number(row.shipId);
+  state.shipName = row.name || state.shipName;
+  state.weaponSlots = cloneSlots(row.weaponSlots);
+  if (Array.isArray(row.cargoArray)) {
+    state.cargoArray = cloneJson(row.cargoArray);
+    recalcCargoFromPods();
+  }
+  if (row.sensorSuiteId) state.sensorSuiteId = row.sensorSuiteId;
+  if (Object.prototype.hasOwnProperty.call(row, 'ewEquipmentId')) state.ewEquipmentId = row.ewEquipmentId;
+  applyCurrentShipStats(false);
+  if (Number.isFinite(Number(row.hullPercent))) state.hull = Number(row.hullPercent);
+  else if (Number(row.maxCombatHull) > 0 && Number.isFinite(Number(row.combatHull))) {
+    state.hull = (Number(row.combatHull) / Number(row.maxCombatHull)) * 100;
+  }
+  state.weaponSlots = cloneSlots(row.weaponSlots);
+  normalizeWeaponLoadout();
+  state.preserveFittedWeaponSlots = false;
+}
+
+function captureLivePrize(npc, extras = {}) {
+  const book = ensureBoardingBook();
+  const ledger = ensureIncidentLedger();
+  const latinumBefore = Number(state.latinum) || 0;
+  const standingBefore = JSON.stringify(state.factionStanding || {});
+  const victimInstance = npc.securityInstanceId || `slot:${npc.id}`;
+  const result = capturePrizeHull(book, npc, {
+    playerFaction: state.playerFaction,
+    playerSide: getPlayerSide(),
+    reman53: reman53Identity(),
+    stations: (state.stations || []).map((row) => ({ id: row.id, faction: row.faction })),
+    localElapsedMs: currentLocalMs(),
+    assignment: 'escort',
+    commandFaction: state.playerFaction,
+  });
+  if (!result.ok) return result;
+  const prize = result.prize;
+  prize.systemIndex = state.currentPlanet;
+  prize.seed = hashString(`${prize.id}-${prize.shipId}`);
+  state.playerFleet = Array.isArray(state.playerFleet) ? state.playerFleet : [];
+  state.playerFleet.push(prize);
+  issuePlayerFleetOrder('escort', { assignedShipIds: [prize.id], label: 'captured prize' });
+  applyCaptureCredit(book, ledger, {
+    victimInstanceId: victimInstance,
+    credit: extras.credit || 'player',
+    systemIndex: state.currentPlanet,
+    localElapsedMs: currentLocalMs(),
+  });
+  openIncident(ledger, {
+    kind: 'capture',
+    systemIndex: state.currentPlanet,
+    actor: { instanceId: 'player', kind: 'player', sideId: getPlayerSide() },
+    victim: { instanceId: victimInstance, kind: 'npc', sideId: getNpcSideId(npc) },
+    action: 'captured',
+    links: { punishmentToken: book.captures?.[victimInstance]?.token, assignmentId: npc.phase5AssignmentId || null },
+    sayable: 'Away team reports: prize taken. Hull captured — not destroyed.',
+    truth: { attributed: true, notes: 'Capture is not a kill.' },
+    idempotencyKey: `capture:${state.currentPlanet}:player:${victimInstance}`,
+  });
+  if (npc.phase5AssignmentId) {
+    markAssignmentCaptured(ensureObjectiveBoard(), npc.phase5AssignmentId, {
+      atStrategicJumps: ledger.strategicJumps,
+      punishmentToken: book.captures?.[victimInstance]?.token,
+    });
+  }
+  state.npcShips = (state.npcShips || []).filter((row) => row !== npc);
+  const systemState = state.systemStates[state.currentPlanet];
+  if (systemState?.npcShips) {
+    systemState.npcShips = systemState.npcShips.filter((row) => row.id !== npc.id);
+  }
+  const spawned = getPlayerEscortNpcShips().filter((row) => row.fleetId === prize.id);
+  state.npcShips.push(...spawned);
+  setLog('Away team reports: prize taken. Hull captured — not destroyed.');
+  updateStats();
+  refreshFleetOrderPanel(true);
+  return {
+    ...result,
+    salvageLatinumDelta: (Number(state.latinum) || 0) - latinumBefore,
+    standingUnchanged: JSON.stringify(state.factionStanding || {}) === standingBefore,
+    engagement_authorized: undefined,
+  };
+}
+
+function finishLiveBoarding(resolved, extras = {}) {
+  const npc = findNpcByBoardingId(extras.victimInstanceId || resolved.attempt?.victimInstanceId);
+  if (resolved.outcome === 'capture') {
+    if (!npc) return { ...resolved, ok: false, reason: 'missing-hull' };
+    const captured = captureLivePrize(npc, extras);
+    return { ...resolved, ...captured, captured: true, scuttled: false };
+  }
+  if (resolved.outcome === 'scuttle') {
+    if (npc) destroyNpcShip(npc, extras.credit || 'player');
+    setLog('Away team reports: scuttled. Hull destroyed by the attempt.');
+    return { ...resolved, captured: false, scuttled: true };
+  }
+  setLog('Away team failed. Hull remains theirs. Not a kill token.');
+  return resolved;
+}
+
+function applyBoardingOutcome(attemptId, outcome, extras = {}) {
+  const book = ensureBoardingBook();
+  const done = resolveBoardingAttempt(book, attemptId, outcome, {
+    localElapsedMs: currentLocalMs(),
+    captured: extras.captured,
+    scuttled: extras.scuttled,
+  });
+  if (!done.ok) return done;
+  return finishLiveBoarding(done, extras);
+}
+
+function issuePlayerBoardingOrder(npcOrId, extras = {}) {
+  const npc = typeof npcOrId === 'object' && npcOrId ? npcOrId : findNpcByBoardingId(npcOrId);
+  const verdict = evaluateLiveBoarding(npc, extras);
+  if (!verdict.ok) {
+    noteBoardingRefuse(verdict.reason, verdict.sayable, { ratio: verdict.ratio });
+    setLog(verdict.sayable || 'Boarding refused.');
+    return verdict;
+  }
+  const book = ensureBoardingBook();
+  const issued = issueBoardingAttempt(book, {
+    actorInstanceId: 'player',
+    victimInstanceId: npc.securityInstanceId || npc.id,
+    hullRatioAtStart: verdict.ratio,
+    travelMs: Number.isFinite(Number(extras.travelMs)) ? Number(extras.travelMs) : 0,
+  }, currentLocalMs());
+  if (extras.outcome) {
+    return applyBoardingOutcome(issued.attempt.attemptId, extras.outcome, {
+      victimInstanceId: npc.securityInstanceId || npc.id,
+      hullRatioAtStart: verdict.ratio,
+      captured: extras.captured,
+      scuttled: extras.scuttled,
+    });
+  }
+  setLog('Away team in transit. Outcome is injectable (odds TBD).');
+  return { ok: true, attempt: issued.attempt, inTransit: true };
+}
+
+function playerCommandTransfer(targetId) {
+  const owned = [
+    snapshotFlagshipAsFleetRow(ensureBoardingBook().flagshipCommandId || 'player'),
+    ...(state.playerFleet || []),
+  ];
+  const ownedIds = new Set(owned.map((row) => row.id));
+  const target = owned.find((row) => String(row.id) === String(targetId))
+    || findNpcByBoardingId(targetId)
+    || { id: targetId, captured: false, destroyed: false };
+  const flagship = owned.find((row) => row.id === (ensureBoardingBook().flagshipCommandId || 'player')) || owned[0];
+  const verdict = transferCommand(flagship, target, {
+    sameSystem: Number(target?.systemIndex ?? state.currentPlanet) === Number(state.currentPlanet),
+    ownedIds,
+    holdOutsidePreserved: true,
+  });
+  if (!verdict.ok) {
+    setLog(verdict.sayable);
+    return verdict;
+  }
+  if (verdict.noop) return verdict;
+  const previousId = `pe-${Date.now().toString(36)}-${Math.floor(Math.random() * 1000).toString(36)}`;
+  const previousRow = snapshotFlagshipAsFleetRow(previousId);
+  previousRow.assignment = 'escort';
+  state.playerFleet = (state.playerFleet || []).filter((row) => String(row.id) !== String(target.id));
+  state.playerFleet.push(previousRow);
+  applyFlagshipFromFleetRow(target);
+  ensureBoardingBook().flagshipCommandId = target.id;
+  state.npcShips = (state.npcShips || []).filter((npc) => npc.fleetId !== target.id);
+  const spawned = getPlayerEscortNpcShips().filter((npc) => npc.fleetId === previousId);
+  state.npcShips.push(...spawned);
+  issuePlayerFleetOrder('escort', { assignedShipIds: [previousId], label: 'former flagship' });
+  setLog(verdict.sayable);
+  refreshFleetOrderPanel(true);
+  updateStats();
+  return { ...verdict, previousStillOwned: true, flagshipInstanceId: target.id };
+}
+
+function tickLiveBoarding(localMs = currentLocalMs()) {
+  const book = ensureBoardingBook();
+  const ticked = tickBoarding(book, localMs);
+  for (const row of ticked.results || []) {
+    if (row.ok) finishLiveBoarding(row, { victimInstanceId: row.attempt?.victimInstanceId });
+  }
+  return ticked;
+}
+
+function renderBoardingChrome(target, isStation) {
+  const xp = awayTeamXpSnapshot();
+  const owned = (state.playerFleet || []).filter((row) => !row.destroyed);
+  const transferBtns = owned.map((row) => (
+    `<button type="button" data-command-transfer="${escapeHtml(row.id)}">Command: ${escapeHtml(row.name || row.id)}</button>`
+  )).join('');
+  if (isStation) {
+    return `<div class="target-boarding" data-boarding-chrome="1">
+      <small>Away-team XP: Not tracked yet</small>
+      ${transferBtns ? `<div class="target-boarding-transfer">${transferBtns}</div>` : ''}
+    </div>`;
+  }
+  const verdict = evaluateLiveBoarding(target, { fromUi: true, recordRefuse: false });
+  const reason = verdict.ok ? '' : (verdict.reason || '');
+  const disabled = verdict.ok ? '' : 'disabled';
+  const label = verdict.ok ? 'Board' : 'Board refused';
+  const attempt = snapshotAttempt(ensureBoardingBook());
+  const outcome = attempt.outcome ? `Outcome: ${attempt.outcome}` : 'Tractor hold is not a capture.';
+  return `<div class="target-boarding" data-boarding-chrome="1">
+    <div class="target-boarding-row">
+      <button type="button" data-board-action="board" ${disabled} title="${escapeHtml(verdict.sayable || '')}">${label}</button>
+      <button type="button" data-board-action="capture" ${disabled}>Capture</button>
+      <button type="button" data-board-action="scuttle" ${disabled}>Scuttle</button>
+      <button type="button" data-board-action="fail" ${disabled}>Fail</button>
+    </div>
+    <div class="target-boarding-note">${escapeHtml(verdict.sayable || '')}</div>
+    <div class="target-boarding-note">${escapeHtml(outcome)}${reason ? ` · ${escapeHtml(reason)}` : ''}</div>
+    <small>Away-team XP: ${xp.rule === 'not_tracked_yet' ? 'Not tracked yet' : escapeHtml(xp.rule)} · tracked: false</small>
+    ${transferBtns ? `<div class="target-boarding-transfer">${transferBtns}</div>` : ''}
+  </div>`;
+}
+
 
 function playerObserverKey() {
   return observerKeyForPlayer();
@@ -7580,6 +7958,7 @@ function tickSecurity(frameScale = 1) {
   const ledger = ensureSystemLedger(systemIndex);
   const dt = advanceLocalElapsed(0, frameScale);
   ledger.localElapsedMs = advanceLocalElapsed(ledger.localElapsedMs, frameScale);
+  tickLiveBoarding(ledger.localElapsedMs);
   const zone = syncCheckpointAuthority(systemIndex);
   if (zone) {
     updateSecurityIssuePhase(zone);
@@ -10375,6 +10754,22 @@ function applyShipDefaultWeapons(shipId = state.playership, preserveInventory = 
 }
 
 function normalizeWeaponLoadout() {
+  if (state.preserveFittedWeaponSlots === true) {
+    const slots = cloneSlots(state.weaponSlots);
+    while (slots.length < 3) slots.push(null);
+    state.weaponSlots = slots.slice(0, 3);
+    const fromSlots = state.weaponSlots.filter(Boolean);
+    if (fromSlots.length) {
+      const inventory = [...fromSlots, ...(Array.isArray(state.weaponInventory) ? state.weaponInventory : [])]
+        .filter((id, index, list) => hasWeaponDefinition(id) && list.indexOf(id) === index);
+      state.weaponInventory = inventory;
+      state.equippedWeaponId = state.weaponSlots[0] || fromSlots[0] || null;
+    } else {
+      state.weaponInventory = [];
+      state.equippedWeaponId = null;
+    }
+    return;
+  }
   const godMode = Boolean(state.godMode);
   const inventoryLimit = godMode ? WEAPON_CATALOG.length : getWeaponInventoryLimit();
   const mass = Math.max(1, finiteNumber(getShipStats().mass, 1));
@@ -11434,7 +11829,7 @@ function getPlayerFleetNpcShips(systemIndex = state.currentPlanet, now = perform
         : generateShipName({ shipId: fleetShip.shipId, faction: state.playerFaction, seed, role: 'playerFleet', id: fleetShip.id }),
     });
     ship.lastShotAt = now + 300 + seeded(seed + 13) * 900;
-    return ship;
+    return overlayPrizeOnNpc(ship, fleetShip);
   });
 }
 
@@ -11489,7 +11884,7 @@ function getPlayerEscortNpcShips(now = performance.now()) {
     ship.lastShotAt = now + 250 + seeded(seed + 13) * 700;
     ship.speed = Math.max(ship.speed, 1.25);
     ship.turnRate = Math.max(ship.turnRate, Math.min(1.2, getNpcFlightProfile(fleetShip.shipId, seed).turnRate));
-    return ship;
+    return overlayPrizeOnNpc(ship, fleetShip);
   });
 }
 
@@ -13366,6 +13761,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     marketBook: serializeMarketBook(ensureMarketBook()),
     contactBook: serializeContactBook(ensureContactBook()),
     ewBook: serializeEwBook(ensureEwBook()),
+    boardingBook: serializeBoardingBook(ensureBoardingBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ewEquipmentId: state.ewEquipmentId || null,
@@ -13452,6 +13848,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.marketBook = restoreMarketBook(s.marketBook);
   state.contactBook = restoreContactBook(s.contactBook);
   state.ewBook = restoreEwBook(s.ewBook);
+  state.boardingBook = restoreBoardingBook(s.boardingBook);
   state.ew91 = restoreEw91Book(s.ew91);
   state.ew92 = restoreEw92Book(s.ew92);
   state.ewEquipmentId = s.ewEquipmentId
@@ -14709,6 +15106,23 @@ fleetPurchaseModalEl?.addEventListener('click', (e) => {
 });
 
 function handleTargetWindowAction(e, fromPointer = false) {
+  const transfer = e.target.closest('[data-command-transfer]');
+  if (transfer) {
+    e.preventDefault();
+    e.stopPropagation();
+    playerCommandTransfer(transfer.dataset.commandTransfer);
+    return true;
+  }
+  const board = e.target.closest('[data-board-action]');
+  if (board) {
+    e.preventDefault();
+    e.stopPropagation();
+    const npc = getSelectedNpcTarget();
+    const action = board.dataset.boardAction;
+    if (action === 'board') issuePlayerBoardingOrder(npc);
+    else issuePlayerBoardingOrder(npc, { outcome: action });
+    return true;
+  }
   const action = e.target.closest('[data-hail-action]');
   if (!action) return false;
   e.preventDefault();
@@ -15241,6 +15655,11 @@ checkpointOrderPanelEl?.addEventListener('click', (e) => {
 });
 
 fleetOrderPanelEl?.addEventListener('click', (e) => {
+  const transfer = e.target.closest('[data-command-transfer]');
+  if (transfer) {
+    playerCommandTransfer(transfer.dataset.commandTransfer);
+    return;
+  }
   const action = e.target.closest('[data-fleet-order]');
   if (!action) return;
   const kind = action.dataset.fleetOrder;
@@ -16383,6 +16802,9 @@ function updateTargetWindow() {
     !isStation && target.hailSession?.buyOffer?.bought ? 'buy-done' : 'buy-open',
     state.cargo,
     state.latinum,
+    ensureBoardingBook().lastRefuse?.reason || '',
+    snapshotAttempt(ensureBoardingBook()).outcome || '',
+    (state.playerFleet || []).length,
   ].join(':');
   if (!targetWindowEl.classList.contains('hidden') && targetWindowEl.dataset.renderKey === renderKey && now - lastTargetWindowRenderAt < 120) {
     return;
@@ -16408,7 +16830,8 @@ function updateTargetWindow() {
         ${view.showName ? `${renderTargetMeter('Shield', target.combatShields, target.maxCombatShields, shieldColor)}${renderTargetMeter('Hull', target.combatHull, target.maxCombatHull, hullColor)}` : ''}
       </div>
     </div>
-    ${isStation || !view.showName ? '' : renderShipHailPanel(target, distance)}`;
+    ${isStation || !view.showName ? '' : renderShipHailPanel(target, distance)}
+    ${renderBoardingChrome(target, isStation)}`;
 }
 
 function damageCombatTarget(target, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
@@ -17112,6 +17535,13 @@ function updateStationDefenses() {
 }
 
 function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
+  const boarding = ensureBoardingBook();
+  const incidentLedgerEarly = ensureIncidentLedger();
+  const victimInstanceEarly = npc.securityInstanceId || npc.sourceInstanceId || `slot:${npc.id}`;
+  const skipOriginalKill = shouldSkipOriginalKillStanding(boarding, incidentLedgerEarly, {
+    ...npc,
+    securityInstanceId: victimInstanceEarly,
+  });
   npc.destroyed = true;
   npc.hostile = false;
   playGameSound('explosion', { cooldownKey: `destroy:ship:${npc.id}`, volume: 0.95, rateJitter: 0.12 });
@@ -17125,6 +17555,11 @@ function destroyNpcShip(npc, credit = npc.lastCombatCredit) {
     setLog(isEscort
       ? `${getShipDisplayName(npc)} lost from your travelling escort.`
       : `${getShipDisplayName(npc)} lost from the ${state.planets[state.currentPlanet]?.name || 'local'} defense fleet.`);
+    updateStats();
+    return;
+  }
+  if (skipOriginalKill) {
+    setLog(`${getShipDisplayName(npc)} lost. Not a second kill of the original holder.`);
     updateStats();
     return;
   }
@@ -21649,6 +22084,7 @@ function resetRunState() {
   };
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
+  state.boardingBook = emptyBoardingBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
@@ -21784,6 +22220,7 @@ function restartInEscapePod() {
   };
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
+  state.boardingBook = emptyBoardingBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
@@ -21857,6 +22294,7 @@ function startWithFaction(key, options = {}) {
   state.marketBook = emptyMarketBook();
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
+  state.boardingBook = emptyBoardingBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   resetPhase65Runtime();
@@ -25388,6 +25826,213 @@ function createIncidentProbeApi() {
   };
 }
 
+function createBoardingProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const snapshot = () => {
+    const book = ensureBoardingBook();
+    const ledger = ensureIncidentLedger();
+    const target = getSelectedNpcTarget() || (state.npcShips || []).find((row) => !row.destroyed) || null;
+    const ratio = target ? hullRatio(target) : null;
+    const eligibility = target ? evaluateBoardingEligibility(target) : { ok: false, reason: 'no-target', eligible: false };
+    const contact = target ? findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(target)) : null;
+    const attempt = snapshotAttempt(book);
+    const victim = attempt.attemptId ? book.attempts[attempt.attemptId]?.victimInstanceId : (target?.securityInstanceId || null);
+    const prize = Object.values(book.prizes || {})[0] || (state.playerFleet || []).find((row) => row.captured) || null;
+    const obj = Object.values(ensureObjectiveBoard().objectives || {})[0] || null;
+    const sampleEngage = playerForceMayAutoEngage(
+      { id: 's17-gate', faction: 'klingon', hostile: true, attitude: 'hostile' },
+      getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+    );
+    const reachLive = target ? liveBoardingReach(target) : { inRange: false };
+    return {
+      implemented: BOARDING_IMPLEMENTED === true,
+      tractorIsBoard: tractorIsBoarding() === true,
+      cuttingIsCapture: cuttingBeamIsCapture() === true,
+      ghostIsPrize: ghostIsPrize() === true,
+      apis: boardingApiNames(),
+      hull: {
+        ratio,
+        eligible: eligibility.ok === true,
+        reason: eligibility.reason || null,
+      },
+      attempt,
+      credit: {
+        captureToken: victim ? (book.captures?.[victim]?.token || null) : null,
+        killTokenForOriginal: victim ? killTokenForOriginal(ledger, victim) : null,
+        standing: { ...(state.factionStanding || {}) },
+        salvageLatinumDelta: 0,
+      },
+      identity: {
+        shipId: prize?.shipId ?? target?.shipId ?? null,
+        weaponSlots: cloneSlots(prize?.weaponSlots || target?.weaponSlots),
+        emptySlotsStayEmpty: true,
+        playerFaction: state.playerFaction,
+        playerSide: getPlayerSide(),
+        reman53: reman53Identity(),
+        concessionOwnerUnchanged: true,
+        foreignFleetNotConscripted: true,
+      },
+      reach: {
+        detected: contact?.detected === true || reachLive.detected === true,
+        firingSolution: contact?.firingSolution === true,
+        cloakedHidden: Boolean(target && isHullCloaked(target, currentLocalMs()) && contact?.detected !== true),
+        inRange: reachLive.inRange === true,
+        sameSystem: reachLive.sameSystem !== false,
+        distance: target ? distanceToPlayer(target) : null,
+      },
+      awayTeamXp: awayTeamXpSnapshot(),
+      transfer: {
+        flagshipInstanceId: book.flagshipCommandId || 'player',
+        previousStillOwned: true,
+        foreignRefuse: true,
+      },
+      phase5: {
+        captured: obj?.truth?.captured === true,
+        destroyed: obj?.truth?.destroyed === true,
+        attackerId: obj?.truth?.attackerId ?? null,
+      },
+      npcBoardingImplemented: NPC_BOARDING_IMPLEMENTED,
+      engagementAuthorizedPresent: false,
+      mayAutoEngage: sampleEngage,
+      magnitudesLockedFromRemastered: false,
+      lastRefuse: book.lastRefuse,
+      log: state.log,
+      latinum: state.latinum,
+      playerFleet: (state.playerFleet || []).map((row) => ({
+        id: row.id,
+        shipId: row.shipId,
+        captured: row.captured === true,
+        weaponSlots: cloneSlots(row.weaponSlots),
+      })),
+    };
+  };
+  return {
+    snapshot,
+    injectHullRatio: (id, ratio) => {
+      const missing = failIfMissing(evaluateBoardingEligibility, 'evaluateBoardingEligibility');
+      if (missing) return missing;
+      const npc = findNpcByBoardingId(id) || probeFindShip(id);
+      if (!npc) return { ok: false, reason: 'injectHullRatio-missing-ship' };
+      ensureNpcCombatStats(npc);
+      const max = Math.max(1, Number(npc.maxCombatHull) || 1);
+      npc.combatHull = max * Number(ratio);
+      npc.maxCombatHull = max;
+      return { ok: true, ratio: hullRatio(npc), snapshot: snapshot() };
+    },
+    injectDetection: (opts = {}) => {
+      const npc = findNpcByBoardingId(opts.id || opts.victimInstanceId) || probeFindShip(opts.id);
+      if (!npc) return { ok: false, reason: 'injectDetection-missing-ship' };
+      const record = upsertContact(ensureContactBook(), playerObserverKey(), {
+        subjectKey: subjectKeyOfNpc(npc),
+        detected: opts.detected !== false,
+        identification: opts.identification || 'partial',
+        trackQuality: opts.trackQuality || 'coarse',
+        firingSolution: opts.firingSolution === true,
+        lastKnown: { x: npc.x, y: npc.y, radius: 28, atLocalMs: currentLocalMs() },
+        freshnessLocalMs: currentLocalMs(),
+        source: opts.source || 'visual',
+      }, currentLocalMs());
+      return { ok: true, contact: record, firingSolution: record?.firingSolution === true, snapshot: snapshot() };
+    },
+    injectCloakHidden: (opts = {}) => {
+      const npc = findNpcByBoardingId(opts.id) || probeFindShip(opts.id);
+      if (!npc) return { ok: false, reason: 'injectCloakHidden-missing-ship' };
+      initHullCloak(npc, { active: true, durationLocalMs: 120000 }, currentLocalMs());
+      upsertContact(ensureContactBook(), playerObserverKey(), {
+        subjectKey: subjectKeyOfNpc(npc),
+        detected: false,
+        identification: 'none',
+        trackQuality: 'none',
+        firingSolution: false,
+        lastKnown: { x: npc.x, y: npc.y, radius: 80, atLocalMs: currentLocalMs() },
+        source: 'cloak',
+      }, currentLocalMs());
+      return { ok: true, cloakedHidden: true, snapshot: snapshot() };
+    },
+    injectBoardingOrder: (opts = {}) => {
+      const missing = failIfMissing(issuePlayerBoardingOrder, 'issuePlayerBoardingOrder');
+      if (missing) return missing;
+      const npc = findNpcByBoardingId(opts.id || opts.victimInstanceId) || getSelectedNpcTarget();
+      const result = issuePlayerBoardingOrder(npc, opts);
+      return { ...result, snapshot: snapshot() };
+    },
+    injectBoardingAttempt: (opts = {}) => {
+      const missing = failIfMissing(injectBoardingAttempt, 'injectBoardingAttempt');
+      if (missing) return missing;
+      const npc = findNpcByBoardingId(opts.victimInstanceId || opts.id) || getSelectedNpcTarget();
+      if (npc && (opts.outcome === 'capture' || opts.outcome === 'scuttle' || opts.outcome === 'fail')) {
+        const result = issuePlayerBoardingOrder(npc, { ...opts, inRange: true, detected: true });
+        return { ...result, snapshot: snapshot() };
+      }
+      const book = ensureBoardingBook();
+      const result = injectBoardingAttempt(book, opts, currentLocalMs());
+      return { ...result, snapshot: snapshot() };
+    },
+    injectTractorHoldOnly: (id) => {
+      const hold = globalThis.BM1Probe?.tractorHold;
+      const missing = failIfMissing(hold, 'tractorHold');
+      if (missing) return missing;
+      const result = hold.call(globalThis.BM1Probe, id);
+      return {
+        ...result,
+        captured: false,
+        scuttled: false,
+        tractorIsBoard: tractorIsBoarding() === true,
+        snapshot: snapshot(),
+      };
+    },
+    injectCommandTransfer: (fleetId) => {
+      const missing = failIfMissing(playerCommandTransfer, 'playerCommandTransfer');
+      if (missing) return missing;
+      const result = playerCommandTransfer(fleetId);
+      return { ...result, snapshot: snapshot() };
+    },
+    injectPrizeDestroy: (id) => {
+      const standingBefore = JSON.stringify(state.factionStanding || {});
+      const npc = findNpcByBoardingId(id) || (state.npcShips || []).find((row) => row.fleetId === id);
+      if (!npc) return { ok: false, reason: 'injectPrizeDestroy-missing' };
+      destroyNpcShip(npc, 'player');
+      return {
+        ok: true,
+        standingUnchanged: JSON.stringify(state.factionStanding || {}) === standingBefore,
+        snapshot: snapshot(),
+      };
+    },
+    injectPhase5Assignment: (opts = {}) => {
+      const missing = failIfMissing(markAssignmentCaptured, 'markAssignmentCaptured');
+      if (missing) return missing;
+      const board = ensureObjectiveBoard();
+      const injected = injectShortageAndConvoy(board, {
+        assignmentId: opts.assignmentId || 'asg-board',
+        originSystemIndex: state.currentPlanet,
+        destinationSystemIndex: state.currentPlanet,
+        good: opts.good || 'duranium',
+      }, { currentStrategicJumps: 0, plannedRouteJumps: 1, capacityJumps: 8 });
+      const npc = findNpcByBoardingId(opts.id) || probeFindShip(opts.id) || getSelectedNpcTarget();
+      if (npc) npc.phase5AssignmentId = injected.assignment?.assignmentId || opts.assignmentId || 'asg-board';
+      return { ok: injected.ok, assignmentId: npc?.phase5AssignmentId, snapshot: snapshot() };
+    },
+    tickBoarding: (localElapsedMs) => {
+      const missing = failIfMissing(tickLiveBoarding, 'tickBoarding');
+      if (missing) return missing;
+      const result = tickLiveBoarding(Number.isFinite(Number(localElapsedMs)) ? Number(localElapsedMs) : currentLocalMs());
+      return { ...result, snapshot: snapshot() };
+    },
+    lastRefuseBoard: () => ensureBoardingBook().lastRefuse,
+    selectTarget: (id) => {
+      const npc = findNpcByBoardingId(id) || probeFindShip(id);
+      if (!npc) return { ok: false, reason: 'selectTarget-missing-ship' };
+      state.combatTargetId = npc.id;
+      state.combatTargetType = 'ship';
+      if (typeof rerenderTargetWindowNow === 'function') rerenderTargetWindowNow();
+      return { ok: true, id: npc.id, snapshot: snapshot() };
+    },
+  };
+}
+
 function installPlayerSecurityProbe() {
   globalThis.__BM1_PROBE__ = {
     ready: () => Boolean(globalThis.__BM1_SOURCE_READY__ && Array.isArray(state.planets) && state.planets.length),
@@ -25426,6 +26071,7 @@ function installPlayerSecurityProbe() {
     phase9: createPhase9ProbeApi(),
     phase91: createPhase91ProbeApi(),
     phase92: createPhase92ProbeApi(),
+    boarding: createBoardingProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

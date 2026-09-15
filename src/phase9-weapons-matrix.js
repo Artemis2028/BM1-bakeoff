@@ -15,6 +15,7 @@
  */
 
 import { packDefaultWeaponSlots } from './ship-catalog-wire.js';
+import { BOARDING_IMPLEMENTED as BOARDING_LANE } from './boarding-eligibility.js';
 
 export const MATRIX_COLUMNS = Object.freeze([
   'family',
@@ -30,7 +31,7 @@ export const MATRIX_COLUMNS = Object.freeze([
 ]);
 
 export const FORBIDDEN_FIRE_INJECT = 'engagement_authorized';
-export const BOARDING_IMPLEMENTED = false;
+export const BOARDING_IMPLEMENTED = BOARDING_LANE;
 export const UNIVERSAL_SHIELD_BYPASS = false;
 export const FLASH_PRICES_ARE_LIVE_LOCKS = false;
 export const TRACTOR_ID = 25;
