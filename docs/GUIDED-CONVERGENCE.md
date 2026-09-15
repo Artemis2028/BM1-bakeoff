@@ -129,7 +129,9 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 
 ## 4. Boarding / capture / command transfer — Agreed next
 
-**Not yet implemented on bake-off.** Phase 4 / 5 / 6 briefs explicitly deferred boarding. `bm-ships/integration-rules.json` lists `boarding/capture`, `fleet transfer`, and `away-team XP` as missing engine features.
+**Engine not yet implemented on bake-off.** Phase 4 / 5 / 6 / 9–9.2 briefs explicitly deferred boarding. `bm-ships/integration-rules.json` lists `boarding/capture`, `fleet transfer`, and `away-team XP` as missing engine features.
+
+**Scoreable brief now open (docs-only, 15 September 2026):** [`docs/boarding/BM1-BOARDING-CAPTURE-PROPOSAL.md`](boarding/BM1-BOARDING-CAPTURE-PROPOSAL.md) + [`docs/boarding/BM1-BOARDING-ENGINE-DEPENDENCIES.md`](boarding/BM1-BOARDING-ENGINE-DEPENDENCIES.md), from `main` @ `f9f077f` after Phase 9.2 engine PR #37. That brief is **boarding**, not Phase 10 Dominion. It reconciles the locks below. Success odds and XP magnitudes stay **TBD / injectable** — do not invent percentages or an XP table. **No Referee Pass claimed.**
 
 ### Locked enough to write a later brief
 
@@ -140,14 +142,16 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 | Away-team XP | **Retain vs lose** on failure / death / scuttle is **TBD**. Do not invent an XP table. |
 | Fleet command transfer | Player may transfer command to another owned / captured hull (ship-to-ship transfer). Pack notes this is a separate engine feature from adding `bm-ships/`. |
 
-### Still open (must stay open until a boarding brief)
+### Still open (named in the boarding brief; odds/XP still TBD)
 
-- Away-team size, travel time, and combat resolution.
-- Whether capture preserves installed weapons, cargo, and crew identity (Phase 1: existing ships preserve identity; changing holder does not silently refit).
-- Standing / incident: capture is not a Phase 4 kill-standing cascade by default; do not double-charge if a scuttle later destroys the hull.
-- Interaction with Phase 3 compliance and Phase 6 cloak (cannot board a hull the actor has not legally reached / detected).
+Opened as **named defaults + Q-rows** in `docs/boarding/` — not invented odds. Do not treat silence here as permission to lock percentages.
 
-### Acceptance (for the later brief)
+- Away-team size, travel time, and combat resolution — **injectable / TBD** (brief §10; inject outcomes for probes).
+- Whether capture preserves installed weapons, cargo, and crew identity — brief **preserves hull identity / slots / cargo-if-real / damage**; crew intern vs prize-crew **TBD** (Q8). Phase 1: existing ships preserve identity; changing holder does not silently refit.
+- Standing / incident: capture is not a Phase 4 kill-standing cascade by default; do not double-charge if a scuttle later destroys the hull — **hard gate 5** in the boarding brief.
+- Interaction with Phase 3 compliance and Phase 6 cloak (cannot board a hull the actor has not legally reached / detected) — **hard gate 7**.
+
+### Acceptance (boarding brief / later engine)
 
 1. Boarding UI / order refuses above 10% hull.
 2. Success writes capture **or** scuttle, never both for the same attempt.
@@ -281,7 +285,7 @@ Adapt the guided order to **what bake-off has not done**. Do not restart Phases 
 3. **Flags / passes / utility inventory** (verify Thaleron Test Facility pass).
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
-6. **Boarding / capture / command transfer** (≤10% hull).
+6. **Boarding / capture / command transfer** (≤10% hull) — scoreable brief in `docs/boarding/`; engine still later.
 7. **Station construction visuals** (scaffolds / workbees / blue beams). Repair arms stay the side-lane overlay.
 8. **HTML weapon / station catalogs** for review (working agreement).
 9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity.
@@ -304,4 +308,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons, boarding, catalog wire, or standing tiers.
+- This document updates planning knowledge. It does not implement weapons, boarding engine, catalog wire, or standing tiers. Boarding **docs** now live under `docs/boarding/`.
