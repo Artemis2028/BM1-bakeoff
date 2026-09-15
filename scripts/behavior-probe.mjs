@@ -4361,6 +4361,73 @@ async function runBoardingCapture(page, results) {
   }));
 }
 
+async function runPhase10Dominion(page, results) {
+  await startScenario(page, 'dominion', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.phase10));
+  if (!present) {
+    check(results, 'S18.setup phase10-api', false, 'phase10 probe API missing');
+    return;
+  }
+
+  const s18 = await page.evaluate(() => {
+    const p10 = globalThis.__BM1_PROBE__.phase10;
+    if (typeof p10.injectKnowledge !== 'function' || typeof p10.injectDiscovery !== 'function' || typeof p10.injectStage !== 'function' || typeof p10.injectOperation !== 'function') {
+      return { missing: true };
+    }
+    const start = p10.startFaction('dominion');
+    const rumor = p10.injectKnowledge({ layer: 'rumor', provenance: 'hail' });
+    const evidence = p10.injectKnowledge({ layer: 'evidence', provenance: 'scan' });
+    const contact = p10.injectKnowledge({ layer: 'contact', provenance: 'briefing' });
+    const ctx = p10.catalogSpawnContext({ role: 'fleetAttack', systemName: 'Earth' });
+    const weak = p10.injectStage({ stage: 'contact', weaknessOpportunity: true, authorizedDeployment: false });
+    const blender = p10.spawnIds({ role: 'patrol', systemName: 'Blender', faction: 'dominion' });
+    const gorn = p10.spawnIds({ role: 'traffic', systemName: 'Earth', faction: 'gorn' });
+    const op = p10.injectOperation({ operationId: 'op-s18', authorizedDeployment: true });
+    const ctx2 = p10.catalogSpawnContext({ role: 'mission', systemName: 'Earth' });
+    const snap = p10.snapshot();
+    return {
+      missing: false,
+      startFaction: start.fire?.playerFaction || snap.fire.playerFaction,
+      currentSystem: snap.hide.currentSystem,
+      leaked: snap.hide.leakedNames,
+      hiddenHasDominica: (snap.hide.hiddenSystems || []).includes('Dominica'),
+      rumorFs: rumor.snapshot.knowledge.firingSolution,
+      rumorAuth: rumor.snapshot.fire.engagement_authorized,
+      rumorFaction: rumor.playerFactionUnchanged,
+      evidenceLayer: evidence.snapshot.knowledge.layer,
+      contactLayer: contact.snapshot.knowledge.layer,
+      contactMap: contact.snapshot.knowledge.mapRevealed,
+      roleOnlyAuth: ctx.authorizedDeployment,
+      weakStage: weak.snapshot.stage.value,
+      weakAuth: weak.snapshot.stage.weaknessDidAuthorize,
+      blenderCore: (blender || []).filter((id) => [48, 65, 216, 238].includes(id)),
+      gorn,
+      opAuth: ctx2.authorizedDeployment,
+      tractor: snap.boarding.tractorIsBoard,
+      boarding: snap.boarding.implemented,
+      odds: snap.discoveryOddsLocked === false && snap.invasionOddsLocked === false,
+      roster: snap.scope,
+      debugAll: snap.debugAuthorizeAllDeployments,
+      wormholeDefault: snap.hide.wormholeDefaultNamesDominica,
+    };
+  });
+
+  check(results, 'S18.setup phase10-api', s18.missing !== true, JSON.stringify(s18));
+  check(results, 'S18.1 rumor-not-fs', s18.rumorFs !== true && s18.rumorAuth == null && s18.rumorFaction === true, JSON.stringify(s18));
+  check(results, 'S18.2 evidence-layer', s18.evidenceLayer === 'evidence', JSON.stringify({ layer: s18.evidenceLayer }));
+  check(results, 'S18.3 contact-not-map', s18.contactLayer === 'contact' && s18.contactMap !== true, JSON.stringify(s18));
+  check(results, 'S18.4 blender-start-hide', s18.startFaction === 'dominion' && s18.hiddenHasDominica === true && (!s18.leaked || s18.leaked.length === 0), JSON.stringify({ leaked: s18.leaked, hidden: s18.hiddenHasDominica, sys: s18.currentSystem }));
+  check(results, 'S18.5 wormhole-default', s18.wormholeDefault !== true, JSON.stringify({ wormholeDefault: s18.wormholeDefault }));
+  check(results, 'S18.6 blender-no-core', Array.isArray(s18.blenderCore) && s18.blenderCore.length === 0, JSON.stringify(s18.blenderCore));
+  check(results, 'S18.7 gorn-empty', Array.isArray(s18.gorn) && s18.gorn.length === 0, JSON.stringify(s18.gorn));
+  check(results, 'S18.8 role-not-auth', s18.roleOnlyAuth !== true && s18.debugAll !== true, JSON.stringify({ roleOnlyAuth: s18.roleOnlyAuth, debugAll: s18.debugAll }));
+  check(results, 'S18.8 op-auth', s18.opAuth === true, JSON.stringify({ opAuth: s18.opAuth }));
+  check(results, 'S18.10 weakness-not-invasion', s18.weakAuth !== true && s18.weakStage !== 'fronts', JSON.stringify({ stage: s18.weakStage, auth: s18.weakAuth }));
+  check(results, 'S18.12 odds-injectable', s18.odds === true, JSON.stringify({ odds: s18.odds }));
+  check(results, 'S18.17 boarding-preserved', s18.tractor !== true && s18.boarding === true, JSON.stringify({ tractor: s18.tractor, boarding: s18.boarding }));
+  check(results, 'S18.18 dominion-first', s18.roster === 'dominion-first', JSON.stringify({ roster: s18.roster }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -4388,13 +4455,14 @@ async function main() {
     await runPhase91EwRobustness(page, results);
     await runPhase92EwDepth(page, results);
     await runBoardingCapture(page, results);
+    await runPhase10Dominion(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
