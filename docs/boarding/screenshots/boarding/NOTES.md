@@ -1,0 +1,297 @@
+# Boarding after-implementation screenshots
+
+Captured from the running game after the boarding / capture / command-transfer engine. Viewport 1280×720 Chromium (Playwright). Compare with `docs/boarding/screenshots/baseline-main/`.
+
+**No Referee Pass claimed.** Tractor remains not boarding. Away-team XP is **Not tracked yet**.
+
+## Shots
+
+| File | What |
+| --- | --- |
+| `01-flight-hud.png` | Flight HUD, stats strip, minimap, bottom dock |
+| `02-ops-ew.png` | OPS / Power + EW (unchanged lane) |
+| `03-inventory.png` | Inventory / weapon slots |
+| `04-settings.png` | Settings + Security operator panel |
+| `05-target-full-hull.png` | Target window at full hull — Board refused |
+| `06-target-boardable.png` | ≤10% hull, detected, no gifted FS — Board / Capture / Scuttle / Fail + XP |
+| `07-command-transfer.png` | After named capture inject — command-transfer path + XP |
+
+## UI fit
+
+`clippedControls: []` continues. Target host sits above the dock (`targetDockClear`).
+
+OPS:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": true,
+  "targetDockClear": false,
+  "hasBoard": false,
+  "hasCapture": false,
+  "hasXp": false,
+  "hasTransfer": false,
+  "ops": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": true,
+    "scrollW": 701,
+    "scrollH": 643,
+    "clientW": 701,
+    "clientH": 544,
+    "panelW": 716,
+    "panelH": 544,
+    "top": 90,
+    "bottom": 634,
+    "left": 282,
+    "right": 998,
+    "text": "POWER (OPS)\nPOWER DISTRIBUTION (OPS) CONTROL\nEnergy 125/125 (100%) | Budget 20/20 | Drag a tank or use -/+\nRESERVE\n5\nENGINES\n5\nWEAPONS\n5\nSHIELDS\n5\nELECTRONIC WARFARE\nReserved ew · burn-through available · magnitudes injectable\nSLOT\nEmpty\nCompact\nTactical\nFleet\nJAMMER\nOff\nOn\nOFF\nLOBE\n0° / 50°\nIN-BEAM ≠ CLOAK\nECCM\nOff\nBoost\nSHARE\nOUT\nDETECTION ONLY\nTRANSPONDER\nOff\nTrue\nSpoof\nFOCUS SCAN\nScan\nIDLE\nHEAT\nOff\nPaying\n1\nDECOYS\nOff\nOn\n0\nSILENT\nOff\nOn\nRECEIVER\nCLEAR\nHoJ: anti-emitter · unmounted · new\nJamming lobe. In-beam: interference. Burn-through available — not a cloak. Friendlies in-lobe take it.\nC"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Inventory:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": true,
+  "targetDockClear": false,
+  "hasBoard": false,
+  "hasCapture": false,
+  "hasXp": false,
+  "hasTransfer": false,
+  "inventory": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 701,
+    "scrollH": 541,
+    "clientW": 701,
+    "clientH": 541,
+    "panelW": 716,
+    "panelH": 541,
+    "top": 90,
+    "bottom": 631,
+    "left": 282,
+    "right": 998,
+    "text": "INVENTORY\n2800\n0\n2/90\n0/85\nFLAGS\nFerengi\nRAISED\nSTATION PLANS\nNo station plans owned.\n1: Empty\n2: Empty\n3: Empty\nEW EQUIPMENT\nEW: Empty\nDedicated slot — not a weapon mount, not the sensor suite.\nCONTRACTS\nNo active contracts.\nCARGO PODS\n1: 0t Empty\n2: 0t Empty\n3: 0t Empty\n4: 0t Empty\n5: 0t Empty\n6: 0t Empty\n7: 0t Empty\n8: 0t Empty\n9: 0t Empty\n10: 0t Empty"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Settings:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": true,
+  "targetDockClear": false,
+  "hasBoard": false,
+  "hasCapture": false,
+  "hasXp": false,
+  "hasTransfer": false,
+  "settings": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": true,
+    "scrollW": 701,
+    "scrollH": 2016,
+    "clientW": 701,
+    "clientH": 544,
+    "panelW": 716,
+    "panelH": 544,
+    "top": 90,
+    "bottom": 634,
+    "left": 282,
+    "right": 998,
+    "text": "SETTINGS\nMUTE GAME SOUNDS\nOFF\nSilences game audio when sound hooks are active.\nHIGH PERFORMANCE\nOFF\nReduces decorative rendering and expensive visual passes.\nREDUCED EFFECTS\nOFF\nSoftens explosions, nebula overlays, and transient visual effects.\nSECURITY\nStanding orders for your side (Ferengi). They survive flag changes. Challenge requests a movement and identity check. Closed requests withdrawal. Refusal alone does not authorize weapons; your rules of engagement still apply. Unknown access remains reserved until sensors exist. Alerts change what you are told, not what happened. Silent does not"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Target (full hull):
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": false,
+  "targetDockClear": true,
+  "hasBoard": true,
+  "hasCapture": true,
+  "hasXp": true,
+  "hasTransfer": false,
+  "target": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 316,
+    "scrollH": 283,
+    "clientW": 316,
+    "clientH": 283,
+    "panelW": 330,
+    "panelH": 297,
+    "top": 327,
+    "bottom": 624,
+    "left": 18,
+    "right": 348,
+    "text": "CONTACT\nIKS GOWRON\nKlingon | neutral | 40\nVOR'CHA ATTACK CRUISER\nContact held. No firing solution.\nSHIELD\n100%\nHULL\n100%\nHAIL SHIP\nBOARD REFUSED\nCAPTURE\nSCUTTLE\nFAIL\nHull above 10%. Boarding refused.\nTractor hold is not a capture. · hull-above-threshold\nAway-team XP: Not tracked yet · tracked: false"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Target (boardable):
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": false,
+  "targetDockClear": true,
+  "hasBoard": true,
+  "hasCapture": true,
+  "hasXp": true,
+  "hasTransfer": false,
+  "target": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 316,
+    "scrollH": 297,
+    "clientW": 316,
+    "clientH": 297,
+    "panelW": 330,
+    "panelH": 311,
+    "top": 313,
+    "bottom": 624,
+    "left": 18,
+    "right": 348,
+    "text": "CONTACT\nIKS GOWRON\nKlingon | neutral | 40\nVOR'CHA ATTACK CRUISER\nContact held. No firing solution.\nSHIELD\n100%\nHULL\n10%\nHAIL SHIP\nBOARD\nCAPTURE\nSCUTTLE\nFAIL\nHull at or below 10%. Boarding available — tractor hold is not a capture.\nTractor hold is not a capture.\nAway-team XP: Not tracked yet · tracked: false"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```
+
+Command transfer:
+```json
+{
+  "overflowX": false,
+  "clippedControls": [],
+  "dockClear": false,
+  "targetDockClear": true,
+  "hasBoard": true,
+  "hasCapture": true,
+  "hasXp": true,
+  "hasTransfer": true,
+  "fleet": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 220,
+    "scrollH": 348,
+    "clientW": 220,
+    "clientH": 348,
+    "panelW": 220,
+    "panelH": 348,
+    "top": 132,
+    "bottom": 480,
+    "left": 1022,
+    "right": 1242,
+    "text": "ESCORT ORDERS\nIKS Gowron\nescort\nstanding\nflagship · follows\nFOLLOW\nESCORT\nHOLD\nHOLD OUTSIDE\nRALLY\nDEFEND\nFOCUS\nREGROUP\nWITHDRAW\nHold-outside stays behind a jump. Follow / escort / regroup travel with the flagship. Defense interrupts resume the standing order.\nCOMMAND TRANSFER · Away-team XP: Not tracked yet\nCOMMAND: IKS GOWRON"
+  },
+  "dock": {
+    "hidden": false,
+    "overflowX": false,
+    "overflowY": false,
+    "scrollW": 378,
+    "scrollH": 50,
+    "clientW": 378,
+    "clientH": 50,
+    "panelW": 386,
+    "panelH": 58,
+    "top": 648,
+    "bottom": 706,
+    "left": 447,
+    "right": 833,
+    "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+  }
+}
+```

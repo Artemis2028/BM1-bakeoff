@@ -184,7 +184,7 @@ async function main() {
       globalThis.BM1Probe.freezeLoop();
     });
     await page.evaluate(() => globalThis.BM1Probe.startGame('ferengi', {
-      arena: { clearTraffic: false, latinum: 2800, hull: 100, shields: 100 },
+      arena: { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 },
     }));
     await page.waitForTimeout(400);
 
@@ -223,40 +223,40 @@ async function main() {
         id: 'shot-board-target',
         faction: 'klingon',
         role: 'patrol',
-        x: 1260,
+        x: 1240,
         y: 900,
         hostile: false,
         weaponSlots: [null, null, null],
       });
       const id = victim?.securityInstanceId || victim?.id;
       const board = globalThis.__BM1_PROBE__?.boarding;
-      board?.injectDetection?.({ id, detected: true, firingSolution: false });
+      board?.injectDetection?.({ id, detected: true, identification: 'known', firingSolution: false });
       board?.selectTarget?.(id);
-      document.querySelector('[data-dock-action="target"]')?.click();
-      return { victim, id, boardingPresent: Boolean(board) };
+      return { victim, id, boardingPresent: Boolean(board), hull: board?.snapshot?.()?.hull };
     });
     await page.waitForTimeout(250);
     const tgtDump = await page.evaluate(measureScript());
     await shot(page, '05-target-full-hull');
     fs.writeFileSync(path.join(outDir, '05-target-full-hull-overflow.json'), JSON.stringify(tgtDump, null, 2));
 
-    await page.evaluate(({ id }) => {
+    const boardableInfo = await page.evaluate(({ id }) => {
       const board = globalThis.__BM1_PROBE__.boarding;
-      board.injectHullRatio(id, 0.10);
-      board.injectDetection({ id, detected: true, firingSolution: false });
+      const hull = board.injectHullRatio(id, 0.10);
+      board.injectDetection({ id, detected: true, identification: 'known', firingSolution: false });
       board.selectTarget(id);
-      document.querySelector('[data-dock-action="target"]')?.click();
+      return { ratio: hull.ratio, eligible: hull.snapshot?.hull?.eligible, reason: hull.snapshot?.hull?.reason };
     }, { id: targetInfo.id });
     await page.waitForTimeout(250);
     const boardDump = await page.evaluate(measureScript());
     await shot(page, '06-target-boardable');
-    fs.writeFileSync(path.join(outDir, '06-target-boardable-overflow.json'), JSON.stringify(boardDump, null, 2));
+    fs.writeFileSync(path.join(outDir, '06-target-boardable-overflow.json'), JSON.stringify({ ...boardDump, boardableInfo }, null, 2));
+    if (!(boardableInfo.ratio <= 0.10) || boardableInfo.eligible !== true) {
+      console.warn('boardable hull inject did not enable boarding', boardableInfo, targetInfo);
+    }
 
     await page.evaluate(({ id }) => {
       const board = globalThis.__BM1_PROBE__.boarding;
       board.injectBoardingAttempt({ id, victimInstanceId: id, outcome: 'capture' });
-      board.selectTarget(id);
-      document.querySelector('[data-dock-action="target"]')?.click();
     }, { id: targetInfo.id });
     await page.waitForTimeout(250);
     const prizeDump = await page.evaluate(measureScript());

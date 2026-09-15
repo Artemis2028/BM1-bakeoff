@@ -16,7 +16,8 @@ export const BOARDING_RANGE_LOCKED = false;
 export const BOARDING_RANGE_PLAYTEST_DEFAULT = 280;
 
 export function boardingRangeEnvelope(injected = null) {
-  if (Number.isFinite(Number(injected))) return Number(injected);
+  const n = Number(injected);
+  if (Number.isFinite(n) && n > 0) return n;
   return BOARDING_RANGE_PLAYTEST_DEFAULT;
 }
 

@@ -467,7 +467,7 @@ import {
   evaluateBoardingEligibility,
   hullRatio,
 } from './boarding-eligibility.js';
-import { evaluateBoardingReach } from './boarding-reach.js';
+import { evaluateBoardingReach, boardingRangeEnvelope } from './boarding-reach.js';
 import {
   awayTeamXpSnapshot,
   cancelInFlight,
@@ -5497,6 +5497,9 @@ function liveBoardingReach(npc, extras = {}) {
   const contact = findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(npc));
   const detected = extras.detected != null ? extras.detected === true : contact?.detected === true;
   const distance = extras.distance != null ? extras.distance : distanceToPlayer(npc);
+  const envelope = Number.isFinite(Number(extras.boardingRange)) && Number(extras.boardingRange) > 0
+    ? Number(extras.boardingRange)
+    : boardingRangeEnvelope();
   return evaluateBoardingReach({
     detected,
     firingSolution: extras.firingSolution != null ? extras.firingSolution === true : contact?.firingSolution === true,
@@ -5505,7 +5508,7 @@ function liveBoardingReach(npc, extras = {}) {
     reportOnly: extras.reportOnly === true || contact?.source === 'report',
     inRange: extras.inRange,
     distance,
-    boardingRange: extras.boardingRange,
+    boardingRange: envelope,
     sameSystem: extras.sameSystem !== false,
     otherSystem: extras.otherSystem === true,
     checkpointEnforcement: extras.checkpointEnforcement === true,
@@ -25843,6 +25846,7 @@ function createBoardingProbeApi() {
       { id: 's17-gate', faction: 'klingon', hostile: true, attitude: 'hostile' },
       getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
     );
+    const reachLive = target ? liveBoardingReach(target) : { inRange: false };
     return {
       implemented: BOARDING_IMPLEMENTED === true,
       tractorIsBoard: tractorIsBoarding() === true,
@@ -25872,11 +25876,12 @@ function createBoardingProbeApi() {
         foreignFleetNotConscripted: true,
       },
       reach: {
-        detected: contact?.detected === true,
+        detected: contact?.detected === true || reachLive.detected === true,
         firingSolution: contact?.firingSolution === true,
         cloakedHidden: Boolean(target && isHullCloaked(target, currentLocalMs()) && contact?.detected !== true),
-        inRange: true,
-        sameSystem: true,
+        inRange: reachLive.inRange === true,
+        sameSystem: reachLive.sameSystem !== false,
+        distance: target ? distanceToPlayer(target) : null,
       },
       awayTeamXp: awayTeamXpSnapshot(),
       transfer: {
