@@ -9,7 +9,8 @@
 
 import { EW_CONSUMER_NAME, reservedEwDraw } from './phase65-power.js';
 import { decoyFamilyDraw } from './phase92-decoys.js';
-import { getPhase92Actor, resolvePhase92Defaults } from './phase92-magnitudes.js';
+import { resolvePhase94Defaults } from './phase94-magnitudes.js';
+import { getPhase92Actor } from './phase92-magnitudes.js';
 import { combineEmissionScale, silentRunningDraw } from './phase92-silent.js';
 
 function clampNonNeg(value) {
@@ -18,6 +19,10 @@ function clampNonNeg(value) {
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, Number(value) || 0));
+}
+
+function heatDefaults(extras = {}, book = null) {
+  return resolvePhase94Defaults(extras.defaults || extras.magnitudes || book?.defaults);
 }
 
 export function commandHeatSuppress(book, actorKey, on, extras = {}) {
@@ -46,7 +51,7 @@ export function heatSuppressDraw(actorOrBook, actorKey, extras = {}) {
   if (!actor || actor.heatSuppress !== true) {
     return { draw: 0, extraDraw: 0, emissionScale: extras.heatEmissionUnsuppressed ?? 1, suppressOn: false };
   }
-  const defaults = resolvePhase92Defaults(extras.defaults || extras.magnitudes);
+  const defaults = heatDefaults(extras, actorOrBook?.actors ? actorOrBook : null);
   const jammerOn = extras.jammerOn === true || extras.commanded === 'on';
   const jammerDraw = clampNonNeg(extras.jammerDraw);
   const H = extras.H == null ? 1 : clamp01(extras.H);
@@ -67,9 +72,20 @@ export function heatSuppressDraw(actorOrBook, actorKey, extras = {}) {
     draw: reservedEwDraw(extra),
     extraDraw: reservedEwDraw(extra),
     emissionScale: defaults.heatEmissionSuppressed,
+    heatSuppressExtraEwFactor: defaults.heatSuppressExtraEwFactor,
     suppressOn: true,
     consumer: EW_CONSUMER_NAME,
     offBudget: false,
+  };
+}
+
+/** Live heat factor from the heat helper — not a disconnected snapshot copy. */
+export function heatLiveMagnitudes(extras = {}, book = null) {
+  const defaults = heatDefaults(extras, book);
+  return {
+    heatSuppressExtraEwFactor: defaults.heatSuppressExtraEwFactor,
+    heatEmissionUnsuppressed: defaults.heatEmissionUnsuppressed,
+    heatEmissionSuppressed: defaults.heatEmissionSuppressed,
   };
 }
 

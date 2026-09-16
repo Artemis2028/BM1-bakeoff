@@ -4332,6 +4332,92 @@ async function runPhase93EwPoisonDf(page, results) {
   check(results, 'S19.16 dock-no-clip', Array.isArray(s19.clipped) && s19.clipped.length === 0 && s19.overflowX !== true, JSON.stringify({ clipped: s19.clipped, overflowX: s19.overflowX }));
 }
 
+async function runPhase94EwMagnitudes(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.phase94));
+  if (!present) {
+    check(results, 'S20.setup phase94-api', false, 'phase94 probe API missing');
+    return;
+  }
+
+  const s20 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase94;
+    const p92 = globalThis.__BM1_PROBE__.phase92;
+    const p93 = globalThis.__BM1_PROBE__.phase93;
+    if (typeof p.injectMagnitudes !== 'function' || typeof p.snapshot !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    const lobe = p.injectMagnitudes({ lobeHalfAngleDeg: 20 });
+    const compact = p.injectMagnitudes({ compact: { draw: 9 } });
+    const heat = p.injectMagnitudes({ heatSuppressExtraEwFactor: 0.3 });
+    const poison = p.injectMagnitudes({ scanPoisonEwDraw: 0.9 });
+    const df = p.injectMagnitudes({ dfRange: 100 });
+    const share = p.injectMagnitudes({ shareRadius: 99 });
+    const alias92 = p92.injectMagnitudes({ lobeHalfAngleDeg: 20, shareRadius: 99 });
+    const alias93 = p93.injectMagnitudes({ scanPoisonEwDraw: 0.9, dfCueQualityLoud: 0.33 });
+    p.injectMagnitudes({});
+    const reset = p.snapshot();
+    return {
+      missing: false,
+      lock: idle.magnitudesLockedFromRemastered === true,
+      defaultLobe: idle.magnitudes?.lobeHalfAngleDeg,
+      defaultPoison: idle.magnitudes?.scanPoisonEwDraw,
+      defaultCompact: idle.magnitudes?.compact?.draw,
+      liveDefaultLobe: idle.live?.lobeHalfAngleDeg,
+      liveDefaultCompact: idle.live?.compactDraw,
+      injectedLobe: lobe.snapshot?.magnitudes?.lobeHalfAngleDeg,
+      liveLobe: lobe.live?.lobeHalfAngleDeg ?? lobe.snapshot?.live?.lobeHalfAngleDeg,
+      injectedCompact: compact.snapshot?.magnitudes?.compact?.draw,
+      liveCompact: compact.live?.compactDraw ?? compact.snapshot?.live?.compactDraw,
+      injectedHeat: heat.snapshot?.magnitudes?.heatSuppressExtraEwFactor,
+      liveHeat: heat.live?.heatSuppressExtraEwFactor ?? heat.snapshot?.live?.heatSuppressExtraEwFactor,
+      injectedPoison: poison.snapshot?.magnitudes?.scanPoisonEwDraw,
+      livePoison: poison.live?.scanPoisonEwDraw ?? poison.snapshot?.live?.scanPoisonEwDraw,
+      injectedDf: df.snapshot?.magnitudes?.dfRange,
+      liveDf: df.live?.dfRange ?? df.snapshot?.live?.dfRange,
+      injectedShare: share.snapshot?.magnitudes?.shareRadius,
+      liveShare: share.live?.shareRadius ?? share.snapshot?.live?.shareRadius,
+      resetLobe: reset.magnitudes?.lobeHalfAngleDeg,
+      consumers: idle.power?.consumers || [],
+      tractor: idle.boarding?.tractorIsBoard === true,
+      boarding: idle.boarding?.implemented === true,
+      rumorFs: idle.dominion?.rumorGiftedFs === true,
+      auth: idle.fire?.engagementAuthorizedPresent === true,
+      alias92: alias92.magnitudes?.lobeHalfAngleDeg,
+      alias93: alias93.magnitudes?.scanPoisonEwDraw,
+      remasteredWattLock: idle.magnitudes?.remasteredWattLock === true,
+    };
+  });
+
+  check(results, 'S20.setup phase94-api', s20.missing !== true, JSON.stringify(s20));
+  check(results, 'S20.1 lock-false', s20.lock !== true && s20.remasteredWattLock !== true, JSON.stringify(s20));
+  check(results, 'S20.2 snapshot-override', s20.injectedLobe === 20
+    && s20.injectedCompact === 9
+    && s20.injectedHeat === 0.3
+    && s20.injectedPoison === 0.9
+    && s20.injectedDf === 100
+    && s20.injectedShare === 99
+    && s20.defaultLobe === 50
+    && s20.resetLobe === 50, JSON.stringify(s20));
+  check(results, 'S20.3 live-inject', s20.liveLobe === 20
+    && s20.liveCompact === 9
+    && s20.liveHeat === 0.3
+    && s20.livePoison === 0.9
+    && s20.liveDf === 100
+    && s20.liveShare === 99
+    && s20.liveDefaultLobe === 50
+    && s20.liveDefaultCompact === 1.2, JSON.stringify(s20));
+  check(results, 'S20.4 no-new-rules', Array.isArray(s20.consumers)
+    && s20.consumers.join(',') === 'propulsion,weapons,cloak,sensors,ew'
+    && s20.auth !== true
+    && s20.rumorFs !== true, JSON.stringify(s20));
+  check(results, 'S20.5 preserve-boarding-aliases', s20.tractor !== true
+    && s20.boarding === true
+    && s20.alias92 === 20
+    && s20.alias93 === 0.9, JSON.stringify(s20));
+}
+
 async function runBoardingCapture(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
   const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.boarding));
@@ -4585,6 +4671,7 @@ async function main() {
     await runPhase91EwRobustness(page, results);
     await runPhase92EwDepth(page, results);
     await runPhase93EwPoisonDf(page, results);
+    await runPhase94EwMagnitudes(page, results);
     await runBoardingCapture(page, results);
     await runPhase10Dominion(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
@@ -4593,7 +4680,7 @@ async function main() {
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

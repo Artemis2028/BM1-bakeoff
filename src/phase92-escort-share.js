@@ -9,7 +9,7 @@
 
 import { findContact, listContacts, upsertContact } from './phase6-sensors.js';
 import { isResidueContact } from './phase91-residue.js';
-import { resolvePhase92Defaults } from './phase92-magnitudes.js';
+import { resolvePhase94Defaults } from './phase94-magnitudes.js';
 
 function normalizeKey(value, fallback = '') {
   const key = String(value ?? '').trim();
@@ -20,10 +20,14 @@ function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
+function shareDefaults(extras = {}, book = null) {
+  return resolvePhase94Defaults(extras.defaults || extras.magnitudes || book?.defaults);
+}
+
 const QUALITY_RANK = Object.freeze({ none: 0, area: 1, coarse: 2, firm: 3 });
 
 export function inShareEnvelope(input = {}, extras = {}) {
-  const defaults = resolvePhase92Defaults(extras.defaults || extras.magnitudes);
+  const defaults = shareDefaults(extras);
   if (input.sameSystem === false || extras.sameSystem === false) return false;
   if (input.parkedOtherSystem === true) return false;
   const shareRadius = extras.shareRadius ?? defaults.shareRadius;
@@ -114,4 +118,14 @@ export function shareEscortToFlagship(book, escortKey, playerKey, localElapsedMs
 
 export function shareGiftsFiringSolution() {
   return false;
+}
+
+/** Live share radius from the share helper — not a disconnected snapshot copy. */
+export function shareLiveMagnitudes(extras = {}, book = null) {
+  const defaults = shareDefaults(extras, book);
+  return {
+    shareRadius: defaults.shareRadius,
+    formationDist: defaults.formationDist,
+    playerDist: defaults.playerDist,
+  };
 }

@@ -7,7 +7,7 @@
  * Source: docs/phase9/BM1-PHASE9.2-EW-DEPTH-PROPOSAL.md §3
  */
 
-import { resolvePhase92Defaults } from './phase92-magnitudes.js';
+import { resolvePhase94Defaults } from './phase94-magnitudes.js';
 
 function clampNonNeg(value) {
   return Math.max(0, Number(value) || 0);
@@ -25,6 +25,10 @@ function rssNoise(contributions = []) {
 function normalizeKey(value, fallback = '') {
   const key = String(value ?? '').trim();
   return key && key !== 'undefined' && key !== 'null' ? key : fallback;
+}
+
+function lobeDefaults(extras = {}, book = null) {
+  return resolvePhase94Defaults(extras.defaults || extras.magnitudes || book?.defaults);
 }
 
 /** Smallest angular distance in degrees, in [0, 180]. */
@@ -71,7 +75,7 @@ function resolveGeometry(row = {}, extras = {}) {
   const emitterPos = extras.positionFor?.[actorKey] || row.position || extras.emitterPosition;
   const receiverPos = extras.receiverPosition || extras.receiver?.position;
   const heading = extras.headingFor?.[actorKey] ?? row.heading ?? extras.heading ?? 0;
-  const defaults = resolvePhase92Defaults(extras.defaults || extras.magnitudes);
+  const defaults = lobeDefaults(extras);
   const half = extras.halfAngleDeg ?? extras.lobeHalfAngleDeg ?? defaults.lobeHalfAngleDeg;
   if (emitterPos && receiverPos && extras.lobe !== false) {
     const beta = bearingDeg(emitterPos, receiverPos);
@@ -82,7 +86,7 @@ function resolveGeometry(row = {}, extras = {}) {
 }
 
 export function applyLobeToContribution(row, extras = {}) {
-  const defaults = resolvePhase92Defaults(extras.defaults || extras.magnitudes);
+  const defaults = lobeDefaults(extras);
   const geo = resolveGeometry(row, { ...extras, defaults });
   const sidelobe = extras.sidelobeFactor ?? defaults.sidelobeFactor;
   const cUnmasked = clampNonNeg(row.c);
@@ -116,7 +120,7 @@ export function snapshotLobe(contributions = [], extras = {}) {
     && normalizeKey(row.sideId) === normalizeKey(extras.observerSide)
   ));
   return {
-    halfAngleDeg: extras.halfAngleDeg ?? resolvePhase92Defaults(extras.defaults || extras.magnitudes).lobeHalfAngleDeg,
+    halfAngleDeg: extras.halfAngleDeg ?? lobeDefaults(extras).lobeHalfAngleDeg,
     heading: extras.heading ?? masked[0]?.heading ?? 0,
     contributions: masked,
     N,
@@ -129,4 +133,13 @@ export function snapshotLobe(contributions = [], extras = {}) {
 
 export function lobesAreCloak() {
   return false;
+}
+
+/** Live α from the lobe helper — not a disconnected snapshot copy. */
+export function lobeLiveMagnitudes(extras = {}, book = null) {
+  const defaults = lobeDefaults(extras, book);
+  return {
+    lobeHalfAngleDeg: defaults.lobeHalfAngleDeg,
+    sidelobeFactor: defaults.sidelobeFactor,
+  };
 }

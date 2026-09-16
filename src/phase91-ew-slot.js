@@ -74,7 +74,7 @@ export function resolveEwMagnitudes(injected = null) {
 export function resolveEwEquipment(tierId, extras = {}) {
   const key = normalizeKey(tierId).replace(/^ew:/, '');
   if (!EW_SLOT_TIERS.includes(key)) return null;
-  const catalog = resolveEwMagnitudes(extras.magnitudes);
+  const catalog = resolveEwMagnitudes(extras.magnitudes || extras.defaults);
   return {
     ...catalog[key],
     slotKind: EW_SLOT_KIND,
