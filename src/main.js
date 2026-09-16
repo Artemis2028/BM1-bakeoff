@@ -8990,7 +8990,7 @@ function renderPhase91OpsControls() {
     <div class="meta">HoJ: ${escapeHtml(hoj.family)} · ${escapeHtml(hoj.mapping)} · ${escapeHtml(hoj.provenance)}</div>
     ${residues.length ? `<div class="meta">Residue ${residues.length}: area / emission, no firing solution</div>` : ''}
     <div class="meta" data-ew-df-cue="true">${escapeHtml(cueLine)}</div>
-    ${livePoisoned?.scanPoisoned ? `<div class="meta" data-ew-poison-state="true">Live scan poisoned · confidence ${escapeHtml(String(livePoisoned.scanConfidence ?? ''))} · residue held</div>` : ''}
+    ${livePoisoned?.scanPoisoned ? `<div class="meta" data-ew-poison-state="true">Live scan poisoned · confidence ${escapeHtml(Number(livePoisoned.scanConfidence).toFixed(2))} · residue held</div>` : ''}
     <div class="ew-sayable">${escapeHtml(poisonLine)}</div>
   </div>`;
 }
@@ -26031,13 +26031,13 @@ function createPhase93ProbeApi() {
       const flagship = findContact(book, playerObserverKey(), subjectKey);
       ensureEw92Book().lastShare = {
         escortToFlagship: shared,
-        giftedFs: flagship?.firingSolution === true,
+        giftedFs: shared.giftedFs === true,
       };
       return {
         ...shared,
         flagship,
         firingSolution: flagship?.firingSolution === true,
-        giftedFs: flagship?.firingSolution === true,
+        giftedFs: shared.giftedFs === true,
         snapshot: snapshot(),
       };
     },
