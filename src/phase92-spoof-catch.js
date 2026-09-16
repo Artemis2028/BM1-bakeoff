@@ -122,11 +122,16 @@ export function runFocusedScan(ew92, contactBook, observer, subject, localElapse
       const actor = getPhase92Actor(ew92, observerKey);
       actor.focusedScanUntilLocalMs = scan.untilLocalMs;
     }
+    if (extras.poisoned === true) {
+      scan.poisoned = true;
+      scan.untilLocalMs += clampNonNeg(extras.poisonStallMs);
+      if (extras.poisonFailThisTick === true) scan.status = 'poisoned';
+    }
     if (extras.completeNow !== true && now < scan.untilLocalMs) {
       return {
         ok: true,
         dwelling: true,
-        status: 'dwelling',
+        status: scan.status === 'poisoned' ? 'poisoned' : 'dwelling',
         emissionWritten: scan.emissionWritten,
         spoofExposed: false,
         firingSolution: false,
@@ -135,9 +140,34 @@ export function runFocusedScan(ew92, contactBook, observer, subject, localElapse
         playerSide: beforeSide,
         rewritten: false,
         reman53: extras.reman53,
-        sayable: 'Focused Scan dwelling. Emission detectable.',
+        sayable: scan.status === 'poisoned'
+          ? 'Focused Scan poisoned. Live dwell stalled — residue held. Not a firing solution.'
+          : 'Focused Scan dwelling. Emission detectable.',
       };
     }
+  }
+
+  if ((scan?.poisoned === true || extras.poisoned === true) && extras.poisonFailThisTick === true) {
+    if (scan) {
+      scan.status = 'poisoned';
+      scan.poisoned = true;
+      scan.catchFailedThisTick = true;
+    }
+    return {
+      ok: true,
+      dwelling: scan ? now < clampNonNeg(scan.untilLocalMs) : true,
+      status: 'poisoned',
+      catchFailedThisTick: true,
+      emissionWritten: scan?.emissionWritten === true,
+      spoofExposed: false,
+      firingSolution: false,
+      engagement_authorized: undefined,
+      playerFaction: beforeFaction,
+      playerSide: beforeSide,
+      rewritten: false,
+      reman53: extras.reman53,
+      sayable: 'Focused Scan poisoned. Catch failed this tick — not identity, not a lock.',
+    };
   }
 
   const complete = extras.completeNow === true || now >= clampNonNeg(scan.untilLocalMs);

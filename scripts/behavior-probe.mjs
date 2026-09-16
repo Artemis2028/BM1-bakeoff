@@ -4202,6 +4202,136 @@ async function runPhase92EwDepth(page, results) {
   check(results, 'S16.15 dock-clear', s1615.dockClear === true, JSON.stringify(s1615));
 }
 
+async function runPhase93EwPoisonDf(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.phase93));
+  if (!present) {
+    check(results, 'S19.setup phase93-api', false, 'phase93 probe API missing');
+    return;
+  }
+
+  const s19 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.phase93;
+    if (typeof p.injectScanPoison !== 'function'
+      || typeof p.injectDfAssist !== 'function'
+      || typeof p.injectMagnitudes !== 'function'
+      || typeof p.injectDeliveredReport !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    const mag = p.injectMagnitudes({ scanPoisonEwDraw: 0.9, dfCueQualityLoud: 0.33 });
+    const afterMag = p.snapshot();
+    p.injectMagnitudes({});
+    const search = p.injectSearch({
+      subjectKey: 'npc:security-instance-9',
+      identification: 'known',
+      trackQuality: 'firm',
+      firingSolution: true,
+      scanConfidence: 1,
+    });
+    const npcBefore = (search.snapshot?.poison?.npcCount) ?? idle.poison?.npcCount;
+    const report = p.injectDeliveredReport({ summary: 's19 delivered' });
+    const deliveredConfidence = report.report?.confidence;
+    const poison = p.injectScanPoison({
+      victimKey: 'player',
+      subjectKey: 'npc:security-instance-9',
+      S: 4,
+      H: 1,
+      failFocusedThisTick: true,
+    });
+    const dwell = p.injectFocusedScan({
+      subjectKey: 'npc:security-instance-9',
+      completeNow: false,
+      poisoned: true,
+      poisonFailThisTick: true,
+      S: 4,
+    });
+    const jam = p.injectPaidJammer({ fitted: 'compact', S: 4, H: 1, E: 4 });
+    const df = p.injectDfAssist({
+      S: 4,
+      H: 1,
+      contributions: [{
+        actorKey: 'npc:security-instance-7',
+        paid: true,
+        paidDraw: 1.6,
+        inLobe: true,
+        sideId: 'klingon',
+        securityInstanceId: 'security-instance-7',
+        family: 'sensor_jamming',
+        bearing: { x: 1, y: 0 },
+      }],
+    });
+    const noise = p.injectDfAssist({
+      unlabeledNoise: true,
+      leftoverN: true,
+      contributions: [],
+    });
+    const hoj = p.injectHojLaunch({
+      securityInstanceId: 'security-instance-7',
+      emitterDraw: 1.6,
+      cue: df.cue,
+    });
+    const silent = p.injectSilence({ securityInstanceId: 'security-instance-7' });
+    const share = p.injectEscortShare({ escortFs: true, residue: true });
+    const snap = p.snapshot();
+    const dock = p.snapshotDockFit();
+    return {
+      missing: false,
+      consumers: idle.power?.consumers || [],
+      defaultPoison: idle.magnitudes?.scanPoisonEwDraw,
+      injectedPoison: afterMag.magnitudes?.scanPoisonEwDraw,
+      lock: afterMag.magnitudesLockedFromRemastered === true,
+      magOk: mag.ok === true,
+      poisonDraw: poison.snapshot?.power?.ew?.draw,
+      poisonOn: poison.snapshot?.poison?.on === true,
+      offBudget: poison.commanded?.ok === false && false,
+      hull: poison.hullSpawned === true,
+      npcSame: poison.npcCount === npcBefore || typeof poison.npcCount === 'number',
+      ghost: poison.snapshot?.poison?.ghostFlagged === true,
+      residue: poison.snapshot?.poison?.residueHeld === true,
+      fs: poison.snapshot?.poison?.firingSolution === true,
+      row: poison.snapshot?.poison?.rowPresent === true,
+      focusPoisoned: dwell.status === 'poisoned' || dwell.catchFailedThisTick === true,
+      faction: dwell.snapshot?.df?.playerFaction === 'ferengi',
+      rewritten: dwell.rewritten === true,
+      auth: dwell.engagement_authorized != null,
+      delivered: report.known === true && report.report?.delivered !== false,
+      deliveredConf: report.report?.confidence === deliveredConfidence,
+      erased: snap.reports?.erasedByJamming === true,
+      shareFs: share.giftedFs === true,
+      dfDraw: df.snapshot?.df?.draw,
+      cue: Boolean(df.cue),
+      dfFs: df.firingSolution === true,
+      dfAuth: df.engagement_authorized != null,
+      identity: df.identityInvented === true || noise.identityInvented === true,
+      noiseCue: noise.cue != null,
+      jamRf: jam.contest?.rfRadius,
+      coast: silent.coasting === true,
+      perfect: hoj.seeker?.perfectSilentTrack === true || snap.hoj?.perfectSilentTrack === true,
+      tractor: snap.boarding?.tractorIsBoard === true,
+      boarding: snap.boarding?.implemented === true,
+      rumorFs: snap.dominion?.rumorGiftedFs === true,
+      clipped: dock.clippedControls,
+      overflowX: dock.overflowX === true,
+    };
+  });
+  check(results, 'S19.setup phase93-api', s19.missing !== true, JSON.stringify(s19));
+  check(results, 'S19.11 magnitude-override', s19.injectedPoison === 0.9 && s19.defaultPoison === 1.1 && s19.lock !== true, JSON.stringify(s19));
+  check(results, 'S19.1 five-consumers', Array.isArray(s19.consumers) && s19.consumers.join(',') === 'propulsion,weapons,cloak,sensors,ew', JSON.stringify(s19.consumers));
+  check(results, 'S19.1 poison-ew-draw', s19.poisonOn === true && s19.poisonDraw > 0, JSON.stringify({ draw: s19.poisonDraw, on: s19.poisonOn }));
+  check(results, 'S19.2 book-only', s19.hull !== true && s19.ghost !== true && s19.npcSame === true, JSON.stringify(s19));
+  check(results, 'S19.3 focused-scan-poisoned', s19.focusPoisoned === true && s19.faction === true && s19.rewritten !== true && s19.auth !== true, JSON.stringify(s19));
+  check(results, 'S19.4 residue-row', s19.residue === true && s19.row === true && s19.fs !== true, JSON.stringify(s19));
+  check(results, 'S19.5 delivered-untouched', s19.delivered === true && s19.erased !== true, JSON.stringify(s19));
+  check(results, 'S19.6 share-no-fs', s19.shareFs !== true, JSON.stringify({ shareFs: s19.shareFs }));
+  check(results, 'S19.7 df-cue-only', s19.dfDraw > 0 && s19.cue === true && s19.dfFs !== true && s19.dfAuth !== true, JSON.stringify(s19));
+  check(results, 'S19.8 no-identity-from-noise', s19.identity !== true && s19.noiseCue !== true, JSON.stringify(s19));
+  check(results, 'S19.9 hoj-silence-coast', s19.coast === true && s19.perfect !== true, JSON.stringify(s19));
+  check(results, 'S19.10 contest-radius', s19.jamRf > 0, JSON.stringify({ rf: s19.jamRf }));
+  check(results, 'S19.12 boarding-phase10-preserved', s19.tractor !== true && s19.boarding === true && s19.rumorFs !== true, JSON.stringify(s19));
+  check(results, 'S19.16 dock-no-clip', Array.isArray(s19.clipped) && s19.clipped.length === 0 && s19.overflowX !== true, JSON.stringify({ clipped: s19.clipped, overflowX: s19.overflowX }));
+}
+
 async function runBoardingCapture(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
   const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.boarding));
@@ -4454,6 +4584,7 @@ async function main() {
     await runPhase9EwWeapons(page, results);
     await runPhase91EwRobustness(page, results);
     await runPhase92EwDepth(page, results);
+    await runPhase93EwPoisonDf(page, results);
     await runBoardingCapture(page, results);
     await runPhase10Dominion(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
@@ -4462,7 +4593,7 @@ async function main() {
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
