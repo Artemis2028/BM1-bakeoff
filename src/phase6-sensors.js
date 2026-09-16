@@ -325,6 +325,10 @@ export function createContactRecord(input = {}, book = null) {
       ? clone(input.scanEmission)
       : null,
     search: input.search && typeof input.search === 'object' ? clone(input.search) : null,
+    scanConfidence: input.scanConfidence == null ? null : clamp(Number(input.scanConfidence) || 0, 0, 1),
+    scanPoisoned: input.scanPoisoned === true,
+    focusedScanPoisoned: input.focusedScanPoisoned === true,
+    dfCue: input.dfCue && typeof input.dfCue === 'object' ? clone(input.dfCue) : null,
   };
 }
 
@@ -856,6 +860,19 @@ export function resolveSearch(book, observerKey, contactId, localElapsedMs = 0, 
     return { ok: false, reason: 'no-search', firingSolution: contact.firingSolution === true };
   }
   const elapsed = clampNonNeg(localElapsedMs) - clampNonNeg(search.startedAtLocalMs);
+  if (extras.poisoned === true && extras.forceComplete !== true && extras.fail !== true) {
+    const stall = Math.max(1, Number(extras.stallFactor) || 1.8);
+    search.dwellMs = Math.max(search.dwellMs, Math.round(clampNonNeg(search.dwellMs) * stall));
+    search.poisoned = true;
+    contact.firingSolution = false;
+    return {
+      ok: true,
+      pending: true,
+      firingSolution: false,
+      inventedCoordinates: false,
+      contact,
+    };
+  }
   if (extras.fail === true) {
     search.status = 'failed';
     contact.firingSolution = false;

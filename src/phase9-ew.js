@@ -214,10 +214,11 @@ export function actorEwDraw(book, actorKey, localElapsedMs = 0, extras = {}) {
   else if (extras.ew91) jammerDraw = actorJammerDraw(extras.ew91, actorKey, localElapsedMs, extras);
   const jamEffect = rows.find((row) => row.family === 'sensor_jamming');
   const extra92 = clampNonNeg(extras.phase92Draw);
+  const extra93 = clampNonNeg(extras.phase93Draw);
   if (jamEffect && jammerDraw > 0) {
-    return reservedEwDraw(effectDraw - jamEffect.draw + Math.max(jamEffect.draw, jammerDraw) + extra92);
+    return reservedEwDraw(effectDraw - jamEffect.draw + Math.max(jamEffect.draw, jammerDraw) + extra92 + extra93);
   }
-  return reservedEwDraw(effectDraw + jammerDraw + extra92);
+  return reservedEwDraw(effectDraw + jammerDraw + extra92 + extra93);
 }
 
 export function snapshotEwPower(book, actorKey, localElapsedMs = 0) {

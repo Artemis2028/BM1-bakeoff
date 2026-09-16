@@ -17,6 +17,7 @@
     "test:phase9": "node scripts/test-phase9-ew-weapons.mjs",
     "test:phase91": "node scripts/test-phase91-ew-robustness.mjs",
     "test:phase92": "node scripts/test-phase92-ew-depth.mjs",
+    "test:phase93": "node scripts/test-phase93-ew-poison-df.mjs",
     "test:boarding": "node scripts/test-boarding-capture.mjs",
     "test:phase10": "node scripts/test-phase10-dominion.mjs",
     "test:side-lane": "node scripts/test-side-lane-repair-reman.mjs && node scripts/test-side-lane-unrest-independence.mjs",
