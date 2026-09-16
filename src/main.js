@@ -568,6 +568,7 @@ import {
   installEwEquipment,
   listEwEquipmentCatalog,
   readFittedTier,
+  resolveEwEquipment,
   serializeEwSlot,
 } from './phase91-ew-slot.js';
 import {
@@ -612,12 +613,9 @@ import {
   snapshotPhase92Magnitudes,
 } from './phase92-magnitudes.js';
 import {
-  applyLobeMask,
-  inLobe,
-} from './phase92-lobes.js';
-import {
   inShareEnvelope,
   shareEscortToFlagship,
+  shareLiveMagnitudes,
 } from './phase92-escort-share.js';
 import {
   focusedScanSensorsExtra,
@@ -630,6 +628,7 @@ import {
 } from './phase92-comms.js';
 import {
   commandHeatSuppress,
+  heatLiveMagnitudes,
   heatSayable,
   phase92ReservedDraw,
 } from './phase92-heat.js';
@@ -656,8 +655,23 @@ import {
   snapshotPhase93Magnitudes,
 } from './phase93-magnitudes.js';
 import {
+  MAGNITUDES_LOCKED_FROM_REMASTERED as PHASE94_LOCK,
+  applyInjectedLedger,
+  emptyEw94Book,
+  resolvePhase94Defaults,
+  restoreEw94Book,
+  serializeEw94Book,
+  snapshotPhase94Magnitudes,
+} from './phase94-magnitudes.js';
+import {
+  applyLobeMask,
+  inLobe,
+  snapshotLobe,
+} from './phase92-lobes.js';
+import {
   applyScanPoison,
   commandScanPoison,
+  poisonLiveMagnitudes,
   poisonSayable,
   stallFocusedScan,
   tickPoison,
@@ -666,6 +680,7 @@ import {
   applyDfCueToSeeker,
   classifyPaidEmission,
   commandDfAssist,
+  dfLiveMagnitudes,
   dfSayable,
   phase93ReservedDraw,
   tickDf,
@@ -1345,6 +1360,7 @@ const state = {
   ew91: emptyEw91Book(),
   ew92: emptyEw92Book(),
   ew93: emptyEw93Book(),
+  ew94: emptyEw94Book(),
   sensorSuiteId: null,
   ewEquipmentId: null,
   basePowerGeneration: null,
@@ -5583,6 +5599,35 @@ function ensureEw93Book() {
   return state.ew93;
 }
 
+function ensureEw94Book() {
+  if (!state.ew94 || state.ew94.version !== 1) {
+    state.ew94 = restoreEw94Book(state.ew94);
+  }
+  return state.ew94;
+}
+
+function applyCentralMagnitudes(opts = {}) {
+  if (typeof resolvePhase94Defaults !== 'function' || typeof applyInjectedLedger !== 'function') {
+    return { ok: false, reason: 'resolvePhase94Defaults-missing' };
+  }
+  const resolved = applyInjectedLedger({
+    ew91: ensureEw91Book(),
+    ew92: ensureEw92Book(),
+    ew93: ensureEw93Book(),
+    ew94: ensureEw94Book(),
+  }, opts);
+  return { ok: true, resolved, magnitudes: snapshotPhase94Magnitudes(opts) };
+}
+
+function liveLedgerInject() {
+  const ew94 = ensureEw94Book();
+  return ew94.defaults || ew94.magnitudes
+    || ensureEw93Book().defaults || ensureEw93Book().magnitudes
+    || ensureEw92Book().defaults || ensureEw92Book().magnitudes
+    || ensureEw91Book().magnitudes
+    || null;
+}
+
 function ensureBoardingBook() {
   if (!state.boardingBook || state.boardingBook.version !== 1 || !state.boardingBook.attempts) {
     state.boardingBook = restoreBoardingBook(state.boardingBook);
@@ -5993,6 +6038,8 @@ function playerPowerDraws(mode = state.sensorMode) {
   const actor91 = getActor(ew91, playerObserverKey());
   const jamDraw = actorJammerDraw(ew91, playerObserverKey(), localMs, {
     sensorSuiteId: suite?.suiteId,
+    magnitudes: liveLedgerInject(),
+    defaults: liveLedgerInject(),
   });
   const extras92 = {
     jammerOn: actor91?.commanded === 'on',
@@ -6002,6 +6049,8 @@ function playerPowerDraws(mode = state.sensorMode) {
       commanded: actor91?.commanded,
       fitted: actor91?.ewEquipmentId,
       sensorSuiteId: suite?.suiteId,
+      magnitudes: ew91.magnitudes,
+      defaults: ew91.defaults,
     }).catalogDraw,
     H: powerNormFromBudget({
       energy: finiteNumber(state.power?.energy, 200),
@@ -6016,11 +6065,15 @@ function playerPowerDraws(mode = state.sensorMode) {
       }),
     }),
     observerKey: playerObserverKey(),
+    defaults: liveLedgerInject(),
+    magnitudes: liveLedgerInject(),
   };
   const extra92 = phase92ReservedDraw(ew92, playerObserverKey(), localMs, extras92);
   const extra93 = phase93ReservedDraw(ensureEw93Book(), playerObserverKey(), localMs, {
     ...extras92,
     phase92Draw: extra92.draw,
+    defaults: liveLedgerInject(),
+    magnitudes: liveLedgerInject(),
   });
   return consumerDraws({
     suite,
@@ -6537,7 +6590,8 @@ function refreshContactBookNow() {
   const p93 = ensureEw93Book();
   tickPoison(p93, book, localMs, {
     ew92: p92,
-    magnitudes: p93.magnitudes || p93.defaults,
+    magnitudes: liveLedgerInject(),
+    defaults: liveLedgerInject(),
     S: getActor(ensureEw91Book(), playerObserverKey()).S,
     eccm: getActor(ensureEw91Book(), playerObserverKey()).eccm,
     H: powerNormFromBudget({
@@ -6551,7 +6605,8 @@ function refreshContactBookNow() {
     contributions: ensureEw91Book().lastContest?.contributions || [],
     playerFaction: state.playerFaction,
     playerSide: getPlayerSide(),
-    magnitudes: p93.magnitudes || p93.defaults,
+    magnitudes: liveLedgerInject(),
+    defaults: liveLedgerInject(),
   });
   snapshotContest(ensureEw91Book(), {
     actorKey: playerObserverKey(),
@@ -6566,8 +6621,9 @@ function refreshContactBookNow() {
     positionFor: {
       [playerObserverKey()]: playerWorldPosition(),
     },
-    halfAngleDeg: resolvePhase92Defaults(p92.defaults || p92.magnitudes).lobeHalfAngleDeg,
-    defaults: p92.defaults || p92.magnitudes,
+    halfAngleDeg: resolvePhase94Defaults(liveLedgerInject()).lobeHalfAngleDeg,
+    defaults: liveLedgerInject(),
+    magnitudes: liveLedgerInject(),
   });
   return book;
 }
@@ -8904,13 +8960,15 @@ function renderPhase91OpsControls() {
   const p92 = ensureEw92Book();
   const actor92 = getPhase92Actor(p92, playerObserverKey());
   actor92.heading = Number(state.ship?.rotation) || 0;
-  const mag = resolvePhase92Defaults(p92.defaults || p92.magnitudes);
+  const mag = resolvePhase94Defaults(liveLedgerInject());
   const extra92 = phase92ReservedDraw(p92, playerObserverKey(), currentLocalMs(), {
     jammerOn: actor.commanded === 'on',
     commanded: actor.commanded,
     jammerDraw: snap.draw,
     catalogDraw: snap.catalogDraw,
     H: snap.H,
+    defaults: mag,
+    magnitudes: mag,
   });
   const escorts = (state.npcShips || []).filter((npc) => isPlayerEscortNpc(npc) && !npc.destroyed);
   const playerPos = playerWorldPosition();
@@ -8944,6 +9002,8 @@ function renderPhase91OpsControls() {
     H: snap.H,
     S: snap.S,
     phase92Draw: extra92.draw,
+    defaults: mag,
+    magnitudes: mag,
   });
   const poisonStatus = !actor93.poisonOn
     ? 'off'
@@ -14028,6 +14088,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
+    ew94: serializeEw94Book(ensureEw94Book()),
     ewEquipmentId: state.ewEquipmentId || null,
     cloak: serializeCloak(state.cloak),
     phase65: serializePhase65Runtime({
@@ -14117,6 +14178,15 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.ew91 = restoreEw91Book(s.ew91);
   state.ew92 = restoreEw92Book(s.ew92);
   state.ew93 = restoreEw93Book(s.ew93);
+  state.ew94 = restoreEw94Book(s.ew94);
+  if (state.ew94?.magnitudes || state.ew94?.defaults) {
+    applyInjectedLedger({
+      ew91: state.ew91,
+      ew92: state.ew92,
+      ew93: state.ew93,
+      ew94: state.ew94,
+    }, state.ew94.magnitudes || state.ew94.defaults);
+  }
   state.ewEquipmentId = s.ewEquipmentId
     || getActor(state.ew91, playerObserverKey())?.ewEquipmentId
     || null;
@@ -22463,6 +22533,7 @@ function resetRunState() {
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
+  state.ew94 = emptyEw94Book();
   resetPhase65Runtime();
   state.systemDestinations = [];
   state.arrivalExit = null;
@@ -22601,6 +22672,7 @@ function restartInEscapePod() {
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
+  state.ew94 = emptyEw94Book();
   resetPhase65Runtime();
   state.mapOpen = false;
   state.planetMenuOpen = false;
@@ -22677,6 +22749,7 @@ function startWithFaction(key, options = {}) {
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
+  state.ew94 = emptyEw94Book();
   resetPhase65Runtime();
   state.checkpointSelectedEncounterId = null;
   state.selectedIncidentId = null;
@@ -23614,6 +23687,7 @@ function installBm1ProbeHarness() {
     phase91: createPhase91ProbeApi(),
     phase92: createPhase92ProbeApi(),
     phase93: createPhase93ProbeApi(),
+    phase94: createPhase94ProbeApi(),
     phase10: createPhase10ProbeApi(),
   };
 }
@@ -25632,9 +25706,14 @@ function createPhase92ProbeApi() {
     injectMagnitudes: (opts = {}) => {
       const missing = failIfMissing(resolvePhase92Defaults, 'resolvePhase92Defaults');
       if (missing) return missing;
-      const ew92 = ensureEw92Book();
-      ew92.magnitudes = opts;
-      ew92.defaults = resolvePhase92Defaults(opts);
+      if (typeof resolvePhase94Defaults === 'function') {
+        const applied = applyCentralMagnitudes(opts);
+        if (applied.ok === false) return applied;
+      } else {
+        const ew92 = ensureEw92Book();
+        ew92.magnitudes = opts;
+        ew92.defaults = resolvePhase92Defaults(opts);
+      }
       return { ok: true, magnitudes: snapshotPhase92Magnitudes(opts), snapshot: snapshot() };
     },
     snapshotDockFit,
@@ -26044,9 +26123,14 @@ function createPhase93ProbeApi() {
     injectMagnitudes: (opts = {}) => {
       const missing = failIfMissing(resolvePhase93Defaults, 'resolvePhase93Defaults');
       if (missing) return missing;
-      const ew93 = ensureEw93Book();
-      ew93.magnitudes = opts;
-      ew93.defaults = resolvePhase93Defaults(opts);
+      if (typeof resolvePhase94Defaults === 'function') {
+        const applied = applyCentralMagnitudes(opts);
+        if (applied.ok === false) return applied;
+      } else {
+        const ew93 = ensureEw93Book();
+        ew93.magnitudes = opts;
+        ew93.defaults = resolvePhase93Defaults(opts);
+      }
       return { ok: true, magnitudes: snapshotPhase93Magnitudes(opts), snapshot: snapshot() };
     },
     snapshotDockFit,
@@ -26067,6 +26151,61 @@ function createPhase93ProbeApi() {
       return { ok: true, snapshot: snapshot() };
     },
     lastRefuseFire: () => ensureEw93Book().lastRefuseFire || ensureEwBook().lastRefuseFire,
+  };
+}
+
+function createPhase94ProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing` };
+    return null;
+  };
+  const liveReads = (injected = null) => {
+    const resolved = resolvePhase94Defaults(injected);
+    return {
+      lobeHalfAngleDeg: snapshotLobe([], { defaults: resolved, magnitudes: resolved }).halfAngleDeg,
+      compactDraw: resolveEwEquipment('compact', { magnitudes: resolved, defaults: resolved })?.draw ?? null,
+      heatSuppressExtraEwFactor: heatLiveMagnitudes({ defaults: resolved, magnitudes: resolved }).heatSuppressExtraEwFactor,
+      scanPoisonEwDraw: poisonLiveMagnitudes({ defaults: resolved, magnitudes: resolved }).scanPoisonEwDraw,
+      dfRange: dfLiveMagnitudes({ defaults: resolved, magnitudes: resolved }).dfRange,
+      shareRadius: shareLiveMagnitudes({ defaults: resolved, magnitudes: resolved }).shareRadius,
+    };
+  };
+  const snapshot = () => {
+    const injected = liveLedgerInject();
+    const mag = snapshotPhase94Magnitudes(injected);
+    return {
+      magnitudesLockedFromRemastered: PHASE94_LOCK === true
+        || PHASE93_LOCK === true
+        || PHASE92_LOCK === true
+        || MAGNITUDES_LOCKED_FROM_REMASTERED === true,
+      magnitudes: mag,
+      live: liveReads(injected),
+      power: {
+        consumers: POWER_CONSUMERS.slice ? POWER_CONSUMERS.slice() : ['propulsion', 'weapons', 'cloak', 'sensors', 'ew'],
+      },
+      boarding: {
+        tractorIsBoard: tractorIsBoarding() === true,
+        implemented: BOARDING_IMPLEMENTED === true,
+      },
+      dominion: { rumorGiftedFs: false },
+      fire: { engagementAuthorizedPresent: false },
+      playtestLine: mag.playtestLine,
+    };
+  };
+  return {
+    snapshot,
+    injectMagnitudes: (opts = {}) => {
+      const missing = failIfMissing(resolvePhase94Defaults, 'resolvePhase94Defaults');
+      if (missing) return missing;
+      const applied = applyCentralMagnitudes(opts);
+      if (applied.ok === false) return applied;
+      return {
+        ok: true,
+        magnitudes: applied.magnitudes,
+        live: liveReads(opts),
+        snapshot: snapshot(),
+      };
+    },
   };
 }
 
@@ -27128,6 +27267,7 @@ function installPlayerSecurityProbe() {
     phase91: createPhase91ProbeApi(),
     phase92: createPhase92ProbeApi(),
     phase93: createPhase93ProbeApi(),
+    phase94: createPhase94ProbeApi(),
     boarding: createBoardingProbeApi(),
     phase10: createPhase10ProbeApi(),
     catalog: createCatalogProbeApi(),

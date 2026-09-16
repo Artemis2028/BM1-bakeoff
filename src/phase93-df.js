@@ -12,10 +12,8 @@
 import { EW_CONSUMER_NAME, reservedEwDraw } from './phase65-power.js';
 import { interferenceLabel } from './phase91-contest.js';
 import { phase92ReservedDraw } from './phase92-heat.js';
-import {
-  getPhase93Actor,
-  resolvePhase93Defaults,
-} from './phase93-magnitudes.js';
+import { resolvePhase94Defaults } from './phase94-magnitudes.js';
+import { getPhase93Actor } from './phase93-magnitudes.js';
 import { scanPoisonDraw } from './phase93-poison.js';
 
 function clampNonNeg(value) {
@@ -29,6 +27,10 @@ function clamp01(value) {
 function normalizeKey(value, fallback = '') {
   const key = String(value ?? '').trim();
   return key && key !== 'undefined' && key !== 'null' ? key : fallback;
+}
+
+function dfDefaults(extras = {}, book = null) {
+  return resolvePhase94Defaults(extras.defaults || extras.magnitudes || book?.defaults);
 }
 
 export const DF_ASSIST_CONTROL = 'df_assist';
@@ -62,7 +64,7 @@ function dfLive(actor, localElapsedMs = 0) {
 
 export function commandDfAssist(book, actorKey, on, localElapsedMs = 0, extras = {}) {
   const actor = getPhase93Actor(book, actorKey);
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes || book?.defaults);
+  const defaults = dfDefaults(extras, book);
   const now = clampNonNeg(localElapsedMs);
   const S = extras.S == null ? 4 : Number(extras.S) || 0;
   const H = extras.H == null ? 1 : clamp01(extras.H);
@@ -142,7 +144,7 @@ export function dfAssistDraw(actorOrBook, actorKey, extras = {}) {
       offBudget: false,
     };
   }
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes);
+  const defaults = dfDefaults(extras, actorOrBook?.actors ? actorOrBook : null);
   const H = extras.H == null ? (actor.lastH ?? 1) : clamp01(extras.H);
   const S = extras.S == null ? 4 : Number(extras.S) || 0;
   if (S <= 0 || H <= 0) {
@@ -167,6 +169,19 @@ export function dfAssistDraw(actorOrBook, actorKey, extras = {}) {
     status: H < 1 ? 'power-limited' : 'on',
     consumer: EW_CONSUMER_NAME,
     offBudget: false,
+    dfAssistEwDraw: defaults.dfAssistEwDraw,
+  };
+}
+
+/** Live DF range / draw from the DF helper — not a disconnected snapshot copy. */
+export function dfLiveMagnitudes(extras = {}, book = null) {
+  const defaults = dfDefaults(extras, book);
+  return {
+    dfRange: defaults.dfRange,
+    dfAssistEwDraw: defaults.dfAssistEwDraw,
+    dfCueQualityLoud: defaults.dfCueQualityLoud,
+    dfCueQualitySuppressed: defaults.dfCueQualitySuppressed,
+    dfCueQualitySilent: defaults.dfCueQualitySilent,
   };
 }
 
@@ -197,7 +212,7 @@ function familyTag(row, extras) {
 export function classifyPaidEmission(ew93, observer = {}, localElapsedMs = 0, extras = {}) {
   const observerKey = normalizeKey(observer.actorKey || observer.observerKey || extras.observerKey);
   const actor = getPhase93Actor(ew93, observerKey);
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes || ew93?.defaults);
+  const defaults = dfDefaults(extras, ew93);
   const now = clampNonNeg(localElapsedMs);
   if (!dfLive(actor, now) && extras.forceClassify !== true) {
     return {

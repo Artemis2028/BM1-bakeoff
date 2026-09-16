@@ -13,10 +13,8 @@ import { EW_CONSUMER_NAME, POWER_CONSUMERS, reservedEwDraw } from './phase65-pow
 import { applyLostTrackSameTick, findContact, listContacts } from './phase6-sensors.js';
 import { degradeLiveLayers } from './phase9-ew.js';
 import { applyResidueMark, isGhostLike } from './phase91-residue.js';
-import {
-  getPhase93Actor,
-  resolvePhase93Defaults,
-} from './phase93-magnitudes.js';
+import { resolvePhase94Defaults } from './phase94-magnitudes.js';
+import { getPhase93Actor } from './phase93-magnitudes.js';
 
 function clampNonNeg(value) {
   return Math.max(0, Number(value) || 0);
@@ -29,6 +27,10 @@ function clamp01(value) {
 function normalizeKey(value, fallback = '') {
   const key = String(value ?? '').trim();
   return key && key !== 'undefined' && key !== 'null' ? key : fallback;
+}
+
+function poisonDefaults(extras = {}, book = null) {
+  return resolvePhase94Defaults(extras.defaults || extras.magnitudes || book?.defaults);
 }
 
 export const SCAN_POISON_CONTROL = 'scan_poison';
@@ -66,7 +68,7 @@ function poisonLive(actor, localElapsedMs = 0) {
 
 export function commandScanPoison(book, actorKey, on, localElapsedMs = 0, extras = {}) {
   const actor = getPhase93Actor(book, actorKey);
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes || book?.defaults);
+  const defaults = poisonDefaults(extras, book);
   const now = clampNonNeg(localElapsedMs);
   const S = extras.S == null ? 4 : Number(extras.S) || 0;
   const H = extras.H == null ? 1 : clamp01(extras.H);
@@ -133,7 +135,7 @@ export function scanPoisonDraw(actorOrBook, actorKey, extras = {}) {
       offBudget: false,
     };
   }
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes);
+  const defaults = poisonDefaults(extras, actorOrBook?.actors ? actorOrBook : null);
   const H = extras.H == null ? (actor.lastH ?? 1) : clamp01(extras.H);
   const S = extras.S == null ? 4 : Number(extras.S) || 0;
   if (S <= 0 || H <= 0) {
@@ -158,6 +160,17 @@ export function scanPoisonDraw(actorOrBook, actorKey, extras = {}) {
     status: H < 1 ? 'power-limited' : 'on',
     consumer: EW_CONSUMER_NAME,
     offBudget: false,
+    scanPoisonEwDraw: defaults.scanPoisonEwDraw,
+  };
+}
+
+/** Live poison draw from the poison helper — not a disconnected snapshot copy. */
+export function poisonLiveMagnitudes(extras = {}, book = null) {
+  const defaults = poisonDefaults(extras, book);
+  return {
+    scanPoisonEwDraw: defaults.scanPoisonEwDraw,
+    scanPoisonDurationLocalMs: defaults.scanPoisonDurationLocalMs,
+    scanPoisonConfidenceFactor: defaults.scanPoisonConfidenceFactor,
   };
 }
 
@@ -186,7 +199,7 @@ function confidenceAfterPoison(contact, extras, defaults) {
 export function stallFocusedScan(ew92, observerKey, localElapsedMs = 0, extras = {}) {
   const key = normalizeKey(observerKey);
   const scan = ew92?.focusedScans?.[key];
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes);
+  const defaults = poisonDefaults(extras, ew92);
   if (!scan) {
     return { ok: false, reason: 'no-scan', firingSolution: false };
   }
@@ -237,7 +250,7 @@ function stallScanEmission(contact, localElapsedMs, defaults) {
  */
 export function applyScanPoison(ew93, contactBook, victimKey, localElapsedMs = 0, extras = {}) {
   const actor = getPhase93Actor(ew93, extras.actorKey || victimKey);
-  const defaults = resolvePhase93Defaults(extras.defaults || extras.magnitudes || ew93?.defaults);
+  const defaults = poisonDefaults(extras, ew93);
   const now = clampNonNeg(localElapsedMs);
   if (extras.inEnvelope === false) {
     return {
