@@ -4644,6 +4644,126 @@ async function runPhase10Dominion(page, results) {
   check(results, 'S18.18 dominion-first', s18.roster === 'dominion-first', JSON.stringify({ roster: s18.roster }));
 }
 
+async function runUtilityInventory(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.utility));
+  if (!present) {
+    check(results, 'S21.setup utility-api', false, 'utility probe API missing');
+    return;
+  }
+
+  const s21 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.utility;
+    if (typeof p.snapshot !== 'function' || typeof p.buyFlag !== 'function' || typeof p.injectKnobs !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    const slotsBefore = JSON.stringify(idle.weaponSlots);
+    const inventoryBefore = JSON.stringify(idle.weaponInventory);
+    const cargoBefore = JSON.stringify(idle.cargoArray);
+    const suiteBefore = idle.sensorSuiteId;
+    const ewBefore = idle.ewEquipmentId;
+    const factionBefore = idle.playerFaction;
+    const refused = p.refuseSlotWrite('weaponSlots');
+    const bought = p.buyFlag('klingon');
+    const afterBuy = bought.snapshot || p.snapshot();
+    p.saveSlot(3);
+    const loaded = p.loadSlot(3);
+    const wiped = p.wipeSystemStates();
+    const legacy = p.loadLegacy(['ferengi', 'cardassian']);
+    p.buyFlag('klingon');
+    const omit = p.injectKnobs({});
+    const injectedPrice = p.injectKnobs({ liveFlagPrice: 2500 });
+    const injectedKnob = p.injectKnobs({ basePrice: 2200, useKnobs: true });
+    const reset = p.injectKnobs({});
+    const inventory = p.openInventory();
+    return {
+      missing: false,
+      lock: idle.utilityLockedFromRemastered === true,
+      defaultPrice: idle.liveFlagPrice,
+      defaultSource: idle.liveFlagPriceSource,
+      knobs: idle.knobs,
+      capacity: idle.capacity,
+      activation: idle.activation,
+      hotkeys: idle.hotkeys,
+      thaleron: idle.thaleronTestFacilityPass,
+      thaleronVendor: idle.thaleronVendor,
+      guidedLock: idle.guidedThaleronPriceLock,
+      fire: idle.fire,
+      boarding: idle.boarding,
+      dominion: idle.dominion,
+      phase1: idle.phase1,
+      reman: idle.reman53,
+      refused: refused.refused === true,
+      boughtOk: bought.ok === true,
+      wroteSlots: bought.wroteSlots === true,
+      factionUnchanged: bought.playerFactionUnchanged === true && afterBuy.playerFaction === factionBefore,
+      flagGained: (afterBuy.playerFlags || []).includes('klingon')
+        && (afterBuy.book?.items || []).some((row) => row.kind === 'faction_flag' && row.id === 'klingon'),
+      slotsSame: JSON.stringify(afterBuy.weaponSlots) === slotsBefore
+        && JSON.stringify(afterBuy.weaponInventory) === inventoryBefore
+        && JSON.stringify(afterBuy.cargoArray) === cargoBefore
+        && afterBuy.sensorSuiteId === suiteBefore
+        && afterBuy.ewEquipmentId === ewBefore
+        && Array.isArray(afterBuy.weaponSlots) && afterBuy.weaponSlots.length === 3,
+      loadedFlag: (loaded.playerFlags || []).includes('klingon'),
+      loadedSlots: JSON.stringify(loaded.weaponSlots) === slotsBefore,
+      loadedPasses: Array.isArray(loaded.book?.facility_pass) && loaded.book.facility_pass.length === 0,
+      wipedFlag: (wiped.playerFlags || []).includes('klingon'),
+      legacyPasses: Array.isArray(legacy.book?.facility_pass) && legacy.book.facility_pass.length === 0,
+      legacyAlias: (legacy.playerFlags || []).includes('cardassian'),
+      omitPrice: omit.snapshot?.liveFlagPrice,
+      injectedLive: injectedPrice.snapshot?.liveFlagPrice,
+      injectedBase: injectedKnob.snapshot?.knobs?.basePrice,
+      injectedUseKnobs: injectedKnob.snapshot?.liveFlagPrice,
+      resetPrice: reset.snapshot?.liveFlagPrice,
+      inventoryEmpty: inventory.empty === true && /not a weapon slot/i.test(inventory.text || ''),
+      facilityPassEmpty: (afterBuy.book?.facility_pass || []).length === 0,
+    };
+  });
+
+  check(results, 'S21.setup utility-api', s21.missing !== true, JSON.stringify(s21));
+  check(results, 'S21.1 buy-hold-off-slots', s21.boughtOk === true
+    && s21.wroteSlots !== true
+    && s21.flagGained === true
+    && s21.slotsSame === true
+    && s21.refused === true, JSON.stringify(s21));
+  check(results, 'S21.2 save-load-separate-book', s21.loadedFlag === true
+    && s21.loadedSlots === true
+    && s21.loadedPasses === true
+    && s21.wipedFlag === true
+    && s21.legacyPasses === true
+    && s21.legacyAlias === true, JSON.stringify(s21));
+  check(results, 'S21.3 knobs-injectable', s21.lock !== true
+    && s21.defaultPrice === 1000
+    && s21.knobs?.blockedFactions?.includes('pirate')
+    && s21.knobs?.blockedFactions?.includes('borg')
+    && s21.injectedLive === 2500
+    && s21.injectedBase === 2200
+    && s21.injectedUseKnobs === 2200
+    && s21.omitPrice === 1000
+    && s21.resetPrice === 1000, JSON.stringify(s21));
+  check(results, 'S21.4 thaleron-not-shipped', s21.thaleron?.shipped === false
+    && s21.thaleron?.verified === false
+    && s21.thaleronVendor == null
+    && s21.guidedLock == null
+    && s21.facilityPassEmpty === true, JSON.stringify(s21));
+  check(results, 'S21.5 knowledge-only', s21.fire?.firingSolutionPresent !== true
+    && s21.fire?.engagementAuthorizedPresent !== true
+    && s21.factionUnchanged === true
+    && s21.phase1?.flagShareGrantsControl !== true
+    && s21.phase1?.plantGrantsMarketTrust !== true
+    && s21.reman?.id === 53
+    && s21.boarding?.tractorIsBoard !== true
+    && s21.dominion?.rumorGiftedFs !== true, JSON.stringify(s21));
+  check(results, 'S21.6 capacity-activation-unset', s21.capacity == null
+    && s21.activation === 'unset'
+    && s21.hotkeys == null, JSON.stringify(s21));
+  check(results, 'S21.7 landed-lanes-preserved', s21.boarding?.implemented === true
+    && s21.boarding?.tractorIsBoard !== true
+    && s21.inventoryEmpty === true, JSON.stringify(s21));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -4674,13 +4794,14 @@ async function main() {
     await runPhase94EwMagnitudes(page, results);
     await runBoardingCapture(page, results);
     await runPhase10Dominion(page, results);
+    await runUtilityInventory(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
