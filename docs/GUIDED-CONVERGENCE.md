@@ -99,12 +99,14 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 
 ## 2. Flags / passes / utility inventory — Agreed next
 
-**Not yet implemented on bake-off.**
+**Not yet implemented on bake-off.** Price knobs only in engine.
+
+**Scoreable brief now open (docs-only, 17 September 2026):** [`docs/flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md`](flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md) + [`docs/flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md`](flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md), from `main` @ `1e3f67d` after Phase 9.4 engine PR #45. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), or Phase 10 (#40/#41). **No Referee Pass claimed.**
 
 - Faction flags, facility passes, and similar utilities are **inventory**, not one of the **three combat / device slots**.
 - Capacity and activation rules are **open** (do not invent stack limits or hotkeys in the first brief).
 - Bake-off already has `settings.factionFlags` **price knobs** in `data/game_items.json`. That is not a working pass/flag inventory.
-- **Thaleron Test Facility pass** is **source material to verify** against BM1 (does the pass exist, where is it sold, what does it unlock). Do not invent a facility, a quest, or a map pin from the name alone.
+- **Thaleron Test Facility pass** is **source material to verify** against BM1 (does the pass exist, where is it sold, what does it unlock). Do not invent a facility, a quest, or a map pin from the name alone. In-repo verdict in the brief: **unverified — not shipped.**
 
 ### Acceptance
 
@@ -284,7 +286,7 @@ Adapt the guided order to **what bake-off has not done**. Do not restart Phases 
 
 1. **Weapon / device ledger** (docs + audit). No live retune.
 2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire.
-3. **Flags / passes / utility inventory** (verify Thaleron Test Facility pass).
+3. **Flags / passes / utility inventory** — scoreable brief now under `docs/flags-passes/` (Thaleron Test Facility pass **unverified — not shipped**).
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
 6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
@@ -310,4 +312,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **docs** now live under `docs/phase10/`.
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **docs** now live under `docs/flags-passes/`.
