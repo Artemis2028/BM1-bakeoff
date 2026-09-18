@@ -330,8 +330,8 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 
 | # | Package | Status on bake-off | Class | Overlap / pointer |
 | --- | --- | --- | --- | --- |
-| 1 | Weapon / device source ledger | Missing as a reviewed ledger | **Agreed next** | §11 / §13 BM1–BM2 audit. Flash prices in `GUIDED-CONVERGENCE.md` §1 are **source material, not final prices**. Keep Disrupter Canon / Cannon / Turret as three variants. Tractor stays a weapon/device slot. |
-| 2 | Flags / passes / utility inventory | **Brief open** (`docs/flags-passes/`) — engine still price knobs only | **Agreed next** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass **unverified — not shipped**. Scoreable brief from `main` @ `1e3f67d` after Phase 9.4 engine PR #45. **Not** a reopen of EW / boarding / Phase 10. |
+| 1 | Weapon / device source ledger | **Brief open** (`docs/weapon-ledger/`) — missing as a later audit engine | **Agreed next** | §11 / §13 BM1–BM2 audit. Flash prices in `GUIDED-CONVERGENCE.md` §1 are **source material, not final prices**. Keep Disrupter Canon / Cannon / Turret as three variants. Tractor stays a weapon/device slot. Bajoran Sail / Warp Core **explicitly deferred utilities**. Scoreable brief from `main` @ `6dc279b` after flags/passes engine PR #47. Phase 9 matrix **read-only**. **Not** a reopen of EW / boarding / Phase 10 / flags. |
+| 2 | Flags / passes / utility inventory | **Engine landed** (`docs/flags-passes/`; PR #46 brief / PR #47 engine). **Stay locked** — do not reopen from the weapon ledger. | **Locked** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass **unverified — not shipped**. **Not** a reopen of EW / boarding / Phase 10. |
 | 3 | Empty but armable ships | Missing | **Agreed next** | Three slots; empty stays empty across save/load; unarmed NPC cannot fire. Doctrine physical fire gate; §11 per-weapon gate. |
 | 4 | Boarding / capture / command transfer | **Engine landed** (`docs/boarding/`; PR #38 brief / PR #39 engine). **Stay locked** — do not reopen in Phase 10. | **Locked** | ≤10% hull; capture XOR scuttle; tractor ≠ board; away-team XP **not tracked yet**. See `GUIDED-CONVERGENCE.md` §4 and `docs/boarding/`. **Not** Phase 10. |
 | 5 | Station construction visuals | Missing | **Agreed next** | Scaffolds, workbees, **blue** construction beams ≠ combat evidence. **Do not redo repair arms** (side-lane Pass, PR #18). |
@@ -343,9 +343,9 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 
 ### 16.3 Suggested remaining order (bake-off only)
 
-1. Weapon/device ledger (audit, no retune).
+1. Weapon/device ledger — brief open (`docs/weapon-ledger/`; audit, no retune; Phase 9 matrix read-only).
 2. Empty-but-armable persistence + unarmed-cannot-fire.
-3. Flags / passes / utility inventory — brief open (`docs/flags-passes/`; Thaleron Test Facility pass **unverified — not shipped**).
+3. Flags / passes / utility inventory — engine landed (`docs/flags-passes/`; PRs #46/#47; Thaleron Test Facility pass **unverified — not shipped**). **Stay locked.**
 4. Standing-tier data (Open → Excalibur; new char 20).
 5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions).
 6. Boarding / capture / command transfer.

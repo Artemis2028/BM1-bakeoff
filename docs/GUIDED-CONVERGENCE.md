@@ -41,6 +41,8 @@ Guided text about incidents, independence, repair arms, and Reman recovery descr
 
 **Not yet implemented on bake-off as a reviewed ledger.** Plan §11 and §13 already require a BM1-versus-inherited-BM2 audit before a weapon overhaul. This section supplies the Flash **price** table as source material.
 
+**Scoreable brief now open (docs-only, 18 September 2026):** [`docs/weapon-ledger/BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md`](weapon-ledger/BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md) + [`docs/weapon-ledger/BM1-WEAPON-LEDGER-ENGINE-DEPENDENCIES.md`](weapon-ledger/BM1-WEAPON-LEDGER-ENGINE-DEPENDENCIES.md), from `main` @ `6dc279b` after flags/passes engine PR #47. Phase 9 weapons matrix stays **read-only** — no damage / cooldown / range / live-price retune. Flash prices remain **source material, not final prices**. Disrupter Canon / Cannon / Turret stay **three** identities. Tractor stays a **weapon/device slot**. Bajoran Sail / Warp Core are **explicitly deferred utilities** (not cargo; Warp Core ≠ “Warp Cores”). Inherited extras stay listed. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), or flags/passes (#46/#47). **No Referee Pass claimed.**
+
 ### Intent
 
 - Audit BM1 and BM2 definitions.
@@ -64,7 +66,7 @@ Spellings below are **Flash source spellings**. Bake-off `data/game_items.json` 
 | Type X Phaser | 3000 | Beam | id 1, price 3000 |
 | Tractor Beam | 3400 | Special | id 25, type Device, price 3400 — **keep as a slot item** |
 | Plasma Phaser | 3800 | — | id 4, price 3800 |
-| Bajoran Sail | 5000 | Utility | **Not** in the current weapon catalog; verify whether Flash sold this as a slot utility |
+| Bajoran Sail | 5000 | Utility | **Not** in the current weapon catalog. Scoreable ledger: **explicitly deferred utility** — not cargo, not `utilityBook`, no invented id. See `docs/weapon-ledger/` |
 | Engine Disrupter | 5000 | — | Bake-off “Engine Disruptor” id 23, price 5000 |
 | Polaron Phaser | 5000 | — | id 3, price 5000 |
 | Polaron Torpedo | 5300 | — | id 19, price 5300 |
@@ -74,7 +76,7 @@ Spellings below are **Flash source spellings**. Bake-off `data/game_items.json` 
 | Tachyon Field Generator | 8000 | — | id 24, price 8000 |
 | Pulse Turret | 8500 | — | id 11, price 8500 |
 | Gravimetric Torpedo | 9000 | — | id 13, price 9000 |
-| Warp Core | 12000 | Utility | **Not** a current weapon row; “Warp Cores” exists as a trade good — do not silently merge those |
+| Warp Core | 12000 | Utility | **Not** a current weapon row. Scoreable ledger: **explicitly deferred utility** — distinct from cargo “Warp Cores”; not `utilityBook`; no invented id. See `docs/weapon-ledger/` |
 | Transphasic Torpedo | 12500 | — | id 18, price 12500 |
 | Cloaking Device | 13500 | — | id 22, type Device, price 13500 |
 | Thaleron Generator | 15500 | — | id 26, price 15500 |
@@ -88,24 +90,24 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 - Identify the source of each claim: BM1 Flash, retained BM2, bake-off `game_items.json`, or new design.
 - Do not grant universal shield bypass from an isolated lore exception (plan §11).
 - Do not retune damage, cooldown, or range in the ledger pass. Prices in the table are historical Flash numbers.
-- Extra bake-off / BM2 rows (Particle Beam, Magnetorp, Biobeam, Tesla Beam, and similar) stay on a **separate “inherited, not in this Flash table”** list. Do not delete them from this document’s silence, and do not invent Flash prices for them.
+- Extra bake-off / BM2 rows (Particle Beam, Magnetorp, Biobeam, Tesla Beam, and similar) stay on a **separate “inherited, not in this Flash table”** list. Do not delete them from this document’s silence, and do not invent Flash prices for them. The scoreable list (ids 2, 27–30, 38, 39, 44, 45) lives in `docs/weapon-ledger/`.
 
 ### Acceptance (docs / later engine)
 
 1. Canon, Cannon, and Turret remain three disruptor identities.
 2. Tractor is still equippable in a combat/device slot.
-3. Utility Flash rows (Bajoran Sail, Warp Core) are classified or explicitly deferred — not silently turned into cargo.
+3. Utility Flash rows (Bajoran Sail, Warp Core) are classified or explicitly deferred — not silently turned into cargo. **In-repo verdict:** both **explicitly deferred utilities** (`docs/weapon-ledger/`).
 4. No row in this table is treated as a live price lock.
 
-## 2. Flags / passes / utility inventory — Agreed next
+## 2. Flags / passes / utility inventory — Locked (engine landed)
 
-**Not yet implemented on bake-off.** Price knobs only in engine.
+**Engine landed** on bake-off (`docs/flags-passes/`; brief PR #46, engine PR #47 @ `6dc279b`). **Stay locked** — do not reopen from the weapon-ledger brief. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. Tractor / Bajoran Sail / Warp Core stay **out** of `utilityBook`.
 
-**Scoreable brief now open (docs-only, 17 September 2026):** [`docs/flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md`](flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md) + [`docs/flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md`](flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md), from `main` @ `1e3f67d` after Phase 9.4 engine PR #45. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), or Phase 10 (#40/#41). **No Referee Pass claimed.**
+**Scoreable brief (docs, 17 September 2026):** [`docs/flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md`](flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md) + [`docs/flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md`](flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md), from `main` @ `1e3f67d` after Phase 9.4 engine PR #45. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), or Phase 10 (#40/#41). **No Referee Pass claimed.**
 
 - Faction flags, facility passes, and similar utilities are **inventory**, not one of the **three combat / device slots**.
 - Capacity and activation rules are **open** (do not invent stack limits or hotkeys in the first brief).
-- Bake-off already has `settings.factionFlags` **price knobs** in `data/game_items.json`. That is not a working pass/flag inventory.
+- Bake-off already has `settings.factionFlags` **price knobs** in `data/game_items.json`. Those remain knobs. The working inventory is `state.utilityBook` (PR #47) — credentials, not combat slots.
 - **Thaleron Test Facility pass** is **source material to verify** against BM1 (does the pass exist, where is it sold, what does it unlock). Do not invent a facility, a quest, or a map pin from the name alone. In-repo verdict in the brief: **unverified — not shipped.**
 
 ### Acceptance
@@ -284,9 +286,9 @@ Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Domini
 
 Adapt the guided order to **what bake-off has not done**. Do not restart Phases 1–5 or the side-lane.
 
-1. **Weapon / device ledger** (docs + audit). No live retune.
+1. **Weapon / device ledger** — scoreable brief now under `docs/weapon-ledger/` (docs + audit). No live retune. Phase 9 matrix stays read-only.
 2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire.
-3. **Flags / passes / utility inventory** — scoreable brief now under `docs/flags-passes/` (Thaleron Test Facility pass **unverified — not shipped**).
+3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. **Stay locked** from the weapon-ledger brief.
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
 6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
@@ -312,4 +314,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **docs** now live under `docs/flags-passes/`.
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **docs** now live under `docs/weapon-ledger/`.
