@@ -1627,7 +1627,8 @@ body.ui-theme-cardassian .target-meter-track {
 .station-plan-inventory {
   margin: 8px 0;
 }
-.flag-inventory {
+.flag-inventory,
+.pass-inventory {
   margin: 8px 0;
 }
 .flag-inventory-item {

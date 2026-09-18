@@ -664,6 +664,21 @@ import {
   snapshotPhase94Magnitudes,
 } from './phase94-magnitudes.js';
 import {
+  UTILITY_BOOK_VERSION,
+  applyPriceInject,
+  assertNoCombatStoreMutation,
+  combatStoresContainCredential,
+  copyCombatStores,
+  emptyUtilityBook,
+  grantFactionFlagCredential,
+  resolveLiveFlagPrice,
+  restoreUtilityBook,
+  serializeUtilityBook,
+  snapshotUtilityBook,
+  syncUtilityBookAlias,
+  writeCredentialIntoCombatStore,
+} from './utility-inventory.js';
+import {
   applyLobeMask,
   inLobe,
   snapshotLobe,
@@ -1357,6 +1372,7 @@ const state = {
   ewBook: emptyEwBook(),
   boardingBook: emptyBoardingBook(),
   dominionBook: emptyDominionBook(),
+  utilityBook: emptyUtilityBook(),
   ew91: emptyEw91Book(),
   ew92: emptyEw92Book(),
   ew93: emptyEw93Book(),
@@ -5646,6 +5662,17 @@ function ensureDominionBook() {
   return state.dominionBook;
 }
 
+function ensureUtilityBook() {
+  if (!state.utilityBook || state.utilityBook.version !== UTILITY_BOOK_VERSION) {
+    const restored = restoreUtilityBook(state.utilityBook, state.playerFlags);
+    state.utilityBook = restored.book;
+    if (Array.isArray(restored.playerFlags) && restored.playerFlags.length) {
+      state.playerFlags = restored.playerFlags;
+    }
+  }
+  return syncUtilityBookAlias(state);
+}
+
 function playerDiscovery() {
   return ensureDominionBook().discovery;
 }
@@ -8557,6 +8584,7 @@ function normalizePlayerFlags() {
     .filter(isPurchasableFactionFlag));
   if (isPurchasableFactionFlag(state.playerFaction)) flags.add(normalizeFactionKey(state.playerFaction));
   state.playerFlags = [...flags].sort((a, b) => formatFaction(a).localeCompare(formatFaction(b)));
+  syncUtilityBookAlias(state);
   return state.playerFlags;
 }
 
@@ -8645,6 +8673,7 @@ function plantFlagForEmpire(faction) {
     return;
   }
   state.playerFlags = normalizePlayerFlags().filter((f) => f !== key);
+  syncUtilityBookAlias(state);
   if (!state.factionSystemOverrides || typeof state.factionSystemOverrides !== 'object') state.factionSystemOverrides = {};
   state.factionSystemOverrides[state.currentPlanet] = key;
   noteAuthoritySide(state.currentPlanet, key);
@@ -8842,7 +8871,12 @@ function getFlagPrice(faction = state.systemFaction, systemIndex = state.current
   const planet = state.planets[systemIndex] || {};
   const market = clamp(finiteNumber(planet.market, 8), 4, 22);
   const factionPremium = key === 'neutral' ? 0 : 650;
-  return 1000;
+  void key;
+  void market;
+  void factionPremium;
+  const knobs = getFactionFlagSettings();
+  const inject = ensureUtilityBook().priceInject;
+  return resolveLiveFlagPrice(knobs, inject);
 }
 
 function getLocalFlagOffer(systemIndex = state.currentPlanet) {
@@ -8875,6 +8909,14 @@ function renderPlayerFlagsPanel() {
   return `<div class="flag-inventory">
     <div class="panel-head">Flags</div>
     ${rows || '<div class="meta">No flags owned.</div>'}
+  </div>`;
+}
+
+function renderFacilityPassesPanel() {
+  return `<div class="pass-inventory" data-utility-passes="empty">
+    <div class="panel-head">Passes</div>
+    <div class="meta">No facility passes owned.</div>
+    <div class="meta">Credentials. Inventory — not a weapon slot, not a firing solution.</div>
   </div>`;
 }
 
@@ -10712,6 +10754,7 @@ function renderTopLeftPanel() {
     ${iconStat('cargo', `${state.cargo}/${state.cargoCap}`, 'Cargo')}
   </div>`;
   const flags = renderPlayerFlagsPanel();
+  const passes = renderFacilityPassesPanel();
   const settingsActions = `<div class="top-action-grid settings-actions">
     ${Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => `<button data-save-slot="${index + 1}">Save ${index + 1}</button>`).join('')}
     ${Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => `<button data-load-slot="${index + 1}" ${getSaveSlotRaw(index + 1) ? '' : 'disabled'}>Load ${index + 1}</button>`).join('')}
@@ -10727,7 +10770,7 @@ function renderTopLeftPanel() {
     ? powerContent
     : state.topLeftTab === 'settings'
     ? `<div class="panel-head">Settings</div>${gameOptions}<div class="panel-head">Security</div>${renderSecurityPanel()}<div class="panel-head">Campaign</div>${renderPhase10CampaignHtml()}<div class="panel-head">Save & Debug</div>${settingsActions}<div class="meta">${escapeHtml(godStatus)}</div><div class="panel-head">God Ship Switcher</div><div class="god-ship-switcher">${renderGodModeShipSwitcher()}</div>`
-    : `<div class="panel-head">Inventory</div>${resources}${flags}${stationPlans}${weaponLine}${ewSlotLine}${contract}<div class="panel-head">Cargo Pods</div><div class="pods">${pods}</div>`;
+    : `<div class="panel-head">Inventory</div>${resources}${flags}${passes}${stationPlans}${weaponLine}${ewSlotLine}${contract}<div class="panel-head">Cargo Pods</div><div class="pods">${pods}</div>`;
   topLeftPanelEl.innerHTML = `<button class="panel-close top-left-panel-close" data-top-action="close-panel" aria-label="Close ${escapeHtml(state.topLeftTab)} panel">&times;</button><div class="top-left-panel-content">${panelContent}</div>`;
   const restoredScrollTarget = state.topLeftTab === 'settings'
     ? topLeftPanelEl.querySelector('.god-ship-switcher')
@@ -12893,10 +12936,15 @@ function buyFactionFlag(faction) {
     setLog(`Need ${offer.price} latinum to buy the ${formatFaction(key)} flag.`);
     return;
   }
+  const beforeStores = copyCombatStores(state);
   state.latinum -= offer.price;
   state.mylatinum = state.latinum;
-  state.playerFlags.push(key);
+  const granted = grantFactionFlagCredential(state, key);
   normalizePlayerFlags();
+  assertNoCombatStoreMutation(beforeStores, state);
+  if (combatStoresContainCredential(state) || granted.ok === false) {
+    throw new Error('utility-inventory: buyFactionFlag must not write combat/device slots');
+  }
   playGameSound('purchase', { cooldownKey: `purchase:flag:${key}` });
   setLog(`Purchased ${formatFaction(key)} flag. Raise it from Market or Inventory to change allegiance.`);
   updateStats();
@@ -14052,6 +14100,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     playerFaction: state.playerFaction,
     playerSide: getPlayerSide(),
     playerFlags: normalizePlayerFlags(),
+    utilityBook: serializeUtilityBook(ensureUtilityBook(), normalizePlayerFlags()),
     captainName: state.captainName,
     shipName: state.shipName,
     godMode: state.godMode,
@@ -14199,7 +14248,12 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.unrestIndependence = restoreUnrestIndependence(s.unrestIndependence);
   state.repairSession = clearRepairSession();
   state.lastRepairRefuse = null;
-  state.playerFlags = Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction];
+  const restoredUtility = restoreUtilityBook(
+    s.utilityBook,
+    Array.isArray(s.playerFlags) ? s.playerFlags : [state.playerFaction],
+  );
+  state.utilityBook = restoredUtility.book;
+  state.playerFlags = restoredUtility.playerFlags;
   normalizePlayerFlags();
   state.factionStanding = (s.factionStanding && typeof s.factionStanding === 'object') ? s.factionStanding : {};
   state.feats = (s.feats && typeof s.feats === 'object') ? s.feats : {};
@@ -22530,6 +22584,7 @@ function resetRunState() {
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
   state.dominionBook = emptyDominionBook();
+  state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -22541,6 +22596,7 @@ function resetRunState() {
   state.lockLostAtLocalMs = 0;
   state.stationPlans = [];
   state.playerFlags = [];
+  state.utilityBook = emptyUtilityBook();
   state.playerSide = 'ferengi';
   state.playerSecurity = createPlayerSecurityState('ferengi');
   state.securityZones = createSecurityZonesState();
@@ -22746,6 +22802,7 @@ function startWithFaction(key, options = {}) {
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
   state.dominionBook = emptyDominionBook();
+  state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23689,6 +23746,140 @@ function installBm1ProbeHarness() {
     phase93: createPhase93ProbeApi(),
     phase94: createPhase94ProbeApi(),
     phase10: createPhase10ProbeApi(),
+    utility: createUtilityProbeApi(),
+    flagsPasses: createUtilityProbeApi(),
+  };
+}
+
+function createUtilityProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const originalKnobs = {
+    basePrice: DEFAULT_ITEM_SETTINGS.factionFlags.basePrice,
+    marketMultiplier: DEFAULT_ITEM_SETTINGS.factionFlags.marketMultiplier,
+    blockedFactions: [...DEFAULT_ITEM_SETTINGS.factionFlags.blockedFactions],
+  };
+  const snapshot = () => {
+    const missing = failIfMissing(snapshotUtilityBook, 'snapshotUtilityBook');
+    if (missing) return missing;
+    ensureUtilityBook();
+    normalizePlayerFlags();
+    const book = ensureUtilityBook();
+    const knobs = getFactionFlagSettings();
+    return snapshotUtilityBook(book, {
+      playerFlags: state.playerFlags,
+      weaponSlots: state.weaponSlots,
+      weaponInventory: state.weaponInventory,
+      cargoArray: state.cargoArray,
+      sensorSuiteId: state.sensorSuiteId,
+      ewEquipmentId: state.ewEquipmentId,
+      knobs,
+      tractorIsBoard: tractorIsBoarding() === true,
+      boardingImplemented: BOARDING_IMPLEMENTED === true,
+      rumorGiftedFs: false,
+      flagShareGrantsControl: flagShareGrantsSystemControl() === true,
+      plantGrantsMarketTrust: plantFlagDoesNotGrantMarketTrust()?.catalogStanding === true
+        || plantFlagDoesNotGrantMarketTrust()?.imperialMarketOpened === true,
+      reman53: reman53Identity(),
+      playerFaction: state.playerFaction,
+    });
+  };
+  return {
+    snapshot,
+    buyFlag: (faction) => {
+      const missing = failIfMissing(grantFactionFlagCredential, 'grantFactionFlagCredential');
+      if (missing) return missing;
+      const before = copyCombatStores(state);
+      const factionBefore = state.playerFaction;
+      const remanBefore = reman53Identity();
+      const result = grantFactionFlagCredential(state, faction);
+      normalizePlayerFlags();
+      assertNoCombatStoreMutation(before, state);
+      return {
+        ...result,
+        playerFactionUnchanged: state.playerFaction === factionBefore,
+        reman53: reman53Identity(),
+        remanUnchanged: reman53Identity().id === remanBefore.id && reman53Identity().key === remanBefore.key,
+        wroteSlots: false,
+        snapshot: snapshot(),
+      };
+    },
+    injectKnobs: (opts = {}) => {
+      const missing = failIfMissing(applyPriceInject, 'injectKnobs');
+      if (missing) return missing;
+      const book = ensureUtilityBook();
+      if (!opts || typeof opts !== 'object' || Object.keys(opts).length === 0) {
+        applyPriceInject(book, null);
+        itemSettings.factionFlags.basePrice = originalKnobs.basePrice;
+        itemSettings.factionFlags.marketMultiplier = originalKnobs.marketMultiplier;
+        itemSettings.factionFlags.blockedFactions = [...originalKnobs.blockedFactions];
+        return { ok: true, snapshot: snapshot() };
+      }
+      applyPriceInject(book, opts);
+      if (Object.prototype.hasOwnProperty.call(opts, 'basePrice') && Number.isFinite(Number(opts.basePrice))) {
+        itemSettings.factionFlags.basePrice = Number(opts.basePrice);
+      }
+      if (Object.prototype.hasOwnProperty.call(opts, 'marketMultiplier') && Number.isFinite(Number(opts.marketMultiplier))) {
+        itemSettings.factionFlags.marketMultiplier = Number(opts.marketMultiplier);
+      }
+      if (Array.isArray(opts.blockedFactions)) {
+        itemSettings.factionFlags.blockedFactions = [...opts.blockedFactions];
+      }
+      return { ok: true, snapshot: snapshot() };
+    },
+    inject: (opts = {}) => {
+      const missing = failIfMissing(applyPriceInject, 'inject');
+      if (missing) return missing;
+      return {
+        knobs: createUtilityProbeApi().injectKnobs(opts),
+        snapshot: snapshot(),
+      };
+    },
+    refuseSlotWrite: (storeName = 'weaponSlots') => {
+      try {
+        writeCredentialIntoCombatStore(storeName, { kind: 'faction_flag', id: 'klingon' });
+        return { ok: true, refused: false };
+      } catch (error) {
+        return { ok: false, refused: true, reason: String(error?.message || error) };
+      }
+    },
+    liveFlagPrice: () => getFlagPrice(),
+    saveSlot: (slot = 7) => {
+      saveGame(slot);
+      return true;
+    },
+    loadSlot: (slot = 7) => {
+      loadGame(slot);
+      freezeLoop();
+      return snapshot();
+    },
+    loadLegacy: (playerFlags = ['ferengi']) => {
+      const restored = restoreUtilityBook(undefined, playerFlags);
+      state.utilityBook = restored.book;
+      state.playerFlags = restored.playerFlags;
+      normalizePlayerFlags();
+      return snapshot();
+    },
+    wipeSystemStates: () => {
+      state.systemStates = {};
+      applySystemState(state.currentPlanet);
+      return snapshot();
+    },
+    openInventory: () => {
+      skipIntroStory();
+      if (!state.gameStarted) startWithFaction('ferengi', { captainName: 'Probe', shipName: 'Probe Ship' });
+      state.topLeftPanelOpen = true;
+      state.topLeftTab = 'inventory';
+      renderTopLeftPanel();
+      const panel = document.querySelector('.pass-inventory');
+      return {
+        present: Boolean(panel),
+        empty: panel?.getAttribute('data-utility-passes') === 'empty',
+        text: panel?.textContent || '',
+      };
+    },
   };
 }
 
@@ -27270,6 +27461,8 @@ function installPlayerSecurityProbe() {
     phase94: createPhase94ProbeApi(),
     boarding: createBoardingProbeApi(),
     phase10: createPhase10ProbeApi(),
+    utility: createUtilityProbeApi(),
+    flagsPasses: createUtilityProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

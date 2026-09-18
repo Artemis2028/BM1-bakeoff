@@ -21,6 +21,7 @@
     "test:phase94": "node scripts/test-phase94-ew-magnitudes.mjs",
     "test:boarding": "node scripts/test-boarding-capture.mjs",
     "test:phase10": "node scripts/test-phase10-dominion.mjs",
+    "test:utility": "node scripts/test-utility-inventory.mjs",
     "test:side-lane": "node scripts/test-side-lane-repair-reman.mjs && node scripts/test-side-lane-unrest-independence.mjs",
     "test:catalog": "node scripts/test-catalog-wire.mjs",
     "check:ship-manifest": "node scripts/sync-ship-roster.mjs --check",
