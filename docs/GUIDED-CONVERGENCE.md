@@ -37,11 +37,9 @@ These are **done or brief-ready**. They are not “Agreed next from scratch.”
 
 Guided text about incidents, independence, repair arms, and Reman recovery describes work **already on bake-off**. Cite the Pass / merge. Do not open a second incident ledger, a second independence mint, or a second repair-arms overlay.
 
-## 1. Weapon / device source ledger — Agreed next
+## 1. Weapon / device source ledger — Locked (engine landed)
 
-**Not yet implemented on bake-off as a reviewed ledger.** Plan §11 and §13 already require a BM1-versus-inherited-BM2 audit before a weapon overhaul. This section supplies the Flash **price** table as source material.
-
-**Scoreable brief now open (docs-only, 18 September 2026):** [`docs/weapon-ledger/BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md`](weapon-ledger/BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md) + [`docs/weapon-ledger/BM1-WEAPON-LEDGER-ENGINE-DEPENDENCIES.md`](weapon-ledger/BM1-WEAPON-LEDGER-ENGINE-DEPENDENCIES.md), from `main` @ `6dc279b` after flags/passes engine PR #47. Phase 9 weapons matrix stays **read-only** — no damage / cooldown / range / live-price retune. Flash prices remain **source material, not final prices**. Disrupter Canon / Cannon / Turret stay **three** identities. Tractor stays a **weapon/device slot**. Bajoran Sail / Warp Core are **explicitly deferred utilities** (not cargo; Warp Core ≠ “Warp Cores”). Inherited extras stay listed. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), or flags/passes (#46/#47). **No Referee Pass claimed.**
+**Engine landed** on bake-off (`docs/weapon-ledger/`; brief PR #48, engine PR #49 @ `a3d9611`). **Stay locked** — do not reopen from the empty-armable brief. Phase 9 weapons matrix stays **read-only**. Flash prices remain **source material, not final prices**. Disrupter Canon / Cannon / Turret stay **three** identities. Tractor stays a **weapon/device slot**. Bajoran Sail / Warp Core are **explicitly deferred utilities**. `LEDGER_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** **Keep #48 / #49 locked.**
 
 ### Intent
 
@@ -101,7 +99,7 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 
 ## 2. Flags / passes / utility inventory — Locked (engine landed)
 
-**Engine landed** on bake-off (`docs/flags-passes/`; brief PR #46, engine PR #47 @ `6dc279b`). **Stay locked** — do not reopen from the weapon-ledger brief. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. Tractor / Bajoran Sail / Warp Core stay **out** of `utilityBook`.
+**Engine landed** on bake-off (`docs/flags-passes/`; brief PR #46, engine PR #47 @ `6dc279b`). **Stay locked** — do not reopen from the weapon-ledger or empty-armable briefs. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. Tractor / Bajoran Sail / Warp Core stay **out** of `utilityBook`.
 
 **Scoreable brief (docs, 17 September 2026):** [`docs/flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md`](flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md) + [`docs/flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md`](flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md), from `main` @ `1e3f67d` after Phase 9.4 engine PR #45. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), or Phase 10 (#40/#41). **No Referee Pass claimed.**
 
@@ -118,7 +116,9 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 
 ## 3. Empty but armable ships — Agreed next
 
-**Not yet implemented on bake-off.**
+**Not yet implemented on bake-off as a scored persistence / physical-gate package.** Catalog-wire helpers (`hullIsEmptyButArmable`, `unarmedNpcCannotFire`) and boarding prize-preserve are **subscribe points**, not this Pass.
+
+**Scoreable brief now open (docs-only, 19 September 2026):** [`docs/empty-armable/BM1-EMPTY-ARMABLE-SHIPS-PROPOSAL.md`](empty-armable/BM1-EMPTY-ARMABLE-SHIPS-PROPOSAL.md) + [`docs/empty-armable/BM1-EMPTY-ARMABLE-ENGINE-DEPENDENCIES.md`](empty-armable/BM1-EMPTY-ARMABLE-ENGINE-DEPENDENCIES.md), from `main` @ `a3d9611` after weapon-ledger engine PR #49. Three slots; empty stays empty across save / load / scene / restoration; unarmed NPC cannot fire; legal install uses installed def only; Tractor stays a **slot**; never gift FS / culture / `engagement_authorized`. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), or weapon ledger (#48/#49). DockClear / construction / HTML catalogs / combat retune / Flash price locks **out**. **No Referee Pass claimed.**
 
 - A hull has **three** combat/device slots.
 - Empty stays **empty** across save, load, scene change, and restoration. Do not auto-fill a default Phaser because the ship “should have guns.”
@@ -286,8 +286,8 @@ Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Domini
 
 Adapt the guided order to **what bake-off has not done**. Do not restart Phases 1–5 or the side-lane.
 
-1. **Weapon / device ledger** — scoreable brief now under `docs/weapon-ledger/` (docs + audit). No live retune. Phase 9 matrix stays read-only.
-2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire.
+1. **Weapon / device ledger** — brief + engine landed (`docs/weapon-ledger/`, PRs #48/#49). Phase 9 matrix stays read-only. **Stay locked.**
+2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire — scoreable brief now under `docs/empty-armable/`.
 3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. **Stay locked** from the weapon-ledger brief.
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
@@ -314,4 +314,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **docs** now live under `docs/weapon-ledger/`.
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **docs** now live under `docs/empty-armable/`.
