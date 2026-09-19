@@ -679,6 +679,13 @@ import {
   writeCredentialIntoCombatStore,
 } from './utility-inventory.js';
 import {
+  LEDGER_LOCKED_FROM_REMASTERED,
+  ledgerInjectMustNotGiftFire,
+  lockFlashPrices,
+  snapshotWeaponLedger,
+  writeCombatNumbers,
+} from './weapon-source-ledger.js';
+import {
   applyLobeMask,
   inLobe,
   snapshotLobe,
@@ -23748,6 +23755,59 @@ function installBm1ProbeHarness() {
     phase10: createPhase10ProbeApi(),
     utility: createUtilityProbeApi(),
     flagsPasses: createUtilityProbeApi(),
+    weaponLedger: createWeaponLedgerProbeApi(),
+  };
+}
+
+function createWeaponLedgerProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [snapshotWeaponLedger, 'snapshotWeaponLedger'],
+    [buildWeaponsMatrix, 'buildWeaponsMatrix'],
+    [listDeferredFlashUtilities, 'listDeferredFlashUtilities'],
+    [disruptorIdentities, 'disruptorIdentities'],
+    [tractorRow, 'tractorRow'],
+    [combatNumbersUnchanged, 'combatNumbersUnchanged'],
+  ];
+  const snapshot = () => {
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    const hulls = Array.isArray(state.shipCatalog?.ships) ? state.shipCatalog.ships : [];
+    return snapshotWeaponLedger({
+      items: WEAPON_CATALOG,
+      tradeGoods: state.tradeGoodsArray,
+      utilityBook: state.utilityBook,
+      hulls,
+      tractorIsBoard: tractorIsBoarding() === true,
+      boardingImplemented: BOARDING_IMPLEMENTED === true,
+    });
+  };
+  return {
+    snapshot,
+    refuseCombatWrite: () => {
+      try {
+        writeCombatNumbers(WEAPON_CATALOG, 1, { damage: 99 });
+        return { refused: false, lock: LEDGER_LOCKED_FROM_REMASTERED === true };
+      } catch (error) {
+        return { refused: true, reason: String(error?.message || error) };
+      }
+    },
+    refuseFlashLock: () => {
+      try {
+        lockFlashPrices();
+        return { refused: false };
+      } catch (error) {
+        return { refused: true, reason: String(error?.message || error) };
+      }
+    },
+    injectFire: (row = { firingSolution: true, engagement_authorized: true }) => (
+      ledgerInjectMustNotGiftFire(row)
+    ),
   };
 }
 
@@ -27463,6 +27523,7 @@ function installPlayerSecurityProbe() {
     phase10: createPhase10ProbeApi(),
     utility: createUtilityProbeApi(),
     flagsPasses: createUtilityProbeApi(),
+    weaponLedger: createWeaponLedgerProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
