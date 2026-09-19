@@ -4764,6 +4764,131 @@ async function runUtilityInventory(page, results) {
     && s21.inventoryEmpty === true, JSON.stringify(s21));
 }
 
+async function runWeaponSourceLedger(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.weaponLedger));
+  if (!present) {
+    check(results, 'S22.setup weaponLedger-api', false, 'weaponLedger probe API missing');
+    return;
+  }
+
+  const s22 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.weaponLedger;
+    if (typeof p.snapshot !== 'function') return { missing: true };
+    const snap = p.snapshot();
+    if (snap.missing === true) return snap;
+    const write = typeof p.refuseCombatWrite === 'function' ? p.refuseCombatWrite() : { refused: false };
+    const flashLock = typeof p.refuseFlashLock === 'function' ? p.refuseFlashLock() : { refused: false };
+    const fire = typeof p.injectFire === 'function'
+      ? p.injectFire({ firingSolution: true, engagement_authorized: true, cultureFire: true })
+      : { firingSolutionPresent: true, engagementAuthorizedPresent: true };
+    const sail = (snap.deferredUtilities || []).find((row) => row.flashName === 'Bajoran Sail');
+    const core = (snap.deferredUtilities || []).find((row) => row.flashName === 'Warp Core');
+    const provenanceOk = Array.isArray(snap.rows)
+      && snap.rows.length > 0
+      && snap.rows.every((row) => ['BM1-flash', 'retained-BM2', 'bake-off-game-items', 'new'].includes(row.provenance));
+    return {
+      missing: false,
+      lock: snap.ledgerLockedFromRemastered === true,
+      flashLock: snap.flashPricesAreLiveLocks === true,
+      bypass: snap.universalShieldBypass === true,
+      combatUnchanged: snap.combatUnchanged === true,
+      matrixColumns: snap.matrixColumns,
+      disruptors: snap.disruptors,
+      collisionMerged: snap.findings?.displayNameCollision?.merged === true,
+      tractor: snap.tractor,
+      plasma: snap.plasmaTorpedo,
+      sail,
+      core,
+      inherited: snap.inheritedNotInFlash,
+      inheritedFlash: (snap.inheritedRows || []).map((row) => row.flashPrice),
+      hoj: snap.hoj,
+      vacant: snap.vacantIdsStillVacant,
+      provenanceOk,
+      fire: snap.fire,
+      injectFire: fire,
+      shields: snap.shields,
+      boarding: snap.boarding,
+      writeRefused: write.refused === true,
+      flashLockRefused: flashLock.refused === true,
+      utilityForbidden: snap.utilityBookHoldsForbidden === true,
+    };
+  });
+
+  check(results, 'S22.setup weaponLedger-api', s22.missing !== true, JSON.stringify(s22));
+  check(results, 'S22.1 matrix-read-only', s22.combatUnchanged === true
+    && s22.matrixColumns === 10
+    && s22.writeRefused === true, JSON.stringify({
+    combatUnchanged: s22.combatUnchanged,
+    matrixColumns: s22.matrixColumns,
+    writeRefused: s22.writeRefused,
+  }));
+  check(results, 'S22.2 three-disruptors-tractor', s22.disruptors?.distinct === true
+    && s22.disruptors?.canon?.id === 7
+    && s22.disruptors?.cannon?.id === 6
+    && s22.disruptors?.turret?.id === 12
+    && s22.disruptors?.canon?.flashIdentity === 'Disrupter Canon'
+    && s22.disruptors?.cannon?.flashIdentity === 'Disrupter Cannon'
+    && s22.disruptors?.turret?.flashIdentity === 'Disrupter Turret'
+    && s22.collisionMerged !== true
+    && s22.tractor?.id === 25
+    && s22.tractor?.type === 'Device'
+    && s22.tractor?.slot === true
+    && s22.tractor?.cargo !== true
+    && s22.tractor?.boarding !== true, JSON.stringify({
+    disruptors: s22.disruptors,
+    tractor: s22.tractor,
+    collisionMerged: s22.collisionMerged,
+  }));
+  check(results, 'S22.3 flash-not-lock', s22.flashLock !== true
+    && s22.flashLockRefused === true
+    && s22.plasma?.id === 17
+    && s22.plasma?.livePrice === 7200
+    && s22.plasma?.flashCertified === false, JSON.stringify({
+    flashLock: s22.flashLock,
+    flashLockRefused: s22.flashLockRefused,
+    plasma: s22.plasma,
+  }));
+  check(results, 'S22.4 deferred-utilities', s22.sail?.bakeoffId == null
+    && s22.sail?.cargo === false
+    && s22.sail?.utilityBook === false
+    && s22.core?.bakeoffId == null
+    && s22.core?.cargo === false
+    && s22.core?.utilityBook === false
+    && s22.core?.cargoNameWarpCoresDistinct === true
+    && s22.utilityForbidden !== true, JSON.stringify({
+    sail: s22.sail,
+    core: s22.core,
+    utilityForbidden: s22.utilityForbidden,
+  }));
+  check(results, 'S22.5 inherited-list', JSON.stringify(s22.inherited) === JSON.stringify([2, 27, 28, 29, 30, 38, 39, 44, 45])
+    && (s22.inheritedFlash || []).every((price) => price == null)
+    && s22.hoj?.provenance === 'new'
+    && s22.hoj?.catalogId == null
+    && JSON.stringify(s22.vacant) === JSON.stringify([20, 21, 31, 32, 33, 34, 35, 36, 37, 40, 41, 42, 43]),
+  JSON.stringify({ inherited: s22.inherited, hoj: s22.hoj, vacant: s22.vacant }));
+  check(results, 'S22.6 provenance-no-bypass-no-fire', s22.provenanceOk === true
+    && s22.bypass !== true
+    && s22.shields?.ordinaryBeam?.bypassedShields !== true
+    && s22.shields?.ordinaryBeam?.interaction === 'shields-then-hull'
+    && s22.fire?.firingSolutionPresent !== true
+    && s22.fire?.engagementAuthorizedPresent !== true
+    && s22.injectFire?.firingSolutionPresent !== true
+    && s22.injectFire?.engagementAuthorizedPresent !== true, JSON.stringify({
+    provenanceOk: s22.provenanceOk,
+    bypass: s22.bypass,
+    shields: s22.shields,
+    fire: s22.fire,
+    injectFire: s22.injectFire,
+  }));
+  check(results, 'S22.7 landed-lanes-preserved', s22.lock !== true
+    && s22.boarding?.implemented === true
+    && s22.boarding?.tractorIsBoard !== true, JSON.stringify({
+    lock: s22.lock,
+    boarding: s22.boarding,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -4795,13 +4920,14 @@ async function main() {
     await runBoardingCapture(page, results);
     await runPhase10Dominion(page, results);
     await runUtilityInventory(page, results);
+    await runWeaponSourceLedger(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
