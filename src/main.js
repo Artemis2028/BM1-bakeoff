@@ -23926,13 +23926,13 @@ function createEmptyArmableProbeApi() {
       tractorIsBoard: tractorIsBoarding() === true,
       tractorInUtilityBook: false,
       boardingImplemented: BOARDING_IMPLEMENTED === true,
-      emptySlotsStayEmpty: emptySlotsStayEmpty(CANONICAL_EMPTY_OR_LIVE(npc), npc?.weaponSlots),
+      emptySlotsStayEmpty: emptySlotsStayEmpty(
+        canonicalizeWeaponSlots(npc?.weaponSlots),
+        canonicalizeWeaponSlots(npc?.weaponSlots),
+      ) === true,
       utilityBook: state.utilityBook,
     });
   };
-  function CANONICAL_EMPTY_OR_LIVE(npc) {
-    return npc?.weaponSlots || canonicalizeWeaponSlots([]);
-  }
   return {
     snapshot,
     spawnEmpty: (shipId = 350, slots = [null, null, null]) => {
