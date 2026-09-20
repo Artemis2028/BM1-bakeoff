@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en"
+  data-html-catalog-locked-from-remastered="false"
+  data-flash-required="false"
+  data-flash-prices-are-live-locks="false"
+  data-shop-controls="false"
+  data-firing-solution-present="false"
+  data-engagement-authorized-present="false"
+  data-src-combat-untouched="true">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BM1 weapon review catalog</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#0b1320;color:#e8eef5}
+*{box-sizing:border-box}
+body{margin:0}
+main{max-width:1480px;padding:28px;margin:auto}
+h1{font-size:clamp(24px,4vw,38px);line-height:1.15;margin:10px 0 14px}
+h2{font-size:20px;margin:28px 0 10px}
+p{color:#b8c8d9}
+.eyebrow{color:#ffce5b;font-size:12px;letter-spacing:1.5px;text-transform:uppercase}
+.banner{background:#121f31;border:1px solid #34465f;border-radius:12px;padding:16px 18px;margin:16px 0}
+.banner code,.lock{color:#ffdb87}
+nav{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0 8px}
+nav a{color:#a8d7ff}
+.toolbar{position:sticky;top:0;z-index:1;background:#0b1320f5;padding:12px 0;display:flex;gap:10px;border-bottom:1px solid #344458}
+input{font:inherit;color:inherit;background:#182438;border:1px solid #52617a;border-radius:8px;padding:10px 12px;flex:1}
+.table-wrap{overflow:auto;border:1px solid #34465f;border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th,td{padding:8px 10px;border-bottom:1px solid #2a3a50;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#182438;color:#adc6df;font-size:13px;letter-spacing:.3px}
+tr[hidden]{display:none}
+.finding{color:#ffce5b}
+.note{color:#9dafc2;font-size:13px}
+footer{margin:28px 0;font-size:13px;color:#9aafc4}
+a{color:#a8d7ff}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;background:#0c1727;border:1px solid #34465f}
+.chip.vacant,.chip.unknown{color:#ffce5b}
+.chip.live{color:#b8e0c4}
+</style>
+<main>
+  <div class="eyebrow">S25 static HTML review · bake-off docs · Flash is evidence</div>
+  <h1>Weapon / device review catalog</h1>
+  <div class="banner" data-lock-banner="true">
+    <p><code>HTML_CATALOG_LOCKED_FROM_REMASTERED === false</code></p>
+    <p><code>FLASH_PRICES_ARE_LIVE_LOCKS === false</code> · Flash is source evidence, not a viewer. No SWF embed.</p>
+    <p>Inspect defs only. Not a shop. Not a live price lock. Not a combat retune. Opening this page never gifts <code>firingSolution</code>, culture fire, or <code>engagement_authorized</code>.</p>
+    <p>Brief <a href="BM1-HTML-WEAPON-STATION-REVIEW-CATALOGS-PROPOSAL.md">#54</a> stay-locked. Cite <a href="../weapon-ledger/BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md">docs/weapon-ledger/</a> + landed <code>snapshotWeaponLedger</code>. No Referee Pass claimed.</p>
+  </div>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="weapons.html">Weapons</a>
+    <a href="stations.html">Stations</a>
+    <a href="LOCK-NOTE.md">Lock note</a>
+  </nav>
+  <p>Read-only inspect of landed ledger identities and <code>data/game_items.json</code>. Flash and bake-off are both shown. This page is knowledge, not a vendor.</p>
+  
+  <p class="finding">Canon / Cannon / Turret stay three identities (ids 7 / 6 / 12). Live names of 6 and 7 both read “Disruptor Cannon” — shown as an audit finding, not merged.</p>
+  <div class="toolbar"><input id="search" type="search" placeholder="Filter rows (inspect only)"></div>
+  <h2>Flash vs bake-off identities</h2>
+  <div class="table-wrap">
+  <table id="weapons">
+    <thead><tr>
+      <th>Flash name</th><th>Flash price (source)</th><th>Bake-off id</th>
+      <th>Live name</th><th>Live type</th><th>Live price (current data)</th>
+      <th>Slot class</th><th>Provenance</th><th>Live price lock?</th><th>Notes</th>
+    </tr></thead>
+    <tbody>
+      <tr data-weapon-id="1" data-flash-name="Type X Phaser" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Type X Phaser</td>
+    <td data-flash-price="3000">3000</td>
+    <td>1</td>
+    <td>Type X Phaser</td>
+    <td>Beam</td>
+    <td data-live-price="3000">3000</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Default player starter in empty-armable cite only; do not auto-fill.</td>
+  </tr>
+<tr data-weapon-id="3" data-flash-name="Polaron Phaser" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Polaron Phaser</td>
+    <td data-flash-price="5000">5000</td>
+    <td>3</td>
+    <td>Polaron Phaser</td>
+    <td>Beam</td>
+    <td data-live-price="5000">5000</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Row-scoped lore note only. No universal bypass.</td>
+  </tr>
+<tr data-weapon-id="4" data-flash-name="Plasma Phaser" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Plasma Phaser</td>
+    <td data-flash-price="3800">3800</td>
+    <td>4</td>
+    <td>Plasma Phaser</td>
+    <td>Beam</td>
+    <td data-live-price="3800">3800</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="5" data-flash-name="Cutting Beam" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Cutting Beam</td>
+    <td data-flash-price="30000">30000</td>
+    <td>5</td>
+    <td>Cutting Beam</td>
+    <td>Beam</td>
+    <td data-live-price="30000">30000</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Hull/device cutter. Not capture. Not universal bypass.</td>
+  </tr>
+<tr data-weapon-id="6" data-flash-name="Disrupter Cannon" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash" data-flash-identity="Disrupter Cannon">
+    <td>Disrupter Cannon</td>
+    <td data-flash-price="3000">3000</td>
+    <td>6</td>
+    <td>Disruptor Cannon</td>
+    <td>Cannon</td>
+    <td data-live-price="3000">3000</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Flash identity Cannon (dual). Live name shares “Disruptor Cannon” with id 7 — audit finding, not a merge.</td>
+  </tr>
+<tr data-weapon-id="7" data-flash-name="Disrupter Canon" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash" data-flash-identity="Disrupter Canon">
+    <td>Disrupter Canon</td>
+    <td data-flash-price="1500">1500</td>
+    <td>7</td>
+    <td>Disruptor Cannon</td>
+    <td>Cannon</td>
+    <td data-live-price="1500">1500</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Flash identity Canon (single). Live display name collides with id 6 — do not collapse the rows.</td>
+  </tr>
+<tr data-weapon-id="8" data-flash-name="Quantum Pulse Cannon" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Quantum Pulse Cannon</td>
+    <td data-flash-price="2000">2000</td>
+    <td>8</td>
+    <td>Quantum Pulse Cannon</td>
+    <td>Cannon</td>
+    <td data-live-price="2000">2000</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="9" data-flash-name="Dual Pulse Phasers" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Dual Pulse Phasers</td>
+    <td data-flash-price="7500">7500</td>
+    <td>9</td>
+    <td>Dual Pulse Phasers</td>
+    <td>Cannon</td>
+    <td data-live-price="7500">7500</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="10" data-flash-name="Phaser Cannon" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Phaser Cannon</td>
+    <td data-flash-price="1300">1300</td>
+    <td>10</td>
+    <td>Phaser Cannon</td>
+    <td>Cannon</td>
+    <td data-live-price="1300">1300</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Flash family Pulse vs live Cannon — observation, not a retune.</td>
+  </tr>
+<tr data-weapon-id="11" data-flash-name="Pulse Turret" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Pulse Turret</td>
+    <td data-flash-price="8500">8500</td>
+    <td>11</td>
+    <td>Pulse Turret</td>
+    <td>Turret</td>
+    <td data-live-price="8500">8500</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="12" data-flash-name="Disrupter Turret" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash" data-flash-identity="Disrupter Turret">
+    <td>Disrupter Turret</td>
+    <td data-flash-price="7800">7800</td>
+    <td>12</td>
+    <td>Disruptor Turret</td>
+    <td>Turret</td>
+    <td data-live-price="7800">7800</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Third disruptor identity (Turret).</td>
+  </tr>
+<tr data-weapon-id="13" data-flash-name="Gravimetric Torpedo" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Gravimetric Torpedo</td>
+    <td data-flash-price="9000">9000</td>
+    <td>13</td>
+    <td>Gravimetric Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="9000">9000</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="14" data-flash-name="Type VII Phaser" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Type VII Phaser</td>
+    <td data-flash-price="1500">1500</td>
+    <td>14</td>
+    <td>Type VII Phaser</td>
+    <td>Turret</td>
+    <td data-live-price="1500">1500</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Flash family Pulse vs live Turret — observation, not a retune.</td>
+  </tr>
+<tr data-weapon-id="15" data-flash-name="Photon Torpedo" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Photon Torpedo</td>
+    <td data-flash-price="2500">2500</td>
+    <td>15</td>
+    <td>Photon Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="2500">2500</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="16" data-flash-name="Quantum Torpedo" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Quantum Torpedo</td>
+    <td data-flash-price="6700">6700</td>
+    <td>16</td>
+    <td>Quantum Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="6700">6700</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Ledger-cited current data. Not a live lock.</td>
+  </tr>
+<tr data-weapon-id="17" data-flash-name="Plasma Torpedo" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash" data-plasma="true" data-uncertified="true">
+    <td>Plasma Torpedo</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>17</td>
+    <td>Plasma Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="7200">7200</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Flash name; Flash price not supplied. Live 7200 is current data, uncertified.</td>
+  </tr>
+<tr data-weapon-id="18" data-flash-name="Transphasic Torpedo" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Transphasic Torpedo</td>
+    <td data-flash-price="12500">12500</td>
+    <td>18</td>
+    <td>Transphasic Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="12500">12500</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Row-scoped Borg-shield lore. No universal bypass.</td>
+  </tr>
+<tr data-weapon-id="19" data-flash-name="Polaron Torpedo" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="BM1-flash">
+    <td>Polaron Torpedo</td>
+    <td data-flash-price="5300">5300</td>
+    <td>19</td>
+    <td>Polaron Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="5300">5300</td>
+    <td>combat</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Row-scoped lore note only. Shields-then-hull default.</td>
+  </tr>
+<tr data-weapon-id="22" data-flash-name="Cloaking Device" data-flash-certified="false" data-live-price-lock="false" data-slot-class="device" data-provenance="BM1-flash">
+    <td>Cloaking Device</td>
+    <td data-flash-price="13500">13500</td>
+    <td>22</td>
+    <td>Cloaking Device</td>
+    <td>Device</td>
+    <td data-live-price="13500">13500</td>
+    <td>device</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Device. Phase 6 cloak already landed. Not utilityBook.</td>
+  </tr>
+<tr data-weapon-id="23" data-flash-name="Engine Disrupter" data-flash-certified="false" data-live-price-lock="false" data-slot-class="device" data-provenance="BM1-flash">
+    <td>Engine Disrupter</td>
+    <td data-flash-price="5000">5000</td>
+    <td>23</td>
+    <td>Engine Disruptor</td>
+    <td>Device</td>
+    <td data-live-price="5000">5000</td>
+    <td>device</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Device drain / engine sting. Not a fire-permission token.</td>
+  </tr>
+<tr data-weapon-id="24" data-flash-name="Tachyon Field Generator" data-flash-certified="false" data-live-price-lock="false" data-slot-class="device" data-provenance="BM1-flash">
+    <td>Tachyon Field Generator</td>
+    <td data-flash-price="8000">8000</td>
+    <td>24</td>
+    <td>Tachyon Field Generator</td>
+    <td>Device</td>
+    <td data-live-price="8000">8000</td>
+    <td>device</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Device. Not a gifted firingSolution.</td>
+  </tr>
+<tr data-weapon-id="25" data-flash-name="Tractor Beam" data-flash-certified="false" data-live-price-lock="false" data-slot-class="device" data-provenance="BM1-flash" data-tractor="true">
+    <td>Tractor Beam</td>
+    <td data-flash-price="3400">3400</td>
+    <td>25</td>
+    <td>Tractor Beam</td>
+    <td>Device</td>
+    <td data-live-price="3400">3400</td>
+    <td>device</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Device slot. Not cargo. Not utilityBook. Not boarding.</td>
+  </tr>
+<tr data-weapon-id="26" data-flash-name="Thaleron Generator" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat/device (Heavy)" data-provenance="BM1-flash">
+    <td>Thaleron Generator</td>
+    <td data-flash-price="15500">15500</td>
+    <td>26</td>
+    <td>Thaleron Generator</td>
+    <td>Heavy</td>
+    <td data-live-price="15500">15500</td>
+    <td>combat/device (Heavy)</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Cloud weapon. Not the Thaleron Test Facility pass. Not boarding. Not a facility invent.</td>
+  </tr>
+      <tr data-flash-name="Bajoran Sail" data-flash-certified="false" data-live-price-lock="false" data-slot-class="deferred utility" data-provenance="BM1-flash" data-deferred-utility="Bajoran Sail" data-bakeoff-id="">
+    <td>Bajoran Sail</td>
+    <td data-flash-price="5000">5000</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+    <td data-live-price="">—</td>
+    <td>deferred utility</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Explicitly deferred utility. bakeoffId null. Not cargo. Not utilityBook. No invented id.</td>
+  </tr>
+<tr data-flash-name="Warp Core" data-flash-certified="false" data-live-price-lock="false" data-slot-class="deferred utility" data-provenance="BM1-flash" data-deferred-utility="Warp Core" data-bakeoff-id="">
+    <td>Warp Core</td>
+    <td data-flash-price="12000">12000</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+    <td data-live-price="">—</td>
+    <td>deferred utility</td>
+    <td>BM1-flash</td>
+    <td>No</td>
+    <td class="note">Explicitly deferred utility. bakeoffId null. Distinct from cargo “Warp Cores.” Not utilityBook. No invented id.</td>
+  </tr>
+      <tr data-weapon-id="2" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="retained-BM2" data-inherited-id="2">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>2</td>
+    <td>Particle Beam</td>
+    <td>Beam</td>
+    <td data-live-price="9000">9000</td>
+    <td>combat</td>
+    <td>retained-BM2</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="27" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="retained-BM2" data-inherited-id="27">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>27</td>
+    <td>Magnetorp Launcher</td>
+    <td>Torpedo</td>
+    <td data-live-price="1200">1200</td>
+    <td>combat</td>
+    <td>retained-BM2</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="28" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="retained-BM2" data-inherited-id="28">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>28</td>
+    <td>Biobeam</td>
+    <td>Beam</td>
+    <td data-live-price="10000">10000</td>
+    <td>combat</td>
+    <td>retained-BM2</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="29" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="retained-BM2" data-inherited-id="29">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>29</td>
+    <td>Tesla Beam</td>
+    <td>Beam</td>
+    <td data-live-price="12000">12000</td>
+    <td>combat</td>
+    <td>retained-BM2</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="30" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="bake-off-game-items" data-inherited-id="30">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>30</td>
+    <td>Subspace Torpedo</td>
+    <td>Torpedo</td>
+    <td data-live-price="30000">30000</td>
+    <td>combat</td>
+    <td>bake-off-game-items</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="38" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="bake-off-game-items" data-inherited-id="38">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>38</td>
+    <td>Proton Beam</td>
+    <td>Beam</td>
+    <td data-live-price="16500">16500</td>
+    <td>combat</td>
+    <td>bake-off-game-items</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="39" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="bake-off-game-items" data-inherited-id="39">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>39</td>
+    <td>Gatling Pulse Turret</td>
+    <td>Turret</td>
+    <td data-live-price="35600">35600</td>
+    <td>combat</td>
+    <td>bake-off-game-items</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="44" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="bake-off-game-items" data-inherited-id="44">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>44</td>
+    <td>Wave Pulse</td>
+    <td>Turret</td>
+    <td data-live-price="24000">24000</td>
+    <td>combat</td>
+    <td>bake-off-game-items</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+<tr data-weapon-id="45" data-flash-certified="false" data-live-price-lock="false" data-slot-class="combat" data-provenance="bake-off-game-items" data-inherited-id="45">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>45</td>
+    <td>Vortex Ray</td>
+    <td>Beam</td>
+    <td data-live-price="35400">35400</td>
+    <td>combat</td>
+    <td>bake-off-game-items</td>
+    <td>No</td>
+    <td class="note">Inherited extra. Flash price empty / not in this Flash table.</td>
+  </tr>
+      <tr data-flash-name="—" data-flash-certified="false" data-live-price-lock="false" data-slot-class="unmounted" data-provenance="new" data-hoj="true" data-catalog-id="">
+    <td>—</td>
+    <td data-flash-price="">empty / not supplied</td>
+    <td>—</td>
+    <td>Home-on-Jam / anti-emitter (proposed)</td>
+    <td>—</td>
+    <td data-live-price="">—</td>
+    <td>unmounted</td>
+    <td>new</td>
+    <td>No</td>
+    <td class="note">provenance new; unmounted; not a catalog id.</td>
+  </tr>
+    </tbody>
+  </table>
+  </div>
+  <h2>Vacant catalog ids (not invented)</h2>
+  <div class="table-wrap">
+  <table id="vacant">
+    <thead><tr><th>Id</th><th>Status</th><th>Live def</th><th>Notes</th></tr></thead>
+    <tbody><tr data-vacant-id="20"><td>20</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="21"><td>21</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="31"><td>31</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="32"><td>32</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="33"><td>33</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="34"><td>34</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="35"><td>35</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="36"><td>36</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="37"><td>37</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="40"><td>40</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="41"><td>41</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="42"><td>42</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr>
+<tr data-vacant-id="43"><td>43</td><td>vacant</td><td>no live weapon def</td><td>Do not invent a row.</td></tr></tbody>
+  </table>
+  </div>
+  <p class="note">Description cells stay empty: Flash flavor copy was not in the bake-off source packet. Tractor id 25 remains a Device. Bajoran Sail / Warp Core remain deferred. Plasma 7200 is uncertified.</p>
+  <script>
+    const input = document.getElementById('search');
+    const tables = ['weapons', 'vacant'].map((id) => document.getElementById(id));
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      for (const table of tables) {
+        for (const row of table.tBodies[0].rows) {
+          row.hidden = Boolean(q) && !row.textContent.toLowerCase().includes(q);
+        }
+      }
+    });
+  </script>
+  <footer>Generated from bake-off JSON + ledger subscribe only. Does not write combat fields. Does not reopen #33–#54.</footer>
+</main>
+</html>

@@ -1,0 +1,3063 @@
+<!doctype html>
+<html lang="en"
+  data-html-catalog-locked-from-remastered="false"
+  data-flash-required="false"
+  data-flash-prices-are-live-locks="false"
+  data-shop-controls="false"
+  data-firing-solution-present="false"
+  data-engagement-authorized-present="false"
+  data-src-combat-untouched="true">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BM1 station review catalog</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#0b1320;color:#e8eef5}
+*{box-sizing:border-box}
+body{margin:0}
+main{max-width:1480px;padding:28px;margin:auto}
+h1{font-size:clamp(24px,4vw,38px);line-height:1.15;margin:10px 0 14px}
+h2{font-size:20px;margin:28px 0 10px}
+p{color:#b8c8d9}
+.eyebrow{color:#ffce5b;font-size:12px;letter-spacing:1.5px;text-transform:uppercase}
+.banner{background:#121f31;border:1px solid #34465f;border-radius:12px;padding:16px 18px;margin:16px 0}
+.banner code,.lock{color:#ffdb87}
+nav{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0 8px}
+nav a{color:#a8d7ff}
+.toolbar{position:sticky;top:0;z-index:1;background:#0b1320f5;padding:12px 0;display:flex;gap:10px;border-bottom:1px solid #344458}
+input{font:inherit;color:inherit;background:#182438;border:1px solid #52617a;border-radius:8px;padding:10px 12px;flex:1}
+.table-wrap{overflow:auto;border:1px solid #34465f;border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th,td{padding:8px 10px;border-bottom:1px solid #2a3a50;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#182438;color:#adc6df;font-size:13px;letter-spacing:.3px}
+tr[hidden]{display:none}
+.finding{color:#ffce5b}
+.note{color:#9dafc2;font-size:13px}
+footer{margin:28px 0;font-size:13px;color:#9aafc4}
+a{color:#a8d7ff}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;background:#0c1727;border:1px solid #34465f}
+.chip.vacant,.chip.unknown{color:#ffce5b}
+.chip.live{color:#b8e0c4}
+</style>
+<main>
+  <div class="eyebrow">S25 static HTML review · bake-off docs · Flash is evidence</div>
+  <h1>Station review catalog</h1>
+  <div class="banner" data-lock-banner="true">
+    <p><code>HTML_CATALOG_LOCKED_FROM_REMASTERED === false</code></p>
+    <p><code>FLASH_PRICES_ARE_LIVE_LOCKS === false</code> · Flash is source evidence, not a viewer. No SWF embed.</p>
+    <p>Inspect defs only. Not a shop. Not a live price lock. Not a combat retune. Opening this page never gifts <code>firingSolution</code>, culture fire, or <code>engagement_authorized</code>.</p>
+    <p>Brief <a href="BM1-HTML-WEAPON-STATION-REVIEW-CATALOGS-PROPOSAL.md">#54</a> stay-locked. Cite <a href="../weapon-ledger/BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md">docs/weapon-ledger/</a> + landed <code>snapshotWeaponLedger</code>. No Referee Pass claimed.</p>
+  </div>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="weapons.html">Weapons</a>
+    <a href="stations.html">Stations</a>
+    <a href="LOCK-NOTE.md">Lock note</a>
+  </nav>
+  <p>Read-only inspect of <code>data/station_manifest.json</code> (36 types) and <code>data/stationData.json</code> placements. Not a second market and not a construction reopen.</p>
+  
+  <p data-station-type-count="36">36 station types from <code>data/station_manifest.json</code>. Costs / hull / shields are bake-off current data, not Flash-certified prices. Construction-site language is a visual lane already landed (PRs #52/#53); this page does not draw sites and does not reopen #53.</p>
+  <p class="note">A research-named type is current JSON only. It does not ship a Thaleron pass or facility.</p>
+  <div class="toolbar"><input id="search" type="search" placeholder="Filter rows (inspect only)"></div>
+  <h2>Type catalog</h2>
+  <div class="table-wrap">
+  <table id="types">
+    <thead><tr>
+      <th>Id</th><th>Name</th><th>sizeClass</th><th>Cost (current data)</th>
+      <th>Hull</th><th>Shields</th><th>Mass</th><th>Cargo</th><th>Image</th>
+      <th>Repair cite</th><th>Description (current JSON)</th>
+    </tr></thead>
+    <tbody>
+    <tr data-station-id="70" data-repair="repair-capable-cite">
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">50000</td>
+      <td>1000</td>
+      <td>2000</td>
+      <td>5</td>
+      <td>1000</td>
+      <td class="note">assets/game/stations/70.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">An immense, tall starbase, strong both offensively and defensively. Designed by humans.</td>
+    </tr>
+
+    <tr data-station-id="71" data-repair="cite-only">
+      <td>71</td>
+      <td>Human Research Lab</td>
+      <td>utility</td>
+      <td data-cost-lock="false">25000</td>
+      <td>200</td>
+      <td>500</td>
+      <td>3</td>
+      <td>100</td>
+      <td class="note">assets/game/stations/71.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">Designs many unique Imperial weapons and technology but is weakly defended.</td>
+    </tr>
+
+    <tr data-station-id="72" data-repair="cite-only">
+      <td>72</td>
+      <td>Vulcan University</td>
+      <td>civilian</td>
+      <td data-cost-lock="false">75000</td>
+      <td>200</td>
+      <td>200</td>
+      <td>2</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/72.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A small university for educating a populace. Greatly increases the population of a planet, but has no defenses.</td>
+    </tr>
+
+    <tr data-station-id="73" data-repair="repair-capable-cite">
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td>heavy-shipyard</td>
+      <td data-cost-lock="false">250000</td>
+      <td>200</td>
+      <td>500</td>
+      <td>2.5</td>
+      <td>300</td>
+      <td class="note">assets/game/stations/73.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">Constructs large ships such as the Galaxy and Sovereign.</td>
+    </tr>
+
+    <tr data-station-id="74" data-repair="repair-capable-cite">
+      <td>74</td>
+      <td>Human Shipyard</td>
+      <td>shipyard</td>
+      <td data-cost-lock="false">150000</td>
+      <td>200</td>
+      <td>300</td>
+      <td>2</td>
+      <td>200</td>
+      <td class="note">assets/game/stations/74.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">Builds small Imperial ships such as the Defiant and Akira classes</td>
+    </tr>
+
+    <tr data-station-id="75" data-repair="cite-only">
+      <td>75</td>
+      <td>Trade Station</td>
+      <td>commerce</td>
+      <td data-cost-lock="false">500000</td>
+      <td>300</td>
+      <td>300</td>
+      <td>1.5</td>
+      <td>100</td>
+      <td class="note">assets/game/stations/75.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">Commerce is essential for a population. This station will bring people and a steady income.</td>
+    </tr>
+
+    <tr data-station-id="76" data-repair="cite-only">
+      <td>76</td>
+      <td>Bar</td>
+      <td>small-civilian</td>
+      <td data-cost-lock="false">50000</td>
+      <td>50</td>
+      <td>50</td>
+      <td>0.5</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/76.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A bar will bring some income, but will cause people to leave the system due to the seedy characters they draw.</td>
+    </tr>
+
+    <tr data-station-id="77" data-repair="cite-only">
+      <td>77</td>
+      <td>Delpin Waterpark</td>
+      <td>civilian</td>
+      <td data-cost-lock="false">130000</td>
+      <td>50</td>
+      <td>50</td>
+      <td>2</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/77.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">This station is great entertainment and will draw a lot of people as well as generate revenue.</td>
+    </tr>
+
+    <tr data-station-id="78" data-repair="cite-only">
+      <td>78</td>
+      <td>Ore Station</td>
+      <td>industrial</td>
+      <td data-cost-lock="false">9000</td>
+      <td>50</td>
+      <td>0</td>
+      <td>2</td>
+      <td>100</td>
+      <td class="note">assets/game/stations/78.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">Ore stations are only good in asteroid-filled regions, but they will bring in deuranium and dilithium. Minimal defenses.</td>
+    </tr>
+
+    <tr data-station-id="79" data-repair="repair-capable-cite">
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">500</td>
+      <td>1000</td>
+      <td>2500</td>
+      <td>3</td>
+      <td>1300</td>
+      <td class="note">assets/game/stations/79.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A large heavily defended starbase, essential for defending territory.</td>
+    </tr>
+
+    <tr data-station-id="80" data-repair="repair-capable-cite">
+      <td>80</td>
+      <td>Klingon Shipyard</td>
+      <td>shipyard</td>
+      <td data-cost-lock="false">150000</td>
+      <td>200</td>
+      <td>150</td>
+      <td>2</td>
+      <td>200</td>
+      <td class="note">assets/game/stations/80.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">Builds small ships such as Birds of Prey and K'Tingas.</td>
+    </tr>
+
+    <tr data-station-id="81" data-repair="repair-capable-cite">
+      <td>81</td>
+      <td>Klingon Heavy Shipyard</td>
+      <td>heavy-shipyard</td>
+      <td data-cost-lock="false">250000</td>
+      <td>1000</td>
+      <td>1500</td>
+      <td>2</td>
+      <td>300</td>
+      <td class="note">assets/game/stations/81.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">Builds large warships such as the Vorcha and NegVar types.</td>
+    </tr>
+
+    <tr data-station-id="82" data-repair="cite-only">
+      <td>82</td>
+      <td>Dyson Sphere</td>
+      <td>megastructure</td>
+      <td data-cost-lock="false">9000000</td>
+      <td>99999</td>
+      <td>99999</td>
+      <td>50</td>
+      <td>10000</td>
+      <td class="note">assets/game/stations/82.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">Construct a huge habitat around a star and your systems population and strength will be limitless.</td>
+    </tr>
+
+    <tr data-station-id="83" data-repair="repair-capable-cite">
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td>utility</td>
+      <td data-cost-lock="false">275050</td>
+      <td>500</td>
+      <td>200</td>
+      <td>2</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/83.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">This station will allow you to maintain your ships with reduced latinum cost. A must for any fleet commander.</td>
+    </tr>
+
+    <tr data-station-id="84" data-repair="cite-only">
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td>habitat</td>
+      <td data-cost-lock="false">12000</td>
+      <td>200</td>
+      <td>100</td>
+      <td>3</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/84.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">Increases total population of a system by allowing people to live in space.</td>
+    </tr>
+
+    <tr data-station-id="85" data-repair="cite-only">
+      <td>85</td>
+      <td>Wormhole Generator</td>
+      <td>special-utility</td>
+      <td data-cost-lock="false">30000</td>
+      <td>500</td>
+      <td>500</td>
+      <td>3</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/85.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">Allows ships to travel to any point in the galaxy.</td>
+    </tr>
+
+    <tr data-station-id="86" data-repair="never-repair">
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td>defense-platform</td>
+      <td data-cost-lock="false">20000</td>
+      <td>500</td>
+      <td>500</td>
+      <td>4</td>
+      <td>100</td>
+      <td class="note">assets/game/stations/86.png</td>
+      <td class="note">never repair</td>
+      <td class="note">A stationary platform that fires a powerful Type-X phaser.</td>
+    </tr>
+
+    <tr data-station-id="87" data-repair="never-repair">
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td>defense-platform</td>
+      <td data-cost-lock="false">25000</td>
+      <td>500</td>
+      <td>250</td>
+      <td>4</td>
+      <td>200</td>
+      <td class="note">assets/game/stations/87.png</td>
+      <td class="note">never repair</td>
+      <td class="note">A stationary platform that fires photon torpedoes and other weapons.</td>
+    </tr>
+
+    <tr data-station-id="88" data-repair="repair-capable-cite">
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">700000</td>
+      <td>2000</td>
+      <td>2000</td>
+      <td>8</td>
+      <td>2000</td>
+      <td class="note">assets/game/stations/88.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">Arguably the most powerful starbase, it builds the Keldon and Galor Classes.</td>
+    </tr>
+
+    <tr data-station-id="89" data-repair="cite-only">
+      <td>89</td>
+      <td>Subspace Comm</td>
+      <td>communications</td>
+      <td data-cost-lock="false">80000</td>
+      <td>500</td>
+      <td>500</td>
+      <td>6</td>
+      <td>0</td>
+      <td class="note">assets/game/stations/89.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A relay station for communicating with distant fleets.</td>
+    </tr>
+
+    <tr data-station-id="90" data-repair="repair-capable-cite">
+      <td>90</td>
+      <td>Romulan Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">105000</td>
+      <td>1500</td>
+      <td>1500</td>
+      <td>6</td>
+      <td>1800</td>
+      <td class="note">assets/game/stations/90.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A large, well-defended starbase, capable of cloaking.</td>
+    </tr>
+
+    <tr data-station-id="106" data-repair="repair-capable-cite">
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">425000</td>
+      <td>1700</td>
+      <td>1900</td>
+      <td>7</td>
+      <td>1200</td>
+      <td class="note">assets/game/stations/106.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A crystalline Tholian web-citadel that anchors local trade routes and projects dense lattice defenses across nearby space.</td>
+    </tr>
+
+    <tr data-station-id="107" data-repair="repair-capable-cite">
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td>shipyard</td>
+      <td data-cost-lock="false">165000</td>
+      <td>520</td>
+      <td>760</td>
+      <td>3</td>
+      <td>350</td>
+      <td class="note">assets/game/stations/107.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A compact web-slip shipyard for assembling Tholian shuttles, Isaac transports, and lattice cargo hulls close to the border.</td>
+    </tr>
+
+    <tr data-station-id="108" data-repair="repair-capable-cite">
+      <td>108</td>
+      <td>Tholian Heavy Shipyard</td>
+      <td>heavy-shipyard</td>
+      <td data-cost-lock="false">285000</td>
+      <td>980</td>
+      <td>1320</td>
+      <td>5</td>
+      <td>700</td>
+      <td class="note">assets/game/stations/108.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A broad crystalline war-yard with reinforced construction arms for Tholian cargo carriers, Isaac hulls, and battleship lattice frames.</td>
+    </tr>
+
+    <tr data-station-id="109" data-repair="repair-capable-cite">
+      <td>109</td>
+      <td>Dominion Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">560000</td>
+      <td>1850</td>
+      <td>2150</td>
+      <td>7</td>
+      <td>1800</td>
+      <td class="note">assets/game/stations/109.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A fortified Dominion command starbase designed to coordinate Jem'Hadar patrols, screen tribute convoys, and hold conquered systems.</td>
+    </tr>
+
+    <tr data-station-id="110" data-repair="repair-capable-cite">
+      <td>110</td>
+      <td>Dominion Shipyard</td>
+      <td>shipyard</td>
+      <td data-cost-lock="false">185000</td>
+      <td>620</td>
+      <td>820</td>
+      <td>3</td>
+      <td>420</td>
+      <td class="note">assets/game/stations/110.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A Dominion assembly yard for scout wings, Jem'Hadar fighters, and cruiser support frames along the Gamma corridor.</td>
+    </tr>
+
+    <tr data-station-id="111" data-repair="repair-capable-cite">
+      <td>111</td>
+      <td>Dominion Heavy Shipyard</td>
+      <td>heavy-shipyard</td>
+      <td data-cost-lock="false">330000</td>
+      <td>1150</td>
+      <td>1450</td>
+      <td>5</td>
+      <td>780</td>
+      <td class="note">assets/game/stations/111.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A heavy Dominion war-yard with reinforced berths for battlecruisers, cruisers, and battleship-scale construction.</td>
+    </tr>
+
+    <tr data-station-id="112" data-repair="repair-capable-cite">
+      <td>112</td>
+      <td>Breen Station</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">310000</td>
+      <td>1100</td>
+      <td>1750</td>
+      <td>6</td>
+      <td>950</td>
+      <td class="note">assets/game/stations/112.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A cold Breen anchorage and listening post with compact dock spines, heavy shield emitters, and sensor-scrambling patrol support.</td>
+    </tr>
+
+    <tr data-station-id="113" data-repair="cite-only">
+      <td>113</td>
+      <td>Tholian Research Station</td>
+      <td>research</td>
+      <td data-cost-lock="false">155000</td>
+      <td>460</td>
+      <td>920</td>
+      <td>3</td>
+      <td>240</td>
+      <td class="note">assets/game/stations/113.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A crystalline Tholian research lattice for web mathematics, shield harmonics, and experimental lattice weapons.</td>
+    </tr>
+
+    <tr data-station-id="119" data-repair="cite-only">
+      <td>119</td>
+      <td>Casino Station</td>
+      <td>commerce</td>
+      <td data-cost-lock="false">320000</td>
+      <td>420</td>
+      <td>620</td>
+      <td>2</td>
+      <td>420</td>
+      <td class="note">assets/game/stations/119.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A Ferengi-run gaming and trade station where captains can find contracts, gossip, and unusually expensive docking fees.</td>
+    </tr>
+
+    <tr data-station-id="200" data-repair="never-repair">
+      <td>200</td>
+      <td>Command Outpost</td>
+      <td>defense-platform</td>
+      <td data-cost-lock="false">220000</td>
+      <td>920</td>
+      <td>1280</td>
+      <td>4</td>
+      <td>420</td>
+      <td class="note">assets/game/stations/200.png</td>
+      <td class="note">never repair</td>
+      <td class="note">A compact command outpost with layered docking rings, sensor control, and a defensive weapons grid for holding contested systems.</td>
+    </tr>
+
+    <tr data-station-id="201" data-repair="cite-only">
+      <td>201</td>
+      <td>Communication Array</td>
+      <td>communications</td>
+      <td data-cost-lock="false">95000</td>
+      <td>420</td>
+      <td>720</td>
+      <td>3</td>
+      <td>120</td>
+      <td class="note">assets/game/stations/201.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A long-range communication array used to coordinate patrols, route contracts, and relay fleet orders across nearby systems.</td>
+    </tr>
+
+    <tr data-station-id="202" data-repair="repair-capable-cite">
+      <td>202</td>
+      <td>Heavy Starbase</td>
+      <td>starbase</td>
+      <td data-cost-lock="false">720000</td>
+      <td>2200</td>
+      <td>2600</td>
+      <td>8</td>
+      <td>2100</td>
+      <td class="note">assets/game/stations/202.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A massive Terran starbase built as a sector fortress, with reinforced shields, heavy docks, and overlapping defensive fire.</td>
+    </tr>
+
+    <tr data-station-id="203" data-repair="repair-capable-cite">
+      <td>203</td>
+      <td>K Series Station</td>
+      <td>shipyard</td>
+      <td data-cost-lock="false">195000</td>
+      <td>650</td>
+      <td>850</td>
+      <td>4</td>
+      <td>520</td>
+      <td class="note">assets/game/stations/203.png</td>
+      <td class="note">repair-capable per PR #18</td>
+      <td class="note">A modular K-series station used for light construction, patrol refits, and frontier fleet support.</td>
+    </tr>
+
+    <tr data-station-id="204" data-repair="cite-only">
+      <td>204</td>
+      <td>T19 Station</td>
+      <td>commerce</td>
+      <td data-cost-lock="false">260000</td>
+      <td>760</td>
+      <td>980</td>
+      <td>4</td>
+      <td>900</td>
+      <td class="note">assets/game/stations/204.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A circular trade and logistics station with hardened cargo arms and enough defenses to discourage opportunistic raiders.</td>
+    </tr>
+
+    <tr data-station-id="205" data-repair="cite-only">
+      <td>205</td>
+      <td>Biodome Station</td>
+      <td>habitat</td>
+      <td data-cost-lock="false">175000</td>
+      <td>580</td>
+      <td>760</td>
+      <td>3</td>
+      <td>650</td>
+      <td class="note">assets/game/stations/205.png</td>
+      <td class="note">not a repair yard (cite PR #18)</td>
+      <td class="note">A sealed habitat biodome for agriculture, refugees, and research crews living beyond a planet surface.</td>
+    </tr></tbody>
+  </table>
+  </div>
+  <h2>Placement stock weapon ids</h2>
+  <p class="note">Ids listed on placements that lack a live <code>weapons[]</code> def stay labeled. They are not invented and not dropped.</p>
+  <div class="table-wrap">
+  <table id="stock">
+    <thead><tr><th>Stock id</th><th>Live name</th><th>Label</th><th>Notes</th></tr></thead>
+    <tbody>
+    <tr data-stock-id="1" data-stock-label="live">
+      <td>1</td>
+      <td>Type X Phaser</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="2" data-stock-label="live">
+      <td>2</td>
+      <td>Particle Beam</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="3" data-stock-label="live">
+      <td>3</td>
+      <td>Polaron Phaser</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="4" data-stock-label="live">
+      <td>4</td>
+      <td>Plasma Phaser</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="5" data-stock-label="live">
+      <td>5</td>
+      <td>Cutting Beam</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="6" data-stock-label="live">
+      <td>6</td>
+      <td>Disruptor Cannon</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="7" data-stock-label="live">
+      <td>7</td>
+      <td>Disruptor Cannon</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="8" data-stock-label="live">
+      <td>8</td>
+      <td>Quantum Pulse Cannon</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="9" data-stock-label="live">
+      <td>9</td>
+      <td>Dual Pulse Phasers</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="10" data-stock-label="live">
+      <td>10</td>
+      <td>Phaser Cannon</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="11" data-stock-label="live">
+      <td>11</td>
+      <td>Pulse Turret</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="12" data-stock-label="live">
+      <td>12</td>
+      <td>Disruptor Turret</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="13" data-stock-label="live">
+      <td>13</td>
+      <td>Gravimetric Torpedo</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="14" data-stock-label="live">
+      <td>14</td>
+      <td>Type VII Phaser</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="15" data-stock-label="live">
+      <td>15</td>
+      <td>Photon Torpedo</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="16" data-stock-label="live">
+      <td>16</td>
+      <td>Quantum Torpedo</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="18" data-stock-label="live">
+      <td>18</td>
+      <td>Transphasic Torpedo</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="19" data-stock-label="live">
+      <td>19</td>
+      <td>Polaron Torpedo</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="20" data-stock-label="vacant">
+      <td>20</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="21" data-stock-label="vacant">
+      <td>21</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="22" data-stock-label="live">
+      <td>22</td>
+      <td>Cloaking Device</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="23" data-stock-label="live">
+      <td>23</td>
+      <td>Engine Disruptor</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="24" data-stock-label="live">
+      <td>24</td>
+      <td>Tachyon Field Generator</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="25" data-stock-label="live">
+      <td>25</td>
+      <td>Tractor Beam</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="26" data-stock-label="live">
+      <td>26</td>
+      <td>Thaleron Generator</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="31" data-stock-label="vacant">
+      <td>31</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="32" data-stock-label="vacant">
+      <td>32</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="33" data-stock-label="vacant">
+      <td>33</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="34" data-stock-label="vacant">
+      <td>34</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="35" data-stock-label="vacant">
+      <td>35</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="36" data-stock-label="vacant">
+      <td>36</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="37" data-stock-label="vacant">
+      <td>37</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="39" data-stock-label="live">
+      <td>39</td>
+      <td>Gatling Pulse Turret</td>
+      <td>live</td>
+      <td class="note">live weapon def (current data)</td>
+    </tr>
+
+    <tr data-stock-id="40" data-stock-label="vacant">
+      <td>40</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="41" data-stock-label="vacant">
+      <td>41</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="42" data-stock-label="vacant">
+      <td>42</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="43" data-stock-label="vacant">
+      <td>43</td>
+      <td>unknown</td>
+      <td>vacant</td>
+      <td class="note">vacant / no live weapon def</td>
+    </tr>
+
+    <tr data-stock-id="46" data-stock-label="unknown">
+      <td>46</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr>
+
+    <tr data-stock-id="47" data-stock-label="unknown">
+      <td>47</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr>
+
+    <tr data-stock-id="48" data-stock-label="unknown">
+      <td>48</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr>
+
+    <tr data-stock-id="50" data-stock-label="unknown">
+      <td>50</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr>
+
+    <tr data-stock-id="51" data-stock-label="unknown">
+      <td>51</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr>
+
+    <tr data-stock-id="52" data-stock-label="unknown">
+      <td>52</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr>
+
+    <tr data-stock-id="58" data-stock-label="unknown">
+      <td>58</td>
+      <td>unknown</td>
+      <td>unknown</td>
+      <td class="note">listed in station stock; no live weapon def on this tip</td>
+    </tr></tbody>
+  </table>
+  </div>
+  <h2>Placements (269)</h2>
+  <div class="table-wrap">
+  <table id="placements">
+    <thead><tr><th>Placement id</th><th>Name</th><th>System</th><th>Type id</th><th>Type name</th><th>stock.weaponIds (inspect)</th></tr></thead>
+    <tbody><tr data-placement-id="0-9">
+      <td>0-9</td>
+      <td>Alpha Array</td>
+      <td>1</td>
+      <td>89</td>
+      <td>Subspace Comm</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-3">
+      <td>0-3</td>
+      <td>Daystrom Institute</td>
+      <td>1</td>
+      <td>71</td>
+      <td>Human Research Lab</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="25" data-stock-label="live">25 · live</span> <span class="chip live" data-stock-id="9" data-stock-label="live">9 · live</span> <span class="chip live" data-stock-id="15" data-stock-label="live">15 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip vacant" data-stock-id="21" data-stock-label="vacant">21 · vacant</span> <span class="chip live" data-stock-id="14" data-stock-label="live">14 · live</span></div></td>
+    </tr>
+<tr data-placement-id="0-8">
+      <td>0-8</td>
+      <td>Galaxy Living</td>
+      <td>1</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-6">
+      <td>0-6</td>
+      <td>Joe's Repair</td>
+      <td>1</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span></div></td>
+    </tr>
+<tr data-placement-id="0-7">
+      <td>0-7</td>
+      <td>Kirk's Pub</td>
+      <td>1</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-5">
+      <td>0-5</td>
+      <td>McKinley</td>
+      <td>1</td>
+      <td>74</td>
+      <td>Human Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-16">
+      <td>0-16</td>
+      <td>PS-095</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-11">
+      <td>0-11</td>
+      <td>PS-102</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-13">
+      <td>0-13</td>
+      <td>PS-102</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-12">
+      <td>0-12</td>
+      <td>PS-254</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-17">
+      <td>0-17</td>
+      <td>PS-548</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-14">
+      <td>0-14</td>
+      <td>PS-874</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-15">
+      <td>0-15</td>
+      <td>PS-884</td>
+      <td>1</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-2">
+      <td>0-2</td>
+      <td>Stardock Alpha</td>
+      <td>1</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="46" data-stock-label="unknown">46 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="0-10">
+      <td>0-10</td>
+      <td>The Safe Harbor</td>
+      <td>1</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="0-4">
+      <td>0-4</td>
+      <td>Utopia Planitia</td>
+      <td>1</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="1-18">
+      <td>1-18</td>
+      <td>Dabo Palace</td>
+      <td>2</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span></div></td>
+    </tr>
+<tr data-placement-id="2-19">
+      <td>2-19</td>
+      <td>Isla Asylum</td>
+      <td>3</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-30">
+      <td>3-30</td>
+      <td>Alpha Yard</td>
+      <td>4</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-27">
+      <td>3-27</td>
+      <td>Beta Yard</td>
+      <td>4</td>
+      <td>74</td>
+      <td>Human Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-31">
+      <td>3-31</td>
+      <td>LaForge Institute</td>
+      <td>4</td>
+      <td>71</td>
+      <td>Human Research Lab</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span> <span class="chip live" data-stock-id="10" data-stock-label="live">10 · live</span> <span class="chip live" data-stock-id="6" data-stock-label="live">6 · live</span> <span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span> <span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span></div></td>
+    </tr>
+<tr data-placement-id="3-35">
+      <td>3-35</td>
+      <td>Nelix Station</td>
+      <td>4</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip vacant" data-stock-id="37" data-stock-label="vacant">37 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="3-34">
+      <td>3-34</td>
+      <td>Park Place</td>
+      <td>4</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-29">
+      <td>3-29</td>
+      <td>PS-002</td>
+      <td>4</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-33">
+      <td>3-33</td>
+      <td>PS-354</td>
+      <td>4</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-23">
+      <td>3-23</td>
+      <td>PS-475</td>
+      <td>4</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-22">
+      <td>3-22</td>
+      <td>PS-548</td>
+      <td>4</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-24">
+      <td>3-24</td>
+      <td>PS-978</td>
+      <td>4</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-21">
+      <td>3-21</td>
+      <td>PS-987</td>
+      <td>4</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-25">
+      <td>3-25</td>
+      <td>Repair Yard 1</td>
+      <td>4</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="9" data-stock-label="live">9 · live</span> <span class="chip live" data-stock-id="10" data-stock-label="live">10 · live</span></div></td>
+    </tr>
+<tr data-placement-id="3-20">
+      <td>3-20</td>
+      <td>Stardock Prime</td>
+      <td>4</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-32">
+      <td>3-32</td>
+      <td>The Arboretum</td>
+      <td>4</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-28">
+      <td>3-28</td>
+      <td>TS-001</td>
+      <td>4</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="3-26">
+      <td>3-26</td>
+      <td>Xiang Yard</td>
+      <td>4</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="4-163">
+      <td>4-163</td>
+      <td>X-Base</td>
+      <td>5</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="4-36">
+      <td>4-36</td>
+      <td>XR-12 (abandoned)</td>
+      <td>5</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="4-37">
+      <td>4-37</td>
+      <td>XR-51 (abandoned)</td>
+      <td>5</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="4-38">
+      <td>4-38</td>
+      <td>XR-57 (abandoned)</td>
+      <td>5</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="5-40">
+      <td>5-40</td>
+      <td>Defense 01</td>
+      <td>6</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="5-41">
+      <td>5-41</td>
+      <td>Defense 02</td>
+      <td>6</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="5-44">
+      <td>5-44</td>
+      <td>Defense 03</td>
+      <td>6</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="5-45">
+      <td>5-45</td>
+      <td>Free Swiss Exchange</td>
+      <td>6</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span> <span class="chip live" data-stock-id="14" data-stock-label="live">14 · live</span></div></td>
+    </tr>
+<tr data-placement-id="5-43">
+      <td>5-43</td>
+      <td>Kathy's Pub</td>
+      <td>6</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="14" data-stock-label="live">14 · live</span></div></td>
+    </tr>
+<tr data-placement-id="5-42">
+      <td>5-42</td>
+      <td>Swiss Miss</td>
+      <td>6</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span> <span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span></div></td>
+    </tr>
+<tr data-placement-id="5-39">
+      <td>5-39</td>
+      <td>Swiss Orbital</td>
+      <td>6</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="6-46">
+      <td>6-46</td>
+      <td>The Black Skull</td>
+      <td>7</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="7" data-stock-label="live">7 · live</span> <span class="chip vacant" data-stock-id="31" data-stock-label="vacant">31 · vacant</span> <span class="chip live" data-stock-id="14" data-stock-label="live">14 · live</span></div></td>
+    </tr>
+<tr data-placement-id="7-208">
+      <td>7-208</td>
+      <td>SB-524</td>
+      <td>8</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="8-52">
+      <td>8-52</td>
+      <td>HD-22</td>
+      <td>9</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="8-48">
+      <td>8-48</td>
+      <td>HS-29</td>
+      <td>9</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="8-50">
+      <td>8-50</td>
+      <td>HS-39</td>
+      <td>9</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="8-49">
+      <td>8-49</td>
+      <td>PS-885</td>
+      <td>9</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="8-51">
+      <td>8-51</td>
+      <td>The Rock</td>
+      <td>9</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="8-47">
+      <td>8-47</td>
+      <td>TS-293</td>
+      <td>9</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="10-54">
+      <td>10-54</td>
+      <td>Ga'Ick</td>
+      <td>11</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="10-53">
+      <td>10-53</td>
+      <td>Gi'k-91</td>
+      <td>11</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="11-59">
+      <td>11-59</td>
+      <td>J'lin Center</td>
+      <td>12</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="11-55">
+      <td>11-55</td>
+      <td>U of Vulcan</td>
+      <td>12</td>
+      <td>72</td>
+      <td>Vulcan University</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="35" data-stock-label="vacant">35 · vacant</span> <span class="chip vacant" data-stock-id="40" data-stock-label="vacant">40 · vacant</span> <span class="chip vacant" data-stock-id="41" data-stock-label="vacant">41 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="11-56">
+      <td>11-56</td>
+      <td>V'Pek Tar</td>
+      <td>12</td>
+      <td>74</td>
+      <td>Human Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="11-58">
+      <td>11-58</td>
+      <td>VSU Dorms</td>
+      <td>12</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="11-57">
+      <td>11-57</td>
+      <td>Vulcan South U</td>
+      <td>12</td>
+      <td>72</td>
+      <td>Vulcan University</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="43" data-stock-label="vacant">43 · vacant</span> <span class="chip unknown" data-stock-id="50" data-stock-label="unknown">50 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="12-60">
+      <td>12-60</td>
+      <td>Paxis Route</td>
+      <td>13</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="12-63">
+      <td>12-63</td>
+      <td>Rainbow's End</td>
+      <td>13</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="12-61">
+      <td>12-61</td>
+      <td>The Fuzzy Bunny</td>
+      <td>13</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="12-62">
+      <td>12-62</td>
+      <td>The Happy House</td>
+      <td>13</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="13-66">
+      <td>13-66</td>
+      <td>Contracts End</td>
+      <td>14</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="52" data-stock-label="unknown">52 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="13-67">
+      <td>13-67</td>
+      <td>Greed Central</td>
+      <td>14</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="13-64">
+      <td>13-64</td>
+      <td>Sharp Tooth</td>
+      <td>14</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="13-68">
+      <td>13-68</td>
+      <td>Snuff This</td>
+      <td>14</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="32" data-stock-label="vacant">32 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="13-65">
+      <td>13-65</td>
+      <td>The Big Ear</td>
+      <td>14</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="33" data-stock-label="vacant">33 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="13-69">
+      <td>13-69</td>
+      <td>Zek's Used Ships</td>
+      <td>14</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="14-70">
+      <td>14-70</td>
+      <td>SB-203 (abandoned)</td>
+      <td>15</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-72">
+      <td>15-72</td>
+      <td>D-37</td>
+      <td>16</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-74">
+      <td>15-74</td>
+      <td>D-48</td>
+      <td>16</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-77">
+      <td>15-77</td>
+      <td>D-56</td>
+      <td>16</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-75">
+      <td>15-75</td>
+      <td>D-65</td>
+      <td>16</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-76">
+      <td>15-76</td>
+      <td>D-82</td>
+      <td>16</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-73">
+      <td>15-73</td>
+      <td>D-87</td>
+      <td>16</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="15-71">
+      <td>15-71</td>
+      <td>Nausica Orbital</td>
+      <td>16</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="36" data-stock-label="vacant">36 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="17-209">
+      <td>17-209</td>
+      <td>First Web Citadel</td>
+      <td>18</td>
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span></div></td>
+    </tr>
+<tr data-placement-id="17-80">
+      <td>17-80</td>
+      <td>Tholian Cargo Yard</td>
+      <td>18</td>
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span></div></td>
+    </tr>
+<tr data-placement-id="17-79">
+      <td>17-79</td>
+      <td>Tholian Heavy Yard</td>
+      <td>18</td>
+      <td>108</td>
+      <td>Tholian Heavy Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="17-78">
+      <td>17-78</td>
+      <td>Tholian Light Yard</td>
+      <td>18</td>
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span></div></td>
+    </tr>
+<tr data-placement-id="18-81">
+      <td>18-81</td>
+      <td>Newgrounds Pub</td>
+      <td>19</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="19-202">
+      <td>19-202</td>
+      <td>Oce nu Drinking Establishment</td>
+      <td>20</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="20-203">
+      <td>20-203</td>
+      <td>Koann Klub</td>
+      <td>21</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="22-84">
+      <td>22-84</td>
+      <td>Bio-Lab (abandoned)</td>
+      <td>23</td>
+      <td>71</td>
+      <td>Human Research Lab</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="22-85">
+      <td>22-85</td>
+      <td>Delpi State U</td>
+      <td>23</td>
+      <td>72</td>
+      <td>Vulcan University</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="40" data-stock-label="vacant">40 · vacant</span> <span class="chip vacant" data-stock-id="41" data-stock-label="vacant">41 · vacant</span> <span class="chip vacant" data-stock-id="42" data-stock-label="vacant">42 · vacant</span> <span class="chip vacant" data-stock-id="43" data-stock-label="vacant">43 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="22-82">
+      <td>22-82</td>
+      <td>Splash-Planet</td>
+      <td>23</td>
+      <td>77</td>
+      <td>Delpin Waterpark</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="22-83">
+      <td>22-83</td>
+      <td>Xiang Center</td>
+      <td>23</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span></div></td>
+    </tr>
+<tr data-placement-id="24-86">
+      <td>24-86</td>
+      <td>Antenna Yard</td>
+      <td>25</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="24-89">
+      <td>24-89</td>
+      <td>Blues Waterpark</td>
+      <td>25</td>
+      <td>77</td>
+      <td>Delpin Waterpark</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="24-87">
+      <td>24-87</td>
+      <td>GHD-DS</td>
+      <td>25</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="24-88">
+      <td>24-88</td>
+      <td>U of Andoria</td>
+      <td>25</td>
+      <td>72</td>
+      <td>Vulcan University</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="42" data-stock-label="vacant">42 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="26-90">
+      <td>26-90</td>
+      <td>The Spot</td>
+      <td>27</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-94">
+      <td>27-94</td>
+      <td>Crusher</td>
+      <td>28</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-92">
+      <td>27-92</td>
+      <td>Die</td>
+      <td>28</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-95">
+      <td>27-95</td>
+      <td>Protector 1</td>
+      <td>28</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-96">
+      <td>27-96</td>
+      <td>Protector 2</td>
+      <td>28</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-98">
+      <td>27-98</td>
+      <td>Protector 3</td>
+      <td>28</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-93">
+      <td>27-93</td>
+      <td>Scum</td>
+      <td>28</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="27-91">
+      <td>27-91</td>
+      <td>The Blacksmith</td>
+      <td>28</td>
+      <td>71</td>
+      <td>Human Research Lab</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="7" data-stock-label="live">7 · live</span> <span class="chip live" data-stock-id="23" data-stock-label="live">23 · live</span> <span class="chip live" data-stock-id="24" data-stock-label="live">24 · live</span> <span class="chip live" data-stock-id="26" data-stock-label="live">26 · live</span> <span class="chip live" data-stock-id="6" data-stock-label="live">6 · live</span> <span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span></div></td>
+    </tr>
+<tr data-placement-id="27-97">
+      <td>27-97</td>
+      <td>The Depot</td>
+      <td>28</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="13" data-stock-label="live">13 · live</span> <span class="chip live" data-stock-id="18" data-stock-label="live">18 · live</span> <span class="chip vacant" data-stock-id="37" data-stock-label="vacant">37 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="29-164">
+      <td>29-164</td>
+      <td>Reman Starbase</td>
+      <td>30</td>
+      <td>90</td>
+      <td>Romulan Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-100">
+      <td>30-100</td>
+      <td>G1</td>
+      <td>31</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-105">
+      <td>30-105</td>
+      <td>G32</td>
+      <td>31</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-102">
+      <td>30-102</td>
+      <td>GX1 (abandoned)</td>
+      <td>31</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-106">
+      <td>30-106</td>
+      <td>Kpec Prison</td>
+      <td>31</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-99">
+      <td>30-99</td>
+      <td>Praetor Center</td>
+      <td>31</td>
+      <td>90</td>
+      <td>Romulan Starbase</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="51" data-stock-label="unknown">51 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="30-103">
+      <td>30-103</td>
+      <td>Rinsu</td>
+      <td>31</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-104">
+      <td>30-104</td>
+      <td>Tuansu</td>
+      <td>31</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="30-101">
+      <td>30-101</td>
+      <td>Waryard</td>
+      <td>31</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span> <span class="chip live" data-stock-id="6" data-stock-label="live">6 · live</span> <span class="chip live" data-stock-id="7" data-stock-label="live">7 · live</span> <span class="chip live" data-stock-id="22" data-stock-label="live">22 · live</span></div></td>
+    </tr>
+<tr data-placement-id="32-165">
+      <td>32-165</td>
+      <td>X-8</td>
+      <td>33</td>
+      <td>85</td>
+      <td>Wormhole Generator</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="34-107">
+      <td>34-107</td>
+      <td>Gato Station</td>
+      <td>35</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="14" data-stock-label="live">14 · live</span></div></td>
+    </tr>
+<tr data-placement-id="34-110">
+      <td>34-110</td>
+      <td>P012</td>
+      <td>35</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="34-108">
+      <td>34-108</td>
+      <td>Picards Place</td>
+      <td>35</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="34-109">
+      <td>34-109</td>
+      <td>Star Park</td>
+      <td>35</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="35-111">
+      <td>35-111</td>
+      <td>K'Klep</td>
+      <td>36</td>
+      <td>80</td>
+      <td>Klingon Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="35-116">
+      <td>35-116</td>
+      <td>K24</td>
+      <td>36</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="35-112">
+      <td>35-112</td>
+      <td>K39</td>
+      <td>36</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="35-114">
+      <td>35-114</td>
+      <td>K48</td>
+      <td>36</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="35-115">
+      <td>35-115</td>
+      <td>K74</td>
+      <td>36</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="35-113">
+      <td>35-113</td>
+      <td>K84</td>
+      <td>36</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="36-119">
+      <td>36-119</td>
+      <td>B'lech</td>
+      <td>37</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="36-121">
+      <td>36-121</td>
+      <td>Juhad</td>
+      <td>37</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="36-118">
+      <td>36-118</td>
+      <td>K178</td>
+      <td>37</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="36-117">
+      <td>36-117</td>
+      <td>K94</td>
+      <td>37</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="36-120">
+      <td>36-120</td>
+      <td>Tupok</td>
+      <td>37</td>
+      <td>80</td>
+      <td>Klingon Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="36-201">
+      <td>36-201</td>
+      <td>Worf's Bar</td>
+      <td>37</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-127">
+      <td>37-127</td>
+      <td>Flek</td>
+      <td>38</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-131">
+      <td>37-131</td>
+      <td>Hu'kel</td>
+      <td>38</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-129">
+      <td>37-129</td>
+      <td>K'Jak</td>
+      <td>38</td>
+      <td>81</td>
+      <td>Klingon Heavy Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span> <span class="chip live" data-stock-id="12" data-stock-label="live">12 · live</span> <span class="chip live" data-stock-id="25" data-stock-label="live">25 · live</span></div></td>
+    </tr>
+<tr data-placement-id="37-123">
+      <td>37-123</td>
+      <td>K38</td>
+      <td>38</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-126">
+      <td>37-126</td>
+      <td>Kempek</td>
+      <td>38</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="47" data-stock-label="unknown">47 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="37-125">
+      <td>37-125</td>
+      <td>KTanga</td>
+      <td>38</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-133">
+      <td>37-133</td>
+      <td>Plax</td>
+      <td>38</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-122">
+      <td>37-122</td>
+      <td>Plek</td>
+      <td>38</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="6" data-stock-label="live">6 · live</span></div></td>
+    </tr>
+<tr data-placement-id="37-134">
+      <td>37-134</td>
+      <td>Plex</td>
+      <td>38</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-130">
+      <td>37-130</td>
+      <td>Praxis</td>
+      <td>38</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-124">
+      <td>37-124</td>
+      <td>Qonos Array</td>
+      <td>38</td>
+      <td>89</td>
+      <td>Subspace Comm</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-132">
+      <td>37-132</td>
+      <td>Tar'jel</td>
+      <td>38</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="37-128">
+      <td>37-128</td>
+      <td>Targ</td>
+      <td>38</td>
+      <td>80</td>
+      <td>Klingon Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="6" data-stock-label="live">6 · live</span> <span class="chip live" data-stock-id="12" data-stock-label="live">12 · live</span> <span class="chip live" data-stock-id="7" data-stock-label="live">7 · live</span></div></td>
+    </tr>
+<tr data-placement-id="38-204">
+      <td>38-204</td>
+      <td>Xonok Pub</td>
+      <td>39</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="39-205">
+      <td>39-205</td>
+      <td>Kises Bar</td>
+      <td>40</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="40-135">
+      <td>40-135</td>
+      <td>Empok Nor</td>
+      <td>41</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-142">
+      <td>41-142</td>
+      <td>K21</td>
+      <td>42</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-136">
+      <td>41-136</td>
+      <td>K28</td>
+      <td>42</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-139">
+      <td>41-139</td>
+      <td>K283</td>
+      <td>42</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-141">
+      <td>41-141</td>
+      <td>K298</td>
+      <td>42</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-137">
+      <td>41-137</td>
+      <td>K384</td>
+      <td>42</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-138">
+      <td>41-138</td>
+      <td>K93</td>
+      <td>42</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="41-140">
+      <td>41-140</td>
+      <td>The Sludge</td>
+      <td>42</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="34" data-stock-label="vacant">34 · vacant</span> <span class="chip live" data-stock-id="22" data-stock-label="live">22 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="26" data-stock-label="live">26 · live</span> <span class="chip live" data-stock-id="24" data-stock-label="live">24 · live</span> <span class="chip live" data-stock-id="18" data-stock-label="live">18 · live</span></div></td>
+    </tr>
+<tr data-placement-id="42-146">
+      <td>42-146</td>
+      <td>Fuki</td>
+      <td>43</td>
+      <td>80</td>
+      <td>Klingon Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="42-148">
+      <td>42-148</td>
+      <td>K'fort</td>
+      <td>43</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="42-144">
+      <td>42-144</td>
+      <td>Kempek</td>
+      <td>43</td>
+      <td>80</td>
+      <td>Klingon Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="42-143">
+      <td>42-143</td>
+      <td>KPlex</td>
+      <td>43</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="42-147">
+      <td>42-147</td>
+      <td>Krap</td>
+      <td>43</td>
+      <td>81</td>
+      <td>Klingon Heavy Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span> <span class="chip live" data-stock-id="6" data-stock-label="live">6 · live</span> <span class="chip live" data-stock-id="12" data-stock-label="live">12 · live</span></div></td>
+    </tr>
+<tr data-placement-id="42-149">
+      <td>42-149</td>
+      <td>L'fort</td>
+      <td>43</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="42-151">
+      <td>42-151</td>
+      <td>L'fort</td>
+      <td>43</td>
+      <td>79</td>
+      <td>Klingon Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="42-145">
+      <td>42-145</td>
+      <td>Prax</td>
+      <td>43</td>
+      <td>81</td>
+      <td>Klingon Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="43-207">
+      <td>43-207</td>
+      <td>Nayobek orbital Bar</td>
+      <td>44</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="44-150">
+      <td>44-150</td>
+      <td>K38</td>
+      <td>45</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="45-206">
+      <td>45-206</td>
+      <td>Kahless Club</td>
+      <td>46</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="46-152">
+      <td>46-152</td>
+      <td>Borj</td>
+      <td>47</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="46-153">
+      <td>46-153</td>
+      <td>Tempe</td>
+      <td>47</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="46-154">
+      <td>46-154</td>
+      <td>Terok Nor</td>
+      <td>47</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="20" data-stock-label="vacant">20 · vacant</span> <span class="chip vacant" data-stock-id="37" data-stock-label="vacant">37 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="48-155">
+      <td>48-155</td>
+      <td>Iceland</td>
+      <td>49</td>
+      <td>84</td>
+      <td>Habitat Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="49-161">
+      <td>49-161</td>
+      <td>C329</td>
+      <td>50</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="49-162">
+      <td>49-162</td>
+      <td>C382</td>
+      <td>50</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="49-156">
+      <td>49-156</td>
+      <td>Clak Nor</td>
+      <td>50</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="48" data-stock-label="unknown">48 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="49-157">
+      <td>49-157</td>
+      <td>Duek Nor</td>
+      <td>50</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="49-159">
+      <td>49-159</td>
+      <td>Dukat Pub</td>
+      <td>50</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="49-158">
+      <td>49-158</td>
+      <td>Pex Outpost</td>
+      <td>50</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span> <span class="chip vacant" data-stock-id="20" data-stock-label="vacant">20 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="49-160">
+      <td>49-160</td>
+      <td>Turok Nor</td>
+      <td>50</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="50-0">
+      <td>50-0</td>
+      <td>Dyson Base</td>
+      <td>51</td>
+      <td>82</td>
+      <td>Dyson Sphere</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span></div></td>
+    </tr>
+<tr data-placement-id="50-1">
+      <td>50-1</td>
+      <td>FHG-293-A</td>
+      <td>51</td>
+      <td>85</td>
+      <td>Wormhole Generator</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="51-166">
+      <td>51-166</td>
+      <td>The Slip</td>
+      <td>52</td>
+      <td>85</td>
+      <td>Wormhole Generator</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="52-176">
+      <td>52-176</td>
+      <td>Sona Defence 1</td>
+      <td>53</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="52-186">
+      <td>52-186</td>
+      <td>Sonata Bar</td>
+      <td>53</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="52-177">
+      <td>52-177</td>
+      <td>Sonata Orbital Defence</td>
+      <td>53</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="53-188">
+      <td>53-188</td>
+      <td>Iritum Workers Bar</td>
+      <td>54</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="53-187">
+      <td>53-187</td>
+      <td>Mining Platform A</td>
+      <td>54</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-198">
+      <td>54-198</td>
+      <td>Josh's Maitenance</td>
+      <td>55</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-180">
+      <td>54-180</td>
+      <td>Nova Bar</td>
+      <td>55</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-167">
+      <td>54-167</td>
+      <td>Nova Base</td>
+      <td>55</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="46" data-stock-label="unknown">46 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="54-175">
+      <td>54-175</td>
+      <td>Nova Defence Alpha</td>
+      <td>55</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-172">
+      <td>54-172</td>
+      <td>Nova Defence Beta</td>
+      <td>55</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-174">
+      <td>54-174</td>
+      <td>Nova Defence Delta</td>
+      <td>55</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-173">
+      <td>54-173</td>
+      <td>Nova Defence Gamma</td>
+      <td>55</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-179">
+      <td>54-179</td>
+      <td>Nova Trade Out Post</td>
+      <td>55</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip vacant" data-stock-id="21" data-stock-label="vacant">21 · vacant</span> <span class="chip vacant" data-stock-id="31" data-stock-label="vacant">31 · vacant</span> <span class="chip vacant" data-stock-id="36" data-stock-label="vacant">36 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="54-178">
+      <td>54-178</td>
+      <td>Nova Weapon Research</td>
+      <td>55</td>
+      <td>71</td>
+      <td>Human Research Lab</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="39" data-stock-label="live">39 · live</span> <span class="chip live" data-stock-id="2" data-stock-label="live">2 · live</span> <span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span> <span class="chip live" data-stock-id="9" data-stock-label="live">9 · live</span> <span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span></div></td>
+    </tr>
+<tr data-placement-id="54-168">
+      <td>54-168</td>
+      <td>Nova Yard Alpha</td>
+      <td>55</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-169">
+      <td>54-169</td>
+      <td>Nova Yard Beta</td>
+      <td>55</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-171">
+      <td>54-171</td>
+      <td>Nova Yard Defence</td>
+      <td>55</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="54-170">
+      <td>54-170</td>
+      <td>Nova Yard Gamma</td>
+      <td>55</td>
+      <td>74</td>
+      <td>Human Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="55-189">
+      <td>55-189</td>
+      <td>Tarrelia Trading</td>
+      <td>56</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="57-184">
+      <td>57-184</td>
+      <td>Brea Bar</td>
+      <td>58</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="57-185">
+      <td>57-185</td>
+      <td>Brea Base</td>
+      <td>58</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="58" data-stock-label="unknown">58 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="57-182">
+      <td>57-182</td>
+      <td>Brea complex Defence</td>
+      <td>58</td>
+      <td>86</td>
+      <td>Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="58-breen-station">
+      <td>58-breen-station</td>
+      <td>Brea Cryo Anchorage</td>
+      <td>58</td>
+      <td>112</td>
+      <td>Breen Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="2" data-stock-label="live">2 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="23" data-stock-label="live">23 · live</span></div></td>
+    </tr>
+<tr data-placement-id="57-181">
+      <td>57-181</td>
+      <td>Brea Defence Platform</td>
+      <td>58</td>
+      <td>87</td>
+      <td>Advanced Defense Platform</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="58-191">
+      <td>58-191</td>
+      <td>Domin Nor</td>
+      <td>59</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="58-190">
+      <td>58-190</td>
+      <td>Dominica Check Point</td>
+      <td>59</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="59-dominion-starbase">
+      <td>59-dominion-starbase</td>
+      <td>Dominion Command Starbase</td>
+      <td>59</td>
+      <td>109</td>
+      <td>Dominion Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span></div></td>
+    </tr>
+<tr data-placement-id="59-192">
+      <td>59-192</td>
+      <td>SB-534</td>
+      <td>60</td>
+      <td>70</td>
+      <td>Human Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="60-193">
+      <td>60-193</td>
+      <td>New romulus Base</td>
+      <td>61</td>
+      <td>90</td>
+      <td>Romulan Starbase</td>
+      <td><div class="chips"><span class="chip unknown" data-stock-id="51" data-stock-label="unknown">51 · unknown</span></div></td>
+    </tr>
+<tr data-placement-id="62-197">
+      <td>62-197</td>
+      <td>Josh's Bar</td>
+      <td>63</td>
+      <td>76</td>
+      <td>Bar</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="62-196">
+      <td>62-196</td>
+      <td>Josh's Repair</td>
+      <td>63</td>
+      <td>83</td>
+      <td>Maintenance Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="1" data-stock-label="live">1 · live</span> <span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span></div></td>
+    </tr>
+<tr data-placement-id="62-194">
+      <td>62-194</td>
+      <td>Orilla Vanilla</td>
+      <td>63</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="62-195">
+      <td>62-195</td>
+      <td>Splash-Planet</td>
+      <td>63</td>
+      <td>77</td>
+      <td>Delpin Waterpark</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="69-dominion-shipyard">
+      <td>69-dominion-shipyard</td>
+      <td>Vortara Dominion Shipyard</td>
+      <td>69</td>
+      <td>110</td>
+      <td>Dominion Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span></div></td>
+    </tr>
+<tr data-placement-id="69-200">
+      <td>69-200</td>
+      <td>Vortara cloning Facility</td>
+      <td>70</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="71-dominion-shipyard">
+      <td>71-dominion-shipyard</td>
+      <td>JemHadar Relay Shipyard</td>
+      <td>71</td>
+      <td>110</td>
+      <td>Dominion Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span></div></td>
+    </tr>
+<tr data-placement-id="70-199">
+      <td>70-199</td>
+      <td>New Bajor Ore Processing</td>
+      <td>71</td>
+      <td>78</td>
+      <td>Ore Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="73-dominion-heavy-yard">
+      <td>73-dominion-heavy-yard</td>
+      <td>Founders Heavy Shipyard</td>
+      <td>73</td>
+      <td>111</td>
+      <td>Dominion Heavy Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span></div></td>
+    </tr>
+<tr data-placement-id="75-dominion-starbase">
+      <td>75-dominion-starbase</td>
+      <td>T-Rogoran Dominion Starbase</td>
+      <td>75</td>
+      <td>109</td>
+      <td>Dominion Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="95-tholian-research">
+      <td>95-tholian-research</td>
+      <td>Crystal Research Lattice</td>
+      <td>95</td>
+      <td>113</td>
+      <td>Tholian Research Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="94-210">
+      <td>94-210</td>
+      <td>Loom Bastion</td>
+      <td>95</td>
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span></div></td>
+    </tr>
+<tr data-placement-id="94-215">
+      <td>94-215</td>
+      <td>Loom Heavy Shipyard</td>
+      <td>95</td>
+      <td>108</td>
+      <td>Tholian Heavy Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="94-216">
+      <td>94-216</td>
+      <td>Loom Light Yard</td>
+      <td>95</td>
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span></div></td>
+    </tr>
+<tr data-placement-id="95-211">
+      <td>95-211</td>
+      <td>Webheart Bastion</td>
+      <td>96</td>
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span></div></td>
+    </tr>
+<tr data-placement-id="96-tholian-research">
+      <td>96-tholian-research</td>
+      <td>Webheart Research Spire</td>
+      <td>96</td>
+      <td>113</td>
+      <td>Tholian Research Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="95-217">
+      <td>95-217</td>
+      <td>Webheart War Yard</td>
+      <td>96</td>
+      <td>108</td>
+      <td>Tholian Heavy Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="96-212">
+      <td>96-212</td>
+      <td>Lattice Bastion</td>
+      <td>97</td>
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span></div></td>
+    </tr>
+<tr data-placement-id="96-218">
+      <td>96-218</td>
+      <td>Lattice Cargo Yard</td>
+      <td>97</td>
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span></div></td>
+    </tr>
+<tr data-placement-id="97-213">
+      <td>97-213</td>
+      <td>Spindle Bastion</td>
+      <td>98</td>
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span></div></td>
+    </tr>
+<tr data-placement-id="97-219">
+      <td>97-219</td>
+      <td>Spindle Patrol Yard</td>
+      <td>98</td>
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span></div></td>
+    </tr>
+<tr data-placement-id="98-214">
+      <td>98-214</td>
+      <td>Facet Gate Bastion</td>
+      <td>99</td>
+      <td>106</td>
+      <td>Tholian Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span> <span class="chip live" data-stock-id="4" data-stock-label="live">4 · live</span></div></td>
+    </tr>
+<tr data-placement-id="99-tholian-research">
+      <td>99-tholian-research</td>
+      <td>Facet Research Array</td>
+      <td>99</td>
+      <td>113</td>
+      <td>Tholian Research Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="98-220">
+      <td>98-220</td>
+      <td>Facet Slipway</td>
+      <td>99</td>
+      <td>107</td>
+      <td>Tholian Light Shipyard</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="5" data-stock-label="live">5 · live</span> <span class="chip live" data-stock-id="16" data-stock-label="live">16 · live</span></div></td>
+    </tr>
+<tr data-placement-id="13-grand-nagus-casino">
+      <td>13-grand-nagus-casino</td>
+      <td>Grand Nagus Casino</td>
+      <td>14</td>
+      <td>119</td>
+      <td>Casino Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span> <span class="chip vacant" data-stock-id="33" data-stock-label="vacant">33 · vacant</span></div></td>
+    </tr>
+<tr data-placement-id="88-lappa-casino-exchange">
+      <td>88-lappa-casino-exchange</td>
+      <td>Lappa Casino Exchange</td>
+      <td>89</td>
+      <td>119</td>
+      <td>Casino Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span></div></td>
+    </tr>
+<tr data-placement-id="89-hupyrian-casino-port">
+      <td>89-hupyrian-casino-port</td>
+      <td>Hupyrian Casino Port</td>
+      <td>90</td>
+      <td>119</td>
+      <td>Casino Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="8" data-stock-label="live">8 · live</span></div></td>
+    </tr>
+<tr data-placement-id="9-gorn-muster-dock">
+      <td>9-gorn-muster-dock</td>
+      <td>Gorn Muster Dock</td>
+      <td>10</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span></div></td>
+    </tr>
+<tr data-placement-id="99-hirogen-trophy-exchange">
+      <td>99-hirogen-trophy-exchange</td>
+      <td>Hirogen Trophy Exchange</td>
+      <td>100</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="3" data-stock-label="live">3 · live</span> <span class="chip live" data-stock-id="19" data-stock-label="live">19 · live</span></div></td>
+    </tr>
+<tr data-placement-id="100-suliban-cell-dock">
+      <td>100-suliban-cell-dock</td>
+      <td>Suliban Cell Dock</td>
+      <td>101</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="2" data-stock-label="live">2 · live</span> <span class="chip live" data-stock-id="14" data-stock-label="live">14 · live</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-andorian-1">
+      <td>egg-shipyard-andorian-1</td>
+      <td>Andorian Export Yard</td>
+      <td>25</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-bajoran-1">
+      <td>egg-shipyard-bajoran-1</td>
+      <td>Bajoran Solar-Sail Exchange</td>
+      <td>47</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-borg-1">
+      <td>egg-shipyard-borg-1</td>
+      <td>Silent Collective Reclamation Node</td>
+      <td>63</td>
+      <td>82</td>
+      <td>Dyson Sphere</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-breen-1">
+      <td>egg-shipyard-breen-1</td>
+      <td>Breen Cryo Reserve</td>
+      <td>58</td>
+      <td>112</td>
+      <td>Breen Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-cardassian-1">
+      <td>egg-shipyard-cardassian-1</td>
+      <td>Obsidian Reserve Yard</td>
+      <td>50</td>
+      <td>88</td>
+      <td>Cardassian Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-delpin-1">
+      <td>egg-shipyard-delpin-1</td>
+      <td>Delpin Diplomatic Slip</td>
+      <td>23</td>
+      <td>77</td>
+      <td>Delpin Waterpark</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-dominion-1">
+      <td>egg-shipyard-dominion-1</td>
+      <td>Founder Reserve Hatchery</td>
+      <td>59</td>
+      <td>111</td>
+      <td>Dominion Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-ferengi-1">
+      <td>egg-shipyard-ferengi-1</td>
+      <td>Grand Nagus Private Lot</td>
+      <td>14</td>
+      <td>119</td>
+      <td>Casino Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-gorn-1">
+      <td>egg-shipyard-gorn-1</td>
+      <td>Gorn Hegemony Clutch Yard</td>
+      <td>10</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-hirogen-1">
+      <td>egg-shipyard-hirogen-1</td>
+      <td>Hirogen Trophy Dock</td>
+      <td>63</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-independent-1">
+      <td>egg-shipyard-independent-1</td>
+      <td>Free Swiss Reserve Exchange</td>
+      <td>6</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-klingon-1">
+      <td>egg-shipyard-klingon-1</td>
+      <td>Klingon House Reserve Yard</td>
+      <td>38</td>
+      <td>81</td>
+      <td>Klingon Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-neutral-1">
+      <td>egg-shipyard-neutral-1</td>
+      <td>Independent Salvage Vault Alpha</td>
+      <td>6</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-neutral-2">
+      <td>egg-shipyard-neutral-2</td>
+      <td>Independent Salvage Vault Beta</td>
+      <td>63</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-pirate-1">
+      <td>egg-shipyard-pirate-1</td>
+      <td>Nausican Chop Shop</td>
+      <td>16</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-promelli-1">
+      <td>egg-shipyard-promelli-1</td>
+      <td>Promelli Relic Broker</td>
+      <td>94</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-romulan-1">
+      <td>egg-shipyard-romulan-1</td>
+      <td>Tal Shiar Ghost Yard</td>
+      <td>31</td>
+      <td>90</td>
+      <td>Romulan Starbase</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-sona-1">
+      <td>egg-shipyard-sona-1</td>
+      <td>Son'a Private Hangar</td>
+      <td>53</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-suliban-1">
+      <td>egg-shipyard-suliban-1</td>
+      <td>Suliban Cabal Slip</td>
+      <td>63</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-tarellian-1">
+      <td>egg-shipyard-tarellian-1</td>
+      <td>Tarellian Long-Range Exchange</td>
+      <td>56</td>
+      <td>75</td>
+      <td>Trade Station</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-terran-1">
+      <td>egg-shipyard-terran-1</td>
+      <td>Imperial Mothball Vault Alpha</td>
+      <td>1</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-terran-2">
+      <td>egg-shipyard-terran-2</td>
+      <td>Imperial Mothball Vault Beta</td>
+      <td>21</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-terran-3">
+      <td>egg-shipyard-terran-3</td>
+      <td>Imperial Mothball Vault Gamma</td>
+      <td>55</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-terran-4">
+      <td>egg-shipyard-terran-4</td>
+      <td>Imperial Mothball Vault Delta</td>
+      <td>60</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-terran-5">
+      <td>egg-shipyard-terran-5</td>
+      <td>Imperial Mothball Vault Epsilon</td>
+      <td>76</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-terran-6">
+      <td>egg-shipyard-terran-6</td>
+      <td>Imperial Mothball Vault Zeta</td>
+      <td>4</td>
+      <td>73</td>
+      <td>Human Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-tholian-1">
+      <td>egg-shipyard-tholian-1</td>
+      <td>Tholian Lattice Reserve</td>
+      <td>18</td>
+      <td>108</td>
+      <td>Tholian Heavy Shipyard</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="egg-shipyard-vulcan-1">
+      <td>egg-shipyard-vulcan-1</td>
+      <td>Vulcan Surplus Annex</td>
+      <td>12</td>
+      <td>72</td>
+      <td>Vulcan University</td>
+      <td><div class="chips"><span class="note">none listed</span></div></td>
+    </tr>
+<tr data-placement-id="import-200-59">
+      <td>import-200-59</td>
+      <td>Andreas Command Outpost</td>
+      <td>60</td>
+      <td>200</td>
+      <td>Command Outpost</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span> <span class="chip live" data-stock-id="15" data-stock-label="live">15 · live</span> <span class="chip live" data-stock-id="25" data-stock-label="live">25 · live</span></div></td>
+    </tr>
+<tr data-placement-id="import-201-5">
+      <td>import-201-5</td>
+      <td>Swiss Relay Array</td>
+      <td>6</td>
+      <td>201</td>
+      <td>Communication Array</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="23" data-stock-label="live">23 · live</span> <span class="chip live" data-stock-id="24" data-stock-label="live">24 · live</span></div></td>
+    </tr>
+<tr data-placement-id="import-202-54">
+      <td>import-202-54</td>
+      <td>Terra Nova Bastion</td>
+      <td>55</td>
+      <td>202</td>
+      <td>Heavy Starbase</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="11" data-stock-label="live">11 · live</span> <span class="chip live" data-stock-id="15" data-stock-label="live">15 · live</span> <span class="chip live" data-stock-id="18" data-stock-label="live">18 · live</span> <span class="chip live" data-stock-id="25" data-stock-label="live">25 · live</span></div></td>
+    </tr>
+<tr data-placement-id="import-203-0">
+      <td>import-203-0</td>
+      <td>K-Series Fleet Yard</td>
+      <td>1</td>
+      <td>203</td>
+      <td>K Series Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="10" data-stock-label="live">10 · live</span> <span class="chip live" data-stock-id="15" data-stock-label="live">15 · live</span></div></td>
+    </tr>
+<tr data-placement-id="import-204-13">
+      <td>import-204-13</td>
+      <td>T19 Trade Ring</td>
+      <td>14</td>
+      <td>204</td>
+      <td>T19 Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="15" data-stock-label="live">15 · live</span> <span class="chip live" data-stock-id="23" data-stock-label="live">23 · live</span></div></td>
+    </tr>
+<tr data-placement-id="import-205-62">
+      <td>import-205-62</td>
+      <td>Orilla Biodome</td>
+      <td>63</td>
+      <td>205</td>
+      <td>Biodome Station</td>
+      <td><div class="chips"><span class="chip live" data-stock-id="24" data-stock-label="live">24 · live</span></div></td>
+    </tr></tbody>
+  </table>
+  </div>
+  <script>
+    const input = document.getElementById('search');
+    const tables = ['types', 'stock', 'placements'].map((id) => document.getElementById(id));
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      for (const table of tables) {
+        for (const row of table.tBodies[0].rows) {
+          row.hidden = Boolean(q) && !row.textContent.toLowerCase().includes(q);
+        }
+      }
+    });
+  </script>
+  <footer>Generated from bake-off JSON + ledger subscribe only. Does not write combat fields. Does not reopen #33–#54.</footer>
+</main>
+</html>

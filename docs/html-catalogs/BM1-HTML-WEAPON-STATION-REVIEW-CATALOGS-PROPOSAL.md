@@ -1,6 +1,6 @@
 # BM1 HTML weapon / station review catalogs
 
-**Status:** proposal for HTML review catalogs that inspect weapon and station defs; no engine changes and **no HTML pages** shipped by this document.  
+**Status:** Passed brief — **stay locked.** S25 static HTML pages now live under this folder (`index.html` / `weapons.html` / `stations.html`). This document remains the scoreable contract. **No Referee Pass claimed.** Do not reopen #33–#54.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `91ecc2c` on `main` (20 September 2026), after station construction visuals engine (PR #53).  
 **Referee context:** Phase 4 engine §6 **Pass** on `7f926df`. Phase 9–9.4 EW (PRs #33 / #35 / #37 / #42 / #43 / #44 / #45), boarding (PRs #38 / #39), Phase 10 Dominion-first (PRs #40 / #41), flags / passes (PRs #46 / #47), the weapon / device source ledger (PRs #48 / #49), empty-but-armable (PRs #50 / #51), and station construction visuals (PRs #52 / #53) are the **locked** baselines — **Keep #33, #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, and #53 locked.** This is an **HTML review-catalog brief only**, not a combat retune, not a live price lock, not a second shop, not a construction-visuals reopen, and **not** a claim that those lanes already had a Referee Pass on the status MD. This brief does **not** claim a new Referee Pass.  
