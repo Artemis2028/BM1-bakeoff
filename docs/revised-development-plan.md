@@ -330,9 +330,9 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 
 | # | Package | Status on bake-off | Class | Overlap / pointer |
 | --- | --- | --- | --- | --- |
-| 1 | Weapon / device source ledger | **Brief open** (`docs/weapon-ledger/`) — missing as a later audit engine | **Agreed next** | §11 / §13 BM1–BM2 audit. Flash prices in `GUIDED-CONVERGENCE.md` §1 are **source material, not final prices**. Keep Disrupter Canon / Cannon / Turret as three variants. Tractor stays a weapon/device slot. Bajoran Sail / Warp Core **explicitly deferred utilities**. Scoreable brief from `main` @ `6dc279b` after flags/passes engine PR #47. Phase 9 matrix **read-only**. **Not** a reopen of EW / boarding / Phase 10 / flags. |
-| 2 | Flags / passes / utility inventory | **Engine landed** (`docs/flags-passes/`; PR #46 brief / PR #47 engine). **Stay locked** — do not reopen from the weapon ledger. | **Locked** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass **unverified — not shipped**. **Not** a reopen of EW / boarding / Phase 10. |
-| 3 | Empty but armable ships | Missing | **Agreed next** | Three slots; empty stays empty across save/load; unarmed NPC cannot fire. Doctrine physical fire gate; §11 per-weapon gate. |
+| 1 | Weapon / device source ledger | **Engine landed** (`docs/weapon-ledger/`; PR #48 brief / PR #49 engine). **Stay locked** — do not reopen from empty-armable. | **Locked** | §11 / §13 BM1–BM2 audit. Flash prices are **source material, not final prices**. Three disruptor identities. Tractor stays a slot. Bajoran Sail / Warp Core **explicitly deferred utilities**. Phase 9 matrix **read-only**. **Not** a reopen of EW / boarding / Phase 10 / flags. |
+| 2 | Flags / passes / utility inventory | **Engine landed** (`docs/flags-passes/`; PR #46 brief / PR #47 engine). **Stay locked** — do not reopen from empty-armable. | **Locked** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass **unverified — not shipped**. **Not** a reopen of EW / boarding / Phase 10. |
+| 3 | Empty but armable ships | **Brief open** (`docs/empty-armable/`) — missing as a later persistence / physical-gate engine | **Agreed next** | Three slots; empty stays empty across save/load/scene/restoration; unarmed NPC cannot fire; legal install uses installed def only. Doctrine physical fire gate; §11 per-weapon gate. Scoreable brief from `main` @ `a3d9611` after weapon-ledger engine PR #49. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger. |
 | 4 | Boarding / capture / command transfer | **Engine landed** (`docs/boarding/`; PR #38 brief / PR #39 engine). **Stay locked** — do not reopen in Phase 10. | **Locked** | ≤10% hull; capture XOR scuttle; tractor ≠ board; away-team XP **not tracked yet**. See `GUIDED-CONVERGENCE.md` §4 and `docs/boarding/`. **Not** Phase 10. |
 | 5 | Station construction visuals | Missing | **Agreed next** | Scaffolds, workbees, **blue** construction beams ≠ combat evidence. **Do not redo repair arms** (side-lane Pass, PR #18). |
 | 6 | Faction-wide standing / purchase tiers | Missing as live gates | **Agreed next** | Money ≠ trust. First balance pass: Open 0, Trusted 15, Respected 30, Military 50, Strategic 75, Excalibur/Concord 100; new character **20** with selected faction. Independent trade standing in neutral entry. §10 trade restrictions. |
@@ -343,8 +343,8 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 
 ### 16.3 Suggested remaining order (bake-off only)
 
-1. Weapon/device ledger — brief open (`docs/weapon-ledger/`; audit, no retune; Phase 9 matrix read-only).
-2. Empty-but-armable persistence + unarmed-cannot-fire.
+1. Weapon/device ledger — engine landed (`docs/weapon-ledger/`; PRs #48/#49). **Stay locked.**
+2. Empty-but-armable persistence + unarmed-cannot-fire — brief open (`docs/empty-armable/`).
 3. Flags / passes / utility inventory — engine landed (`docs/flags-passes/`; PRs #46/#47; Thaleron Test Facility pass **unverified — not shipped**). **Stay locked.**
 4. Standing-tier data (Open → Excalibur; new char 20).
 5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions).
