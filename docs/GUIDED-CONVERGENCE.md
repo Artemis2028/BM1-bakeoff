@@ -39,7 +39,7 @@ Guided text about incidents, independence, repair arms, and Reman recovery descr
 
 ## 1. Weapon / device source ledger — Locked (engine landed)
 
-**Engine landed** on bake-off (`docs/weapon-ledger/`; brief PR #48, engine PR #49 @ `a3d9611`). **Stay locked** — do not reopen from the empty-armable brief. Phase 9 weapons matrix stays **read-only**. Flash prices remain **source material, not final prices**. Disrupter Canon / Cannon / Turret stay **three** identities. Tractor stays a **weapon/device slot**. Bajoran Sail / Warp Core are **explicitly deferred utilities**. `LEDGER_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** **Keep #48 / #49 locked.**
+**Engine landed** on bake-off (`docs/weapon-ledger/`; brief PR #48, engine PR #49 @ `a3d9611`). **Stay locked** — do not reopen from the empty-armable or construction-visuals briefs. Phase 9 weapons matrix stays **read-only**. Flash prices remain **source material, not final prices**. Disrupter Canon / Cannon / Turret stay **three** identities. Tractor stays a **weapon/device slot**. Bajoran Sail / Warp Core are **explicitly deferred utilities**. `LEDGER_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** **Keep #48 / #49 locked.**
 
 ### Intent
 
@@ -99,7 +99,7 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 
 ## 2. Flags / passes / utility inventory — Locked (engine landed)
 
-**Engine landed** on bake-off (`docs/flags-passes/`; brief PR #46, engine PR #47 @ `6dc279b`). **Stay locked** — do not reopen from the weapon-ledger or empty-armable briefs. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. Tractor / Bajoran Sail / Warp Core stay **out** of `utilityBook`.
+**Engine landed** on bake-off (`docs/flags-passes/`; brief PR #46, engine PR #47 @ `6dc279b`). **Stay locked** — do not reopen from the weapon-ledger, empty-armable, or construction-visuals briefs. Capacity / activation stay **TBD / injectable**. Thaleron Test Facility pass is **unverified — not shipped**. Knowledge/inventory layer only — no gifted FS / culture / `engagement_authorized`. Tractor / Bajoran Sail / Warp Core stay **out** of `utilityBook`.
 
 **Scoreable brief (docs, 17 September 2026):** [`docs/flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md`](flags-passes/BM1-FLAGS-PASSES-UTILITY-INVENTORY-PROPOSAL.md) + [`docs/flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md`](flags-passes/BM1-FLAGS-PASSES-ENGINE-DEPENDENCIES.md), from `main` @ `1e3f67d` after Phase 9.4 engine PR #45. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), or Phase 10 (#40/#41). **No Referee Pass claimed.**
 
@@ -114,11 +114,11 @@ Flash descriptions were **not** in the bake-off source packet. Do **not** invent
 2. Save/load preserves the utility inventory separately from the three slots.
 3. Thaleron Test Facility pass is either verified from BM1 or marked “unverified — not shipped.”
 
-## 3. Empty but armable ships — Agreed next
+## 3. Empty but armable ships — Locked (engine landed)
 
-**Not yet implemented on bake-off as a scored persistence / physical-gate package.** Catalog-wire helpers (`hullIsEmptyButArmable`, `unarmedNpcCannotFire`) and boarding prize-preserve are **subscribe points**, not this Pass.
+**Engine landed** on bake-off (`docs/empty-armable/`; brief PR #50 @ `38b87fd`, engine PR #51 @ `3933daf`). **Stay locked** — do not reopen from the construction-visuals brief. Three slots; empty stays empty; unarmed NPC cannot fire; legal install uses installed def only; Tractor stays a **slot**; `EMPTY_ARMABLE_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** **Keep #50 / #51 locked.**
 
-**Scoreable brief now open (docs-only, 19 September 2026):** [`docs/empty-armable/BM1-EMPTY-ARMABLE-SHIPS-PROPOSAL.md`](empty-armable/BM1-EMPTY-ARMABLE-SHIPS-PROPOSAL.md) + [`docs/empty-armable/BM1-EMPTY-ARMABLE-ENGINE-DEPENDENCIES.md`](empty-armable/BM1-EMPTY-ARMABLE-ENGINE-DEPENDENCIES.md), from `main` @ `a3d9611` after weapon-ledger engine PR #49. Three slots; empty stays empty across save / load / scene / restoration; unarmed NPC cannot fire; legal install uses installed def only; Tractor stays a **slot**; never gift FS / culture / `engagement_authorized`. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), or weapon ledger (#48/#49). DockClear / construction / HTML catalogs / combat retune / Flash price locks **out**. **No Referee Pass claimed.**
+**Scoreable brief (docs, 19 September 2026) + engine (20 September 2026):** [`docs/empty-armable/BM1-EMPTY-ARMABLE-SHIPS-PROPOSAL.md`](empty-armable/BM1-EMPTY-ARMABLE-SHIPS-PROPOSAL.md) + [`docs/empty-armable/BM1-EMPTY-ARMABLE-ENGINE-DEPENDENCIES.md`](empty-armable/BM1-EMPTY-ARMABLE-ENGINE-DEPENDENCIES.md). **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), or weapon ledger (#48/#49). DockClear / construction / HTML catalogs / combat retune / Flash price locks **out**.
 
 - A hull has **three** combat/device slots.
 - Empty stays **empty** across save, load, scene change, and restoration. Do not auto-fill a default Phaser because the ship “should have guns.”
@@ -164,7 +164,9 @@ Opened as **named defaults + Q-rows** in `docs/boarding/` — not invented odds.
 
 ## 5. Station construction visuals — Agreed next
 
-**Not yet implemented on bake-off.** Repair arms **are** implemented — do not redo them.
+**Not yet implemented on bake-off as a scored construction-language package.** Repair arms **are** implemented — do not redo them. `underConstruction` + a placeholder dashed-ring site draw already exist; they are **subscribe points**, not this Pass.
+
+**Scoreable brief now open (docs-only, 20 September 2026):** [`docs/construction-visuals/BM1-STATION-CONSTRUCTION-VISUALS-PROPOSAL.md`](construction-visuals/BM1-STATION-CONSTRUCTION-VISUALS-PROPOSAL.md) + [`docs/construction-visuals/BM1-STATION-CONSTRUCTION-ENGINE-DEPENDENCIES.md`](construction-visuals/BM1-STATION-CONSTRUCTION-ENGINE-DEPENDENCIES.md), from `main` @ `3933daf` after empty-armable engine PR #51. Scaffolds / workbees / **blue** beams mean a station is being built — not combat, repair, or an attributed attack. **Do not redo** repair arms (PR #18). Construction art must **not** be reused as repair arms. Construction beams must not write `observedAttacks`, standing, or FLASH. Never gift FS / culture / `engagement_authorized`. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), ledger (#48/#49), or empty-armable (#50/#51). DockClear / HTML catalogs / combat retune / Flash price locks **out**. **No Referee Pass claimed.**
 
 | Visual | Meaning | Not |
 | --- | --- | --- |
@@ -287,12 +289,12 @@ Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Domini
 Adapt the guided order to **what bake-off has not done**. Do not restart Phases 1–5 or the side-lane.
 
 1. **Weapon / device ledger** — brief + engine landed (`docs/weapon-ledger/`, PRs #48/#49). Phase 9 matrix stays read-only. **Stay locked.**
-2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire — scoreable brief now under `docs/empty-armable/`.
+2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire — brief + engine landed (`docs/empty-armable/`, PRs #50/#51). **Stay locked.**
 3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. **Stay locked** from the weapon-ledger brief.
 4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
 6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
-7. **Station construction visuals** (scaffolds / workbees / blue beams). Repair arms stay the side-lane overlay.
+7. **Station construction visuals** (scaffolds / workbees / blue beams) — scoreable brief now under `docs/construction-visuals/`. Repair arms stay the side-lane overlay.
 8. **HTML weapon / station catalogs** for review (working agreement).
 9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity.
 10. **Phase 6 engine** when Tenth scopes it — brief is already ready; not a new package in this list.
@@ -314,4 +316,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **docs** now live under `docs/empty-armable/`.
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **engine** landed under `docs/empty-armable/` (PRs #50/#51) — stay locked. Station construction visuals **docs** now live under `docs/construction-visuals/`.
