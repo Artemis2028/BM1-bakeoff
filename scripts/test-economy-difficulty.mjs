@@ -6,7 +6,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadShipCatalog } from '../bm-ships/catalog.mjs';
 import { tractorIsBoarding, BOARDING_IMPLEMENTED as EW_BOARDING } from '../src/phase9-ew.js';
 import { BOARDING_IMPLEMENTED } from '../src/boarding-eligibility.js';
 import { MAGNITUDES_LOCKED_FROM_REMASTERED as SLOT_LOCK } from '../src/phase91-ew-slot.js';
@@ -26,6 +25,7 @@ import {
   HOME_FACTION_STANDING,
   PURCHASE_TIER_STANDING,
   catalogPurchaseContext,
+  createWiredCatalog,
   evaluateWiredPurchase,
 } from '../src/ship-catalog-wire.js';
 import { createPlayerUnlocks } from '../src/side-lane-repair-reman.js';
@@ -212,7 +212,7 @@ assert('s26.3 no-invented-tables', inventedThrew === true
   && INVENTED_TABLES_REFUSED.prestigeCurve === false
   && defensePlatformNeverRepair() === true
   && !srcEconomy.includes('UNREST_THRESHOLD_EASY =')
-  && !srcEconomy.includes('REPAIR_PRICE_BY_DIFFICULTY')
+  && !srcEconomy.includes('REPAIR_PRICE_BY_DIFFICULTY =')
   && !srcEconomy.includes('prestigePerJump ='));
 
 const snap = snapshotEconomyDifficulty({
@@ -262,7 +262,11 @@ assert('s26.4 easy-shop-jump', buy.standingDelta === 0
   && salvage.bounded === true
   && salvage.paid <= easy.salvageLatinumCap);
 
-const catalog = loadShipCatalog();
+const catalog = createWiredCatalog(
+  JSON.parse(fs.readFileSync(path.join(root, 'bm-ships/ships.json'), 'utf8')),
+  JSON.parse(fs.readFileSync(path.join(root, 'bm-ships/bm2-id-map.json'), 'utf8')),
+  JSON.parse(fs.readFileSync(path.join(root, 'bm-ships/size-config.json'), 'utf8')),
+);
 const military = evaluateWiredPurchase(catalog, 2, createPlayerUnlocks(), catalogPurchaseContext({
   credits: 9e9,
   standings: { terran: 0, neutral: 0 },
