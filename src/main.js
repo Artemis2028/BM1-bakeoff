@@ -212,6 +212,20 @@ import {
   unarmedNpcCannotFire,
 } from './ship-catalog-wire.js';
 import {
+  EMPTY_ARMABLE_LOCKED_FROM_REMASTERED,
+  UNARMED_WEAPON_DEF,
+  canonicalizeWeaponSlots,
+  emptyArmableInjectMustNotGiftFire,
+  firstFilledSlot,
+  hullPackIsEmptyArmable,
+  mayEmitProjectile,
+  refuseAutofillDefaultWeapon,
+  requireEmptyArmableHelpers,
+  resolveCombatWeaponId,
+  slotsAreEmpty,
+  snapshotEmptyArmable,
+} from './empty-armable.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -489,6 +503,7 @@ import {
 import {
   capturePrizeHull,
   cloneSlots,
+  emptySlotsStayEmpty,
 } from './boarding-identity.js';
 import {
   evaluateCommandTransfer,
@@ -2131,9 +2146,10 @@ function getShipDisplayName(ship) {
 function getNpcDefaultWeaponSlots(shipId) {
   const ship = state.shipCatalog?.getShip(shipId) || state.shipStatsById[Number(shipId)];
   const packSlots = packDefaultWeaponSlots(ship);
-  if (packSlots) return packSlots.slice();
+  if (packSlots) return canonicalizeWeaponSlots(packSlots);
+  if (hullPackIsEmptyArmable(ship)) return canonicalizeWeaponSlots([]);
   const original = getOriginalShipWeaponSlots(shipId);
-  return Array.isArray(original) ? original.slice(0, 3) : [null, null, null];
+  return canonicalizeWeaponSlots(original);
 }
 
 function createNpcShip({
@@ -3222,7 +3238,11 @@ function applySystemState(systemIndex) {
       lastShotAt: Number.isFinite(Number(ship.lastShotAt)) && Number(ship.lastShotAt) > 0
         ? ship.lastShotAt
         : now + 700 + seeded(ship.seed + 13) * 1500,
-      weaponSlots: Array.isArray(ship.weaponSlots) ? ship.weaponSlots.slice(0, 3) : getNpcDefaultWeaponSlots(shipId),
+      weaponSlots: Array.isArray(ship.weaponSlots)
+        ? canonicalizeWeaponSlots(ship.weaponSlots)
+        : (hullPackIsEmptyArmable(state.shipCatalog?.getShip(shipId) || getShipStats(shipId))
+          ? canonicalizeWeaponSlots([])
+          : getNpcDefaultWeaponSlots(shipId)),
     };
     if (!realized.securityInstanceId) assignNpcSecurityInstance(realized);
     initHullCloak(realized, {
@@ -7534,6 +7554,7 @@ function snapshotParticipant(systemIndex, npc, instanceId) {
     seed: npc.seed,
     leg: npc.leg,
     identityLocked: true,
+    weaponSlots: canonicalizeWeaponSlots(npc.weaponSlots),
   };
 }
 
@@ -7562,6 +7583,12 @@ function applyParticipantSnapshot(npc, snapshot, now = performance.now()) {
   if (snapshot.leg != null) npc.leg = snapshot.leg;
   if (snapshot.remainingWaitMs > 0) npc.waitUntil = now + snapshot.remainingWaitMs;
   if (snapshot.remainingAmbientWarpMs > 0) npc.ambientWarpAt = now + snapshot.remainingAmbientWarpMs;
+  const ship = state.shipCatalog?.getShip(npc.shipId) || getShipStats(npc.shipId);
+  if (Array.isArray(snapshot.weaponSlots)) {
+    npc.weaponSlots = canonicalizeWeaponSlots(snapshot.weaponSlots);
+  } else if (slotsAreEmpty(npc.weaponSlots) || hullPackIsEmptyArmable(ship)) {
+    npc.weaponSlots = canonicalizeWeaponSlots(npc.weaponSlots || []);
+  }
 }
 
 function grantClearance(ledger, order, provenance = 'check') {
@@ -8464,12 +8491,15 @@ function consultDoctrineFire(npc, target, targetType, now = performance.now()) {
   const pirateRaid = raid && normalizeFactionKey(npc.faction) === 'pirate';
   const contact = findContact(ensureContactBook(), observerKeyOfActor(npc), subjectKeyOfTarget(target, targetType));
   const layerFacts = liveFireFactsFromEw(contact);
+  const npcCanEmit = mayEmitProjectile(npc.weaponSlots, {
+    isCombatWeapon: (weaponId) => isCombatWeapon(getWeapon(weaponId)),
+  });
   const facts = deriveLiveFireFacts({
     engagementObjectiveActive: true,
     liveWeaponTrack: layerFacts.liveWeaponTrack === true,
-    weaponUsable: true,
-    weaponReady: true,
-    insideEquippedRange: true,
+    weaponUsable: npcCanEmit,
+    weaponReady: npcCanEmit,
+    insideEquippedRange: npcCanEmit,
     targetActionable: !target?.destroyed,
     identityKnown: layerFacts.identityKnown === true,
     attackOnSelf: aggro && (targetType === 'player' || target?.id === npc.lastAttackerId),
@@ -10747,7 +10777,10 @@ function renderTopLeftPanel() {
     )).join('');
     return `<span class="weapon-inventory-item"><img class="weapon-mini-icon" src="${escapeHtml(getWeaponIconSrc(weapon))}" alt=""><span class="weapon-name">${escapeHtml(weapon.name)}</span><span class="weapon-slot-buttons">${slotButtons}</span></span>`;
   }).join('');
-  const weaponLine = `<div class="weapon-panel"><div class="weapon-slots">${slotLine}</div><div class="weapon-inventory">${inventoryLine}</div></div>`;
+  const unarmedNote = slotsAreEmpty(state.weaponSlots)
+    ? '<div class="meta" data-empty-armable="unarmed">Unarmed — three empty hardpoints.</div>'
+    : '';
+  const weaponLine = `<div class="weapon-panel">${unarmedNote}<div class="weapon-slots">${slotLine}</div><div class="weapon-inventory">${inventoryLine}</div></div>`;
   const ewFitted = readFittedTier(getActor(ensureEw91Book(), playerObserverKey())) || state.ewEquipmentId || 'Empty';
   const ewSlotLine = `<div class="ew-slot-line"><div class="panel-head">EW equipment</div><span class="weapon-slot ${ewFitted && ewFitted !== 'Empty' ? 'filled' : 'empty'}"><span class="weapon-name">EW: ${escapeHtml(ewFitted === 'Empty' || !ewFitted ? 'Empty' : `${ewFitted} jammer`)}</span></span><div class="meta">Dedicated slot — not a weapon mount, not the sensor suite.</div></div>`;
   const stationPlanLine = getOwnedStationPlanTypes().map((stationStats) => (
@@ -10797,8 +10830,12 @@ function getWeaponSlotId(slot = 1) {
   return state.weaponSlots[slot - 1] || null;
 }
 
-function getWeapon(id = state.equippedWeaponId || state.weaponSlots?.[0] || DEFAULT_WEAPON_ID) {
-  return WEAPON_CATALOG.find((weapon) => weapon.id === Number(id)) || WEAPON_CATALOG[0];
+function getWeapon(id) {
+  const inferred = arguments.length > 0
+    ? id
+    : (state.equippedWeaponId || firstFilledSlot(state.weaponSlots));
+  if (inferred == null || inferred === false || inferred === '') return UNARMED_WEAPON_DEF;
+  return WEAPON_CATALOG.find((weapon) => weapon.id === Number(inferred)) || WEAPON_CATALOG[0];
 }
 
 function getWeaponIconSrc(weapon = getWeapon()) {
@@ -11087,10 +11124,11 @@ function getOriginalShipWeaponSlots(shipId = state.playership) {
     if (!weaponId || !hasWeaponDefinition(weaponId)) return null;
     return getWeapon(weaponId).minMass <= mass ? weaponId : null;
   });
-  if (!slots.some(Boolean) && !hullIsEmptyButArmable(state.shipCatalog?.getShip(shipId) || stats) && !packSlots) {
+  const ship = state.shipCatalog?.getShip(shipId) || stats;
+  if (!slots.some(Boolean) && !hullPackIsEmptyArmable(ship) && !packSlots) {
     slots[0] = getDefaultWeaponId(shipId);
   }
-  return slots;
+  return canonicalizeWeaponSlots(slots);
 }
 
 function applyShipDefaultWeapons(shipId = state.playership, preserveInventory = false) {
@@ -11101,16 +11139,22 @@ function applyShipDefaultWeapons(shipId = state.playership, preserveInventory = 
   state.weaponInventory = [...defaults, ...preserved]
     .filter((weaponId) => hasWeaponDefinition(weaponId))
     .slice(0, inventoryLimit);
-  state.weaponSlots = slots;
-  state.equippedWeaponId = state.weaponSlots[0] || state.weaponInventory[0] || DEFAULT_WEAPON_ID;
+  state.weaponSlots = canonicalizeWeaponSlots(slots);
+  state.equippedWeaponId = slotsAreEmpty(state.weaponSlots)
+    ? null
+    : (state.weaponSlots[0] || state.weaponInventory[0] || DEFAULT_WEAPON_ID);
   normalizeWeaponLoadout();
+}
+
+function padWeaponCooldownSlots() {
+  state.weaponLastFiredAt = Array.isArray(state.weaponLastFiredAt) ? state.weaponLastFiredAt.slice(0, 3) : [0, 0, 0];
+  while (state.weaponLastFiredAt.length < 3) state.weaponLastFiredAt.push(0);
 }
 
 function normalizeWeaponLoadout() {
   if (state.preserveFittedWeaponSlots === true) {
-    const slots = cloneSlots(state.weaponSlots);
-    while (slots.length < 3) slots.push(null);
-    state.weaponSlots = slots.slice(0, 3);
+    const slots = canonicalizeWeaponSlots(state.weaponSlots);
+    state.weaponSlots = slots;
     const fromSlots = state.weaponSlots.filter(Boolean);
     if (fromSlots.length) {
       const inventory = [...fromSlots, ...(Array.isArray(state.weaponInventory) ? state.weaponInventory : [])]
@@ -11121,6 +11165,7 @@ function normalizeWeaponLoadout() {
       state.weaponInventory = [];
       state.equippedWeaponId = null;
     }
+    padWeaponCooldownSlots();
     return;
   }
   const godMode = Boolean(state.godMode);
@@ -11128,18 +11173,19 @@ function normalizeWeaponLoadout() {
   const mass = Math.max(1, finiteNumber(getShipStats().mass, 1));
   const inventory = Array.isArray(state.weaponInventory) ? state.weaponInventory : [];
   const defaultWeaponId = getDefaultWeaponId(state.playership, state.playerFaction);
-  const emptyByDesign = hullIsEmptyButArmable(state.shipCatalog?.getShip(state.playership) || getShipStats(state.playership));
-  const savedEmpty = Array.isArray(state.weaponSlots) && !state.weaponSlots.some(Boolean);
+  const savedEmpty = slotsAreEmpty(state.weaponSlots);
   const valid = inventory
     .map((id) => Number(id))
     .filter((id) => hasWeaponDefinition(id));
-  if (!valid.length && !(emptyByDesign && savedEmpty) && !godMode) valid.push(defaultWeaponId);
-  if (!valid.length && emptyByDesign && savedEmpty) {
-    state.weaponInventory = [];
-    state.weaponSlots = [null, null, null];
+  if (savedEmpty) {
+    if (!valid.length) state.weaponInventory = [];
+    else state.weaponInventory = valid.slice(0, inventoryLimit);
+    state.weaponSlots = canonicalizeWeaponSlots([]);
     state.equippedWeaponId = null;
+    padWeaponCooldownSlots();
     return;
   }
+  if (!valid.length && !godMode) valid.push(defaultWeaponId);
   if (!godMode && !valid.some((id) => getWeapon(id).minMass <= mass) && !valid.includes(defaultWeaponId)) {
     valid.unshift(defaultWeaponId);
   }
@@ -11149,7 +11195,9 @@ function normalizeWeaponLoadout() {
     state.weaponInventory.unshift(fallback);
     state.weaponInventory = state.weaponInventory.slice(0, inventoryLimit);
   }
-  const savedSlots = Array.isArray(state.weaponSlots) ? state.weaponSlots : [state.equippedWeaponId || fallback, null, null];
+  const savedSlots = Array.isArray(state.weaponSlots)
+    ? canonicalizeWeaponSlots(state.weaponSlots)
+    : canonicalizeWeaponSlots([state.equippedWeaponId || fallback, null, null]);
   const usedCounts = {};
   state.weaponSlots = [0, 1, 2].map((index) => {
     const weaponId = Number(savedSlots[index]);
@@ -11164,8 +11212,7 @@ function normalizeWeaponLoadout() {
     usedCounts[weaponId] = (usedCounts[weaponId] || 0) + 1;
     return weaponId;
   });
-  state.weaponLastFiredAt = Array.isArray(state.weaponLastFiredAt) ? state.weaponLastFiredAt.slice(0, 3) : [0, 0, 0];
-  while (state.weaponLastFiredAt.length < 3) state.weaponLastFiredAt.push(0);
+  padWeaponCooldownSlots();
   state.equippedWeaponId = state.weaponSlots[0] || fallback;
   if (!state.weaponInventory.includes(state.equippedWeaponId)) {
     state.weaponInventory.unshift(state.equippedWeaponId);
@@ -14112,8 +14159,8 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     shipName: state.shipName,
     godMode: state.godMode,
     weaponInventory: state.weaponInventory,
-    equippedWeaponId: state.equippedWeaponId,
-    weaponSlots: state.weaponSlots,
+    equippedWeaponId: slotsAreEmpty(state.weaponSlots) ? null : state.equippedWeaponId,
+    weaponSlots: canonicalizeWeaponSlots(state.weaponSlots),
     weaponLastFiredAt: state.weaponLastFiredAt,
     stationPlans: state.stationPlans,
     playerBuiltStations: state.playerBuiltStations,
@@ -14272,9 +14319,18 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.captainName = sanitizePlayerName(s.captainName, 'Captain');
   state.shipName = sanitizeShipName(s.shipName, getShipStats(state.playership).name || 'Ship');
   state.godMode = Boolean(s.godMode);
-  state.weaponInventory = s.weaponInventory ?? [getDefaultWeaponId(state.playership, state.playerFaction)];
-  state.equippedWeaponId = s.equippedWeaponId ?? state.weaponInventory[0] ?? DEFAULT_WEAPON_ID;
-  state.weaponSlots = s.weaponSlots ?? [state.equippedWeaponId, null, null];
+  const restoredSlots = Object.prototype.hasOwnProperty.call(s, 'weaponSlots')
+    ? canonicalizeWeaponSlots(s.weaponSlots)
+    : null;
+  if (restoredSlots && slotsAreEmpty(restoredSlots)) {
+    state.weaponInventory = Array.isArray(s.weaponInventory) ? s.weaponInventory : [];
+    state.weaponSlots = restoredSlots;
+    state.equippedWeaponId = null;
+  } else {
+    state.weaponInventory = s.weaponInventory ?? [getDefaultWeaponId(state.playership, state.playerFaction)];
+    state.equippedWeaponId = s.equippedWeaponId ?? state.weaponInventory[0] ?? DEFAULT_WEAPON_ID;
+    state.weaponSlots = restoredSlots || canonicalizeWeaponSlots([state.equippedWeaponId, null, null]);
+  }
   state.weaponLastFiredAt = [0, 0, 0];
   const restoredCloak = restoreCloak(s.cloak);
   state.cloak = {
@@ -16610,13 +16666,16 @@ function getPlayerWeaponRange() {
 }
 
 function getNpcCombatWeaponId(npc) {
-  const slots = Array.isArray(npc?.weaponSlots) ? npc.weaponSlots : getNpcDefaultWeaponSlots(npc?.shipId);
   const ship = state.shipCatalog?.getShip(npc?.shipId) || getShipStats(npc?.shipId);
-  if (unarmedNpcCannotFire(ship, slots, (weaponId) => isCombatWeapon(getWeapon(weaponId)))) return null;
-  const fromSlots = slots.find((weaponId) => weaponId && isCombatWeapon(getWeapon(weaponId)));
-  if (fromSlots) return fromSlots;
-  if (hullIsEmptyButArmable(ship)) return null;
-  return getDefaultWeaponId(npc.shipId, npc.faction, true);
+  const slots = Array.isArray(npc?.weaponSlots)
+    ? canonicalizeWeaponSlots(npc.weaponSlots)
+    : getNpcDefaultWeaponSlots(npc?.shipId);
+  const isCombat = (weaponId) => isCombatWeapon(getWeapon(weaponId));
+  return resolveCombatWeaponId(slots, {
+    ship,
+    isCombatWeapon: isCombat,
+    unarmedNpcCannotFire,
+  });
 }
 
 function getNpcWeaponRange(npc) {
@@ -23206,7 +23265,7 @@ function probeSpawnShip(options = {}) {
   if (options.energy != null) ship.energy = Number(options.energy);
   if (options.energyMax != null) ship.energyMax = Number(options.energyMax);
   if (Object.prototype.hasOwnProperty.call(options, 'weaponSlots')) {
-    ship.weaponSlots = Array.isArray(options.weaponSlots) ? options.weaponSlots.slice(0, 3) : [null, null, null];
+    ship.weaponSlots = canonicalizeWeaponSlots(options.weaponSlots);
   }
   if (options.cloakActive === true || options.cloaked === true) {
     initHullCloak(ship, { active: true }, currentLocalMs());
@@ -23756,6 +23815,7 @@ function installBm1ProbeHarness() {
     utility: createUtilityProbeApi(),
     flagsPasses: createUtilityProbeApi(),
     weaponLedger: createWeaponLedgerProbeApi(),
+    emptyArmable: createEmptyArmableProbeApi(),
   };
 }
 
@@ -23808,6 +23868,285 @@ function createWeaponLedgerProbeApi() {
     injectFire: (row = { firingSolution: true, engagement_authorized: true }) => (
       ledgerInjectMustNotGiftFire(row)
     ),
+  };
+}
+
+function createEmptyArmableProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [canonicalizeWeaponSlots, 'canonicalizeWeaponSlots'],
+    [slotsAreEmpty, 'slotsAreEmpty'],
+    [mayEmitProjectile, 'mayEmitProjectile'],
+    [packDefaultWeaponSlots, 'packDefaultWeaponSlots'],
+    [hullIsEmptyButArmable, 'hullIsEmptyButArmable'],
+    [unarmedNpcCannotFire, 'unarmedNpcCannotFire'],
+    [snapshotEmptyArmable, 'snapshotEmptyArmable'],
+    [emptySlotsStayEmpty, 'emptySlotsStayEmpty'],
+  ];
+  const missingSetup = () => {
+    try {
+      requireEmptyArmableHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const last = { npcId: null, shipId: 350 };
+  const isCombat = (weaponId) => isCombatWeapon(getWeapon(weaponId));
+  const tractorItem = () => WEAPON_CATALOG.find((row) => Number(row.id) === 25) || { id: 25, type: 'Device' };
+  const findNpc = (id = last.npcId) => (state.npcShips || []).find((ship) => ship.id === id) || null;
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    const npc = extras.npc || findNpc();
+    const slots = canonicalizeWeaponSlots(extras.weaponSlots ?? state.weaponSlots);
+    return snapshotEmptyArmable({
+      weaponSlots: slots,
+      equippedWeaponId: slotsAreEmpty(slots) ? null : state.equippedWeaponId,
+      incomingSlots: extras.incomingSlots,
+      outgoingSlots: extras.outgoingSlots ?? slots,
+      npc,
+      npcShipId: npc?.shipId ?? extras.npcShipId,
+      npcSlots: npc?.weaponSlots,
+      npcCombatWeaponId: npc ? getNpcCombatWeaponId(npc) : extras.npcCombatWeaponId ?? null,
+      npcShip: npc ? (state.shipCatalog?.getShip(npc.shipId) || getShipStats(npc.shipId)) : extras.npcShip,
+      isCombatWeapon: isCombat,
+      emittedProjectile: extras.emittedProjectile === true,
+      fireInject: extras.fireInject || {},
+      tractorType: tractorItem().type,
+      tractorSlot: true,
+      tractorCargo: (state.cargoArray || []).some((pod) => String(pod?.item || '').toLowerCase().includes('tractor')),
+      tractorIsBoard: tractorIsBoarding() === true,
+      tractorInUtilityBook: false,
+      boardingImplemented: BOARDING_IMPLEMENTED === true,
+      emptySlotsStayEmpty: emptySlotsStayEmpty(
+        canonicalizeWeaponSlots(npc?.weaponSlots),
+        canonicalizeWeaponSlots(npc?.weaponSlots),
+      ) === true,
+      utilityBook: state.utilityBook,
+    });
+  };
+  return {
+    snapshot,
+    spawnEmpty: (shipId = 350, slots = [null, null, null]) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const canonical = canonicalizeWeaponSlots(slots);
+      if (!slotsAreEmpty(canonical)) {
+        return { ok: false, reason: 'spawnEmpty-requires-empty-slots', missing: true };
+      }
+      const spawned = probeSpawnShip({
+        id: `empty-armable-${Date.now()}`,
+        shipId: Number(shipId) || 350,
+        faction: 'neutral',
+        hostile: true,
+        playerAggro: true,
+        weaponSlots: canonical,
+        role: 'patrol',
+      });
+      const npc = probeFindShip(spawned.id);
+      if (npc) npc.weaponSlots = canonicalizeWeaponSlots(canonical);
+      last.npcId = spawned.id;
+      last.shipId = Number(shipId) || 350;
+      if (!slotsAreEmpty(npc?.weaponSlots) || getNpcCombatWeaponId(npc) != null) {
+        try {
+          refuseAutofillDefaultWeapon('spawnEmpty');
+        } catch (error) {
+          return { ok: false, autoFilled: true, reason: String(error.message || error), snapshot: snapshot({ npc }) };
+        }
+      }
+      return {
+        ok: true,
+        id: spawned.id,
+        shipId: last.shipId,
+        weaponSlots: canonicalizeWeaponSlots(npc?.weaponSlots),
+        combatWeaponId: getNpcCombatWeaponId(npc),
+        snapshot: snapshot({ npc }),
+      };
+    },
+    armPlayerEmpty: (shipId = 350) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const incoming = canonicalizeWeaponSlots(state.weaponSlots);
+      state.playership = Number(shipId) || 350;
+      applyCurrentShipStats(false);
+      applyShipDefaultWeapons(state.playership, false);
+      state.weaponSlots = canonicalizeWeaponSlots([]);
+      state.equippedWeaponId = null;
+      state.weaponInventory = [];
+      normalizeWeaponLoadout();
+      const outgoing = canonicalizeWeaponSlots(state.weaponSlots);
+      return {
+        ok: slotsAreEmpty(outgoing) && state.equippedWeaponId == null,
+        playership: state.playership,
+        weaponSlots: outgoing,
+        equippedWeaponId: state.equippedWeaponId,
+        autoFilled: !slotsAreEmpty(outgoing),
+        incomingEmpty: slotsAreEmpty(incoming),
+        snapshot: snapshot({ incomingSlots: canonicalizeWeaponSlots([]), outgoingSlots: outgoing }),
+      };
+    },
+    install: (weaponId, slot = 1) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const id = Number(weaponId);
+      if (!hasWeaponDefinition(id)) return { ok: false, reason: 'unknown-weapon', missing: true };
+      if (!state.weaponInventory.includes(id)) state.weaponInventory.push(id);
+      const loaded = loadWeaponSlot(id, slot);
+      const npc = findNpc();
+      if (npc) {
+        const slotIndex = Math.max(0, Math.min(2, Math.round(Number(slot) || 1) - 1));
+        npc.weaponSlots = canonicalizeWeaponSlots(npc.weaponSlots);
+        npc.weaponSlots[slotIndex] = id;
+      }
+      return {
+        ok: loaded !== false,
+        weaponId: id,
+        slot: Math.max(1, Math.min(3, Number(slot) || 1)),
+        weaponSlots: canonicalizeWeaponSlots(state.weaponSlots),
+        npcSlots: npc ? canonicalizeWeaponSlots(npc.weaponSlots) : null,
+        npcCombatWeaponId: npc ? getNpcCombatWeaponId(npc) : null,
+        snapshot: snapshot({ npc }),
+      };
+    },
+    tryNpcFire: (id = last.npcId) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const npc = findNpc(id);
+      if (!npc) return { ok: false, missing: true, reason: 'npc-missing' };
+      npc.hostile = true;
+      npc.attitude = 'hostile';
+      npc.playerAggroUntil = performance.now() + 60000;
+      npc.lastShotAt = performance.now() - 60000;
+      const beforeProjectiles = (state.projectiles || []).length;
+      const beforeEffects = (state.weaponEffects || []).length;
+      const combatWeaponId = getNpcCombatWeaponId(npc);
+      const inspection = consultDoctrineFire(npc, playerWorldPosition(), 'player', performance.now());
+      fireNpcWeapon(npc, playerWorldPosition(), 'player', performance.now());
+      const fired = probeFireNpc(npc.id, { targetType: 'player' });
+      const projectileDelta = (state.projectiles || []).length - beforeProjectiles;
+      const effectDelta = (state.weaponEffects || []).length - beforeEffects;
+      const emitted = projectileDelta > 0 || effectDelta > 0 || fired?.fired === true;
+      const fireGift = emptyArmableInjectMustNotGiftFire({
+        firingSolution: npc.firingSolution || inspection?.firingSolution,
+        engagement_authorized: npc.engagement_authorized || inspection?.engagement_authorized,
+        cultureFire: inspection?.cultureFire,
+      });
+      return {
+        ok: true,
+        combatWeaponId,
+        emittedProjectile: emitted,
+        projectileDelta,
+        effectDelta,
+        projectileWeaponIds: (state.projectiles || []).map((shot) => shot.weaponId).filter(Boolean),
+        doctrineHasEngagementAuthorized: Object.prototype.hasOwnProperty.call(inspection || {}, 'engagement_authorized'),
+        firingSolutionPresent: fireGift.firingSolutionPresent === true,
+        engagementAuthorizedPresent: fireGift.engagementAuthorizedPresent === true,
+        snapshot: snapshot({ npc, emittedProjectile: emitted, fireInject: fireGift.row }),
+      };
+    },
+    persistRoundtrip: (slot = 8) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const before = canonicalizeWeaponSlots(state.weaponSlots);
+      saveGame(slot);
+      state.weaponSlots = [DEFAULT_WEAPON_ID, null, null];
+      state.equippedWeaponId = DEFAULT_WEAPON_ID;
+      loadGame(slot);
+      freezeLoop();
+      const after = canonicalizeWeaponSlots(state.weaponSlots);
+      return {
+        ok: slotsAreEmpty(before) && slotsAreEmpty(after) && state.equippedWeaponId == null,
+        before,
+        after,
+        equippedWeaponId: state.equippedWeaponId,
+        autoFilled: !slotsAreEmpty(after),
+        snapshot: snapshot({ incomingSlots: before, outgoingSlots: after }),
+      };
+    },
+    sceneRestore: (id = last.npcId) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const npc = findNpc(id);
+      if (!npc) return { ok: false, missing: true, reason: 'npc-missing' };
+      if (!npc.securityInstanceId) assignNpcSecurityInstance(npc);
+      snapshotParticipant(state.currentPlanet, npc, npc.securityInstanceId);
+      const ledger = ensureSystemLedger(state.currentPlanet);
+      const stored = ledger.participants[npc.securityInstanceId];
+      const before = canonicalizeWeaponSlots(npc.weaponSlots);
+      state.npcShips = (state.npcShips || []).filter((ship) => ship.id !== npc.id);
+      const restored = createNpcShip({
+        id: npc.id,
+        shipId: stored?.shipId || npc.shipId,
+        faction: stored?.faction || npc.faction,
+        role: stored?.role || npc.role,
+        name: stored?.name || npc.name,
+        from: { x: npc.x, y: npc.y },
+        destination: npc.destination,
+        destinationName: npc.destinationName,
+      });
+      applyParticipantSnapshot(restored, stored || { weaponSlots: before }, performance.now());
+      state.npcShips.push(restored);
+      last.npcId = restored.id;
+      const after = canonicalizeWeaponSlots(restored.weaponSlots);
+      return {
+        ok: slotsAreEmpty(before) && slotsAreEmpty(after),
+        before,
+        after,
+        combatWeaponId: getNpcCombatWeaponId(restored),
+        autoFilled: !slotsAreEmpty(after),
+        snapshot: snapshot({ npc: restored, incomingSlots: before, outgoingSlots: after }),
+      };
+    },
+    wipeSystemStates: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const npc = findNpc();
+      const before = canonicalizeWeaponSlots(npc?.weaponSlots || state.weaponSlots);
+      if (npc?.securityInstanceId) snapshotParticipant(state.currentPlanet, npc, npc.securityInstanceId);
+      state.systemStates = {};
+      applySystemState(state.currentPlanet);
+      reconcileSecurityParticipants(state.currentPlanet);
+      const live = findNpc() || (state.npcShips || []).find((ship) => Number(ship.shipId) === Number(last.shipId));
+      const realized = live
+        ? canonicalizeWeaponSlots(live.weaponSlots)
+        : canonicalizeWeaponSlots(before);
+      return {
+        ok: slotsAreEmpty(before) ? slotsAreEmpty(realized) : true,
+        before,
+        after: realized,
+        snapshot: snapshot({ npc: live, incomingSlots: before, outgoingSlots: realized }),
+      };
+    },
+    injectFire: (row = { firingSolution: true, engagement_authorized: true, cultureFire: true }) => (
+      emptyArmableInjectMustNotGiftFire(row)
+    ),
+    refuseAutofill: () => {
+      try {
+        refuseAutofillDefaultWeapon('probe');
+        return { refused: false };
+      } catch (error) {
+        return { refused: true, reason: String(error?.message || error) };
+      }
+    },
+    openInventory: () => {
+      state.topLeftPanelOpen = true;
+      state.topLeftTab = 'inventory';
+      renderTopLeftPanel();
+      const note = document.querySelector('[data-empty-armable="unarmed"]');
+      return {
+        present: Boolean(note),
+        text: note?.textContent || '',
+        slots: canonicalizeWeaponSlots(state.weaponSlots),
+      };
+    },
   };
 }
 
@@ -27524,6 +27863,7 @@ function installPlayerSecurityProbe() {
     utility: createUtilityProbeApi(),
     flagsPasses: createUtilityProbeApi(),
     weaponLedger: createWeaponLedgerProbeApi(),
+    emptyArmable: createEmptyArmableProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

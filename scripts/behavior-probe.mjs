@@ -4889,6 +4889,143 @@ async function runWeaponSourceLedger(page, results) {
   }));
 }
 
+async function runEmptyArmable(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.emptyArmable));
+  if (!present) {
+    check(results, 'S23.setup emptyArmable-api', false, 'emptyArmable probe API missing');
+    return;
+  }
+
+  const s23 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.emptyArmable;
+    if (typeof p.snapshot !== 'function'
+      || typeof p.spawnEmpty !== 'function'
+      || typeof p.install !== 'function'
+      || typeof p.tryNpcFire !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    if (idle.missing === true) return idle;
+    const packEmpty = p.spawnEmpty(350, [null, null, null]);
+    const unarmedFire = p.tryNpcFire(packEmpty.id);
+    const installed = p.install(15, 1);
+    const armedFire = p.tryNpcFire(packEmpty.id);
+    const forcedEmpty = p.spawnEmpty(2, []);
+    const scene = typeof p.sceneRestore === 'function' ? p.sceneRestore(forcedEmpty.id) : { ok: false };
+    const wipe = typeof p.wipeSystemStates === 'function' ? p.wipeSystemStates() : { ok: true };
+    const playerEmpty = typeof p.armPlayerEmpty === 'function' ? p.armPlayerEmpty(350) : { ok: false };
+    const persist = typeof p.persistRoundtrip === 'function' ? p.persistRoundtrip(8) : { ok: false };
+    const siblingEmpty = installed.npcSlots
+      ? installed.npcSlots.filter((id, index) => index !== 0).every((id) => id == null)
+      : installed.weaponSlots.filter((id, index) => index !== 0).every((id) => id == null);
+    const fire = typeof p.injectFire === 'function'
+      ? p.injectFire({ firingSolution: true, engagement_authorized: true, cultureFire: true })
+      : { firingSolutionPresent: true, engagementAuthorizedPresent: true };
+    const refuse = typeof p.refuseAutofill === 'function' ? p.refuseAutofill() : { refused: false };
+    const after = p.snapshot();
+    return {
+      missing: false,
+      lock: after.emptyArmableLockedFromRemastered === true,
+      slotCount: after.slotCount,
+      fourth: after.fourthSlotPresent === true,
+      utilityHoldsSlots: after.utilityBookHoldsCombatSlots === true,
+      playerEmptyOk: playerEmpty.ok === true && playerEmpty.equippedWeaponId == null,
+      persistOk: persist.ok === true && persist.autoFilled !== true,
+      persistSlots: persist.after,
+      persistEquipped: persist.equippedWeaponId,
+      packSlots: packEmpty.weaponSlots,
+      packCombat: packEmpty.combatWeaponId,
+      forcedSlots: forcedEmpty.weaponSlots,
+      forcedCombat: forcedEmpty.combatWeaponId,
+      sceneOk: scene.ok === true && scene.autoFilled !== true,
+      wipeOk: wipe.ok !== false,
+      unarmedCombat: unarmedFire.combatWeaponId,
+      unarmedEmitted: unarmedFire.emittedProjectile === true,
+      unarmedAuth: unarmedFire.engagementAuthorizedPresent === true
+        || unarmedFire.doctrineHasEngagementAuthorized === true,
+      unarmedFs: unarmedFire.firingSolutionPresent === true,
+      installedId: installed.npcCombatWeaponId ?? installed.weaponSlots?.[0],
+      siblingEmpty,
+      armedCombat: armedFire.combatWeaponId,
+      armedProjectiles: armedFire.projectileWeaponIds,
+      armedEmittedTypeX: (armedFire.projectileWeaponIds || []).includes(1),
+      tractor: after.tractor,
+      fire: after.fire,
+      injectFire: fire,
+      refuseAutofill: refuse.refused === true,
+      boarding: after.boarding,
+      canonicalEmpty: after.canonicalEmpty === true,
+    };
+  });
+
+  check(results, 'S23.setup emptyArmable-api', s23.missing !== true, JSON.stringify(s23));
+  check(results, 'S23.1 three-slots-empty-persist', s23.slotCount === 3
+    && s23.fourth !== true
+    && s23.utilityHoldsSlots !== true
+    && s23.canonicalEmpty === true
+    && s23.playerEmptyOk === true
+    && s23.persistOk === true
+    && JSON.stringify(s23.persistSlots) === JSON.stringify([null, null, null])
+    && s23.persistEquipped == null, JSON.stringify({
+    slotCount: s23.slotCount,
+    persist: s23.persistSlots,
+    persistOk: s23.persistOk,
+    playerEmptyOk: s23.playerEmptyOk,
+  }));
+  check(results, 'S23.2 scene-restore-empty', s23.packCombat == null
+    && JSON.stringify(s23.packSlots) === JSON.stringify([null, null, null])
+    && s23.forcedCombat == null
+    && JSON.stringify(s23.forcedSlots) === JSON.stringify([null, null, null])
+    && s23.sceneOk === true
+    && s23.wipeOk === true, JSON.stringify({
+    pack: s23.packSlots,
+    forced: s23.forcedSlots,
+    sceneOk: s23.sceneOk,
+    wipeOk: s23.wipeOk,
+  }));
+  check(results, 'S23.3 unarmed-npc-no-shot', s23.unarmedCombat == null
+    && s23.unarmedEmitted !== true
+    && s23.unarmedAuth !== true
+    && s23.unarmedFs !== true, JSON.stringify({
+    combat: s23.unarmedCombat,
+    emitted: s23.unarmedEmitted,
+    auth: s23.unarmedAuth,
+    fs: s23.unarmedFs,
+  }));
+  check(results, 'S23.4 legal-install-def-only', s23.installedId === 15
+    && s23.siblingEmpty === true
+    && s23.armedCombat === 15
+    && s23.armedEmittedTypeX !== true, JSON.stringify({
+    installedId: s23.installedId,
+    siblingEmpty: s23.siblingEmpty,
+    armedCombat: s23.armedCombat,
+    projectiles: s23.armedProjectiles,
+  }));
+  check(results, 'S23.5 tractor-slot-no-fire-gift', s23.tractor?.id === 25
+    && s23.tractor?.type === 'Device'
+    && s23.tractor?.slot === true
+    && s23.tractor?.cargo !== true
+    && s23.tractor?.boarding !== true
+    && s23.fire?.firingSolutionPresent !== true
+    && s23.fire?.engagementAuthorizedPresent !== true
+    && s23.injectFire?.firingSolutionPresent !== true
+    && s23.injectFire?.engagementAuthorizedPresent !== true, JSON.stringify({
+    tractor: s23.tractor,
+    fire: s23.fire,
+    injectFire: s23.injectFire,
+  }));
+  check(results, 'S23.6 landed-lanes-preserved', s23.lock !== true
+    && s23.refuseAutofill === true
+    && s23.boarding?.implemented === true
+    && s23.boarding?.tractorIsBoard !== true
+    && s23.boarding?.emptySlotsStayEmpty === true, JSON.stringify({
+    lock: s23.lock,
+    refuseAutofill: s23.refuseAutofill,
+    boarding: s23.boarding,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -4921,13 +5058,14 @@ async function main() {
     await runPhase10Dominion(page, results);
     await runUtilityInventory(page, results);
     await runWeaponSourceLedger(page, results);
+    await runEmptyArmable(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

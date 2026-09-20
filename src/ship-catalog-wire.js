@@ -115,8 +115,8 @@ export function hullHasCombatHardpoint(ship, slots = packDefaultWeaponSlots(ship
 
 export function unarmedNpcCannotFire(ship, slots = packDefaultWeaponSlots(ship), isCombatWeapon = Boolean) {
   if (ship?.armedByDefault === false) return true;
-  const list = Array.isArray(slots) ? slots : [];
-  if (list.length && !list.some((weaponId) => weaponId && isCombatWeapon(weaponId))) return true;
+  // Live `[]` means three empty — not “unknown, fill a Phaser.”
+  if (Array.isArray(slots) && !slots.some((weaponId) => weaponId && isCombatWeapon(weaponId))) return true;
   return false;
 }
 
