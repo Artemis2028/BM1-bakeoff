@@ -39,7 +39,7 @@ An in-game review panel, if ever wanted, is a **different** Tenth-scoped lane. F
 | Remastered locks | `MAGNITUDES_LOCKED_FROM_REMASTERED`, `UTILITY_LOCKED_FROM_REMASTERED`, `LEDGER_LOCKED_FROM_REMASTERED`, `EMPTY_ARMABLE_LOCKED_FROM_REMASTERED`, `CONSTRUCTION_LOCKED_FROM_REMASTERED` all **false**. |
 | Probe surface | `__BM1_PROBE__.phase9` … `.phase94`, `.boarding`, `.phase10`, `.utility`, `.weaponLedger`, `.emptyArmable`, `.constructionVisuals`. First S25 should **not** add a combat probe unless a runtime panel is scoped. |
 
-**Gap this brief closes (docs now; static HTML only if scoped):** there is no **scoreable S25 contract** that weapon / station review happens in HTML without Flash, that pages inspect without retuning or shopping, and that Flash vs bake-off stays visible and ledger-cited.
+**S25 static pages (docs, later slice):** `docs/html-catalogs/index.html` + `weapons.html` + `stations.html` + `scripts/test-html-catalogs.mjs`. Brief **#54 stay-locked**. Combat / `src/` fire paths stay untouched. **No Referee Pass claimed.**
 
 ## Hooks the writer will have to touch
 

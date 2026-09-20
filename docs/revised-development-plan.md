@@ -338,7 +338,7 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 | 6 | Faction-wide standing / purchase tiers | Missing as live gates | **Agreed next** | Money ≠ trust. First balance pass: Open 0, Trusted 15, Respected 30, Military 50, Strategic 75, Excalibur/Concord 100; new character **20** with selected faction. Independent trade standing in neutral entry. §10 trade restrictions. |
 | 7 | Catalog wire + purchase rules | Additive pack only | **Agreed next** | Guided may wire first; bake-off must still do this. Reuse Reman `meetPackPurchaseDecision` (soft from PR #18). Pack `getPurchaseDecision` + region rules. |
 | 8 | Broader economy / difficulty | Requested / proposed | **Proposed** | §10 / §13. Adjustable tuning; **preserve political identity at all difficulties**. No invented unrest / repair / prestige curves here. |
-| 9 | Weapon / station review presentation | **Brief open** (`docs/html-catalogs/`) — proposal + deps; HTML pages later (S25 static docs) | **Working agreement** | HTML catalogs **without** requiring Flash. Inspect defs only — not a combat retune, not live price locks, not a second shop. Subscribe ledger #48/#49 + `game_items.json` / station JSON read-only. Show both Flash and bake-off; cite the ledger. Never gift FS / culture / `engagement_authorized`. Scoreable brief from `main` @ `91ecc2c` after construction engine PR #53. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction. |
+| 9 | Weapon / station review presentation | **Brief stay-locked** (PR #54). S25 static HTML pages under `docs/html-catalogs/` | **Working agreement** | HTML catalogs **without** requiring Flash. Inspect defs only — not a combat retune, not live price locks, not a second shop. Subscribe ledger #48/#49 + `game_items.json` / station JSON read-only. Show both Flash and bake-off; cite the ledger. Never gift FS / culture / `engagement_authorized`. **Keep #54 locked.** **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction. |
 | 10 | Dominion distribution / Gorn reserved / major-threat mission-only + hidden Dominion campaign | Doctrine + pack rules exist; catalog helpers wired (PR #28); **live spawn/purchase + hide + campaign book not implemented** | **Brief open** (`docs/phase10/`) — Dominion-first; full roster deferred | Doctrine Gorn absence + hidden Dominion campaign (§12). Pack `reserved-gorn`, `dominion-all` / `dominion-core`, `mission-only`. Short write-up: `GUIDED-CONVERGENCE.md` §10. Scoreable brief from `main` @ `de1f857` after boarding PR #39. **Not** a reopen of EW or boarding. |
 
 ### 16.3 Suggested remaining order (bake-off only)
@@ -350,14 +350,14 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions).
 6. Boarding / capture / command transfer.
 7. Station construction visuals (not repair arms) — engine landed (`docs/construction-visuals/`; PRs #52/#53). **Stay locked.**
-8. HTML weapon/station review catalogs — brief open (`docs/html-catalogs/`).
+8. HTML weapon/station review catalogs — brief **#54 stay-locked**; S25 static HTML under `docs/html-catalogs/`.
 9. Broader economy / difficulty knobs, identity unchanged.
 10. Phase 6 **engine** when scoped — brief already exists.
 
 ### 16.4 Working agreement (this backlog)
 
 - Blind: implement from `docs/` only.
-- HTML for weapon/station review; Flash is evidence, not a required viewer. Scoreable brief under `docs/html-catalogs/`.
+- HTML for weapon/station review; Flash is evidence, not a required viewer. Brief **#54 stay-locked**; S25 pages under `docs/html-catalogs/`.
 - Label Flash / pack numbers as source material until Tenth locks them.
 - Do not reopen Phase 1–6 briefs or the side-lane as incomplete.
 - Construction visuals **engine** landed (`docs/construction-visuals/`; PRs #52/#53) — stay locked.

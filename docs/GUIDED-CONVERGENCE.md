@@ -259,13 +259,13 @@ Overlaps plan §10 (finite markets, embargoes, fleet costs, conquest obligations
 1. A difficulty knob changes pacing numbers, not ownership rules.
 2. Known free-growth exploits (buy/sell prestige, jump farming) are closed or listed before retune.
 
-## 9. Weapon / station review presentation — Working agreement (brief open)
+## 9. Weapon / station review presentation — Working agreement (brief stay-locked; S25 pages shipped)
 
 Review catalogs for weapons and stations are **HTML**, without requiring the original Flash client.
 
-**Scoreable brief now open (docs-only, 20 September 2026):** [`docs/html-catalogs/BM1-HTML-WEAPON-STATION-REVIEW-CATALOGS-PROPOSAL.md`](html-catalogs/BM1-HTML-WEAPON-STATION-REVIEW-CATALOGS-PROPOSAL.md) + [`docs/html-catalogs/BM1-HTML-CATALOGS-ENGINE-DEPENDENCIES.md`](html-catalogs/BM1-HTML-CATALOGS-ENGINE-DEPENDENCIES.md), from `main` @ `91ecc2c` after construction-visuals engine PR #53. **This brief ships proposal + deps only** — no HTML pages yet. A later thin **static HTML** page set (S25) is the natural docs deliverable and can ship without touching combat / engine. Flash is **source evidence**, not a required viewer. Pages must not silently “fix” Flash vs bake-off conflicts; they show both and cite the ledger (#48/#49). Catalogs inspect defs — not a combat retune, not live price locks, not a second shop. Never gift FS / culture / `engagement_authorized` from opening a page. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), ledger (#48/#49), empty-armable (#50/#51), or construction (#52/#53). DockClear / broader economy-difficulty / combat retune / Thaleron facility invent **out**. `HTML_CATALOG_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.**
+**Scoreable brief stay-locked (PR #54 @ `65579e0`).** S25 static HTML pages now live under [`docs/html-catalogs/`](html-catalogs/) (`index.html` / `weapons.html` / `stations.html`). Flash is **source evidence**, not a required viewer. Pages must not silently “fix” Flash vs bake-off conflicts; they show both and cite the ledger (#48/#49). Catalogs inspect defs — not a combat retune, not live price locks, not a second shop. Never gift FS / culture / `engagement_authorized` from opening a page. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), ledger (#48/#49), empty-armable (#50/#51), or construction (#52/#53). **Keep #54 locked.** DockClear / broader economy-difficulty / combat retune / Thaleron facility invent **out**. `HTML_CATALOG_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.**
 
-- This is a **working agreement** for how the team inspects defs, not a claim that those HTML pages exist on bake-off **yet**.
+- This is a **working agreement** for how the team inspects defs. The HTML pages now exist as a thin docs slice.
 - Do not treat Flash as a required review tool.
 - Pages must not silently “fix” Flash vs bake-off conflicts; they show both and cite the ledger.
 
@@ -297,7 +297,7 @@ Adapt the guided order to **what bake-off has not done**. Do not restart Phases 
 5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
 6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
 7. **Station construction visuals** (scaffolds / workbees / blue beams) — brief + engine landed (`docs/construction-visuals/`, PRs #52/#53). Repair arms stay the side-lane overlay. **Stay locked.**
-8. **HTML weapon / station catalogs** for review — scoreable brief now under `docs/html-catalogs/`. Working agreement: HTML; Flash is evidence, not a required viewer.
+8. **HTML weapon / station catalogs** for review — brief **#54 stay-locked**; S25 static HTML pages under `docs/html-catalogs/`. Working agreement: HTML; Flash is evidence, not a required viewer.
 9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity.
 10. **Phase 6 engine** when Tenth scopes it — brief is already ready; not a new package in this list.
 
