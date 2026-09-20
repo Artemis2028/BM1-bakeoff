@@ -27,6 +27,7 @@
     "test:construction-visuals": "node scripts/test-construction-visuals.mjs",
     "build:html-catalogs": "node scripts/build-html-catalogs.mjs",
     "test:html-catalogs": "node scripts/test-html-catalogs.mjs",
+    "test:economy-difficulty": "node scripts/test-economy-difficulty.mjs",
     "test:side-lane": "node scripts/test-side-lane-repair-reman.mjs && node scripts/test-side-lane-unrest-independence.mjs",
     "test:catalog": "node scripts/test-catalog-wire.mjs",
     "check:ship-manifest": "node scripts/sync-ship-roster.mjs --check",

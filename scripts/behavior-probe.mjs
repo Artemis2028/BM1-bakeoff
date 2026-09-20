@@ -5156,6 +5156,175 @@ async function runConstructionVisuals(page, results) {
   }));
 }
 
+async function runEconomyDifficulty(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 80, shields: 80 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.economyDifficulty));
+  if (!present) {
+    check(results, 'S26.setup economyDifficulty-api', false, 'economyDifficulty probe API missing');
+    return;
+  }
+
+  const s26 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.economyDifficulty;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const phase1 = globalThis.__BM1_PROBE__.phase1;
+    const snap0 = globalThis.__BM1_PROBE__.snapshot();
+    if (typeof p.snapshot !== 'function' || typeof p.setProfile !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    if (idle.missing === true) return idle;
+    const before = {
+      faction: snap0.playerFaction,
+      side: snap0.playerSide,
+      controlled: [...(snap0.controlledSystems || [])],
+    };
+    const easy = p.setProfile('easy', {
+      fireInject: { firingSolution: true, engagement_authorized: true, cultureFire: true },
+    });
+    const afterEasy = globalThis.__BM1_PROBE__.snapshot();
+    const identityEasy = typeof p.identity === 'function' ? p.identity('easy') : easy.snapshot.identity;
+    const arrival = phase1.applyPersonalArrivalProtection({
+      ships: [{ id: 'hostile-1', faction: 'klingon', role: 'raid' }],
+      stations: [{ id: 'conc-1', faction: 'terran', privateInstallation: true }],
+    }, 0, 1000);
+    p8.injectMarket({
+      marketId: 'mkt-s26',
+      good: 'fuel',
+      stock: 3,
+      stockCap: 8,
+      systemIndex: afterEasy.currentPlanet,
+      restriction: 'open',
+    });
+    const standingBefore = p8.snapshot().standing.ferengi || 0;
+    const writesBefore = p8.snapshot().standingWriteCount;
+    const loop = p8.shopBuySell('fuel', { marketId: 'mkt-s26' });
+    const jumps = [p8.completeJump(), p8.completeJump(), p8.completeJump()];
+    const salvage = typeof p.boundSalvage === 'function' ? p.boundSalvage(500) : { paid: 0, bounded: true };
+    const military = p.evaluateHull(2, {
+      credits: 9e9,
+      standings: { terran: 0, neutral: 0 },
+      systemName: 'Earth',
+      station: { name: 'Utopia Planitia' },
+    });
+    const reman = p.evaluateHull(53, {
+      credits: 9e9,
+      standings: { reman: 100, terran: 100, ferengi: 100, neutral: 100 },
+      systemName: 'Remus',
+      station: { name: 'Reman Starbase' },
+    });
+    const independent = p8.injectIndependent({ restriction: 'embargo', good: 'munitions' });
+    const embargo = p8.evaluateDeal({ marketId: independent.market?.marketId, credits: 9e9 });
+    const hard = p.setProfile('hard');
+    const afterHard = globalThis.__BM1_PROBE__.snapshot();
+    const identityHard = typeof p.identity === 'function' ? p.identity('hard') : hard.snapshot.identity;
+    const fireHard = hard.fire || hard.snapshot.fire;
+    return {
+      missing: false,
+      lock: idle.lockedFromRemastered === true || p.lock() === true,
+      idleProfile: idle.profile,
+      overlay: easy.overlay || easy.snapshot.overlay,
+      invented: idle.inventedTables,
+      repair: idle.repair,
+      before,
+      afterEasy: { faction: afterEasy.playerFaction, side: afterEasy.playerSide, controlled: [...(afterEasy.controlledSystems || [])] },
+      afterHard: { faction: afterHard.playerFaction, side: afterHard.playerSide, controlled: [...(afterHard.controlledSystems || [])] },
+      identityEasy,
+      identityHard,
+      arrival,
+      easyChange: {
+        restocked: easy.restocked,
+        jumpFarmReset: easy.jumpFarmReset,
+        standingRewritten: easy.standingRewritten,
+        remanMinted: easy.remanMinted,
+        identityUnchanged: easy.identityUnchanged,
+      },
+      fireEasy: easy.fire || easy.snapshot.fire,
+      fireHard,
+      standingBefore,
+      standingAfter: loop.snapshot.standing.ferengi || 0,
+      writes: (loop.snapshot.standingWriteCount || 0) - writesBefore,
+      restocked: jumps.some((row) => row.restockedToCap === true),
+      stock: loop.snapshot.book.markets['mkt-s26']?.stock,
+      salvage,
+      military,
+      reman,
+      embargoAllowed: embargo.allowed,
+      embargoKind: embargo.kind,
+      tractorIsBoard: idle.tractorIsBoard === true,
+      twoModeRoe: idle.twoModeRoe,
+    };
+  });
+
+  check(results, 'S26.setup economyDifficulty-api', s26.missing !== true, JSON.stringify(s26));
+  check(results, 'S26.1 pacing-not-ownership', s26.easyChange?.identityUnchanged === true
+    && JSON.stringify(s26.before?.controlled) === JSON.stringify(s26.afterEasy?.controlled)
+    && JSON.stringify(s26.before?.controlled) === JSON.stringify(s26.afterHard?.controlled)
+    && s26.before?.faction === s26.afterEasy?.faction
+    && s26.before?.faction === s26.afterHard?.faction
+    && s26.identityEasy?.flagShareIsControl === false, JSON.stringify({
+    before: s26.before,
+    afterEasy: s26.afterEasy,
+    afterHard: s26.afterHard,
+    identity: s26.identityEasy,
+  }));
+  check(results, 'S26.2 identity-on-easy', s26.identityEasy?.concessionForeign === true
+    && s26.identityEasy?.independentsAreAlliance === false
+    && s26.identityEasy?.breenDominionStaticFriendship === false
+    && s26.identityHard?.breenDominionStaticFriendship === false
+    && s26.arrival?.fleetsRemoved === 0
+    && s26.arrival?.ownershipRewritten === 0, JSON.stringify({
+    identityEasy: s26.identityEasy,
+    identityHard: s26.identityHard,
+    arrival: s26.arrival,
+  }));
+  check(results, 'S26.3 no-invented-tables', s26.invented?.repairPrices === false
+    && s26.invented?.unrestThresholds === false
+    && s26.invented?.prestigeCurve === false
+    && s26.repair?.defensePlatformRepair === false
+    && s26.overlay?.salvageLatinumCap != null, JSON.stringify({
+    invented: s26.invented,
+    repair: s26.repair,
+  }));
+  check(results, 'S26.4 farms-closed-on-easy', s26.standingAfter <= s26.standingBefore
+    && s26.writes === 0
+    && s26.restocked !== true
+    && s26.salvage?.bounded === true
+    && s26.easyChange?.jumpFarmReset !== true
+    && s26.easyChange?.remanMinted !== true, JSON.stringify({
+    standingBefore: s26.standingBefore,
+    standingAfter: s26.standingAfter,
+    writes: s26.writes,
+    restocked: s26.restocked,
+    salvage: s26.salvage,
+  }));
+  check(results, 'S26.5 money-ne-standing-ne-reman', s26.military?.allowed === false
+    && s26.military?.reason === 'faction-standing'
+    && s26.reman?.allowed === false
+    && s26.reman?.reason === 'access-locked'
+    && s26.embargoAllowed === false, JSON.stringify({
+    military: s26.military,
+    reman: s26.reman,
+    embargo: { allowed: s26.embargoAllowed, kind: s26.embargoKind },
+  }));
+  check(results, 'S26.6 no-gifted-fire', s26.fireEasy?.firingSolutionPresent !== true
+    && s26.fireEasy?.engagementAuthorizedPresent !== true
+    && s26.fireHard?.firingSolutionPresent !== true
+    && s26.fireHard?.engagementAuthorizedPresent !== true
+    && s26.tractorIsBoard !== true
+    && Array.isArray(s26.twoModeRoe)
+    && s26.twoModeRoe.length === 2, JSON.stringify({
+    fireEasy: s26.fireEasy,
+    fireHard: s26.fireHard,
+    tractor: s26.tractorIsBoard,
+    roe: s26.twoModeRoe,
+  }));
+  check(results, 'S26.8 remastered-lock-false', s26.lock !== true, JSON.stringify({
+    lock: s26.lock,
+    profile: s26.idleProfile,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -5190,13 +5359,14 @@ async function main() {
     await runWeaponSourceLedger(page, results);
     await runEmptyArmable(page, results);
     await runConstructionVisuals(page, results);
+    await runEconomyDifficulty(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
