@@ -330,15 +330,15 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 
 | # | Package | Status on bake-off | Class | Overlap / pointer |
 | --- | --- | --- | --- | --- |
-| 1 | Weapon / device source ledger | **Engine landed** (`docs/weapon-ledger/`; PR #48 brief / PR #49 engine). **Stay locked** — do not reopen from empty-armable or construction visuals. | **Locked** | §11 / §13 BM1–BM2 audit. Flash prices are **source material, not final prices**. Three disruptor identities. Tractor stays a slot. Bajoran Sail / Warp Core **explicitly deferred utilities**. Phase 9 matrix **read-only**. **Not** a reopen of EW / boarding / Phase 10 / flags. |
-| 2 | Flags / passes / utility inventory | **Engine landed** (`docs/flags-passes/`; PR #46 brief / PR #47 engine). **Stay locked** — do not reopen from empty-armable or construction visuals. | **Locked** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass **unverified — not shipped**. **Not** a reopen of EW / boarding / Phase 10. |
-| 3 | Empty but armable ships | **Engine landed** (`docs/empty-armable/`; PR #50 brief / PR #51 engine @ `3933daf`). **Stay locked** — do not reopen from construction visuals. | **Locked** | Three slots; empty stays empty across save/load/scene/restoration; unarmed NPC cannot fire; legal install uses installed def only. Doctrine physical fire gate; §11 per-weapon gate. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger. |
+| 1 | Weapon / device source ledger | **Engine landed** (`docs/weapon-ledger/`; PR #48 brief / PR #49 engine). **Stay locked** — do not reopen from empty-armable, construction visuals, or HTML catalogs. | **Locked** | §11 / §13 BM1–BM2 audit. Flash prices are **source material, not final prices**. Three disruptor identities. Tractor stays a slot. Bajoran Sail / Warp Core **explicitly deferred utilities**. Phase 9 matrix **read-only**. **Not** a reopen of EW / boarding / Phase 10 / flags. |
+| 2 | Flags / passes / utility inventory | **Engine landed** (`docs/flags-passes/`; PR #46 brief / PR #47 engine). **Stay locked** — do not reopen from empty-armable, construction visuals, or HTML catalogs. | **Locked** | Separate from the three combat/device slots. Capacity / activation **open**. Thaleron Test Facility pass **unverified — not shipped**. **Not** a reopen of EW / boarding / Phase 10. |
+| 3 | Empty but armable ships | **Engine landed** (`docs/empty-armable/`; PR #50 brief / PR #51 engine @ `3933daf`). **Stay locked** — do not reopen from construction visuals or HTML catalogs. | **Locked** | Three slots; empty stays empty across save/load/scene/restoration; unarmed NPC cannot fire; legal install uses installed def only. Doctrine physical fire gate; §11 per-weapon gate. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger. |
 | 4 | Boarding / capture / command transfer | **Engine landed** (`docs/boarding/`; PR #38 brief / PR #39 engine). **Stay locked** — do not reopen in Phase 10. | **Locked** | ≤10% hull; capture XOR scuttle; tractor ≠ board; away-team XP **not tracked yet**. See `GUIDED-CONVERGENCE.md` §4 and `docs/boarding/`. **Not** Phase 10. |
-| 5 | Station construction visuals | **Brief open** (`docs/construction-visuals/`) — missing as a later thin visual engine | **Agreed next** | Scaffolds, workbees, **blue** construction beams ≠ combat evidence. **Do not redo repair arms** (side-lane Pass, PR #18). Construction art ≠ repair arms. Beams must not write `observedAttacks` / standing / FLASH. Scoreable brief from `main` @ `3933daf` after empty-armable engine PR #51. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable. |
+| 5 | Station construction visuals | **Engine landed** (`docs/construction-visuals/`; PR #52 brief / PR #53 engine @ `91ecc2c`). **Stay locked** — do not reopen from HTML catalogs. | **Locked** | Scaffolds, workbees, **blue** construction beams ≠ combat evidence. **Do not redo repair arms** (side-lane Pass, PR #18). Construction art ≠ repair arms. Beams must not write `observedAttacks` / standing / FLASH. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable. |
 | 6 | Faction-wide standing / purchase tiers | Missing as live gates | **Agreed next** | Money ≠ trust. First balance pass: Open 0, Trusted 15, Respected 30, Military 50, Strategic 75, Excalibur/Concord 100; new character **20** with selected faction. Independent trade standing in neutral entry. §10 trade restrictions. |
 | 7 | Catalog wire + purchase rules | Additive pack only | **Agreed next** | Guided may wire first; bake-off must still do this. Reuse Reman `meetPackPurchaseDecision` (soft from PR #18). Pack `getPurchaseDecision` + region rules. |
 | 8 | Broader economy / difficulty | Requested / proposed | **Proposed** | §10 / §13. Adjustable tuning; **preserve political identity at all difficulties**. No invented unrest / repair / prestige curves here. |
-| 9 | Weapon / station review presentation | Missing | **Working agreement** | HTML catalogs **without** requiring Flash. |
+| 9 | Weapon / station review presentation | **Brief open** (`docs/html-catalogs/`) — proposal + deps; HTML pages later (S25 static docs) | **Working agreement** | HTML catalogs **without** requiring Flash. Inspect defs only — not a combat retune, not live price locks, not a second shop. Subscribe ledger #48/#49 + `game_items.json` / station JSON read-only. Show both Flash and bake-off; cite the ledger. Never gift FS / culture / `engagement_authorized`. Scoreable brief from `main` @ `91ecc2c` after construction engine PR #53. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction. |
 | 10 | Dominion distribution / Gorn reserved / major-threat mission-only + hidden Dominion campaign | Doctrine + pack rules exist; catalog helpers wired (PR #28); **live spawn/purchase + hide + campaign book not implemented** | **Brief open** (`docs/phase10/`) — Dominion-first; full roster deferred | Doctrine Gorn absence + hidden Dominion campaign (§12). Pack `reserved-gorn`, `dominion-all` / `dominion-core`, `mission-only`. Short write-up: `GUIDED-CONVERGENCE.md` §10. Scoreable brief from `main` @ `de1f857` after boarding PR #39. **Not** a reopen of EW or boarding. |
 
 ### 16.3 Suggested remaining order (bake-off only)
@@ -349,14 +349,15 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 4. Standing-tier data (Open → Excalibur; new char 20).
 5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions).
 6. Boarding / capture / command transfer.
-7. Station construction visuals (not repair arms) — brief open (`docs/construction-visuals/`).
-8. HTML weapon/station review catalogs.
+7. Station construction visuals (not repair arms) — engine landed (`docs/construction-visuals/`; PRs #52/#53). **Stay locked.**
+8. HTML weapon/station review catalogs — brief open (`docs/html-catalogs/`).
 9. Broader economy / difficulty knobs, identity unchanged.
 10. Phase 6 **engine** when scoped — brief already exists.
 
 ### 16.4 Working agreement (this backlog)
 
 - Blind: implement from `docs/` only.
-- HTML for weapon/station review; Flash is evidence, not a required viewer.
+- HTML for weapon/station review; Flash is evidence, not a required viewer. Scoreable brief under `docs/html-catalogs/`.
 - Label Flash / pack numbers as source material until Tenth locks them.
 - Do not reopen Phase 1–6 briefs or the side-lane as incomplete.
+- Construction visuals **engine** landed (`docs/construction-visuals/`; PRs #52/#53) — stay locked.
