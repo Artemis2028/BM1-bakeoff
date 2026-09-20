@@ -135,13 +135,12 @@ export function resolveCombatWeaponId(slots, extras = {}) {
   const isCombat = typeof extras.isCombatWeapon === 'function' ? extras.isCombatWeapon : Boolean;
   const ship = extras.ship;
   const canonical = canonicalizeWeaponSlots(slots);
-  if (typeof extras.unarmedNpcCannotFire === 'function') {
-    if (extras.unarmedNpcCannotFire(ship, canonical, isCombat)) return null;
-  } else if (unarmedNpcCannotFire(ship, canonical, isCombat)) {
-    return null;
-  }
   const fromSlots = canonical.find((id) => id && isCombat(id));
   if (fromSlots) return fromSlots;
+  const unarmed = typeof extras.unarmedNpcCannotFire === 'function'
+    ? extras.unarmedNpcCannotFire
+    : unarmedNpcCannotFire;
+  if (unarmed(ship, canonical, isCombat)) return null;
   if (hullPackIsEmptyArmable(ship) || slotsAreEmpty(canonical)) return null;
   if (!mayEmitProjectile(canonical, { isCombatWeapon: isCombat })) return null;
   return null;

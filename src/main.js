@@ -16671,16 +16671,11 @@ function getNpcCombatWeaponId(npc) {
     ? canonicalizeWeaponSlots(npc.weaponSlots)
     : getNpcDefaultWeaponSlots(npc?.shipId);
   const isCombat = (weaponId) => isCombatWeapon(getWeapon(weaponId));
-  const resolved = resolveCombatWeaponId(slots, {
+  return resolveCombatWeaponId(slots, {
     ship,
     isCombatWeapon: isCombat,
     unarmedNpcCannotFire,
   });
-  if (resolved) return resolved;
-  if (unarmedNpcCannotFire(ship, slots, isCombat)) return null;
-  if (hullPackIsEmptyArmable(ship) || slotsAreEmpty(slots)) return null;
-  if (!mayEmitProjectile(slots, { isCombatWeapon: isCombat })) return null;
-  return null;
 }
 
 function getNpcWeaponRange(npc) {
