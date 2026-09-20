@@ -24314,11 +24314,16 @@ function createConstructionVisualsProbeApi() {
       state.playerBuiltStations = state.playerBuiltStations || [];
       state.playerBuiltStations.push(builtStation);
       const runtime = addBuiltStationToCurrentSystem(builtStation);
-      runtime.x = player.x + 170;
-      runtime.y = player.y;
+      runtime.x = player.x + 150;
+      runtime.y = player.y - 30;
       runtime.underConstruction = true;
       runtime.stationWeaponIds = [];
       runtime.builtByPlayer = true;
+      lockStationOrbitToCurrentPosition(
+        runtime,
+        state.systemStar || { x: runtime.x, y: runtime.y },
+        state.systemPlanet || { x: runtime.x, y: runtime.y },
+      );
       last.stationId = runtime.id;
       const before = evidenceCounts();
       const scaffold = ensureConstructionScaffoldAsset();
@@ -24476,7 +24481,16 @@ function createConstructionVisualsProbeApi() {
       if (!station) return { ok: false, missing: true };
       setCamera(station.x, station.y);
       render();
-      return { ok: true, id: station.id, x: station.x, y: station.y };
+      const screen = worldToScreen(station);
+      return {
+        ok: true,
+        id: station.id,
+        x: station.x,
+        y: station.y,
+        screenX: screen.x,
+        screenY: screen.y,
+        underConstruction: isConstructingStation(station),
+      };
     },
     repairSnapshot: () => {
       const location = currentRepairDockLocation();

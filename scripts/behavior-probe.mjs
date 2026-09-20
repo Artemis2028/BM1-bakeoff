@@ -5027,7 +5027,7 @@ async function runEmptyArmable(page, results) {
 }
 
 async function runConstructionVisuals(page, results) {
-  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 70, shields: 70 });
   const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.constructionVisuals));
   if (!present) {
     check(results, 'S24.setup constructionVisuals-api', false, 'constructionVisuals probe API missing');
@@ -5073,6 +5073,8 @@ async function runConstructionVisuals(page, results) {
       repair: afterBuild.repair,
       dockedOverlay: dockedRepair.overlay,
       startedRepairOk: startedRepair?.ok === true,
+      startedRepair,
+      lastRepairRefuse: duringRepair.lastRepairRefuse,
       duringRepairOverlay: duringRepair.overlay,
       constructionArtOnRepair: duringRepair.overlayUsesConstructionArt === true,
       dockRefused: dock.dockRefused === true,

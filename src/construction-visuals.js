@@ -305,10 +305,10 @@ function recordDrawnLanguage(language, extras = {}) {
 }
 
 function strokeScaffoldFrame(ctx, radius) {
-  const r = Math.max(22, radius * 0.92);
+  const r = Math.max(28, radius * 0.98);
   ctx.save();
-  ctx.strokeStyle = 'rgba(176, 194, 214, 0.92)';
-  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = 'rgba(220, 232, 244, 0.96)';
+  ctx.lineWidth = 3.1;
   ctx.beginPath();
   for (let i = 0; i < 6; i += 1) {
     const angle = (Math.PI / 3) * i - Math.PI / 6;
@@ -319,8 +319,8 @@ function strokeScaffoldFrame(ctx, radius) {
   }
   ctx.closePath();
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(214, 226, 236, 0.55)';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(186, 206, 224, 0.72)';
+  ctx.lineWidth = 1.6;
   for (let i = 0; i < 6; i += 1) {
     const angle = (Math.PI / 3) * i - Math.PI / 6;
     ctx.beginPath();
@@ -328,65 +328,68 @@ function strokeScaffoldFrame(ctx, radius) {
     ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
     ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(122, 140, 158, 0.88)';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(168, 186, 204, 0.95)';
+  ctx.fillStyle = 'rgba(40, 52, 64, 0.35)';
+  ctx.lineWidth = 3.4;
   for (let i = 0; i < 6; i += 1) {
     const angle = (Math.PI / 3) * i - Math.PI / 6;
     const x = Math.cos(angle) * r;
     const y = Math.sin(angle) * r;
     ctx.beginPath();
-    ctx.moveTo(x - 5, y - 11);
-    ctx.lineTo(x + 5, y - 11);
-    ctx.lineTo(x + 4, y + 9);
-    ctx.lineTo(x - 4, y + 9);
+    ctx.moveTo(x - 6, y - 14);
+    ctx.lineTo(x + 6, y - 14);
+    ctx.lineTo(x + 5, y + 11);
+    ctx.lineTo(x - 5, y + 11);
     ctx.closePath();
+    ctx.fill();
     ctx.stroke();
   }
   ctx.restore();
 }
 
-function drawWorkbeeSprite(ctx, bee) {
+function drawWorkbeeSprite(ctx, bee, radius = 48) {
+  const scale = Math.max(1.35, Math.min(2.6, radius / 36));
   ctx.save();
   ctx.translate(bee.x, bee.y);
   ctx.rotate((bee.heading * Math.PI) / 180);
   ctx.fillStyle = 'rgba(18, 24, 32, 0.55)';
   ctx.beginPath();
-  ctx.ellipse(1, 3, 8, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(1 * scale, 3 * scale, 8 * scale, 4 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#f0d24a';
   ctx.strokeStyle = '#8a7018';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.ellipse(0, 0, 8.5, 4.6, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 9.2 * scale, 5.1 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#2a3a48';
   ctx.beginPath();
-  ctx.ellipse(-3.2, 0, 2.4, 2.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(-3.4 * scale, 0, 2.6 * scale, 2.2 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#d8e6f2';
-  ctx.fillRect(2.2, -1.6, 3.4, 3.2);
+  ctx.fillRect(2.4 * scale, -1.8 * scale, 3.6 * scale, 3.4 * scale);
   ctx.restore();
 }
 
 function drawBlueConstructionBeam(ctx, bee, color) {
   ctx.save();
   ctx.strokeStyle = CONSTRUCTION_BEAM_GLOW;
-  ctx.lineWidth = 5.5;
+  ctx.lineWidth = 9;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(bee.x, bee.y);
   ctx.lineTo(bee.beamTo.x, bee.beamTo.y);
   ctx.stroke();
   ctx.strokeStyle = color || CONSTRUCTION_BEAM_COLOR;
-  ctx.lineWidth = 2.1;
+  ctx.lineWidth = 3.4;
   ctx.beginPath();
   ctx.moveTo(bee.x, bee.y);
   ctx.lineTo(bee.beamTo.x, bee.beamTo.y);
   ctx.stroke();
   ctx.fillStyle = color || CONSTRUCTION_BEAM_COLOR;
   ctx.beginPath();
-  ctx.arc(bee.beamTo.x, bee.beamTo.y, 2.4, 0, Math.PI * 2);
+  ctx.arc(bee.beamTo.x, bee.beamTo.y, 3.4, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -443,7 +446,7 @@ export function drawConstructionSiteLanguage(ctx, options = {}) {
   }
   for (const bee of bees) {
     drawBlueConstructionBeam(ctx, bee, mag.beamColor);
-    drawWorkbeeSprite(ctx, bee);
+    drawWorkbeeSprite(ctx, bee, radius);
   }
   ctx.restore();
 

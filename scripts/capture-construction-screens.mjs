@@ -80,14 +80,19 @@ async function main() {
       globalThis.BM1Probe.freezeLoop();
     });
     await page.evaluate(() => globalThis.BM1Probe.startGame('ferengi', {
-      arena: { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 },
+      arena: { clearTraffic: true, latinum: 28000, hull: 70, shields: 70 },
     }));
-    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      document.querySelector('[data-top-action="close-panel"]')?.click();
+      const settings = document.getElementById('settings-panel');
+      if (settings) settings.classList.add('hidden');
+    });
+    await page.waitForTimeout(200);
 
     const before = await page.evaluate(() => {
       const p = globalThis.__BM1_PROBE__.constructionVisuals;
       if (!p) return { missing: true };
-      globalThis.BM1Probe.paint();
+      globalThis.BM1Probe.freezeLoop();
       return { missing: false, idle: p.snapshot() };
     });
     await shot(page, '01-baseline-no-site');
@@ -95,39 +100,38 @@ async function main() {
     const built = await page.evaluate(() => {
       const p = globalThis.__BM1_PROBE__.constructionVisuals;
       const started = p.startBuild(75);
-      p.centerOnSite(started.id);
-      globalThis.BM1Probe.paint();
+      const centered = p.centerOnSite(started.id);
       return {
         id: started.id,
         snap: p.snapshot(),
         language: started.language,
+        centered,
       };
     });
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(120);
     await shot(page, '02-construction-site-language');
-
-    const platform = await page.evaluate(() => {
-      const p = globalThis.__BM1_PROBE__.constructionVisuals;
-      const started = p.startBuild(86);
-      p.centerOnSite(started.id);
-      globalThis.BM1Probe.paint();
-      return {
-        id: started.id,
-        snap: p.snapshot(),
-      };
-    });
-    await page.waitForTimeout(200);
-    await shot(page, '03-constructing-defense-platform');
 
     const completed = await page.evaluate(({ id }) => {
       const p = globalThis.__BM1_PROBE__.constructionVisuals;
       const done = p.completeBuild(id);
-      p.centerOnSite(id);
-      globalThis.BM1Probe.paint();
-      return done;
+      const centered = p.centerOnSite(id);
+      return { ...done, centered };
     }, { id: built.id });
-    await page.waitForTimeout(200);
-    await shot(page, '04-construction-complete');
+    await page.waitForTimeout(120);
+    await shot(page, '03-construction-complete');
+
+    const platform = await page.evaluate(() => {
+      const p = globalThis.__BM1_PROBE__.constructionVisuals;
+      const started = p.startBuild(86);
+      const centered = p.centerOnSite(started.id);
+      return {
+        id: started.id,
+        snap: p.snapshot(),
+        centered,
+      };
+    });
+    await page.waitForTimeout(120);
+    await shot(page, '04-constructing-defense-platform');
 
     const notes = `# Construction visuals after-implementation screenshots
 
@@ -143,8 +147,8 @@ Scaffold / workbee / **blue**-beam language is programmatic because \`stationcon
 | --- | --- |
 | \`01-baseline-no-site.png\` | Flight view before a constructing station is injected |
 | \`02-construction-site-language.png\` | Player-built site: scaffold frame, workbees, blue construction beams + remaining-days HUD |
-| \`03-constructing-defense-platform.png\` | Constructing platform still shows build language and still cannot repair |
-| \`04-construction-complete.png\` | After \`completeDueStationConstructions\` — scaffold / workbee / blue-beam language stops |
+| \`03-construction-complete.png\` | After \`completeDueStationConstructions\` — scaffold / workbee / blue-beam language stops |
+| \`04-constructing-defense-platform.png\` | Constructing platform still shows build language and still cannot repair |
 
 ## Probe
 
