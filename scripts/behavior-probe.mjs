@@ -5026,6 +5026,136 @@ async function runEmptyArmable(page, results) {
   }));
 }
 
+async function runConstructionVisuals(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 70, shields: 70 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.constructionVisuals));
+  if (!present) {
+    check(results, 'S24.setup constructionVisuals-api', false, 'constructionVisuals probe API missing');
+    return;
+  }
+
+  const s24 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.constructionVisuals;
+    const lane = globalThis.__BM1_PROBE__.sideLane;
+    if (typeof p.snapshot !== 'function'
+      || typeof p.startBuild !== 'function'
+      || typeof p.completeBuild !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    if (idle.missing === true) return idle;
+    const built = p.startBuild(75);
+    const drawn = typeof p.forceDraw === 'function' ? p.forceDraw(built.id) : built;
+    const dock = typeof p.tryDock === 'function' ? p.tryDock(built.id) : { dockRefused: true };
+    const fire = typeof p.tryStationFire === 'function' ? p.tryStationFire(built.id) : { stationFired: true };
+    const inject = typeof p.injectFire === 'function'
+      ? p.injectFire({ firingSolution: true, engagement_authorized: true, cultureFire: true })
+      : { firingSolutionPresent: true, engagementAuthorizedPresent: true };
+    const afterBuild = p.snapshot();
+    lane.forceDockPlanet();
+    const dockedRepair = lane.snapshot();
+    const startedRepair = lane.startRepair();
+    const duringRepair = lane.snapshot();
+    const platform = p.startBuild(86);
+    const platformSnap = p.snapshot();
+    const completed = p.completeBuild(built.id);
+    const afterComplete = completed.snapshot || p.snapshot();
+    return {
+      missing: false,
+      lock: afterBuild.constructionLockedFromRemastered === true,
+      idleUnder: idle.underConstruction === true,
+      builtOk: built.ok === true && built.underConstruction === true,
+      language: afterBuild.language,
+      drawn: drawn.language || afterBuild.drawn,
+      assetMissing: afterBuild.assetMissing === true,
+      usesRepairArmsArt: afterBuild.usesRepairArmsArt === true,
+      placeholderOnly: afterBuild.placeholderOnly === true,
+      repair: afterBuild.repair,
+      dockedOverlay: dockedRepair.overlay,
+      startedRepairOk: startedRepair?.ok === true,
+      startedRepair,
+      lastRepairRefuse: duringRepair.lastRepairRefuse,
+      duringRepairOverlay: duringRepair.overlay,
+      constructionArtOnRepair: duringRepair.overlayUsesConstructionArt === true,
+      dockRefused: dock.dockRefused === true,
+      stationWeapons: afterBuild.site?.stationWeaponIds,
+      fireEvidence: fire.evidence,
+      stationFired: fire.stationFired === true,
+      injectFire: inject,
+      fireGift: afterBuild.fire,
+      platformLanguage: platformSnap.language?.blueBeam === true,
+      platformRepair: platformSnap.repair?.defensePlatformRepair === true,
+      platformOk: platform.ok === true,
+      completedOk: completed.ok === true && completed.languageStopped === true,
+      afterCompleteUnder: afterComplete.underConstruction === true,
+      afterLanguage: afterComplete.language,
+      workbee: afterBuild.workbee,
+      evidence: drawn.evidence || built.evidence,
+    };
+  });
+
+  check(results, 'S24.setup constructionVisuals-api', s24.missing !== true, JSON.stringify(s24));
+  check(results, 'S24.1 constructing-site-language', s24.builtOk === true
+    && s24.language?.scaffold
+    && s24.language?.workbee
+    && s24.language?.blueBeam === true
+    && s24.assetMissing === true
+    && s24.usesRepairArmsArt !== true
+    && s24.placeholderOnly !== true, JSON.stringify({
+    language: s24.language,
+    assetMissing: s24.assetMissing,
+    placeholderOnly: s24.placeholderOnly,
+  }));
+  check(results, 'S24.2 repair-overlay-unchanged', s24.repair?.overlayUsesConstructionArt !== true
+    && s24.constructionArtOnRepair !== true
+    && s24.dockedOverlay === false
+    && s24.startedRepairOk === true
+    && s24.repair?.defensePlatformRepair !== true
+    && s24.platformRepair !== true, JSON.stringify({
+    repair: s24.repair,
+    dockedOverlay: s24.dockedOverlay,
+    startedRepairOk: s24.startedRepairOk,
+    platformRepair: s24.platformRepair,
+  }));
+  check(results, 'S24.3 beams-not-phase4-evidence', s24.evidence?.observedAttacksDelta === 0
+    && s24.evidence?.flashQueued !== true
+    && s24.evidence?.projectileAdded !== true
+    && s24.evidence?.combatBeamEffectAdded !== true
+    && s24.fireEvidence?.observedAttacksDelta === 0
+    && s24.fireEvidence?.flashQueued !== true
+    && s24.fireEvidence?.projectileAdded !== true
+    && s24.stationFired !== true, JSON.stringify({
+    evidence: s24.evidence,
+    fireEvidence: s24.fireEvidence,
+    stationFired: s24.stationFired,
+  }));
+  check(results, 'S24.4 no-gifted-fire', s24.fireGift?.firingSolutionPresent !== true
+    && s24.fireGift?.engagementAuthorizedPresent !== true
+    && s24.injectFire?.firingSolutionPresent !== true
+    && s24.injectFire?.engagementAuthorizedPresent !== true, JSON.stringify({
+    fire: s24.fireGift,
+    injectFire: s24.injectFire,
+  }));
+  check(results, 'S24.5 site-safety-and-complete', s24.dockRefused === true
+    && Array.isArray(s24.stationWeapons)
+    && s24.stationWeapons.length === 0
+    && s24.platformLanguage === true
+    && s24.completedOk === true
+    && s24.afterCompleteUnder !== true
+    && s24.afterLanguage?.blueBeam !== true
+    && s24.workbee?.hull !== true
+    && s24.workbee?.inNpcShips !== true, JSON.stringify({
+    dockRefused: s24.dockRefused,
+    weapons: s24.stationWeapons,
+    completedOk: s24.completedOk,
+    afterLanguage: s24.afterLanguage,
+    workbee: s24.workbee,
+  }));
+  check(results, 'S24.6 landed-lanes-preserved', s24.lock !== true, JSON.stringify({
+    lock: s24.lock,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -5059,13 +5189,14 @@ async function main() {
     await runUtilityInventory(page, results);
     await runWeaponSourceLedger(page, results);
     await runEmptyArmable(page, results);
+    await runConstructionVisuals(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

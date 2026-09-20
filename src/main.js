@@ -226,6 +226,17 @@ import {
   snapshotEmptyArmable,
 } from './empty-armable.js';
 import {
+  CONSTRUCTION_LOCKED_FROM_REMASTERED,
+  STATION_CONSTRUCTING_ASSET_PATH,
+  constructionInjectMustNotGiftFire,
+  constructionSrcUsesRepairArt,
+  drawConstructionSiteLanguage,
+  isConstructingStation,
+  lastDrawnConstructionLanguage,
+  requireConstructionVisualHelpers,
+  snapshotConstructionVisuals,
+} from './construction-visuals.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -1275,6 +1286,8 @@ const state = {
   marketBook: emptyMarketBook(),
   repairSession: createRepairSession(),
   repairOverlayAsset: { present: false, src: REPAIR_ARMS_ASSET_PATH, probed: false, missing: true, image: null },
+  constructionScaffoldAsset: { present: false, src: STATION_CONSTRUCTING_ASSET_PATH, probed: false, missing: true, image: null },
+  constructionEffects: [],
   lastRepairRefuse: null,
   checkpointSelectedEncounterId: null,
   selectedIncidentId: null,
@@ -13538,6 +13551,43 @@ function ensureRepairOverlayAsset() {
   return state.repairOverlayAsset;
 }
 
+function ensureConstructionScaffoldAsset() {
+  if (constructionSrcUsesRepairArt(STATION_CONSTRUCTING_ASSET_PATH)) {
+    throw new Error('construction-visuals: repairarms.gif must not bind as scaffold');
+  }
+  if (state.constructionScaffoldAsset?.probed) return state.constructionScaffoldAsset;
+  const img = new Image();
+  img.onload = () => {
+    const present = img.naturalWidth > 0 && !constructionSrcUsesRepairArt(STATION_CONSTRUCTING_ASSET_PATH);
+    state.constructionScaffoldAsset = {
+      present,
+      src: STATION_CONSTRUCTING_ASSET_PATH,
+      probed: true,
+      missing: !present,
+      image: present ? img : null,
+    };
+  };
+  img.onerror = () => {
+    state.constructionScaffoldAsset = {
+      present: false,
+      src: STATION_CONSTRUCTING_ASSET_PATH,
+      probed: true,
+      missing: true,
+      image: null,
+    };
+  };
+  img.src = STATION_CONSTRUCTING_ASSET_PATH;
+  state.constructionScaffoldAsset = {
+    present: false,
+    src: STATION_CONSTRUCTING_ASSET_PATH,
+    probed: false,
+    missing: true,
+    image: img,
+    pending: true,
+  };
+  return state.constructionScaffoldAsset;
+}
+
 function currentRepairDockLocation() {
   if (!state.docked) return { kind: null, station: null, docked: false, typeId: null, sizeClass: '' };
   if (state.dockedStationId) {
@@ -22475,7 +22525,21 @@ function render() {
       ctx.strokeRect(-stationDrawW * stationScale * 0.5, -stationDrawH * stationScale * 0.5, stationDrawW * stationScale, stationDrawH * stationScale);
       ctx.restore();
     }
-    if (station.underConstruction) ctx.restore();
+    if (station.underConstruction) {
+      ctx.restore();
+      const scaffold = ensureConstructionScaffoldAsset();
+      const language = drawConstructionSiteLanguage(ctx, {
+        station,
+        x: p.x,
+        y: p.y,
+        radius: stationRadius,
+        now,
+        scaffoldAsset: scaffold,
+      });
+      state.constructionEffects = language?.drew
+        ? [{ kind: 'construction-beam', combat: false }]
+        : [];
+    }
   }
 
   for (const a of state.asteroids) {
@@ -23816,6 +23880,7 @@ function installBm1ProbeHarness() {
     flagsPasses: createUtilityProbeApi(),
     weaponLedger: createWeaponLedgerProbeApi(),
     emptyArmable: createEmptyArmableProbeApi(),
+    constructionVisuals: createConstructionVisualsProbeApi(),
   };
 }
 
@@ -24145,6 +24210,301 @@ function createEmptyArmableProbeApi() {
         present: Boolean(note),
         text: note?.textContent || '',
         slots: canonicalizeWeaponSlots(state.weaponSlots),
+      };
+    },
+  };
+}
+
+function createConstructionVisualsProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [isConstructingStation, 'isConstructingStation'],
+    [drawConstructionSiteLanguage, 'drawConstructionSiteLanguage'],
+    [snapshotConstructionVisuals, 'snapshotConstructionVisuals'],
+    [shouldDrawRepairOverlay, 'shouldDrawRepairOverlay'],
+    [overlayUsesForbiddenArt, 'overlayUsesForbiddenArt'],
+    [isRepairCapableLocation, 'isRepairCapableLocation'],
+  ];
+  const missingSetup = () => {
+    try {
+      requireConstructionVisualHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const last = { stationId: null };
+  const findConstructing = (id = last.stationId) => {
+    if (id) {
+      const named = probeFindStation(id);
+      if (named) return named;
+    }
+    return (state.stations || []).find((station) => isConstructingStation(station)) || null;
+  };
+  const evidenceCounts = () => {
+    const ledger = ensureIncidentLedger();
+    return {
+      observedAttacks: (ensurePlayerSecurity().observedAttacks || []).length,
+      flash: (ledger.alerts?.flashQueue || []).length,
+      projectiles: (state.projectiles || []).length,
+      combatBeams: (state.weaponEffects || []).filter((effect) => effect?.kind === 'beam').length,
+      weaponEffects: (state.weaponEffects || []).length,
+    };
+  };
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    const station = extras.station || findConstructing();
+    const overlay = ensureRepairOverlayAsset();
+    const scaffold = ensureConstructionScaffoldAsset();
+    const location = extras.repairLocation || currentRepairDockLocation();
+    return snapshotConstructionVisuals({
+      station,
+      scaffoldAsset: scaffold,
+      repairSession: extras.repairSession || state.repairSession,
+      repairLocation: location,
+      repairCapable: isRepairCapableLocation(location),
+      repairServicesAllowed: !currentRepairAccessRefusal(),
+      repairOverlayPresent: overlay.present === true,
+      repairOverlaySrc: overlay.src,
+      repairActor: 'player',
+      stationWeaponIds: station?.stationWeaponIds,
+      dockRefused: extras.dockRefused,
+      evidence: extras.evidence,
+      fireInject: extras.fireInject || {},
+      npcShipIds: (state.npcShips || []).map((ship) => ship.id),
+      drawn: extras.drawn || lastDrawnConstructionLanguage(),
+      overlayOnStation: extras.overlayOnStation === true,
+      overlayOnWorkbee: extras.overlayOnWorkbee === true,
+    });
+  };
+  return {
+    snapshot,
+    startBuild: (stationTypeId = 75) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const typeId = Number(stationTypeId) || 75;
+      const player = playerWorldPosition();
+      const stats = getShipStats(typeId) || {};
+      const builtStation = {
+        id: `probe-construct-${Date.now()}`,
+        systemIndex: state.currentPlanet,
+        stationTypeId: typeId,
+        condition: 1,
+        offsetX: 180,
+        offsetY: 0,
+        builtByPlayer: true,
+        underConstruction: true,
+        constructionStartedDay: state.day,
+        constructionDays: STATION_CONSTRUCTION_DAYS,
+        completedDay: null,
+        faction: state.playerFaction,
+        name: stats.name || 'Probe Construction Site',
+        rawStockIds: [],
+        stockIds: [],
+        weaponStockIds: [],
+      };
+      state.playerBuiltStations = state.playerBuiltStations || [];
+      state.playerBuiltStations.push(builtStation);
+      const runtime = addBuiltStationToCurrentSystem(builtStation);
+      runtime.x = player.x + 150;
+      runtime.y = player.y - 30;
+      runtime.underConstruction = true;
+      runtime.stationWeaponIds = [];
+      runtime.builtByPlayer = true;
+      lockStationOrbitToCurrentPosition(
+        runtime,
+        state.systemStar || { x: runtime.x, y: runtime.y },
+        state.systemPlanet || { x: runtime.x, y: runtime.y },
+      );
+      last.stationId = runtime.id;
+      const before = evidenceCounts();
+      const scaffold = ensureConstructionScaffoldAsset();
+      const language = drawConstructionSiteLanguage(ctx, {
+        station: runtime,
+        x: canvas.width * 0.5 + 170,
+        y: canvas.height * 0.5,
+        radius: getStationScreenRadius(runtime),
+        now: performance.now(),
+        scaffoldAsset: scaffold,
+      });
+      const after = evidenceCounts();
+      return {
+        ok: isConstructingStation(runtime),
+        id: runtime.id,
+        underConstruction: runtime.underConstruction === true,
+        stationWeaponIds: [...(runtime.stationWeaponIds || [])],
+        language: language?.language,
+        assetMissing: language?.assetMissing !== false,
+        evidence: {
+          observedAttacksDelta: after.observedAttacks - before.observedAttacks,
+          flashQueued: after.flash > before.flash,
+          projectileAdded: after.projectiles > before.projectiles,
+          combatBeamEffectAdded: after.combatBeams > before.combatBeams,
+          stationFired: false,
+        },
+        snapshot: snapshot({
+          station: runtime,
+          evidence: {
+            observedAttacksDelta: after.observedAttacks - before.observedAttacks,
+            flashQueued: after.flash > before.flash,
+            projectileAdded: after.projectiles > before.projectiles,
+            combatBeamEffectAdded: after.combatBeams > before.combatBeams,
+            stationFired: false,
+          },
+        }),
+      };
+    },
+    completeBuild: (id = last.stationId) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const station = findConstructing(id) || probeFindStation(id);
+      if (!station) return { ok: false, missing: true, reason: 'constructing-station-missing' };
+      const days = Math.max(1, Number(station.constructionDays) || STATION_CONSTRUCTION_DAYS);
+      station.constructionStartedDay = state.day - days;
+      const built = (state.playerBuiltStations || []).find((row) => row.id === station.id);
+      if (built) built.constructionStartedDay = station.constructionStartedDay;
+      const completed = completeDueStationConstructions({ silent: true });
+      const live = probeFindStation(station.id);
+      if (live && completed > 0) live.underConstruction = false;
+      const stillBuilding = (state.stations || []).some((row) => isConstructingStation(row) && row.id === station.id);
+      return {
+        ok: completed > 0 && stillBuilding !== true,
+        completed,
+        underConstruction: stillBuilding === true,
+        languageStopped: stillBuilding !== true,
+        snapshot: snapshot({ station: live }),
+      };
+    },
+    tryDock: (id = last.stationId) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const station = findConstructing(id) || probeFindStation(id);
+      if (!station) return { ok: false, missing: true, reason: 'station-missing' };
+      setCamera(station.x, station.y);
+      const docked = tryDockAtStation(station);
+      return {
+        ok: true,
+        docked: docked === true,
+        dockRefused: docked !== true,
+        underConstruction: isConstructingStation(station),
+        log: state.log,
+        snapshot: snapshot({ station, dockRefused: docked !== true }),
+      };
+    },
+    tryStationFire: (id = last.stationId) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const station = findConstructing(id) || probeFindStation(id);
+      if (!station) return { ok: false, missing: true, reason: 'station-missing' };
+      const before = evidenceCounts();
+      const standingBefore = Number(state.standingWriteCount) || 0;
+      fireStationWeapon(station, playerWorldPosition(), performance.now());
+      const after = evidenceCounts();
+      return {
+        ok: true,
+        stationFired: after.projectiles > before.projectiles || after.combatBeams > before.combatBeams,
+        evidence: {
+          observedAttacksDelta: after.observedAttacks - before.observedAttacks,
+          flashQueued: after.flash > before.flash,
+          projectileAdded: after.projectiles > before.projectiles,
+          combatBeamEffectAdded: after.combatBeams > before.combatBeams,
+          stationFired: after.projectiles > before.projectiles || after.combatBeams > before.combatBeams,
+          standingWriteDelta: (Number(state.standingWriteCount) || 0) - standingBefore,
+        },
+        snapshot: snapshot({
+          station,
+          evidence: {
+            observedAttacksDelta: after.observedAttacks - before.observedAttacks,
+            flashQueued: after.flash > before.flash,
+            projectileAdded: after.projectiles > before.projectiles,
+            combatBeamEffectAdded: after.combatBeams > before.combatBeams,
+            stationFired: after.projectiles > before.projectiles || after.combatBeams > before.combatBeams,
+          },
+        }),
+      };
+    },
+    forceDraw: (id = last.stationId) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const station = findConstructing(id) || probeFindStation(id);
+      if (!station) return { ok: false, missing: true, reason: 'station-missing' };
+      const before = evidenceCounts();
+      const scaffold = ensureConstructionScaffoldAsset();
+      const language = drawConstructionSiteLanguage(ctx, {
+        station,
+        x: canvas.width * 0.5,
+        y: canvas.height * 0.5,
+        radius: getStationScreenRadius(station),
+        now: performance.now(),
+        scaffoldAsset: scaffold,
+      });
+      render();
+      const after = evidenceCounts();
+      return {
+        ok: language?.drew === true,
+        language: language?.language,
+        assetMissing: language?.assetMissing !== false,
+        usesRepairArmsArt: language?.usesRepairArmsArt === true,
+        combatBeamPresent: language?.combatBeamPresent === true,
+        evidence: {
+          observedAttacksDelta: after.observedAttacks - before.observedAttacks,
+          flashQueued: after.flash > before.flash,
+          projectileAdded: after.projectiles > before.projectiles,
+          combatBeamEffectAdded: after.combatBeams > before.combatBeams,
+          stationFired: false,
+        },
+        snapshot: snapshot({
+          station,
+          evidence: {
+            observedAttacksDelta: after.observedAttacks - before.observedAttacks,
+            flashQueued: after.flash > before.flash,
+            projectileAdded: after.projectiles > before.projectiles,
+            combatBeamEffectAdded: after.combatBeams > before.combatBeams,
+            stationFired: false,
+          },
+        }),
+      };
+    },
+    injectFire: (row = { firingSolution: true, engagement_authorized: true, cultureFire: true }) => (
+      constructionInjectMustNotGiftFire(row)
+    ),
+    centerOnSite: (id = last.stationId) => {
+      const station = findConstructing(id) || probeFindStation(id);
+      if (!station) return { ok: false, missing: true };
+      setCamera(station.x, station.y);
+      render();
+      const screen = worldToScreen(station);
+      return {
+        ok: true,
+        id: station.id,
+        x: station.x,
+        y: station.y,
+        screenX: screen.x,
+        screenY: screen.y,
+        underConstruction: isConstructingStation(station),
+      };
+    },
+    repairSnapshot: () => {
+      const location = currentRepairDockLocation();
+      const overlay = ensureRepairOverlayAsset();
+      return {
+        overlayOnPlayer: shouldDrawRepairOverlay(state.repairSession, {
+          capable: isRepairCapableLocation(location),
+          servicesAllowed: !currentRepairAccessRefusal(),
+          overlayAssetPresent: overlay.present === true,
+          actor: 'player',
+        }),
+        overlayUsesConstructionArt: overlayUsesForbiddenArt(overlay.src),
+        overlaySrc: overlay.src,
+        capable: isRepairCapableLocation(location),
       };
     },
   };
@@ -27864,6 +28224,7 @@ function installPlayerSecurityProbe() {
     flagsPasses: createUtilityProbeApi(),
     weaponLedger: createWeaponLedgerProbeApi(),
     emptyArmable: createEmptyArmableProbeApi(),
+    constructionVisuals: createConstructionVisualsProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

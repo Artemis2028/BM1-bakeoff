@@ -24,6 +24,7 @@
     "test:utility": "node scripts/test-utility-inventory.mjs",
     "test:weapon-ledger": "node scripts/test-weapon-source-ledger.mjs",
     "test:empty-armable": "node scripts/test-empty-armable.mjs",
+    "test:construction-visuals": "node scripts/test-construction-visuals.mjs",
     "test:side-lane": "node scripts/test-side-lane-repair-reman.mjs && node scripts/test-side-lane-unrest-independence.mjs",
     "test:catalog": "node scripts/test-catalog-wire.mjs",
     "check:ship-manifest": "node scripts/sync-ship-roster.mjs --check",
