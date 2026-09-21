@@ -32,7 +32,7 @@ Keep these constraints throughout:
 | Phase 1 — relationships and political authority | Pushed, per the conversation | System control, allegiance, station ownership and ship command identity are separate. Capture, reclaim, flag changes, arrival protection and restoration have acceptance coverage. |
 | Phase 2 — player security policies | **Passed** engine ([PR #6](https://github.com/Artemis2028/BM1-bakeoff/pull/6)). 11 September “push not confirmed here” is **stale**. | Two ROE modes, defaults/overrides, ownership-safe defense alerts and orders, and the Security UI. |
 | Doctrine bundle | Authored design/reference material; loader wired (PR #1) | Faction and role intentions, knowledge rules and objective contracts exist as design. Full doctrine still does not drive every AI role. |
-| Holding zones, access enforcement, incident escalation and FLASH alerts | **Landed** — Phase 3 engine [PR #8](https://github.com/Artemis2028/BM1-bakeoff/pull/8) / [PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9); Phase 4 engine [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13). Older “Pending” checkpoint text is **stale**. Not a reopen. | Holding / compliance / incidents / FLASH are on `main`. Soft residual: top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy`. |
+| Holding zones, access enforcement, incident escalation and FLASH alerts | **Landed** — Phase 3 engine [PR #8](https://github.com/Artemis2028/BM1-bakeoff/pull/8) / [PR #9](https://github.com/Artemis2028/BM1-bakeoff/pull/9); Phase 4 engine [PR #13](https://github.com/Artemis2028/BM1-bakeoff/pull/13). Older “Pending” checkpoint text is **stale**. Not a reopen. | Holding / compliance / incidents / FLASH are on `main`. Soft residual `alertsActive` snapshot: brief #63 stay-locked; S29 engine on this PR (not a Referee Pass). |
 | Broader economy, sensors, fleet coordination and Dominion campaign | **Engines landed** on bake-off (see §16). Older “requested direction” is **stale checkpoint text**, not a reopen. | Phase 6 PR #24; Phase 7 PR #29; Phase 8 PR #31 + economy #56/#57; Phase 10 Dominion-first #40/#41 (full roster **deferred**). |
 
 Latest reviewed Phase 2 pair (historical 11 September evidence; bake-off `main` is past Phase 2 — PR #6):
@@ -68,7 +68,7 @@ Explicit escort attack orders override ROE for eligible foreign targets. Player-
 
 Policies belong to the player's side, survive flag changes, and merge by dimension. Local overrides are inactive but retained when a holding is lost, then reactivate on reclaim. Outside holdings, player forces use the empire-default ROE as standing orders.
 
-`access` and `alerts` were reserved data at the 11 September checkpoint. Phase 3 (PR #8 / #9) implements holding / access / compliance; Phase 4 (PR #13) implements incidents / FLASH. Do **not** present those as still reserved. Soft residual: top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy`. `protect-all` remains deferred until the engine can distinguish an aggressor from someone returning fire.
+`access` and `alerts` were reserved data at the 11 September checkpoint. Phase 3 (PR #8 / #9) implements holding / access / compliance; Phase 4 (PR #13) implements incidents / FLASH. Do **not** present those as still reserved. Soft residual `alertsActive` snapshot: brief #63 stay-locked; S29 engine on this PR (not a Referee Pass). `protect-all` remains deferred until the engine can distinguish an aggressor from someone returning fire.
 
 ## 4. Proposed delivery order
 
@@ -293,7 +293,7 @@ Hygiene 21 September 2026: the 11 September open boxes below are **done** on bak
 - [x] Recheck only the persistence/order defects that can invalidate that encounter; repair them in bounded changes. — Phase 3 / 5 engines landed.
 - [x] Settle zone geometry, visitor classification, warning/deadline behavior, and the relationship between access refusal and ROE before implementation. — Phase 3 landed; do not reopen.
 
-Later decisions to retain: default BM1 versus optional BM2-derived roster; upgrade pacing and maintenance; fleet controls and ships left behind; sensor presentation; scope of lawful trade exceptions; Blender's legal claim; hidden-region revelation and invasion timing; weapon roles and shield exceptions. Do not reopen the settled two-mode Phase 2 ROE merely to match older terminology. Named **soft residuals** (not new packages): `alertsActive` snapshot vs `getEffectivePolicy`; away-team XP `not_tracked_yet`; Phase 10 full roster deferred; magnitudes injectable.
+Later decisions to retain: default BM1 versus optional BM2-derived roster; upgrade pacing and maintenance; fleet controls and ships left behind; sensor presentation; scope of lawful trade exceptions; Blender's legal claim; hidden-region revelation and invasion timing; weapon roles and shield exceptions. Do not reopen the settled two-mode Phase 2 ROE merely to match older terminology. Named **soft residuals** (not new packages): away-team XP `not_tracked_yet`; Phase 10 full roster deferred; magnitudes injectable. `alertsActive` snapshot S29 engine is on this PR (not a Referee Pass).
 
 ## Source and precedence notes
 
@@ -368,4 +368,4 @@ Rows below are **locked** on `main` @ `74f574b`. They are **not** Agreed next. D
 - Label Flash / pack numbers as source material until Tenth locks them.
 - Do not reopen Phase 1–6 briefs, the side-lane, EW, boarding, Phase 10, flags/utility, ledger, empty-armable, construction, HTML, economy, standing, or dockClear as incomplete.
 - Construction visuals **engine** landed (`docs/construction-visuals/`; PRs #52/#53) — stay locked.
-- Soft residuals stay explicit: `alertsActive` snapshot; away-team XP `not_tracked_yet`; Phase 10 full roster deferred; magnitudes injectable. **No Referee Pass claimed.**
+- Soft residuals stay explicit: away-team XP `not_tracked_yet`; Phase 10 full roster deferred; magnitudes injectable. `alertsActive` snapshot S29 engine is on this PR. **No Referee Pass claimed.**
