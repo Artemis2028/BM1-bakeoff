@@ -5481,6 +5481,148 @@ async function runStandingTiers(page, results) {
   }));
 }
 
+async function runDockClear(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.dockClear));
+  if (!present) {
+    check(results, 'S28.setup dockClear-api', false, 'dockClear probe API missing');
+    return;
+  }
+
+  const s28 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.dockClear;
+    if (typeof p.snapshot !== 'function' || typeof p.snapshotDockFit !== 'function') {
+      return { missing: true };
+    }
+    const opened = p.openOps();
+    if (opened.missing === true) return opened;
+    const ops = p.snapshot();
+    const opsFit = p.snapshotDockFit();
+    p.closeOps();
+    const probe = globalThis.BM1Probe;
+    probe.placePlayer?.(1200, 900);
+    const victim = probe.spawnShip?.({
+      id: 's28-target',
+      faction: 'klingon',
+      role: 'patrol',
+      x: 1260,
+      y: 900,
+      hostile: false,
+    });
+    const key = victim?.securityInstanceId ? `npc:${victim.securityInstanceId}` : null;
+    if (key) globalThis.__BM1_PROBE__?.phase6?.grantLiveLock?.(key);
+    const id = victim?.securityInstanceId || victim?.id;
+    globalThis.__BM1_PROBE__?.boarding?.injectDetection?.({
+      id,
+      detected: true,
+      identification: 'known',
+      firingSolution: false,
+    });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(id);
+    probe.paint?.();
+    const target = p.snapshot();
+    const targetFit = p.snapshotDockFit();
+    const mapOpened = p.openMap();
+    const map = p.snapshot();
+    const mapFit = p.snapshotDockFit();
+    p.closeMap();
+    const fire = p.snapshot({ fireInject: { firingSolution: true, engagement_authorized: true } });
+    const hover = document.getElementById('bottom-dock')?.getBoundingClientRect();
+    return {
+      missing: false,
+      opsDock: ops.operator?.dockClear,
+      opsClipped: ops.clippedControls,
+      opsOverflowX: ops.overflowX === true,
+      opsFitDock: opsFit.dockClear,
+      targetDock: target.target?.dockClear,
+      targetOperator: target.operator?.dockClear,
+      targetClipped: target.clippedControls,
+      targetOverflowX: target.overflowX === true,
+      reachable: target.reachableControls || targetFit.reachableControls,
+      targetFitDock: targetFit.targetDockClear,
+      mapDock: map.map?.dockClear,
+      mapOpen: map.map?.open,
+      mapLeaked: map.map?.leakedNames,
+      mapLabels: map.map?.labeledSystemsInBox,
+      mapOperator: map.operator?.dockClear,
+      mapFitDock: mapFit.mapDockClear,
+      closeOk: mapOpened.ok === true,
+      fire: fire.fire,
+      tractor: fire.tractorIsBoard,
+      roe: fire.twoModeRoe,
+      lock: p.lock(),
+      standingLock: fire.standingLockFalse,
+      hoverRight: hover ? Math.round(hover.right) : null,
+      hoverLeft: hover ? Math.round(hover.left) : null,
+    };
+  });
+  check(results, 'S28.setup dockClear-api', s28.missing !== true, JSON.stringify(s28));
+  check(results, 'S28.1 operator-dock-clear', s28.opsDock === true
+    && s28.opsFitDock === true
+    && Array.isArray(s28.opsClipped)
+    && s28.opsClipped.length === 0
+    && s28.opsOverflowX !== true, JSON.stringify({
+    dock: s28.opsDock,
+    clipped: s28.opsClipped,
+    overflowX: s28.opsOverflowX,
+  }));
+  check(results, 'S28.2 target-dock-clear', s28.targetDock === true
+    && s28.targetFitDock === true
+    && s28.targetOperator === false
+    && Array.isArray(s28.targetClipped)
+    && s28.targetClipped.length === 0
+    && s28.targetOverflowX !== true
+    && Array.isArray(s28.reachable)
+    && s28.reachable.some((label) => /hail/i.test(label))
+    && s28.reachable.some((label) => /board/i.test(label))
+    && s28.reachable.some((label) => /capture/i.test(label))
+    && s28.reachable.some((label) => /scuttle/i.test(label)), JSON.stringify({
+    target: s28.targetDock,
+    operator: s28.targetOperator,
+    reachable: s28.reachable,
+  }));
+  check(results, 'S28.3 map-dock-clear', s28.mapDock === true
+    && s28.mapFitDock === true
+    && s28.mapOpen === true
+    && s28.mapOperator === false
+    && Array.isArray(s28.mapLeaked)
+    && s28.mapLeaked.length === 0
+    && s28.mapLabels !== false, JSON.stringify({
+    map: s28.mapDock,
+    leaked: s28.mapLeaked,
+    labels: s28.mapLabels,
+  }));
+  check(results, 'S28.4 dock-hover-related', s28.hoverLeft != null
+    && s28.hoverRight != null
+    && s28.hoverLeft >= 0
+    && s28.hoverRight <= 1280, JSON.stringify({
+    left: s28.hoverLeft,
+    right: s28.hoverRight,
+  }));
+  check(results, 'S28.5 no-gifted-fire', s28.fire?.firingSolutionPresent !== true
+    && s28.fire?.engagementAuthorizedPresent !== true
+    && s28.tractor !== true
+    && Array.isArray(s28.roe)
+    && s28.roe.length === 2, JSON.stringify({
+    fire: s28.fire,
+    tractor: s28.tractor,
+    roe: s28.roe,
+  }));
+  check(results, 'S28.6 landed-lanes-preserved', s28.standingLock === true
+    && s28.tractor !== true, JSON.stringify({
+    standingLock: s28.standingLock,
+    tractor: s28.tractor,
+  }));
+  check(results, 'S28.7 remastered-lock-false', s28.lock !== true, JSON.stringify({ lock: s28.lock }));
+  check(results, 'S28.8 overflow-shape', s28.targetFitDock === true
+    && s28.mapFitDock === true
+    && s28.opsFitDock === true, JSON.stringify({
+    ops: s28.opsFitDock,
+    target: s28.targetFitDock,
+    map: s28.mapFitDock,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -5517,13 +5659,14 @@ async function main() {
     await runConstructionVisuals(page, results);
     await runEconomyDifficulty(page, results);
     await runStandingTiers(page, results);
+    await runDockClear(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

@@ -4294,12 +4294,17 @@ button:disabled {
   opacity: 0;
   transition: max-width 0.15s ease-out, opacity 0.15s, margin 0.15s;
 }
-.bottom-dock:hover button span, .bottom-dock button:focus-visible span {
+.bottom-dock {
+  overflow-x: hidden;
+}
+.bottom-dock button:hover span,
+.bottom-dock button:focus-visible span {
   max-width: 90px;
   opacity: 1;
   margin-left: 6px;
 }
-.bottom-dock:hover button, .bottom-dock button:focus-visible { max-width: 150px; }
+.bottom-dock button:hover,
+.bottom-dock button:focus-visible { max-width: 150px; }
 .bottom-dock button:hover { background: var(--lcars-orange); }
 @media (max-width: 900px) { .bottom-dock { max-width: calc(100vw - 40px); } }
 
