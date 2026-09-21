@@ -5639,6 +5639,7 @@ async function runAlertsActive(page, results) {
     }
     const home = top.snapshot().currentPlanet;
     const held = (top.snapshot().controlledSystems || []).includes(home);
+    top.setEmpireRoe('return-fire');
     top.incidents.setAlerts('all');
     top.incidents.setHoldingAlerts(home, 'silent');
     const silentTop = top.snapshot();
@@ -5772,6 +5773,7 @@ async function runAlertsActive(page, results) {
   check(results, 'S29.5 no-roe-rewrite-no-gifted-fire', s29.protectAll === false
     && s29.mayBefore === false
     && s29.mayAfter === false
+    && s29.mayBefore === s29.mayAfter
     && s29.fire?.firingSolutionPresent !== true
     && s29.fire?.engagementAuthorizedPresent !== true
     && s29.fire?.cultureFire !== true
