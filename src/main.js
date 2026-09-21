@@ -237,6 +237,18 @@ import {
   snapshotConstructionVisuals,
 } from './construction-visuals.js';
 import {
+  ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED,
+  applyDifficultyProfile,
+  assertDifficultyIdentityInvariant,
+  difficultyInjectMustNotGiftFire,
+  emptyEconomyDifficultyBook,
+  requireEconomyDifficultyHelpers,
+  resolveDifficultyMagnitudes,
+  restoreEconomyDifficultyBook,
+  serializeEconomyDifficultyBook,
+  snapshotEconomyDifficulty,
+} from './economy-difficulty.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -421,7 +433,6 @@ import {
   phase5OutcomesUntouched,
   plantFlagDoesNotGrantMarketTrust,
   recoverHolding,
-  resolveMagnitudes,
   restockOnLoadForbidden,
   restoreMarketBook,
   serializeHoldingObligations,
@@ -1408,6 +1419,7 @@ const state = {
   boardingBook: emptyBoardingBook(),
   dominionBook: emptyDominionBook(),
   utilityBook: emptyUtilityBook(),
+  economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
   ew92: emptyEw92Book(),
   ew93: emptyEw93Book(),
@@ -5313,6 +5325,21 @@ function ensureMarketBook() {
   return state.marketBook;
 }
 
+function ensureEconomyDifficultyBook() {
+  if (!state.economyDifficultyBook || state.economyDifficultyBook.version !== 1) {
+    state.economyDifficultyBook = restoreEconomyDifficultyBook(state.economyDifficultyBook);
+  }
+  return state.economyDifficultyBook;
+}
+
+function currentDifficultyProfile() {
+  return ensureEconomyDifficultyBook().profile;
+}
+
+function livePhase8Magnitudes(extra = null) {
+  return resolveDifficultyMagnitudes(currentDifficultyProfile(), extra);
+}
+
 function currentMarketLocationId() {
   const planet = state.planets[state.currentPlanet];
   const station = getCurrentDockedStation();
@@ -5334,14 +5361,16 @@ function parkedFleetShipIds() {
 
 function tickPhase8OnStrategicJump(atStrategicJumps) {
   const book = ensureMarketBook();
-  tickMarketBook(book, { atStrategicJumps, restockToCap: false });
+  const magnitudes = livePhase8Magnitudes();
+  tickMarketBook(book, { atStrategicJumps, restockToCap: false, injected: magnitudes });
   applyHoldingJumpTick(book, {
     atStrategicJumps,
     unrestWriter: (systemIndex, opts) => raiseUnrestFromCommerceFailure(ensureUnrestIndependence(), systemIndex, opts),
+    injected: magnitudes,
   });
-  applyFleetUpkeep(book, ensureFleetOrders(), { parkedShipIds: parkedFleetShipIds() });
+  applyFleetUpkeep(book, ensureFleetOrders(), { parkedShipIds: parkedFleetShipIds(), injected: magnitudes });
   if (book.upkeepCharged > 0 && state.latinum > 0) {
-    const charge = Math.min(state.latinum, resolveMagnitudes().fleetUpkeepPerParked * parkedFleetShipIds().length);
+    const charge = Math.min(state.latinum, magnitudes.fleetUpkeepPerParked * parkedFleetShipIds().length);
     state.latinum = Math.max(0, state.latinum - charge);
     state.mylatinum = state.latinum;
   }
@@ -12096,7 +12125,7 @@ function confirmPendingStationBuild() {
       systemIndex: state.currentPlanet,
       locationId: locationIdForSystem(state.currentPlanet, state.planets[state.currentPlanet]?.name),
       locationName: state.planets[state.currentPlanet]?.name || `system:${state.currentPlanet}`,
-    });
+    }, livePhase8Magnitudes());
   }
   addBuiltStationToCurrentSystem(builtStation);
   state.camera.x = cameraBeforeBuild.x;
@@ -12707,7 +12736,7 @@ function claimCurrentSystem() {
     systemIndex: state.currentPlanet,
     locationId: locationIdForSystem(state.currentPlanet, state.planets[state.currentPlanet]?.name),
     locationName: state.planets[state.currentPlanet]?.name || `system:${state.currentPlanet}`,
-  });
+  }, livePhase8Magnitudes());
   setLog(`${state.planets[state.currentPlanet]?.name || 'System'} claimed for the ${formatFaction(state.playerFaction)}. Charter cost: ${claimCost.latinum} latinum, ${claimCost.duranium} duranium. Garrison, supply, reconstruction, and stabilization are now obligations.`);
   renderPlanetMenu();
   updateStats();
@@ -14234,6 +14263,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     objectiveBoard: serializeObjectiveBoard(ensureObjectiveBoard()),
     fleetOrders: serializeFleetOrders(ensureFleetOrders()),
     marketBook: serializeMarketBook(ensureMarketBook()),
+    economyDifficultyBook: serializeEconomyDifficultyBook(ensureEconomyDifficultyBook()),
     contactBook: serializeContactBook(ensureContactBook()),
     ewBook: serializeEwBook(ensureEwBook()),
     boardingBook: serializeBoardingBook(ensureBoardingBook()),
@@ -14324,6 +14354,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.objectiveBoard = restoreObjectiveBoard(s.objectiveBoard);
   state.fleetOrders = restoreFleetOrders(s.fleetOrders);
   state.marketBook = restoreMarketBook(s.marketBook);
+  state.economyDifficultyBook = restoreEconomyDifficultyBook(s.economyDifficultyBook);
   state.contactBook = restoreContactBook(s.contactBook);
   state.ewBook = restoreEwBook(s.ewBook);
   state.boardingBook = restoreBoardingBook(s.boardingBook);
@@ -15083,7 +15114,7 @@ function buyMarketGood(slot = 0) {
       marketId: market.marketId,
       credits: state.latinum,
       good: market.good,
-    });
+    }, livePhase8Magnitudes());
     if (!bought.allowed) {
       setLog(bought.sayable || `Cannot buy ${offer.goods} here.`);
       updateStats();
@@ -15144,7 +15175,7 @@ function sellMarketGood(slot = 0) {
     return;
   }
   if (market) {
-    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum });
+    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, livePhase8Magnitudes());
     if (!sale.allowed) {
       addCargoToPods(market.good, 1, undefined, 0);
       setLog(sale.sayable || `Local seller will not buy ${market.good}.`);
@@ -15207,7 +15238,7 @@ function transport() {
       : 'Transport found antimatter, but your tanks are already full.');
   } else if (chance < 0.75) {
     const foundLatinum = 20 + Math.floor(Math.random() * 45);
-    const bounded = boundTransportLatinum(ensureMarketBook(), foundLatinum);
+    const bounded = boundTransportLatinum(ensureMarketBook(), foundLatinum, livePhase8Magnitudes());
     state.latinum += bounded.paid;
     setLog(bounded.paid > 0
       ? `Transport mission completed: +${bounded.paid} latinum.`
@@ -15327,7 +15358,7 @@ function randomTravelEvent() {
     setLog(`Asteroid field hit! ${formatDamageResult(result)}.`);
   } else if (roll < 0.35) {
     const loot = 8 + Math.floor(Math.random() * 18);
-    const bounded = boundTravelSalvage(ensureMarketBook(), loot);
+    const bounded = boundTravelSalvage(ensureMarketBook(), loot, livePhase8Magnitudes());
     state.latinum += bounded.paid;
     setLog(bounded.paid > 0
       ? `Derelict salvage recovered: +${bounded.paid} latinum.`
@@ -15355,7 +15386,7 @@ function refuel() {
     return;
   }
   const holding = getHoldingForSystem(ensureMarketBook(), state.currentPlanet);
-  const service = evaluateDockService(holding, 'refuel', { baseCost: 1 });
+  const service = evaluateDockService(holding, 'refuel', { baseCost: 1, injected: livePhase8Magnitudes() });
   if (service.refuse) {
     setLog(service.sayable || 'Refuel refused — holding supply unmet.');
     return { ok: false, ...service };
@@ -15378,7 +15409,7 @@ function repairHull() {
   if (state.gameOver || !state.gameStarted) return;
   if (!requireDocked()) return;
   const holding = getHoldingForSystem(ensureMarketBook(), state.currentPlanet);
-  const supplyGate = evaluateDockService(holding, 'repair', { baseCost: REPAIR_HULL_LATINUM_PER_PERCENT });
+  const supplyGate = evaluateDockService(holding, 'repair', { baseCost: REPAIR_HULL_LATINUM_PER_PERCENT, injected: livePhase8Magnitudes() });
   if (supplyGate.refuse) {
     state.lastRepairRefuse = { layer: 'holding-supply', reason: supplyGate.sayable };
     setLog(supplyGate.sayable);
@@ -22735,6 +22766,7 @@ function resetRunState() {
   state.objectiveBoard = emptyObjectiveBoard();
   state.fleetOrders = emptyFleetOrderBoard();
   state.marketBook = emptyMarketBook();
+  state.economyDifficultyBook = emptyEconomyDifficultyBook();
   state.playerUnlocks = createPlayerUnlocks();
   state.unrestIndependence = createUnrestIndependenceStore();
   state.repairSession = clearRepairSession();
@@ -22928,6 +22960,7 @@ function startWithFaction(key, options = {}) {
   state.objectiveBoard = emptyObjectiveBoard();
   state.fleetOrders = emptyFleetOrderBoard();
   state.marketBook = emptyMarketBook();
+  state.economyDifficultyBook = emptyEconomyDifficultyBook();
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
@@ -23881,6 +23914,7 @@ function installBm1ProbeHarness() {
     weaponLedger: createWeaponLedgerProbeApi(),
     emptyArmable: createEmptyArmableProbeApi(),
     constructionVisuals: createConstructionVisualsProbeApi(),
+    economyDifficulty: createEconomyDifficultyProbeApi(),
   };
 }
 
@@ -24510,6 +24544,127 @@ function createConstructionVisualsProbeApi() {
   };
 }
 
+function createEconomyDifficultyProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [resolveDifficultyMagnitudes, 'resolveDifficultyMagnitudes'],
+    [snapshotEconomyDifficulty, 'snapshotEconomyDifficulty'],
+    [applyDifficultyProfile, 'applyDifficultyProfile'],
+    [requireEconomyDifficultyHelpers, 'requireEconomyDifficultyHelpers'],
+  ];
+  const missingSetup = () => {
+    try {
+      requireEconomyDifficultyHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const identityExtras = () => ({
+    relations: typeof factionRelations !== 'undefined' ? factionRelations : {},
+    concession: { faction: 'terran', privateInstallation: true },
+    playerSide: getPlayerSide(),
+    playerFaction: state.playerFaction,
+    concessionOwner: 'terran',
+    arrivalScene: {
+      ships: [...(state.npcShips || [])],
+      stations: [...(state.stations || [])],
+    },
+    customPolityId: 'custom:77',
+    customPolityAfter: 'custom:77',
+    controlledSystems: [...(state.controlledSystems || [])],
+  });
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    const book = ensureEconomyDifficultyBook();
+    return snapshotEconomyDifficulty({
+      profile: extras.profile || book.profile,
+      inject: extras.inject || null,
+      ...identityExtras(),
+      ...extras,
+    });
+  };
+  return {
+    snapshot,
+    setProfile: (name, extras = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const book = ensureEconomyDifficultyBook();
+      const jumpFarmBefore = { ...(ensureMarketBook().jumpFarm || {}) };
+      const standingBefore = { ...(state.factionStanding || {}) };
+      const remanBefore = hasRemanWarbirdAccess(ensurePlayerUnlocks());
+      const controlledBefore = [...(state.controlledSystems || [])];
+      const factionBefore = state.playerFaction;
+      const sideBefore = getPlayerSide();
+      const applied = applyDifficultyProfile(book, name, {
+        inject: extras.inject,
+        fireInject: extras.fireInject || { firingSolution: true, engagement_authorized: true, cultureFire: true },
+      });
+      const fire = difficultyInjectMustNotGiftFire(extras.fireInject || {
+        firingSolution: true,
+        engagement_authorized: true,
+        cultureFire: true,
+      });
+      return {
+        ok: applied.ok === true,
+        profile: book.profile,
+        previous: applied.previous,
+        restocked: applied.restocked,
+        jumpFarmReset: JSON.stringify(ensureMarketBook().jumpFarm || {}) !== JSON.stringify(jumpFarmBefore),
+        standingRewritten: JSON.stringify(state.factionStanding || {}) !== JSON.stringify(standingBefore),
+        remanMinted: hasRemanWarbirdAccess(ensurePlayerUnlocks()) === true && remanBefore !== true,
+        fireGifted: false,
+        identityUnchanged: JSON.stringify(controlledBefore) === JSON.stringify(state.controlledSystems || [])
+          && state.playerFaction === factionBefore
+          && getPlayerSide() === sideBefore,
+        fire,
+        overlay: applied.overlay,
+        snapshot: snapshot(),
+      };
+    },
+    inject: (overlay) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return {
+        ok: true,
+        overlay: resolveDifficultyMagnitudes(currentDifficultyProfile(), overlay),
+        snapshot: snapshot({ inject: overlay }),
+      };
+    },
+    identity: (profile = currentDifficultyProfile()) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return assertDifficultyIdentityInvariant(profile, identityExtras());
+    },
+    evaluateHull: (hullId, extras = {}) => {
+      if (!state.shipCatalog) return { allowed: false, reason: 'catalog-missing' };
+      return evaluateWiredPurchase(
+        state.shipCatalog,
+        hullId,
+        extras.unlocks || ensurePlayerUnlocks(),
+        catalogPurchaseContext({
+          ...currentCatalogPurchaseContext(),
+          credits: extras.credits ?? state.latinum,
+          standings: extras.standings || { ...(state.factionStanding || {}) },
+          systemName: extras.systemName || 'Earth',
+          station: extras.station,
+        }),
+      );
+    },
+    boundSalvage: (amount) => boundTravelSalvage(ensureMarketBook(), amount, livePhase8Magnitudes()),
+    boundTransport: (amount) => boundTransportLatinum(ensureMarketBook(), amount, livePhase8Magnitudes()),
+    lock: () => ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED,
+  };
+}
+
 function createUtilityProbeApi() {
   const failIfMissing = (helper, name) => {
     if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
@@ -24862,7 +25017,7 @@ function createPhase10ProbeApi() {
         systemIndex: opts.systemIndex != null ? opts.systemIndex : state.currentPlanet,
         locationId: locationIdForSystem(state.currentPlanet, state.planets[state.currentPlanet]?.name),
         locationName: state.planets[state.currentPlanet]?.name,
-      });
+      }, livePhase8Magnitudes());
       attachOccupationHolding(ensureDominionBook(), minted.holding?.holdingId);
       return { ok: true, holding: minted.holding, freeIncome: false, snapshot: snapshot() };
     },
@@ -25660,7 +25815,7 @@ function createPhase8ProbeApi() {
       const book = ensureMarketBook();
       const market = findMarket(book, { good: good || extras.good, marketId: extras.marketId, locationId: extras.locationId, systemIndex: extras.systemIndex });
       if (!market) return { ok: false, reason: 'missing-market', snapshot: snapshot() };
-      const bought = applyShopBuy(book, { marketId: market.marketId, credits: extras.credits ?? state.latinum });
+      const bought = applyShopBuy(book, { marketId: market.marketId, credits: extras.credits ?? state.latinum }, livePhase8Magnitudes());
       if (bought.ok) {
         state.latinum = Math.max(0, state.latinum - bought.price);
         addCargoToPods(market.good, 1, undefined, 0);
@@ -25673,12 +25828,12 @@ function createPhase8ProbeApi() {
       if (!market) return { ok: false, reason: 'missing-market', snapshot: snapshot() };
       const beforeStanding = { ...(state.factionStanding || {}) };
       const standingBeforeCount = Number(state.standingWriteCount) || 0;
-      const bought = applyShopBuy(book, { marketId: market.marketId, credits: extras.credits ?? state.latinum });
+      const bought = applyShopBuy(book, { marketId: market.marketId, credits: extras.credits ?? state.latinum }, livePhase8Magnitudes());
       if (bought.ok) {
         state.latinum = Math.max(0, state.latinum - bought.price);
         addCargoToPods(market.good, 1, undefined, 0);
       }
-      const sold = applyShopSell(book, { marketId: market.marketId, credits: state.latinum });
+      const sold = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, livePhase8Magnitudes());
       if (sold.ok) {
         state.latinum += sold.price;
         removeCargoFromPods(market.good, 1);
@@ -25730,7 +25885,7 @@ function createPhase8ProbeApi() {
         latinumDelta: state.latinum - beforeLatinum,
         restockedToCap: listMarkets(ensureMarketBook()).some((row) => {
           const prev = beforeMarkets.find((item) => item.marketId === row.marketId);
-          const spec = resolveMagnitudes();
+          const spec = livePhase8Magnitudes();
           return prev && prev.stock < spec.stockCap && row.stock === spec.stockCap && prev.stock !== row.stock;
         }),
         snapshot: after,
@@ -25744,7 +25899,7 @@ function createPhase8ProbeApi() {
         locationId: opts.locationId || locationIdForSystem(opts.systemIndex != null ? opts.systemIndex : state.currentPlanet, opts.locationName),
         locationName: opts.locationName || state.planets[state.currentPlanet]?.name,
         graceJumpsRemaining: opts.graceJumpsRemaining != null ? opts.graceJumpsRemaining : 0,
-      });
+      }, livePhase8Magnitudes());
       if (opts.claim === true && !state.controlledSystems.includes(minted.holding.systemIndex)) {
         state.controlledSystems.push(minted.holding.systemIndex);
       }
@@ -25787,11 +25942,19 @@ function createPhase8ProbeApi() {
       applyHoldingJumpTick(ensureMarketBook(), {
         atStrategicJumps: ensureIncidentLedger().strategicJumps,
         unrestWriter: (systemIndex, opts) => raiseUnrestFromCommerceFailure(ensureUnrestIndependence(), systemIndex, opts),
+        injected: livePhase8Magnitudes(),
       });
       return snapshot();
     },
-    applyUpkeep: () => applyFleetUpkeep(ensureMarketBook(), ensureFleetOrders(), { parkedShipIds: parkedFleetShipIds() }),
-    dockService: (kind = 'repair') => evaluateDockService(getHoldingForSystem(ensureMarketBook(), state.currentPlanet), kind, { baseCost: 1 }),
+    applyUpkeep: () => applyFleetUpkeep(ensureMarketBook(), ensureFleetOrders(), {
+      parkedShipIds: parkedFleetShipIds(),
+      injected: livePhase8Magnitudes(),
+    }),
+    dockService: (kind = 'repair') => evaluateDockService(
+      getHoldingForSystem(ensureMarketBook(), state.currentPlanet),
+      kind,
+      { baseCost: 1, injected: livePhase8Magnitudes() },
+    ),
     jobEligibility: (hull, job) => evaluateJobEligibility(hull, job),
     cheaperHull: () => cheaperHullStillUseful({ cheaperCanTake: true, capitalBlockedReason: 'upkeep' }),
     grantReman: (source = 'recovery-mission') => {
@@ -28225,6 +28388,7 @@ function installPlayerSecurityProbe() {
     weaponLedger: createWeaponLedgerProbeApi(),
     emptyArmable: createEmptyArmableProbeApi(),
     constructionVisuals: createConstructionVisualsProbeApi(),
+    economyDifficulty: createEconomyDifficultyProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
