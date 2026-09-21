@@ -146,7 +146,7 @@ function measureScript() {
       targetDockClear,
       hasBoard: Boolean(document.querySelector('[data-board-action]')),
       hasCapture: Boolean(document.querySelector('[data-board-action="capture"]')),
-      hasXp: /not tracked yet/i.test(document.body.innerText || ''),
+      hasXp: /away-team xp:/i.test(document.body.innerText || ''),
       hasTransfer: Boolean(document.querySelector('[data-command-transfer]')),
     };
   };

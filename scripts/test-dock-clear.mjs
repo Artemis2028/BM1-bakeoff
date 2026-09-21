@@ -211,7 +211,8 @@ assert('s28.2 hail-board-copy-untouched', srcMain.includes('data-board-action="b
   && srcMain.includes('data-board-action="capture"')
   && srcMain.includes('data-board-action="scuttle"')
   && srcMain.includes('data-hail-action="hail"')
-  && srcMain.includes('Away-team XP: Not tracked yet')
+  && srcMain.includes('awayTeamXpChromeLine')
+  && !srcMain.includes('Not tracked yet')
   && !srcDock.includes('hull-above-threshold'));
 
 assert('s28.8 capture-script', capture.includes('targetDockClear')
