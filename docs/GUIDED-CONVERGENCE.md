@@ -1,26 +1,26 @@
 # Guided remastered-work roadmap — bake-off convergence notes
 
-**Status:** docs-only product knowledge. **Not implemented** on bake-off except where this file says a bake-off Pass already covers the package.  
+**Status:** docs-only product knowledge. Packages in this file are **engine-landed / stay locked** on bake-off `main` @ `74f574b` except named **soft residuals**. Do not read the 12 September port as unimplemented work.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
-**Planning baseline:** `9d130be` on `main` (12 September 2026).  
-**Companion:** `docs/revised-development-plan.md` §16 (short backlog).  
+**Planning baseline:** `9d130be` on `main` (12 September 2026). Hygiene vs `74f574b` (21 September 2026, after dockClear engine PR #61).  
+**Companion:** `docs/revised-development-plan.md` §16 (locked-package status).  
 **Source:** guided “BM1 Remastered — game plan and feature roadmap” for `Artemis2028/BM1-remastered-work`, dated 12 September 2026. Ported here so bake-off can converge on a similar end state.  
 **Blind bake-off:** implement later work from `docs/` only. Do **not** crib `BM1-remastered-work` engine code.
 
-This file holds the detailed weapons table, boarding rules, standing tiers, and catalog/purchase notes. The development plan keeps the short “Agreed next / Proposed” list and pointers.
+This file holds the detailed weapons table, boarding rules, standing tiers, and catalog/purchase notes. The development plan keeps the short **locked-package** list and pointers (§16.2). Rows that used to say “Agreed next” are **engine-landed / stay locked** on `main` @ `74f574b` unless a named residual is listed.
 
 ## Dual-track
 
-| Track | What it already has | What it may land earlier |
+| Track | What it already has | Do not treat as unfinished |
 | --- | --- | --- |
-| **Bake-off** (`BM1-bakeoff`) | Phase 1–5 **engine**, side-lane **engine** (`repairCapable` + arms overlay, Reman durable unlock, unrest → independence mint), additive `bm-ships/` pack, Phase 6 **brief** scored/merged | Later packages in this file, when Tenth scopes them |
-| **Guided** (`BM1-remastered-work`) | Its own engine path | Ships catalog wire and economy/standing may land there first |
+| **Bake-off** (`BM1-bakeoff`) | Phase 1–5 **engine**, side-lane **engine** (`repairCapable` + arms overlay, Reman durable unlock, unrest → independence mint), additive `bm-ships/` pack + **catalog wire** (PR #28), Phase 6 **engine** (PR #24), Phase 7–9.4, boarding, Phase 10 Dominion-first, flags/utility, ledger, empty-armable, construction visuals, HTML catalogs, economy/difficulty, standing-tiers, dockClear S28 | Named **soft residuals** only (below). Not a second catalog wire, not a reopen. |
+| **Guided** (`BM1-remastered-work`) | Its own engine path | Guided may have numbered catalog/economy/standing differently. Bake-off completion is the PRs in this file (wire #28, standing #58/#59, economy #56/#57). |
 
 Do not treat guided progress as bake-off completion. Do not reopen bake-off Passes because guided numbered the same ideas differently.
 
 ## Already complete on bake-off — do not re-propose
 
-These are **done or brief-ready**. They are not “Agreed next from scratch.”
+These are **done**. They are not “Agreed next from scratch.”
 
 | Package | Bake-off status | Where to read |
 | --- | --- | --- |
@@ -32,8 +32,8 @@ These are **done or brief-ready**. They are not “Agreed next from scratch.”
 | Side-lane: `repairCapable` + repair-arms overlay | **Engine landed** | `docs/side-lane-repair-reman-independence/`; [PR #18](https://github.com/Artemis2028/BM1-bakeoff/pull/18) |
 | Side-lane: Reman durable unlock | **Engine landed** (soft `meetPackPurchaseDecision` remains) | Same; [PR #18](https://github.com/Artemis2028/BM1-bakeoff/pull/18) |
 | Side-lane: unrest → independence mint | **Engine landed** | Same; [PR #19](https://github.com/Artemis2028/BM1-bakeoff/pull/19) |
-| Phase 6 sensors / cloak / contact uncertainty / system space | **Brief ready** (PR #22). Engine **not** implemented. | `docs/phase6/` |
-| Additive `bm-ships/` pack | **On main** (PR #15). **Full-roster-v2 content import landed** (approved hull merges + balance docs). **No** catalog wire — live 66-hull path until a later slice. | `bm-ships/README.md`, `docs/APPROVED-HULL-MERGES.md`, `docs/ship-balance/` |
+| Phase 6 sensors / cloak / contact uncertainty / system space | **Engine landed** (brief PR #22, engine [PR #24](https://github.com/Artemis2028/BM1-bakeoff/pull/24) @ `749393b`). **No Referee Pass claimed.** | `docs/phase6/` |
+| Additive `bm-ships/` pack | **On main** (PR #15). **Full-roster-v2 content import landed** (approved hull merges + balance docs). **Catalog wire landed** ([PR #28](https://github.com/Artemis2028/BM1-bakeoff/pull/28) @ `2b1bb47`). Live `loadShipCatalog()` (174 records, 172 active, 38 aliases). Older “no catalog wire / live 66-hull path” copy is **stale**. | `bm-ships/README.md`, `docs/APPROVED-HULL-MERGES.md`, `docs/ship-balance/` |
 
 Guided text about incidents, independence, repair arms, and Reman recovery describes work **already on bake-off**. Cite the Pass / merge. Do not open a second incident ledger, a second independence mint, or a second repair-arms overlay.
 
@@ -185,7 +185,7 @@ Construction beams are **not** Phase 4 combat evidence. They must not write `obs
 
 ## 6. Faction-wide standing / purchase tiers — Locked (engine landed)
 
-**Scoreable brief stay-locked (PR #58 @ `02cf587`).** S27 subscribe module **engine stay-locked** (PR #59 @ `52e36d9`) under [`docs/standing-tiers/`](standing-tiers/) and `src/standing-tiers.js`. Money is not trust. **No Referee Pass claimed.** **Keep #58 / #59 locked.** Do not reopen the wire, Reman, or economy / difficulty overlays. DockClear / UI-fit S28 (`docs/dock-clear/` + `src/dock-clear.js`) does **not** reopen this lane.
+**Scoreable brief stay-locked (PR #58 @ `02cf587`).** S27 subscribe module **engine stay-locked** (PR #59 @ `52e36d9`) under [`docs/standing-tiers/`](standing-tiers/) and `src/standing-tiers.js`. Money is not trust. **No Referee Pass claimed.** **Keep #58 / #59 locked.** Do not reopen the wire, Reman, or economy / difficulty overlays. DockClear / UI-fit S28 (`docs/dock-clear/` + `src/dock-clear.js`; brief #60 / engine **#61 stay-locked**) does **not** reopen this lane.
 
 **Actual landed helpers (subscribe, do not reopen):** catalog wire PR #28 already ships `PURCHASE_TIER_STANDING` (Open 0 / Trusted 15 / Respected 30 / Military 50 / Strategic 75 / Excalibur-Concord 100), `HOME_FACTION_STANDING = 20`, `createStartingStandings`, and `evaluateWiredPurchase`. Live shop / escort / garrison already consult the wire. Reman still goes through `meetPackPurchaseDecision` (PR #18). Economy / difficulty #56 / #57 **stay-locked** — Easy / Hard must not retune this table. Pack helper already refuses a sale when `tierThresholds` are missing (`standing-threshold-unconfigured`; older “prestige-threshold-unconfigured” wording is stale). Missing standing **reads as 0**.
 
@@ -207,7 +207,7 @@ Independent trade standing applies in **neutral / independent** entry. Shared `n
 
 These numbers are a **first balance pass**, not certified economy. Do not silently replace them with bake-off kill-standing deltas.
 
-Phase 4 / 5 already forbid double standing for one destruction. A later standing-tier system must keep that token rule.
+Phase 4 / 5 already forbid double standing for one destruction. The standing-tier subscribe module (PR #59) must keep that token rule.
 
 ### Acceptance
 
@@ -274,11 +274,11 @@ Review catalogs for weapons and stations are **HTML**, without requiring the ori
 - Do not treat Flash as a required review tool.
 - Pages must not silently “fix” Flash vs bake-off conflicts; they show both and cite the ledger.
 
-## 10. Dominion distribution / Gorn reserved / major-threat mission-only — Cross-link
+## 10. Dominion distribution / Gorn reserved / major-threat mission-only — Locked (engine landed)
 
-Doctrine already states this. The pack already encodes it. Catalog wire (PR #28) calls pack helpers; **live** spawn/purchase still needs the Phase 10 gates (debug `authorizedDeployment` from role, map/tooltip leaks, hidden campaign).
+**Engine landed** on bake-off (`docs/phase10/`; brief PR #40 @ `706b7d0`, engine [PR #41](https://github.com/Artemis2028/BM1-bakeoff/pull/41) @ `2ad94b7`). **Stay locked.** Catalog wire (PR #28) already calls pack helpers; live spawn/purchase / hide / `state.dominionBook` are **implemented** (S18). Do not start a second campaign book. Full faction roster **deferred**. Discovery timing, invasion odds, and map-revelation UX stay **TBD / injectable** — do not invent percentages. **No Referee Pass claimed.** **Keep #40 / #41 locked.**
 
-**Scoreable brief now open (docs-only, 15 September 2026):** [`docs/phase10/BM1-PHASE10-DOMINION-FIRST-PROPOSAL.md`](phase10/BM1-PHASE10-DOMINION-FIRST-PROPOSAL.md) + [`docs/phase10/BM1-PHASE10-ENGINE-DEPENDENCIES.md`](phase10/BM1-PHASE10-ENGINE-DEPENDENCIES.md), from `main` @ `de1f857` after boarding engine PR #39. That brief is **Dominion-first Phase 10**, not a full faction roster and not a reopen of EW (#33/#35/#37) or boarding (#38/#39). Discovery timing, invasion odds, and map-revelation UX stay **TBD / injectable** — do not invent percentages. **No Referee Pass claimed.**
+Doctrine already states this. The pack already encodes it. That brief is **Dominion-first Phase 10**, not a full faction roster and not a reopen of EW (#33/#35/#37/#42/#43/#44/#45) or boarding (#38/#39). Pointers: [`docs/phase10/BM1-PHASE10-DOMINION-FIRST-PROPOSAL.md`](phase10/BM1-PHASE10-DOMINION-FIRST-PROPOSAL.md) + [`docs/phase10/BM1-PHASE10-ENGINE-DEPENDENCIES.md`](phase10/BM1-PHASE10-ENGINE-DEPENDENCIES.md).
 
 | Rule | Doctrine | Pack |
 | --- | --- | --- |
@@ -291,22 +291,34 @@ Do not recreate a Gorn state from a leftover name pool. Do not let ordinary Eart
 
 Pointers: doctrine “The wider Dominion's operation”; plan §12 Hidden Dominion campaign; `bm-ships/README.md` “Using it in a browser game”; `bm-ships/integration-rules.json` `dominion` / reserved Gorn; Phase 10 brief `docs/phase10/`.
 
-## Suggested remaining build order (bake-off)
+## Landed / stay-locked order (bake-off)
 
-Adapt the guided order to **what bake-off has not done**. Do not restart Phases 1–5 or the side-lane.
+These packages are **engine-landed**. They are **not** Agreed next. Do not restart Phases 1–5 or the side-lane.
 
 1. **Weapon / device ledger** — brief + engine landed (`docs/weapon-ledger/`, PRs #48/#49). Phase 9 matrix stays read-only. **Stay locked.**
 2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire — brief + engine landed (`docs/empty-armable/`, PRs #50/#51). **Stay locked.**
-3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. **Stay locked** from the weapon-ledger brief.
-4. **Standing tiers** as a named gate surface (Open → Excalibur; new-character 20; Independent trade standing in neutral entry) — **brief #58 stay-locked**; S27 engine **#59 stay-locked** under `docs/standing-tiers/` + `src/standing-tiers.js`. Helpers already landed (PR #28). Economy §8 / #56 / #57 **stay-locked**. DockClear S28 (`docs/dock-clear/` + `src/dock-clear.js`) does **not** reopen this row.
-5. **Catalog wire + purchase rules** — **engine landed** (PR #28). Reuse `meetPackPurchaseDecision` and pack region gates. **Subscribe, do not reopen.** Content (merges + full-roster-v2 balance) is already imported.
-6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
+3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. Capacity / activation **TBD / injectable**. **Stay locked.**
+4. **Standing tiers** as a named gate surface (Open → Excalibur; new-character 20; Independent trade standing in neutral entry) — **brief #58 stay-locked**; S27 engine **#59 stay-locked** @ `52e36d9` under `docs/standing-tiers/` + `src/standing-tiers.js`. Helpers already landed (PR #28). Economy §8 / #56 / #57 **stay-locked**. DockClear S28 does **not** reopen this row.
+5. **Catalog wire + purchase rules** — **engine landed** (PR #28 @ `2b1bb47`). Reuse `meetPackPurchaseDecision` and pack region gates. **Subscribe, do not reopen.** Content (merges + full-roster-v2 balance) is already imported. Older “wire later” copy is **stale**.
+6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). Away-team XP **`not_tracked_yet`**. **Stay locked.**
 7. **Station construction visuals** (scaffolds / workbees / blue beams) — brief + engine landed (`docs/construction-visuals/`, PRs #52/#53). Repair arms stay the side-lane overlay. **Stay locked.**
 8. **HTML weapon / station catalogs** for review — brief **#54 stay-locked**; S25 pages **#55 stay-locked** under `docs/html-catalogs/`. Working agreement: HTML; Flash is evidence, not a required viewer.
-9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity — brief **#56 stay-locked**; S26 overlay on this tip under `docs/economy-difficulty/` + `src/economy-difficulty.js`.
-10. **Phase 6 engine** when Tenth scopes it — brief is already ready; not a new package in this list.
+9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity — brief **#56 stay-locked**; S26 engine **#57 stay-locked** @ `b73d960` under `docs/economy-difficulty/` + `src/economy-difficulty.js`.
+10. **Phase 6 engine** — **engine landed** (PR #24 @ `749393b`). Brief already existed (PR #22). **Stay locked.** Do not rewrite as a new brief.
+11. **Phase 10 Dominion-first** — brief + engine landed (`docs/phase10/`, PRs #40/#41). Full roster **deferred**. Magnitudes / discovery % **injectable**. **Stay locked.**
+12. **DockClear / UI-fit S28** — brief **#60 stay-locked** @ `3bdc18a`; engine **#61 stay-locked** @ `74f574b` under `docs/dock-clear/` + `src/dock-clear.js`. Fit only; no gameplay rewrite. **Stay locked.**
 
-Phase 7 fleet coordination (plan §9) and Phase 9 EW remain on the original roadmap. Boarding/command transfer may feed Phase 7; EW stays after honest contact (Phase 6).
+Phase 7 fleet coordination (PR #29) and Phase 9–9.4 EW (PRs #33/#35/#37/#42/#43/#44/#45) are **engine-landed**. **Stay locked.** Boarding/command transfer already landed (PRs #38/#39) and stays locked. EW stays after honest contact (Phase 6).
+
+### Soft residuals (explicit — not new packages)
+
+- Top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy` — follow-up only if holding alert overrides matter.
+- Away-team XP remains **`not_tracked_yet`** (boarding PRs #38/#39). Do not invent an XP table.
+- Phase 10 **full faction roster deferred**. Dominion-first engine stays locked.
+- Magnitudes stay **injectable**; `MAGNITUDES_LOCKED_FROM_REMASTERED` stays false. Do not invent thresholds.
+- Thaleron Test Facility pass **unverified — not shipped**. Flags capacity / activation TBD.
+- Flash weapon prices remain **source material, not final prices**.
+- **No Referee Pass claimed** on the post-Phase-4 packages.
 
 ## Acceptance gates (cross-package)
 
@@ -322,5 +334,5 @@ A later engine slice in this backlog is not done until:
 - Blind bake-off: `docs/` only; no guided engine.
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
-- Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons retune. Catalog wire helpers are already landed (PR #28) — GUIDED §7 “wire later” is stale. Standing-tiers **S27 subscribe engine** now lives under `docs/standing-tiers/` + `src/standing-tiers.js` (GUIDED §6) — subscribe to #28 / #18 / #56–#57; brief **#58** and engine **#59 stay-locked**. DockClear / UI-fit **S28 layout engine** lives under `docs/dock-clear/` + `src/dock-clear.js` and does **not** reopen §6. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **engine** landed under `docs/empty-armable/` (PRs #50/#51) — stay locked. Station construction visuals **engine** landed under `docs/construction-visuals/` (PRs #52/#53) — stay locked. HTML weapon / station review catalogs **docs** now live under `docs/html-catalogs/` — GUIDED §9 / #54 / #55 **stay-locked**. Broader economy / difficulty knobs **engine** now live under `docs/economy-difficulty/` + `src/economy-difficulty.js` — GUIDED §8 / #56 / #57 **stay-locked**.
+- Dual-track: guided may have numbered catalog/economy/standing differently; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, independence mint, **catalog wire (PR #28)**, standing-tiers (#58/#59), and economy/difficulty (#56/#57).
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire helpers are already landed (PR #28) — GUIDED §7 “wire later” is **stale**. Standing-tiers **S27 subscribe engine** lives under `docs/standing-tiers/` + `src/standing-tiers.js` (GUIDED §6) — subscribe to #28 / #18 / #56–#57; brief **#58** and engine **#59 stay-locked**. DockClear / UI-fit **S28 layout engine** landed under `docs/dock-clear/` + `src/dock-clear.js` (brief #60 / engine **#61 @ `74f574b` stay-locked**) and does **not** reopen §6. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked; full roster deferred. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **engine** landed under `docs/empty-armable/` (PRs #50/#51) — stay locked. Station construction visuals **engine** landed under `docs/construction-visuals/` (PRs #52/#53) — stay locked. HTML weapon / station review catalogs **docs** now live under `docs/html-catalogs/` — GUIDED §9 / #54 / #55 **stay-locked**. Broader economy / difficulty knobs **engine** now live under `docs/economy-difficulty/` + `src/economy-difficulty.js` — GUIDED §8 / #56 / #57 **stay-locked**. Phase 6 **engine** landed (PR #24) — stay locked.
