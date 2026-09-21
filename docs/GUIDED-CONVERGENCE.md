@@ -312,7 +312,7 @@ Phase 7 fleet coordination (PR #29) and Phase 9–9.4 EW (PRs #33/#35/#37/#42/#4
 
 ### Soft residuals (explicit — not new packages)
 
-- Top-level `snapshot().alertsActive` still raw `playerSecurity` vs `getEffectivePolicy` — follow-up only if holding alert overrides matter.
+- Top-level `snapshot().alertsActive` S29 engine (this PR) follows `getEffectivePolicy` when a holding override is active. **No Referee Pass claimed.** Do not restore S4-21 to `alertsActive === false`.
 - Away-team XP remains **`not_tracked_yet`** (boarding PRs #38/#39). Do not invent an XP table.
 - Phase 10 **full faction roster deferred**. Dominion-first engine stays locked.
 - Magnitudes stay **injectable**; `MAGNITUDES_LOCKED_FROM_REMASTERED` stays false. Do not invent thresholds.

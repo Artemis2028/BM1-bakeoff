@@ -5623,6 +5623,186 @@ async function runDockClear(page, results) {
   }));
 }
 
+async function runAlertsActive(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.alertsActive));
+  if (!present) {
+    check(results, 'S29.setup alertsActive-api', false, 'alertsActive probe API missing');
+    return;
+  }
+
+  const s29 = await page.evaluate(() => {
+    const top = globalThis.__BM1_PROBE__;
+    const p = globalThis.BM1Probe;
+    if (typeof top.alertsActive?.snapshot !== 'function' || typeof top.incidents?.setHoldingAlerts !== 'function') {
+      return { missing: true };
+    }
+    const home = top.snapshot().currentPlanet;
+    const held = (top.snapshot().controlledSystems || []).includes(home);
+    top.setEmpireRoe('return-fire');
+    top.incidents.setAlerts('all');
+    top.incidents.setHoldingAlerts(home, 'silent');
+    const silentTop = top.snapshot();
+    const silentInc = top.incidents.snapshot();
+    const silentApi = top.alertsActive.snapshot();
+    const mayBefore = top.mayAutoEngage({ id: 's29-hostile', faction: 'klingon', hostile: true, attitude: 'hostile' });
+    top.incidents.setAlerts('silent');
+    top.incidents.setHoldingAlerts(home, 'all');
+    const allTop = top.snapshot();
+    const allInc = top.incidents.snapshot();
+    const allApi = top.alertsActive.snapshot();
+    const mayAfter = top.mayAutoEngage({ id: 's29-hostile', faction: 'klingon', hostile: true, attitude: 'hostile' });
+    top.incidents.setAlerts('all');
+    top.incidents.setHoldingAlerts(home, null);
+    const noOverride = top.snapshot();
+    const noOverrideInc = top.incidents.snapshot();
+    top.incidents.setAlerts('all');
+    top.incidents.setHoldingAlerts(home, 'silent');
+    const lost = top.loseHolding(home, 'klingon');
+    const lostTop = top.snapshot();
+    const lostInc = top.incidents.snapshot();
+    top.reclaimHolding(home);
+    top.incidents.setAlerts('all');
+    top.incidents.setHoldingAlerts(home, 'silent');
+    const beforeCount = (top.incidents.list() || []).length;
+    p.spawnShip?.({
+      id: 's29-patrol',
+      faction: 'ferengi',
+      role: 'patrol',
+      x: 1260,
+      y: 900,
+    });
+    const distress = top.incidents.injectDistress({ lastKnown: { x: 1300, y: 900 } });
+    const afterCount = (top.incidents.list() || []).length;
+    const fire = top.alertsActive.snapshot({ fireInject: { firingSolution: true, engagement_authorized: true, cultureFire: true } });
+    return {
+      missing: false,
+      held,
+      home,
+      silent: {
+        top: silentTop.alertsActive,
+        incidents: silentInc.alertsActive,
+        incidentsMode: silentInc.alertsMode,
+        effective: silentTop.effectivePolicy?.alerts,
+        empire: silentTop.playerSecurity?.empireDefault?.alerts,
+        protectAll: silentTop.protectAll,
+        api: silentApi,
+      },
+      all: {
+        top: allTop.alertsActive,
+        incidents: allInc.alertsActive,
+        incidentsMode: allInc.alertsMode,
+        effective: allTop.effectivePolicy?.alerts,
+        empire: allTop.playerSecurity?.empireDefault?.alerts,
+        api: allApi,
+      },
+      noOverride: {
+        top: noOverride.alertsActive,
+        incidents: noOverrideInc.alertsActive,
+        effective: noOverride.effectivePolicy?.alerts,
+        empire: noOverride.playerSecurity?.empireDefault?.alerts,
+      },
+      lost: {
+        top: lostTop.alertsActive,
+        incidents: lostInc.alertsActive,
+        effective: lostTop.effectivePolicy?.alerts,
+        empire: lostTop.playerSecurity?.empireDefault?.alerts,
+        held: (lostTop.controlledSystems || []).includes(home),
+        retained: Boolean(lostTop.playerSecurity?.holdings?.[String(home)]),
+        retainedActive: Boolean(lostTop.playerSecurity?.holdings?.[String(home)]?.active),
+        lost,
+      },
+      mayBefore,
+      mayAfter,
+      modes: silentTop.playerSecurity?.empireDefault,
+      protectAll: silentTop.protectAll,
+      fire: fire.fire,
+      tractor: fire.tractorIsBoard,
+      roe: fire.twoModeRoe,
+      lock: fire.lockedFromRemastered === true || top.alertsActive.lock() === true,
+      incident: {
+        beforeCount,
+        afterCount,
+        ok: distress?.ok === true,
+        created: Boolean(distress?.incident?.incidentId),
+      },
+      dockClear: Boolean(top.dockClear),
+      standingTiers: Boolean(top.standingTiers),
+    };
+  });
+
+  check(results, 'S29.setup alertsActive-api', s29.missing !== true, JSON.stringify(s29));
+  check(results, 'S29.1 override-silent-vs-empire-all', s29.held === true
+    && s29.silent?.top === false
+    && s29.silent?.incidents === false
+    && s29.silent?.effective === 'silent'
+    && s29.silent?.incidentsMode === 'silent'
+    && s29.silent?.empire === 'all'
+    && s29.silent?.api?.matchesEffective === true
+    && s29.silent?.api?.twinsAgree === true
+    && s29.silent?.top === (s29.silent?.effective !== 'silent'), JSON.stringify(s29.silent));
+  check(results, 'S29.2 override-all-vs-empire-silent', s29.all?.top === true
+    && s29.all?.incidents === true
+    && s29.all?.effective === 'all'
+    && s29.all?.incidentsMode === 'all'
+    && s29.all?.empire === 'silent'
+    && s29.all?.api?.matchesEffective === true
+    && s29.all?.api?.twinsAgree === true
+    && s29.all?.top === (s29.all?.effective !== 'silent'), JSON.stringify(s29.all));
+  check(results, 'S29.3 no-override-and-lost-holding', s29.noOverride?.top === true
+    && s29.noOverride?.incidents === true
+    && s29.noOverride?.effective === s29.noOverride?.empire
+    && s29.lost?.held === false
+    && s29.lost?.retained === true
+    && s29.lost?.retainedActive === false
+    && s29.lost?.top === true
+    && s29.lost?.effective === s29.lost?.empire
+    && s29.lost?.empire === 'all', JSON.stringify({
+    noOverride: s29.noOverride,
+    lost: s29.lost,
+  }));
+  check(results, 'S29.4 twins-agree', s29.silent?.top === s29.silent?.incidents
+    && s29.silent?.incidentsMode === s29.silent?.effective
+    && s29.all?.top === s29.all?.incidents
+    && s29.all?.incidentsMode === s29.all?.effective
+    && s29.silent?.api?.twinsAgree === true
+    && s29.all?.api?.twinsAgree === true, JSON.stringify({
+    silent: s29.silent,
+    all: s29.all,
+  }));
+  check(results, 'S29.5 no-roe-rewrite-no-gifted-fire', s29.protectAll === false
+    && s29.mayBefore === false
+    && s29.mayAfter === false
+    && s29.mayBefore === s29.mayAfter
+    && s29.fire?.firingSolutionPresent !== true
+    && s29.fire?.engagementAuthorizedPresent !== true
+    && s29.fire?.cultureFire !== true
+    && s29.tractor !== true
+    && Array.isArray(s29.roe)
+    && s29.roe.length === 2
+    && s29.incident?.ok === true
+    && s29.incident?.created === true
+    && s29.incident?.afterCount > s29.incident?.beforeCount, JSON.stringify({
+    protectAll: s29.protectAll,
+    may: { before: s29.mayBefore, after: s29.mayAfter },
+    fire: s29.fire,
+    tractor: s29.tractor,
+    roe: s29.roe,
+    incident: s29.incident,
+  }));
+  check(results, 'S29.6 landed-lanes-preserved', s29.dockClear === true
+    && s29.standingTiers === true
+    && s29.tractor !== true
+    && Array.isArray(s29.roe)
+    && s29.roe.length === 2, JSON.stringify({
+    dockClear: s29.dockClear,
+    standingTiers: s29.standingTiers,
+    tractor: s29.tractor,
+    roe: s29.roe,
+  }));
+  check(results, 'S29.7 remastered-lock-false', s29.lock !== true, JSON.stringify({ lock: s29.lock }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -5660,13 +5840,14 @@ async function main() {
     await runEconomyDifficulty(page, results);
     await runStandingTiers(page, results);
     await runDockClear(page, results);
+    await runAlertsActive(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

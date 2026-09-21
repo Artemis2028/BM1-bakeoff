@@ -273,6 +273,13 @@ import {
   snapshotVisibleDockFit,
 } from './dock-clear.js';
 import {
+  ALERTS_ACTIVE_LOCKED_FROM_REMASTERED,
+  alertsActiveInjectMustNotGiftFire,
+  requireAlertsActiveHelpers,
+  snapshotAlertsActive,
+  snapshotAlertsActiveReadout,
+} from './alerts-active.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -23950,6 +23957,7 @@ function installBm1ProbeHarness() {
     economyDifficulty: createEconomyDifficultyProbeApi(),
     standingTiers: createStandingTiersProbeApi(),
     dockClear: createDockClearProbeApi(),
+    alertsActive: createAlertsActiveProbeApi(),
   };
 }
 
@@ -24791,6 +24799,65 @@ function createDockClearProbeApi() {
       return { ok: true, snapshot: snapshot() };
     },
     lock: () => DOCK_CLEAR_LOCKED_FROM_REMASTERED,
+  };
+}
+
+function createAlertsActiveProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [getEffectivePolicy, 'getEffectivePolicy'],
+    [areAlertsActive, 'areAlertsActive'],
+    [snapshotAlertsActive, 'snapshotAlertsActive'],
+    [snapshotAlertsActiveReadout, 'snapshotAlertsActiveReadout'],
+    [requireAlertsActiveHelpers, 'requireAlertsActiveHelpers'],
+  ];
+  const missingSetup = () => {
+    try {
+      requireAlertsActiveHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    const policies = ensurePlayerSecurity();
+    const systemIndex = state.currentPlanet;
+    const playerHolds = isSystemControlled(systemIndex);
+    const incidents = createIncidentProbeApi().snapshot();
+    const fire = alertsActiveInjectMustNotGiftFire(extras.fireInject || {
+      firingSolution: true,
+      engagement_authorized: true,
+      cultureFire: true,
+    });
+    const row = snapshotAlertsActiveReadout({
+      policies,
+      systemIndex,
+      playerHolds,
+      incidentsAlertsActive: incidents.alertsActive,
+      incidentsAlertsMode: incidents.alertsMode,
+      fireInject: extras.fireInject,
+    });
+    return {
+      ...row,
+      fire: {
+        firingSolutionPresent: fire.firingSolutionPresent,
+        engagementAuthorizedPresent: fire.engagementAuthorizedPresent,
+        cultureFire: fire.cultureFire,
+      },
+    };
+  };
+  return {
+    snapshot,
+    lock: () => ALERTS_ACTIVE_LOCKED_FROM_REMASTERED,
   };
 }
 
@@ -28706,7 +28773,7 @@ function installPlayerSecurityProbe() {
       effectiveRoe: getEffectiveRoe(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
       effectivePolicy: getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
       accessEnforced: isAccessEnforced(state.playerSecurity),
-      alertsActive: areAlertsActive(state.playerSecurity),
+      alertsActive: snapshotAlertsActive(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
       protectAll: offersProtectAll(state.playerSecurity),
       checkpoint: checkpointUiSnapshot(),
       log: state.log,
@@ -28736,6 +28803,7 @@ function installPlayerSecurityProbe() {
     economyDifficulty: createEconomyDifficultyProbeApi(),
     standingTiers: createStandingTiersProbeApi(),
     dockClear: createDockClearProbeApi(),
+    alertsActive: createAlertsActiveProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
