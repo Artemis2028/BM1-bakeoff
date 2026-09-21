@@ -183,9 +183,13 @@ Construction beams are **not** Phase 4 combat evidence. They must not write `obs
 2. Repair still uses the side-lane overlay only.
 3. Construction visuals never authorize ROE fire or a kill-standing token.
 
-## 6. Faction-wide standing / purchase tiers — Agreed next
+## 6. Faction-wide standing / purchase tiers — Brief open (docs)
 
-**Not yet implemented on bake-off as live purchase gates.** Pack helper already refuses a sale when `tierThresholds` are missing (`prestige-threshold-unconfigured`). Money is not trust.
+**Scoreable brief now open (docs-only, 21 September 2026):** [`docs/standing-tiers/BM1-STANDING-TIERS-PROPOSAL.md`](standing-tiers/BM1-STANDING-TIERS-PROPOSAL.md) + [`docs/standing-tiers/BM1-STANDING-TIERS-ENGINE-DEPENDENCIES.md`](standing-tiers/BM1-STANDING-TIERS-ENGINE-DEPENDENCIES.md), from `main` @ `b73d960` after economy / difficulty engine PR #57. Money is not trust. **No Referee Pass claimed.** Room scores the eight hard gates **before** any S27 engine.
+
+**Actual landed helpers (subscribe, do not reopen):** catalog wire PR #28 already ships `PURCHASE_TIER_STANDING` (Open 0 / Trusted 15 / Respected 30 / Military 50 / Strategic 75 / Excalibur-Concord 100), `HOME_FACTION_STANDING = 20`, `createStartingStandings`, and `evaluateWiredPurchase`. Live shop / escort / garrison already consult the wire. Reman still goes through `meetPackPurchaseDecision` (PR #18). Economy / difficulty #56 / #57 **stay-locked** — Easy / Hard must not retune this table. Pack helper already refuses a sale when `tierThresholds` are missing (`standing-threshold-unconfigured`; older “prestige-threshold-unconfigured” wording is stale). Missing standing **reads as 0**.
+
+The older “not yet implemented as live purchase gates” sentence is **planning drift**. Helpers are landed. This brief is the **scoreable contract** (plan §16.2 row 6), not a second wire.
 
 ### First balance pass (source thresholds)
 
@@ -208,15 +212,14 @@ Phase 4 / 5 already forbid double standing for one destruction. A later standing
 ### Acceptance
 
 1. Credits alone cannot buy a Military / Strategic / Excalibur hull.
-2. New-game selected faction starts at 20; other factions start at their declared default (Open 0 unless a later brief says otherwise).
+2. New-game selected faction starts at 20; other factions start at their declared default (**Open 0** — the standing-tiers brief declares this).
 3. Independent / Concord access is a standing + vendor rule, not “I have latinum.”
 
-## 7. Catalog wire + purchase rules — Agreed next
+## 7. Catalog wire + purchase rules — Landed (subscribe)
 
-**Content import landed; catalog wire still later.** `bm-ships/` now holds the
-full-roster-v2 pack (174 records, 172 active, 38 old→survivor aliases). Ambient
-traffic, yards, and markets still use the pre-pack 66-hull roster. Guided may
-wire the catalog earlier; bake-off must still treat wire as future work.
+**Actual landed state:** catalog wire **already shipped** ([PR #28](https://github.com/Artemis2028/BM1-bakeoff/pull/28) @ `2b1bb47`, implement tip `d7cf579`). `CATALOG_WIRED === true`. Full-roster-v2 is live (`loadShipCatalog()`; 174 records, 172 active, 38 aliases). `evaluateWiredPurchase` + `meetPackPurchaseDecision` are the purchase meeting points. S11. Standing-tiers brief (`docs/standing-tiers/`) **subscribes** to this wire and does **not** reopen it.
+
+The older planning sentence “catalog wire still later” / “bake-off must still treat wire as future work” is **stale**. Do not start a second wire. Content import remains landed (`bm-ships/` full-roster-v2). Guided may have numbered this package differently; bake-off completion is PR #28.
 
 ### What already exists (do not reinvent)
 
@@ -225,24 +228,24 @@ wire the catalog earlier; bake-off must still treat wire as future work.
 - Reman soft meeting point from side-lane [PR #18](https://github.com/Artemis2028/BM1-bakeoff/pull/18): `meetPackPurchaseDecision` in `src/side-lane-repair-reman.js`.
   - Hull **53 / `bm-ship:53` remains.** It is not a merge and is not a second Reman id.
   - Durable Reman unlock may satisfy pack `restricted-stock`. Without a vendor context the pack still refuses hull 53 as `restricted-stock` (`shipyardEligible: false`).
-  - Pack metadata may tag `specialVendor: remus-secret` as a yard note. That does **not** make Remus station the sole key. Do not treat the tag as live stock until catalog wire.
+  - Pack metadata may tag `specialVendor: remus-secret` as a yard note. That does **not** make Remus station the sole key. Catalog wire is **landed**; the tag is still a yard note, not the Reman key.
   - Standing-threshold-unconfigured is **not** an access fail when the hull already has explicit `purchaseRequirements` (full-roster-v2 does).
   - Granted access **survives** a `region` refuse (destroyed / off-Remus yard).
   - `funds` / `unavailable` / `balance-pending` stay pack refusals.
   - Do **not** invent a second Reman hull id or replace durable unlock with Remus-only access.
-- S7.9: ordinary traffic/markets must not require `loadShipCatalog()` until this wire slice.
+- S7.9 **flipped with PR #28**: ordinary traffic/markets now use the wired catalog. Do not flip it back.
 
-### Wire rules (when Tenth scopes)
+### Wire rules (already landed — do not reopen)
 
 - Namespaced `bm-ship:<id>` or an explicit remap. Numeric pack IDs are pack-local. Resolve merge aliases; do not resurrect discarded IDs as extra hulls.
 - Empty legal `spawnPool` stays empty. No fallback into reserved Gorn or unknown regions.
 - Purchase consults pack decision **and** engine standing / unlock / Phase 1 authority. Money ≠ standing ≠ Reman flag.
 - Keep `getShip` distinct from `resolveNewShipId` (owned hulls are not silently refitted).
-- Excalibur 347 is now an active balanced pack row; 100 standing alone still does not sell it without the later wire + funds/vendor checks.
+- Excalibur 347 is now an active balanced pack row; 100 standing alone still does not sell it without funds + `paso-project-x` vendor (wire already landed).
 
 ### Acceptance
 
-1. Full 174-hull wire is explicit and testable; S7.9 flips only in that slice.
+1. Full 174-hull wire is explicit and testable; S7.9 **already flipped** with PR #28.
 2. Reman still goes through `meetPackPurchaseDecision` (soft S7.8 stays the meeting point). Remus is not the sole key.
 3. No second Reman id; no silent unlock rewrite.
 
@@ -250,7 +253,7 @@ wire the catalog earlier; bake-off must still treat wire as future work.
 
 Overlaps plan §10 (finite markets, embargoes, fleet costs, conquest obligations) and plan §13 (trade/reputation reversal, jump farming).
 
-**Scoreable brief stay-locked (PR #56 @ `ca5f4c1`).** S26 subscribe overlay lives under [`docs/economy-difficulty/`](economy-difficulty/) and `src/economy-difficulty.js`. Difficulty is **adjustable tuning** (pacing numbers, not ownership). Political identity stays the same at all difficulties. Do not invent repair prices, unrest thresholds, or prestige curves. Phase 8 anti-farm (PR #31) stays **closed** — cite, do not reopen. Money ≠ standing ≠ Reman. Never gift FS / culture / `engagement_authorized` from a difficulty setting. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), ledger (#48/#49), empty-armable (#50/#51), construction (#52/#53), or HTML catalogs (#54/#55). GUIDED §9 / #54 / #55 **stay-locked**. DockClear / HTML reopen / Thaleron facility invent / combat retune / Flash price locks **out**. `ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED` stays false. **Keep #56 locked.** **No Referee Pass claimed.**
+**Scoreable brief stay-locked (PR #56 @ `ca5f4c1`).** S26 subscribe overlay **engine landed** (PR #57 @ `b73d960`) under [`docs/economy-difficulty/`](economy-difficulty/) and `src/economy-difficulty.js`. Difficulty is **adjustable tuning** (pacing numbers, not ownership). Political identity stays the same at all difficulties. Do not invent repair prices, unrest thresholds, or prestige curves. Phase 8 anti-farm (PR #31) stays **closed** — cite, do not reopen. Money ≠ standing ≠ Reman. Never gift FS / culture / `engagement_authorized` from a difficulty setting. **Not** a reopen of EW (#33/#35/#37/#42/#43/#44/#45), boarding (#38/#39), Phase 10 (#40/#41), flags/passes (#46/#47), ledger (#48/#49), empty-armable (#50/#51), construction (#52/#53), or HTML catalogs (#54/#55). GUIDED §9 / #54 / #55 **stay-locked**. Standing-tiers brief (`docs/standing-tiers/`) does **not** reopen this lane and must **not** retune `PURCHASE_TIER_STANDING` as Easy / Hard. DockClear / HTML reopen / Thaleron facility invent / combat retune / Flash price locks **out**. `ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED` stays false. **Keep #56 / #57 locked.** **No Referee Pass claimed.**
 
 - Difficulty is **adjustable tuning**.
 - **Political identity stays the same at all difficulties.** Easy must not collapse Phase 1 (flag-share ≠ control, concessions stay foreign, independents are not one alliance, Breen–Dominion have no static friendship).
@@ -295,8 +298,8 @@ Adapt the guided order to **what bake-off has not done**. Do not restart Phases 
 1. **Weapon / device ledger** — brief + engine landed (`docs/weapon-ledger/`, PRs #48/#49). Phase 9 matrix stays read-only. **Stay locked.**
 2. **Empty-but-armable** three-slot persistence and unarmed-cannot-fire — brief + engine landed (`docs/empty-armable/`, PRs #50/#51). **Stay locked.**
 3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. **Stay locked** from the weapon-ledger brief.
-4. **Standing tiers** as data (Open → Excalibur) plus new-character 20. Independent trade standing in neutral entry.
-5. **Catalog wire + purchase rules**, reusing `meetPackPurchaseDecision` and pack region gates (Dominion / Gorn / mission-only). Content (merges + full-roster-v2 balance) is already imported.
+4. **Standing tiers** as a scoreable contract (Open → Excalibur; new-character 20; Independent trade standing in neutral entry) — **brief open** (`docs/standing-tiers/`). Helpers already landed (PR #28). Economy §8 / #56 / #57 **stay-locked**.
+5. **Catalog wire + purchase rules** — **engine landed** (PR #28). Reuse `meetPackPurchaseDecision` and pack region gates. **Subscribe, do not reopen.** Content (merges + full-roster-v2 balance) is already imported.
 6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). **Stay locked.**
 7. **Station construction visuals** (scaffolds / workbees / blue beams) — brief + engine landed (`docs/construction-visuals/`, PRs #52/#53). Repair arms stay the side-lane overlay. **Stay locked.**
 8. **HTML weapon / station catalogs** for review — brief **#54 stay-locked**; S25 pages **#55 stay-locked** under `docs/html-catalogs/`. Working agreement: HTML; Flash is evidence, not a required viewer.
@@ -320,4 +323,4 @@ A later engine slice in this backlog is not done until:
 - HTML review catalogs; Flash is source evidence, not a required viewer.
 - Proposal before engine unless Tenth scopes a thin data/audit slice.
 - Dual-track: guided may ship catalog/economy first; bake-off already has political, ROE, checkpoints, incidents, convoy/`asset_overdue`, repair arms, Reman unlock, and independence mint.
-- This document updates planning knowledge. It does not implement weapons retune. Catalog wire and standing tiers are already landed. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **engine** landed under `docs/empty-armable/` (PRs #50/#51) — stay locked. Station construction visuals **engine** landed under `docs/construction-visuals/` (PRs #52/#53) — stay locked. HTML weapon / station review catalogs **docs** now live under `docs/html-catalogs/` — GUIDED §9 / #54 / #55 **stay-locked**. Broader economy / difficulty knobs **engine** now live under `docs/economy-difficulty/` + `src/economy-difficulty.js` — GUIDED §8 / #56 **stay-locked**.
+- This document updates planning knowledge. It does not implement weapons retune. Catalog wire helpers are already landed (PR #28) — GUIDED §7 “wire later” is stale. Standing-tiers **scoreable brief** now lives under `docs/standing-tiers/` (GUIDED §6) — subscribe to #28 / #18 / #56–#57; no engine in that brief. Boarding **engine** landed under `docs/boarding/` (PRs #38/#39) — stay locked. Phase 10 Dominion-first **engine** landed under `docs/phase10/` (PRs #40/#41) — stay locked. Flags / passes / utility inventory **engine** landed under `docs/flags-passes/` (PRs #46/#47) — stay locked. Weapon / device source ledger **engine** landed under `docs/weapon-ledger/` (PRs #48/#49) — stay locked. Empty-but-armable **engine** landed under `docs/empty-armable/` (PRs #50/#51) — stay locked. Station construction visuals **engine** landed under `docs/construction-visuals/` (PRs #52/#53) — stay locked. HTML weapon / station review catalogs **docs** now live under `docs/html-catalogs/` — GUIDED §9 / #54 / #55 **stay-locked**. Broader economy / difficulty knobs **engine** now live under `docs/economy-difficulty/` + `src/economy-difficulty.js` — GUIDED §8 / #56 / #57 **stay-locked**.
