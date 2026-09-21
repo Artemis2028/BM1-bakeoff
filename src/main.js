@@ -261,6 +261,18 @@ import {
   startingStandingsOpenZero,
 } from './standing-tiers.js';
 import {
+  DOCK_CLEAR_LOCKED_FROM_REMASTERED,
+  DOCK_CLEAR_TOKEN,
+  boxClearsDock,
+  dockClearInjectMustNotGiftFire,
+  findLeakedNames,
+  labelFitsHost,
+  readDockClearPx,
+  requireDockClearHelpers,
+  snapshotDockClear,
+  snapshotVisibleDockFit,
+} from './dock-clear.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -14520,6 +14532,10 @@ function syncInterstellarMapFrame() {
     closeLeft = Math.max(panelLeft + panel.railW * scaleX + 8 * scaleX, closeLeft);
     interstellarMapFrameEl?.style.setProperty('--map-close-top', `${closeTop}px`);
     interstellarMapFrameEl?.style.setProperty('--map-close-left', `${closeLeft}px`);
+    interstellarMapFrameEl?.style.setProperty('--map-panel-top', `${panelTop}px`);
+    interstellarMapFrameEl?.style.setProperty('--map-panel-left', `${panelLeft}px`);
+    interstellarMapFrameEl?.style.setProperty('--map-panel-right', `${panelRight}px`);
+    interstellarMapFrameEl?.style.setProperty('--map-panel-bottom', `${panelBottom}px`);
     if (interstellarMapCanvas) {
       interstellarMapCanvas.style.setProperty('--map-panel-clip-top', `${Math.max(0, panelTop - clipPad)}px`);
       interstellarMapCanvas.style.setProperty('--map-panel-clip-right', `${Math.max(0, window.innerWidth - panelRight - clipPad)}px`);
@@ -20056,8 +20072,13 @@ function drawSpinningPlanetSprite(img, p, x, y, size, now = performance.now()) {
 }
 
 function getStarChartPanelRect() {
-  const width = clamp(canvas.width * 0.84, 660, canvas.width - 88);
-  const height = clamp(canvas.height * 0.79, 380, canvas.height - 88);
+  const dockClear = readDockClearPx(
+    typeof document !== 'undefined'
+      ? getComputedStyle(document.body).getPropertyValue(DOCK_CLEAR_TOKEN)
+      : `${88}px`,
+  );
+  const width = clamp(canvas.width * 0.84, 660, canvas.width - dockClear);
+  const height = clamp(canvas.height * 0.79, 380, canvas.height - dockClear);
   const left = (canvas.width - width) / 2;
   const top = Math.max(28, (canvas.height - height) / 2 - canvas.height * 0.02);
   return {
@@ -23928,6 +23949,7 @@ function installBm1ProbeHarness() {
     constructionVisuals: createConstructionVisualsProbeApi(),
     economyDifficulty: createEconomyDifficultyProbeApi(),
     standingTiers: createStandingTiersProbeApi(),
+    dockClear: createDockClearProbeApi(),
   };
 }
 
@@ -24675,6 +24697,100 @@ function createEconomyDifficultyProbeApi() {
     boundSalvage: (amount) => boundTravelSalvage(ensureMarketBook(), amount, livePhase8Magnitudes()),
     boundTransport: (amount) => boundTransportLatinum(ensureMarketBook(), amount, livePhase8Magnitudes()),
     lock: () => ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED,
+  };
+}
+
+function createDockClearProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const missingSetup = () => {
+    try {
+      requireDockClearHelpers(snapshotDockFit);
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    const missing = failIfMissing(snapshotDockFit, 'snapshotDockFit');
+    if (missing) return missing;
+    const missingSnap = failIfMissing(snapshotDockClear, 'snapshotDockClear');
+    if (missingSnap) return missingSnap;
+    return null;
+  };
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    const fit = snapshotDockFit();
+    const fire = dockClearInjectMustNotGiftFire(extras.fireInject || {
+      firingSolution: true,
+      engagement_authorized: true,
+      cultureFire: true,
+    });
+    return {
+      ok: true,
+      missing: false,
+      lockedFromRemastered: DOCK_CLEAR_LOCKED_FROM_REMASTERED === true,
+      viewport: { w: window.innerWidth, h: window.innerHeight },
+      clippedControls: fit.clippedControls,
+      overflowX: fit.overflowX,
+      operator: { dockClear: fit.dockClear },
+      target: { dockClear: fit.targetDockClear },
+      map: {
+        dockClear: fit.mapDockClear,
+        leakedNames: fit.leakedNames,
+        open: fit.mapOpen,
+        labeledSystemsInBox: fit.labeledSystemsInBox,
+      },
+      knowledge: { dockClear: fit.knowledgeDockClear },
+      fire: {
+        firingSolutionPresent: fire.firingSolutionPresent,
+        engagementAuthorizedPresent: fire.engagementAuthorizedPresent,
+        cultureFire: fire.cultureFire,
+      },
+      tractorIsBoard: fire.tractorIsBoard,
+      twoModeRoe: fire.twoModeRoe,
+      standingLockFalse: fire.standingLockFalse,
+      reachableControls: fit.reachableControls,
+      fit,
+    };
+  };
+  return {
+    snapshot,
+    snapshotDockFit: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return snapshotDockFit();
+    },
+    openOps: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      state.topLeftPanelOpen = true;
+      state.topLeftTab = 'power';
+      renderTopLeftPanel();
+      return { ok: true, snapshot: snapshot() };
+    },
+    closeOps: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      state.topLeftPanelOpen = false;
+      renderTopLeftPanel();
+      return { ok: true, snapshot: snapshot() };
+    },
+    openMap: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      openMap();
+      render();
+      return { ok: true, snapshot: snapshot() };
+    },
+    closeMap: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      closeMap();
+      render();
+      return { ok: true, snapshot: snapshot() };
+    },
+    lock: () => DOCK_CLEAR_LOCKED_FROM_REMASTERED,
   };
 }
 
@@ -26599,11 +26715,83 @@ function createPhase91ProbeApi() {
   };
 }
 
+function cssBoxFromRect(rect, extra = {}) {
+  if (!rect) return null;
+  return {
+    hidden: extra.hidden === true,
+    overflowX: extra.overflowX === true,
+    overflowY: extra.overflowY === true,
+    top: rect.top,
+    bottom: rect.bottom,
+    left: rect.left,
+    right: rect.right,
+    panelW: rect.width,
+    panelH: rect.height,
+  };
+}
+
+function mapChartCssBox() {
+  if (!state.mapOpen) return null;
+  const host = interstellarMapCanvas || canvas;
+  if (!host) return null;
+  const panel = getStarChartPanelRect();
+  const rect = host.getBoundingClientRect();
+  const scaleX = rect.width / Math.max(1, host.width || canvas.width);
+  const scaleY = rect.height / Math.max(1, host.height || canvas.height);
+  return cssBoxFromRect({
+    top: rect.top + panel.top * scaleY,
+    left: rect.left + panel.left * scaleX,
+    right: rect.left + panel.right * scaleX,
+    bottom: rect.top + panel.bottom * scaleY,
+    width: (panel.right - panel.left) * scaleX,
+    height: (panel.bottom - panel.top) * scaleY,
+  }, { hidden: false });
+}
+
+function listSayableMapLabelBoxes() {
+  if (!state.mapOpen) return [];
+  const panel = mapChartCssBox();
+  const host = interstellarMapCanvas || canvas;
+  if (!panel || !host) return [];
+  const rect = host.getBoundingClientRect();
+  const scaleX = rect.width / Math.max(1, host.width || canvas.width);
+  const scaleY = rect.height / Math.max(1, host.height || canvas.height);
+  const out = [];
+  for (let i = 0; i < state.planets.length; i++) {
+    const planet = state.planets[i];
+    const routeNeighbor = hasTravelRoute(state.currentPlanet, i);
+    const selectedPlan = getPlottedRoute(state.currentPlanet, state.selectedPlanet);
+    const inSelectedPlan = selectedPlan?.systems?.includes(i);
+    if (!(i === state.currentPlanet || i === state.selectedPlanet || routeNeighbor || inSelectedPlan)) continue;
+    if (!shouldDrawSystemLabel(playerDiscovery(), playerObserverKey(), planet.name)) continue;
+    const rawLabel = sayablePlanetName(planet, '');
+    if (!rawLabel) continue;
+    const label = rawLabel.length > 14 ? `${rawLabel.slice(0, 13)}.` : rawLabel;
+    const screen = getStarChartSystemScreen(i);
+    const width = Math.max(28, label.length * 7.2) * scaleX;
+    const box = {
+      name: rawLabel,
+      label,
+      left: rect.left + screen.x * scaleX - width / 2,
+      right: rect.left + screen.x * scaleX + width / 2,
+      top: rect.top + (screen.y - MAP_PLANET_DRAW_SIZE / 2 - 20) * scaleY,
+      bottom: rect.top + (screen.y - MAP_PLANET_DRAW_SIZE / 2 - 4) * scaleY,
+    };
+    out.push({
+      ...box,
+      inChartBox: labelFitsHost(box, panel),
+    });
+  }
+  return out;
+}
+
 function snapshotDockFit() {
   const panel = document.getElementById('top-left-panel');
   const content = panel?.querySelector('.top-left-panel-content');
   const dock = document.getElementById('bottom-dock');
   const target = document.getElementById('target-window');
+  const knowledge = document.getElementById('phase10-readout') || document.querySelector('[data-phase10-knowledge]');
+  const mapClose = document.getElementById('btn-close-map');
   const overlap = (a, b) => a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   const intersect = (a, b) => {
     if (!a || !b) return null;
@@ -26617,32 +26805,67 @@ function snapshotDockFit() {
   const dockRect = dock && !dock.classList.contains('hidden') ? dock.getBoundingClientRect() : null;
   const panelRect = panel && !panel.classList.contains('hidden') ? panel.getBoundingClientRect() : null;
   const targetRect = target && !target.classList.contains('hidden') ? target.getBoundingClientRect() : null;
+  const knowledgeRect = knowledge && !knowledge.classList.contains('hidden') ? knowledge.getBoundingClientRect() : null;
+  const closeRect = state.mapOpen && mapClose && !mapClose.classList.contains('hidden')
+    ? mapClose.getBoundingClientRect()
+    : null;
+  const mapBox = mapChartCssBox();
   const clippedControls = [];
   const nodes = [
     ...(panel && !panel.classList.contains('hidden') ? [...panel.querySelectorAll('button')] : []),
     ...(target && !target.classList.contains('hidden') ? [...target.querySelectorAll('button')] : []),
+    ...(state.mapOpen && mapClose ? [mapClose] : []),
   ];
   for (const el of nodes) {
     const style = getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
-    const host = panel?.contains(el) ? panelRect : (target?.contains(el) ? targetRect : null);
-    const visible = host ? intersect(r, host) : null;
+    const host = panel?.contains(el)
+      ? panelRect
+      : (target?.contains(el) ? targetRect : (el === mapClose ? closeRect : null));
+    const visible = host ? intersect(r, host) : r;
     if (!visible || (visible.bottom - visible.top) < 2) continue;
     if (dockRect && overlap(visible, dockRect) && visible.bottom > dockRect.top + 1) {
       clippedControls.push(String(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 80));
     }
   }
-  const dockClear = Boolean(panelRect && dockRect && panelRect.bottom <= dockRect.top + 1);
-  return {
+  const reachableControls = target && !target.classList.contains('hidden')
+    ? [...target.querySelectorAll('button')].map((el) => String(el.textContent || '').trim()).filter(Boolean)
+    : [];
+  const labeledSystems = listSayableMapLabelBoxes();
+  const hoverCovers = Boolean(
+    dockRect
+    && (
+      (targetRect && overlap(dockRect, targetRect) && targetRect.bottom > dockRect.top + 1)
+      || (panelRect && overlap(dockRect, panelRect) && panelRect.bottom > dockRect.top + 1)
+    ),
+  );
+  return snapshotVisibleDockFit({
+    operator: cssBoxFromRect(panelRect, {
+      hidden: !panelRect,
+      overflowX: Boolean(content && content.scrollWidth > content.clientWidth + 1),
+      overflowY: Boolean(content && content.scrollHeight > content.clientHeight + 1),
+    }),
+    target: cssBoxFromRect(targetRect, {
+      hidden: !targetRect,
+      overflowX: Boolean(target && target.scrollWidth > target.clientWidth + 1),
+    }),
+    map: mapBox,
+    knowledge: cssBoxFromRect(knowledgeRect, { hidden: !knowledgeRect }),
+    dock: cssBoxFromRect(dockRect, { hidden: !dockRect }),
+    mapOpen: Boolean(state.mapOpen),
+    closeClearsDock: !closeRect || boxClearsDock(cssBoxFromRect(closeRect), cssBoxFromRect(dockRect, { hidden: !dockRect })),
+    labeledSystems,
     clippedControls,
-    overflowX: Boolean(content && content.scrollWidth > content.clientWidth + 1),
-    overflowY: Boolean(content && content.scrollHeight > content.clientHeight + 1),
-    dockClear,
-    panelBottom: panelRect ? Math.round(panelRect.bottom) : null,
-    dockTop: dockRect ? Math.round(dockRect.top) : null,
-  };
+    leakedNames: findLeakedNames(document.body?.innerText || ''),
+    viewport: { w: window.innerWidth, h: window.innerHeight },
+    reachableControls,
+    dockButtonCount: dock ? dock.querySelectorAll('button').length : 7,
+    dockHoverCoversVisibleBox: hoverCovers,
+  });
+  fit.overflowY = Boolean(content && content.scrollHeight > content.clientHeight + 1);
+  return fit;
 }
 
 function createPhase92ProbeApi() {
@@ -28512,6 +28735,7 @@ function installPlayerSecurityProbe() {
     constructionVisuals: createConstructionVisualsProbeApi(),
     economyDifficulty: createEconomyDifficultyProbeApi(),
     standingTiers: createStandingTiersProbeApi(),
+    dockClear: createDockClearProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
