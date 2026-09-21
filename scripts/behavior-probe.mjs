@@ -4471,7 +4471,7 @@ async function runBoardingCapture(page, results) {
   check(results, 'S17.2 ten-percent-eligible', s17125.eligibleOk === true, JSON.stringify(s17125));
   check(results, 'S17.5 tractor-hold-not-capture', s17125.holdCaptured !== true && s17125.holdScuttled !== true && s17125.holdBoard !== true, JSON.stringify(s17125));
   check(results, 'S17.5 tractor-is-board-false', s17125.tractorIsBoard !== true && s17125.ghostIsPrize !== true && s17125.cuttingIsCapture !== true, JSON.stringify(s17125));
-  check(results, 'S17.4 xp-not-tracked', s17125.xp?.tracked === false && s17125.xp?.rule === 'not_tracked_yet' && s17125.xp?.tablePresent === false, JSON.stringify(s17125.xp));
+  check(results, 'S17.4 xp-tracked-named-mix', s17125.xp?.tracked === true && s17125.xp?.rule === 'named_mix' && s17125.xp?.tablePresent === false && s17125.xp?.rule !== 'not_tracked_yet', JSON.stringify(s17125.xp));
 
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
   const s1737 = await page.evaluate(() => {
@@ -5803,6 +5803,225 @@ async function runAlertsActive(page, results) {
   check(results, 'S29.7 remastered-lock-false', s29.lock !== true, JSON.stringify({ lock: s29.lock }));
 }
 
+async function runAwayTeamXp(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.awayTeamXp));
+  if (!present) {
+    check(results, 'S30.setup awayTeamXp-api', false, 'awayTeamXp probe API missing');
+    return;
+  }
+
+  const s30 = await page.evaluate(() => {
+    const top = globalThis.__BM1_PROBE__;
+    const p = globalThis.BM1Probe;
+    if (typeof top.awayTeamXp?.snapshot !== 'function' || typeof top.awayTeamXp?.injectMagnitudes !== 'function') {
+      return { missing: true };
+    }
+    const start = top.awayTeamXp.snapshot();
+    const ship = p.spawnShip({
+      id: 's30-xp',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+      weaponSlots: [null, null, null],
+    });
+    const id = ship.securityInstanceId || ship.id;
+    top.boarding.injectHullRatio(id, 0.08);
+    top.boarding.injectDetection({ id, detected: true, firingSolution: false });
+    const standingBefore = JSON.stringify(top.boarding.snapshot().credit.standing || {});
+    const capture = top.boarding.injectBoardingAttempt({ id, victimInstanceId: id, outcome: 'capture' });
+    const afterCap = top.awayTeamXp.snapshot();
+    const above = top.boarding.injectHullRatio(id, 0.11);
+    const aboveOrder = top.boarding.injectBoardingOrder({ id });
+    const hold = top.boarding.injectTractorHoldOnly(id);
+    const scuttleShip = p.spawnShip({
+      id: 's30-scuttle',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+      weaponSlots: [null, null, null],
+    });
+    const sid = scuttleShip.securityInstanceId || scuttleShip.id;
+    top.boarding.injectHullRatio(sid, 0.08);
+    top.boarding.injectDetection({ id: sid, detected: true, firingSolution: false });
+    const beforeScu = top.awayTeamXp.snapshot().total;
+    top.boarding.injectBoardingAttempt({ id: sid, victimInstanceId: sid, outcome: 'scuttle' });
+    const afterScu = top.awayTeamXp.snapshot();
+    const failShip = p.spawnShip({
+      id: 's30-fail',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+    });
+    const fid = failShip.securityInstanceId || failShip.id;
+    top.boarding.injectHullRatio(fid, 0.08);
+    top.boarding.injectDetection({ id: fid, detected: true, firingSolution: false });
+    const beforeFail = top.awayTeamXp.snapshot().total;
+    top.boarding.injectBoardingAttempt({ id: fid, victimInstanceId: fid, outcome: 'fail' });
+    const afterFail = top.awayTeamXp.snapshot();
+    top.awayTeamXp.injectPending(7);
+    const pendingSet = top.awayTeamXp.snapshot();
+    const unrecovered = top.awayTeamXp.injectUnrecovered();
+    const afterUnrec = unrecovered.snapshot || top.awayTeamXp.snapshot();
+    top.awayTeamXp.injectMagnitudes({ captureAward: 3 });
+    const magShip = p.spawnShip({
+      id: 's30-inject',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+    });
+    const mid = magShip.securityInstanceId || magShip.id;
+    top.boarding.injectHullRatio(mid, 0.08);
+    top.boarding.injectDetection({ id: mid, detected: true, firingSolution: false });
+    const beforeInject = top.awayTeamXp.snapshot().total;
+    top.boarding.injectBoardingAttempt({ id: mid, victimInstanceId: mid, outcome: 'capture' });
+    const afterInject = top.awayTeamXp.snapshot();
+    top.boarding.selectTarget(mid);
+    if (typeof p.paint === 'function') p.paint();
+    const chromeShip = p.spawnShip({
+      id: 's30-chrome',
+      faction: 'klingon',
+      role: 'patrol',
+      hostile: false,
+    });
+    const cid = chromeShip.securityInstanceId || chromeShip.id;
+    top.boarding.injectHullRatio(cid, 0.11);
+    top.boarding.injectDetection({ id: cid, detected: true, firingSolution: false });
+    top.boarding.selectTarget(cid);
+    if (typeof p.paint === 'function') p.paint();
+    const chrome = document.querySelector('[data-boarding-chrome]')?.innerText || '';
+    const transfer = document.querySelector('.fleet-order-transfer')?.innerText || '';
+    const totalChrome = `${chrome}\n${transfer}`;
+    const persistTotal = top.awayTeamXp.snapshot().total;
+    p.saveSlot(7);
+    const reset = top.phase5?.resetRun?.();
+    const resetTotal = top.awayTeamXp.snapshot().total;
+    p.loadSlot(7);
+    const loaded = top.awayTeamXp.snapshot();
+    return {
+      missing: false,
+      start,
+      afterCap,
+      captureXor: capture.snapshot?.attempt?.captured === true && capture.snapshot?.attempt?.scuttled !== true,
+      standingSame: JSON.stringify(capture.snapshot?.credit?.standing || {}) === standingBefore,
+      aboveEligible: above.snapshot?.hull?.eligible === true,
+      aboveOrderOk: aboveOrder.ok === true,
+      holdCaptured: hold.captured === true,
+      holdBoard: hold.tractorIsBoard === true,
+      beforeScu,
+      afterScu,
+      beforeFail,
+      afterFail,
+      pendingSet: pendingSet.pending,
+      afterUnrec,
+      beforeInject,
+      afterInject,
+      fire: afterCap.fire,
+      tractor: afterCap.tractorIsBoard,
+      roe: afterCap.twoModeRoe,
+      lock: afterCap.lockedFromRemastered === true || top.awayTeamXp.lock() === true,
+      utilityHasXp: afterCap.utilityHasXp === true,
+      inUtilityBook: afterCap.inUtilityBook === true,
+      inCombatSlots: afterCap.inCombatSlots === true,
+      slotsLength: afterCap.slotsLength,
+      chrome,
+      transfer,
+      chromeStale: /Not tracked yet/i.test(totalChrome),
+      chromeHonest: /tracked · named mix · total/i.test(totalChrome),
+      boardingTracked: afterCap.boardingTracked === true,
+      boardingRule: afterCap.boardingRule,
+      playerFaction: afterCap.playerFaction,
+      reman: afterCap.reman53,
+      dockClear: Boolean(top.dockClear),
+      alertsActive: Boolean(top.alertsActive),
+      persistTotal,
+      resetTotal,
+      loadedTotal: loaded.total,
+      loadedTracked: loaded.tracked === true,
+      resetOk: reset?.ok === true,
+    };
+  });
+
+  check(results, 'S30.setup awayTeamXp-api', s30.missing !== true, JSON.stringify(s30));
+  check(results, 'S30.1 tracked-named-mix', s30.start?.tracked === true
+    && s30.start?.rule === 'named_mix'
+    && s30.start?.tablePresent === false
+    && s30.start?.total === 0
+    && s30.start?.events?.onCapture === 'award'
+    && s30.start?.events?.onFail === 'retain'
+    && s30.start?.events?.onUnrecovered === 'lose_pending'
+    && s30.boardingTracked === true
+    && s30.boardingRule === 'named_mix', JSON.stringify({ start: s30.start, boarding: s30.boardingRule }));
+  check(results, 'S30.2 capture-award', s30.afterCap?.total === 10
+    && s30.captureXor === true
+    && s30.standingSame === true, JSON.stringify({ afterCap: s30.afterCap, xor: s30.captureXor, standing: s30.standingSame }));
+  check(results, 'S30.3 scuttle-award-fail-retain', s30.afterScu?.total === (s30.beforeScu + 5)
+    && s30.afterFail?.total === s30.beforeFail, JSON.stringify({
+    scu: { before: s30.beforeScu, after: s30.afterScu?.total },
+    fail: { before: s30.beforeFail, after: s30.afterFail?.total },
+  }));
+  check(results, 'S30.4 unrecovered-lose-pending', s30.afterUnrec?.pending === 0
+    && s30.afterUnrec?.total === s30.afterFail?.total
+    && s30.afterUnrec?.loseCareerOnUnrecovered !== true, JSON.stringify({
+    pendingSet: s30.pendingSet,
+    afterUnrec: s30.afterUnrec,
+  }));
+  check(results, 'S30.5 inject-changes-snapshot', s30.afterInject?.captureAward === 3
+    && s30.afterInject?.total === (s30.beforeInject + 3)
+    && s30.lock !== true, JSON.stringify({
+    before: s30.beforeInject,
+    after: s30.afterInject,
+    lock: s30.lock,
+  }));
+  check(results, 'S30.6 boarding-combat-unchanged', s30.aboveEligible !== true
+    && s30.aboveOrderOk !== true
+    && s30.holdCaptured !== true
+    && s30.holdBoard !== true
+    && s30.tractor !== true, JSON.stringify({
+    above: { eligible: s30.aboveEligible, order: s30.aboveOrderOk },
+    hold: { captured: s30.holdCaptured, board: s30.holdBoard },
+    tractor: s30.tractor,
+  }));
+  check(results, 'S30.7 no-gifted-fire-no-utility', s30.fire?.firingSolutionPresent !== true
+    && s30.fire?.engagementAuthorizedPresent !== true
+    && s30.fire?.cultureFire !== true
+    && s30.utilityHasXp !== true
+    && s30.inUtilityBook !== true
+    && s30.inCombatSlots !== true
+    && s30.slotsLength === 3
+    && s30.playerFaction === 'ferengi'
+    && Array.isArray(s30.roe)
+    && s30.roe.length === 2, JSON.stringify({
+    fire: s30.fire,
+    utility: s30.utilityHasXp,
+    slots: s30.slotsLength,
+    faction: s30.playerFaction,
+    reman: s30.reman,
+    roe: s30.roe,
+  }));
+  check(results, 'S30.8 persist-and-preservation', s30.dockClear === true
+    && s30.alertsActive === true
+    && s30.tractor !== true
+    && s30.resetTotal === 0
+    && s30.loadedTotal === s30.persistTotal
+    && s30.loadedTracked === true, JSON.stringify({
+    dockClear: s30.dockClear,
+    alertsActive: s30.alertsActive,
+    tractor: s30.tractor,
+    persist: s30.persistTotal,
+    reset: s30.resetTotal,
+    loaded: s30.loadedTotal,
+  }));
+  check(results, 'S30.9 s17.4-amended', s30.afterCap?.tracked === true
+    && s30.afterCap?.rule === 'named_mix'
+    && s30.afterCap?.tablePresent === false, JSON.stringify(s30.afterCap));
+  check(results, 'S30.10 chrome-honesty', s30.chromeStale !== true
+    && s30.chromeHonest === true, JSON.stringify({
+    chrome: s30.chrome,
+    transfer: s30.transfer,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -5841,13 +6060,14 @@ async function main() {
     await runStandingTiers(page, results);
     await runDockClear(page, results);
     await runAlertsActive(page, results);
+    await runAwayTeamXp(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

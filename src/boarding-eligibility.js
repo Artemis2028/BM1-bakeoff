@@ -10,7 +10,12 @@
  * Tractor hold is never a boarding start. Stations / wrecks / ghosts / decoys
  * are out. NPC ratio uses combatHull / maxCombatHull. Player percent uses
  * state.hull (0–100) and is not converted through NPC fields.
+ *
+ * Away-team XP live totals live on the sibling S30 book. This file only
+ * re-exports the snapshot helper and must not change hull% / refuse reasons.
  */
+
+import { awayTeamXpSnapshot as liveAwayTeamXpSnapshot } from './away-team-xp.js';
 
 export const BOARDING_IMPLEMENTED = true;
 export const NPC_BOARDING_IMPLEMENTED = false;
@@ -18,9 +23,10 @@ export const HULL_BOARDING_THRESHOLD = 0.10;
 export const PLAYER_HULL_BOARDING_THRESHOLD = 10;
 export const MAGNITUDES_LOCKED_FROM_REMASTERED = false;
 
+/** Residual closed. Live totals live on state.awayTeamXpBook (S30). */
 export const AWAY_TEAM_XP = Object.freeze({
-  tracked: false,
-  rule: 'not_tracked_yet',
+  tracked: true,
+  rule: 'named_mix',
   magnitudesInjectable: true,
   tablePresent: false,
 });
@@ -61,8 +67,8 @@ export function boardingApiNames() {
   return BOARDING_IMPLEMENTED ? [...BOARDING_API_NAMES] : [];
 }
 
-export function awayTeamXpSnapshot() {
-  return { ...AWAY_TEAM_XP };
+export function awayTeamXpSnapshot(book) {
+  return liveAwayTeamXpSnapshot(book);
 }
 
 export function hullRatio(target = {}) {
