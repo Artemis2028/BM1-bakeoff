@@ -5325,6 +5325,162 @@ async function runEconomyDifficulty(page, results) {
   }));
 }
 
+async function runStandingTiers(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 28000, hull: 80, shields: 80 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.standingTiers));
+  if (!present) {
+    check(results, 'S27.setup standingTiers-api', false, 'standingTiers probe API missing');
+    return;
+  }
+
+  const s27 = await page.evaluate(() => {
+    const p = globalThis.__BM1_PROBE__.standingTiers;
+    const catalog = globalThis.__BM1_PROBE__.catalog;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const incidents = globalThis.__BM1_PROBE__.incidents;
+    const economy = globalThis.__BM1_PROBE__.economyDifficulty;
+    if (typeof p.snapshot !== 'function' || typeof p.evaluate !== 'function') {
+      return { missing: true };
+    }
+    const idle = p.snapshot();
+    if (idle.missing === true) return idle;
+    const start = typeof p.startMap === 'function' ? p.startMap('ferengi') : null;
+    const live = globalThis.__BM1_PROBE__.snapshot();
+    const high = typeof p.highTiers === 'function' ? p.highTiers({ homeStanding: 20 }) : null;
+    const military = p.evaluate(33, {
+      credits: 9e9,
+      standings: { terran: 0, ferengi: 20, neutral: 0 },
+      systemName: 'Earth',
+      station: { name: 'Utopia Planitia' },
+    });
+    const strategic = p.evaluate(35, {
+      credits: 9e9,
+      standings: { terran: 0, ferengi: 20, neutral: 0 },
+      systemName: 'Earth',
+      station: { name: 'Utopia Planitia' },
+    });
+    const excalibur = p.evaluate(347, {
+      credits: 9e9,
+      standings: { terran: 20, ferengi: 20, neutral: 0 },
+      systemName: 'Earth',
+      station: { name: 'Utopia Planitia' },
+    });
+    const reman = p.evaluate(53, {
+      credits: 9e9,
+      standings: { reman: 100, terran: 100, ferengi: 100, neutral: 100 },
+      systemName: 'Remus',
+      station: { name: 'Reman Starbase' },
+    });
+    const concord = typeof p.concord === 'function' ? p.concord() : null;
+    const priceBan = typeof p.replayPriceBan === 'function' ? p.replayPriceBan(100) : null;
+    const independent = p8.injectIndependent({ restriction: 'embargo', good: 'munitions' });
+    const embargo = p8.evaluateDeal({ marketId: independent.market?.marketId, credits: 9e9, priceOffered: 9e9 });
+    const tokenFirst = incidents.tryStanding('s27-chromium-kill', -1);
+    const tokenRepeat = incidents.tryStanding('s27-chromium-kill', -1);
+    const replayToken = typeof p.replayToken === 'function' ? p.replayToken('s27-chromium-module') : null;
+    const injected = typeof p.injectStanding === 'function'
+      ? p.injectStanding({ terran: 50, ferengi: 75, neutral: 100 }, {
+        fireInject: { firingSolution: true, engagement_authorized: true, cultureFire: true },
+      })
+      : { fire: idle.fire };
+    return {
+      missing: false,
+      lock: idle.lockedFromRemastered === true || p.lock() === true,
+      idle,
+      start,
+      liveStanding: live.standing || {},
+      liveHome: live.standing?.ferengi,
+      high,
+      military,
+      strategic,
+      excalibur,
+      reman,
+      concord,
+      priceBan,
+      embargoAllowed: embargo.allowed,
+      embargoKind: embargo.kind,
+      tokenFirst,
+      tokenRepeat,
+      replayToken,
+      fire: injected.fire || idle.fire,
+      catalogWired: catalog?.wired?.() === true,
+      economyPresent: Boolean(economy && typeof economy.snapshot === 'function'),
+      tractorIsBoard: idle.tractorIsBoard === true,
+      twoModeRoe: idle.twoModeRoe,
+    };
+  });
+
+  check(results, 'S27.setup standingTiers-api', s27.missing !== true, JSON.stringify(s27));
+  check(results, 'S27.1 credits-ne-military-strategic-excalibur', s27.military?.allowed === false
+    && s27.military?.reason === 'faction-standing'
+    && s27.strategic?.allowed === false
+    && s27.strategic?.reason === 'faction-standing'
+    && s27.excalibur?.allowed === false
+    && s27.excalibur?.reason === 'faction-standing'
+    && s27.military?.reason !== 'funds'
+    && s27.reman?.allowed === false
+    && s27.reman?.reason === 'access-locked'
+    && s27.high?.standingNotFunds === true, JSON.stringify({
+    military: s27.military,
+    strategic: s27.strategic,
+    excalibur: s27.excalibur,
+    reman: s27.reman,
+  }));
+  check(results, 'S27.2 new-game-20-others-open-0', s27.start?.homeIs20 === true
+    && s27.start?.othersMissingOrZero === true
+    && s27.liveHome === 20
+    && (s27.liveStanding?.terran == null || s27.liveStanding?.terran === 0)
+    && s27.idle?.homeStanding === 20
+    && s27.idle?.othersDefault === 0, JSON.stringify({
+    start: s27.start,
+    live: s27.liveStanding,
+  }));
+  check(results, 'S27.3 concord-standing-plus-vendor', s27.concord?.richNeutralZero?.allowed === false
+    && s27.concord?.richNeutralZero?.reason === 'faction-standing'
+    && s27.concord?.standingAtEarth?.allowed === false
+    && s27.concord?.concordNeedsVendor === true
+    && s27.concord?.latinumStillSeparate === true, JSON.stringify(s27.concord));
+  check(results, 'S27.4 price-ne-ban', s27.priceBan?.standingDoesNotLift === true
+    && s27.embargoAllowed === false
+    && s27.embargoKind === 'embargo', JSON.stringify({
+    priceBan: s27.priceBan,
+    embargo: { allowed: s27.embargoAllowed, kind: s27.embargoKind },
+  }));
+  check(results, 'S27.5 single-standing-token', s27.tokenRepeat?.reason === 'already-charged'
+    && s27.replayToken?.doubleStandingOnKill === false
+    && s27.replayToken?.alreadyCharged === true
+    && s27.idle?.token?.doubleStandingOnKill === false, JSON.stringify({
+    first: s27.tokenFirst,
+    repeat: s27.tokenRepeat,
+    replay: s27.replayToken,
+  }));
+  check(results, 'S27.6 no-gifted-fire', s27.fire?.firingSolutionPresent !== true
+    && s27.fire?.engagementAuthorizedPresent !== true
+    && s27.tractorIsBoard !== true
+    && Array.isArray(s27.twoModeRoe)
+    && s27.twoModeRoe.length === 2, JSON.stringify({
+    fire: s27.fire,
+    tractor: s27.tractorIsBoard,
+    roe: s27.twoModeRoe,
+  }));
+  check(results, 'S27.7 landed-lanes-preserved', s27.catalogWired === true
+    && s27.economyPresent === true
+    && s27.idle?.purchase?.remanReasonDistinct === true
+    && s27.idle?.inventedCurves?.unrest === false
+    && s27.idle?.inventedCurves?.prestigeEarn === false, JSON.stringify({
+    catalogWired: s27.catalogWired,
+    economyPresent: s27.economyPresent,
+    purchase: s27.idle?.purchase,
+    invented: s27.idle?.inventedCurves,
+  }));
+  check(results, 'S27.8 remastered-lock-false', s27.lock !== true
+    && s27.idle?.lockedFromRemastered !== true, JSON.stringify({
+    lock: s27.lock,
+    idle: s27.idle?.lockedFromRemastered,
+    tiers: s27.idle?.tiers,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -5360,13 +5516,14 @@ async function main() {
     await runEmptyArmable(page, results);
     await runConstructionVisuals(page, results);
     await runEconomyDifficulty(page, results);
+    await runStandingTiers(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

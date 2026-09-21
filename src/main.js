@@ -249,6 +249,18 @@ import {
   snapshotEconomyDifficulty,
 } from './economy-difficulty.js';
 import {
+  STANDING_TIERS_LOCKED_FROM_REMASTERED,
+  assertCreditsCannotBuyHighTiers,
+  assertIndependentConcordStandingVendor,
+  evaluateStandingPurchase,
+  replayPriceCannotBypassBan,
+  replaySingleStandingToken,
+  requireStandingTiersHelpers,
+  snapshotStandingTiers,
+  standingInjectMustNotGiftFire,
+  startingStandingsOpenZero,
+} from './standing-tiers.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -23915,6 +23927,7 @@ function installBm1ProbeHarness() {
     emptyArmable: createEmptyArmableProbeApi(),
     constructionVisuals: createConstructionVisualsProbeApi(),
     economyDifficulty: createEconomyDifficultyProbeApi(),
+    standingTiers: createStandingTiersProbeApi(),
   };
 }
 
@@ -24662,6 +24675,115 @@ function createEconomyDifficultyProbeApi() {
     boundSalvage: (amount) => boundTravelSalvage(ensureMarketBook(), amount, livePhase8Magnitudes()),
     boundTransport: (amount) => boundTransportLatinum(ensureMarketBook(), amount, livePhase8Magnitudes()),
     lock: () => ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED,
+  };
+}
+
+function createStandingTiersProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [evaluateWiredPurchase, 'evaluateWiredPurchase'],
+    [catalogPurchaseContext, 'catalogPurchaseContext'],
+    [createStartingStandings, 'createStartingStandings'],
+    [evaluateStandingPurchase, 'evaluateStandingPurchase'],
+    [snapshotStandingTiers, 'snapshotStandingTiers'],
+    [requireStandingTiersHelpers, 'requireStandingTiersHelpers'],
+  ];
+  const missingSetup = () => {
+    try {
+      requireStandingTiersHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    return snapshotStandingTiers({
+      catalog: state.shipCatalog,
+      unlocks: extras.unlocks || ensurePlayerUnlocks(),
+      homeFaction: extras.homeFaction || state.playerFaction,
+      liveStandings: state.factionStanding,
+      fireInject: extras.fireInject,
+      tokenExtras: extras.tokenExtras,
+      invented: extras.invented,
+    });
+  };
+  return {
+    snapshot,
+    evaluate: (hullId, context = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      if (!state.shipCatalog) return { ok: false, missing: true, reason: 'catalog-missing' };
+      return evaluateStandingPurchase(
+        state.shipCatalog,
+        hullId,
+        context.unlocks || ensurePlayerUnlocks(),
+        {
+          credits: context.credits ?? 9e9,
+          standings: context.standings || { ...(state.factionStanding || {}) },
+          systemName: context.systemName,
+          station: context.station,
+          vendor: context.vendor,
+          region: context.region,
+          extras: context.extras,
+        },
+      );
+    },
+    startMap: (faction = state.playerFaction) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return startingStandingsOpenZero(faction);
+    },
+    highTiers: (extras = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      if (!state.shipCatalog) return { ok: false, missing: true, reason: 'catalog-missing' };
+      return assertCreditsCannotBuyHighTiers(state.shipCatalog, extras.unlocks || ensurePlayerUnlocks(), extras);
+    },
+    concord: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      if (!state.shipCatalog) return { ok: false, missing: true, reason: 'catalog-missing' };
+      return assertIndependentConcordStandingVendor(state.shipCatalog, ensurePlayerUnlocks());
+    },
+    replayPriceBan: (standing = 100) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return replayPriceCannotBypassBan(standing);
+    },
+    replayToken: (token = 's27-probe-kill') => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return replaySingleStandingToken(ensureIncidentLedger(), { token });
+    },
+    injectStanding: (standings = {}, extras = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const before = { ...(state.factionStanding || {}) };
+      state.factionStanding = { ...before, ...standings };
+      const fire = standingInjectMustNotGiftFire(extras.fireInject || {
+        firingSolution: true,
+        engagement_authorized: true,
+        cultureFire: true,
+      });
+      return {
+        ok: true,
+        before,
+        standings: { ...(state.factionStanding || {}) },
+        fireGifted: false,
+        fire,
+        snapshot: snapshot(),
+      };
+    },
+    lock: () => STANDING_TIERS_LOCKED_FROM_REMASTERED,
   };
 }
 
@@ -28389,6 +28511,7 @@ function installPlayerSecurityProbe() {
     emptyArmable: createEmptyArmableProbeApi(),
     constructionVisuals: createConstructionVisualsProbeApi(),
     economyDifficulty: createEconomyDifficultyProbeApi(),
+    standingTiers: createStandingTiersProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
