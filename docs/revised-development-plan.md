@@ -326,7 +326,7 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 
 ### 16.2 Missing packages — Agreed next / Proposed
 
-**Not yet implemented on bake-off.** These are the guided packages bake-off still lacks. Tenth must scope an engine or data slice; this section is not permission to implement all of them at once.
+Rows below mix **locked** packages (do not reopen) with the remaining **Agreed next** standing-tiers brief. Tenth must scope an engine or data slice; this section is not permission to implement all of them at once. Catalog wire (row 7) and economy / difficulty (row 8) are **landed — stay locked.**
 
 | # | Package | Status on bake-off | Class | Overlap / pointer |
 | --- | --- | --- | --- | --- |
@@ -335,9 +335,9 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 | 3 | Empty but armable ships | **Engine landed** (`docs/empty-armable/`; PR #50 brief / PR #51 engine @ `3933daf`). **Stay locked** — do not reopen from construction visuals or HTML catalogs. | **Locked** | Three slots; empty stays empty across save/load/scene/restoration; unarmed NPC cannot fire; legal install uses installed def only. Doctrine physical fire gate; §11 per-weapon gate. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger. |
 | 4 | Boarding / capture / command transfer | **Engine landed** (`docs/boarding/`; PR #38 brief / PR #39 engine). **Stay locked** — do not reopen in Phase 10. | **Locked** | ≤10% hull; capture XOR scuttle; tractor ≠ board; away-team XP **not tracked yet**. See `GUIDED-CONVERGENCE.md` §4 and `docs/boarding/`. **Not** Phase 10. |
 | 5 | Station construction visuals | **Engine landed** (`docs/construction-visuals/`; PR #52 brief / PR #53 engine @ `91ecc2c`). **Stay locked** — do not reopen from HTML catalogs. | **Locked** | Scaffolds, workbees, **blue** construction beams ≠ combat evidence. **Do not redo repair arms** (side-lane Pass, PR #18). Construction art ≠ repair arms. Beams must not write `observedAttacks` / standing / FLASH. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable. |
-| 6 | Faction-wide standing / purchase tiers | Missing as live gates | **Agreed next** | Money ≠ trust. First balance pass: Open 0, Trusted 15, Respected 30, Military 50, Strategic 75, Excalibur/Concord 100; new character **20** with selected faction. Independent trade standing in neutral entry. §10 trade restrictions. |
-| 7 | Catalog wire + purchase rules | Additive pack only | **Agreed next** | Guided may wire first; bake-off must still do this. Reuse Reman `meetPackPurchaseDecision` (soft from PR #18). Pack `getPurchaseDecision` + region rules. |
-| 8 | Broader economy / difficulty | **Brief open** (`docs/economy-difficulty/`) — proposal + deps; engine later (S26 subscribe overlay) | **Proposed** | §10 / §13. Adjustable tuning; **preserve political identity at all difficulties**. No invented unrest / repair / prestige curves here. Phase 8 anti-farm already landed (PR #31) — cite, do not reopen. Scoreable brief from `main` @ `739e0c1` after HTML catalogs S25 PR #55. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction / HTML #54–#55. |
+| 6 | Faction-wide standing / purchase tiers | **Brief open** (`docs/standing-tiers/`) — proposal + deps; engine later (S27 subscribe module). Helpers already landed (PR #28). | **Agreed next** (scoreable brief) | Money ≠ trust. First balance pass: Open 0, Trusted 15, Respected 30, Military 50, Strategic 75, Excalibur/Concord 100; new character **20** with selected faction; **this brief declares** others Open 0. Independent trade standing in neutral entry. §10 trade restrictions. Cite wire #28 + Reman #18 + economy #56/#57 — subscribe, do not reopen. GUIDED §7 “wire later” is stale. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction / HTML / economy. |
+| 7 | Catalog wire + purchase rules | **Engine landed** (PR #28 @ `2b1bb47`). **Stay locked** — standing-tiers brief subscribes, does not reopen. | **Locked** | `CATALOG_WIRED === true`. `evaluateWiredPurchase` + `meetPackPurchaseDecision` (soft from PR #18). Pack `getPurchaseDecision` + region rules. GUIDED §7 “wire later” is stale planning copy. |
+| 8 | Broader economy / difficulty | **Engine landed** (`docs/economy-difficulty/`; PR #56 brief / PR #57 engine @ `b73d960`). **Stay locked** — do not reopen from standing-tiers. | **Locked** | §10 / §13. Adjustable tuning; **preserve political identity at all difficulties**. No invented unrest / repair / prestige curves here. Phase 8 anti-farm already landed (PR #31) — cite, do not reopen. Do **not** retune `PURCHASE_TIER_STANDING` as Easy / Hard. **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction / HTML #54–#55. |
 | 9 | Weapon / station review presentation | **Brief stay-locked** (PR #54). S25 pages **stay-locked** (PR #55) under `docs/html-catalogs/` | **Working agreement** | HTML catalogs **without** requiring Flash. Inspect defs only — not a combat retune, not live price locks, not a second shop. Subscribe ledger #48/#49 + `game_items.json` / station JSON read-only. Show both Flash and bake-off; cite the ledger. Never gift FS / culture / `engagement_authorized`. **Keep #54 / #55 locked.** **Not** a reopen of EW / boarding / Phase 10 / flags / ledger / empty-armable / construction. Economy / difficulty knobs do **not** reopen this lane. |
 | 10 | Dominion distribution / Gorn reserved / major-threat mission-only + hidden Dominion campaign | Doctrine + pack rules exist; catalog helpers wired (PR #28); **live spawn/purchase + hide + campaign book not implemented** | **Brief open** (`docs/phase10/`) — Dominion-first; full roster deferred | Doctrine Gorn absence + hidden Dominion campaign (§12). Pack `reserved-gorn`, `dominion-all` / `dominion-core`, `mission-only`. Short write-up: `GUIDED-CONVERGENCE.md` §10. Scoreable brief from `main` @ `de1f857` after boarding PR #39. **Not** a reopen of EW or boarding. |
 
@@ -346,18 +346,18 @@ Guided copy about incidents, independence, repair arms, or Reman recovery is **a
 1. Weapon/device ledger — engine landed (`docs/weapon-ledger/`; PRs #48/#49). **Stay locked.**
 2. Empty-but-armable persistence + unarmed-cannot-fire — engine landed (`docs/empty-armable/`; PRs #50/#51). **Stay locked.**
 3. Flags / passes / utility inventory — engine landed (`docs/flags-passes/`; PRs #46/#47; Thaleron Test Facility pass **unverified — not shipped**). **Stay locked.**
-4. Standing-tier data (Open → Excalibur; new char 20).
-5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions).
-6. Boarding / capture / command transfer.
+4. Standing-tier scoreable brief (Open → Excalibur; new char 20) — **brief open** (`docs/standing-tiers/`). Helpers already landed (PR #28).
+5. Catalog wire + purchase rules (`meetPackPurchaseDecision` + pack regions) — **engine landed** (PR #28). **Stay locked.**
+6. Boarding / capture / command transfer — engine landed (`docs/boarding/`; PRs #38/#39). **Stay locked.**
 7. Station construction visuals (not repair arms) — engine landed (`docs/construction-visuals/`; PRs #52/#53). **Stay locked.**
 8. HTML weapon/station review catalogs — brief **#54 stay-locked**; S25 pages **#55 stay-locked** under `docs/html-catalogs/`.
-9. Broader economy / difficulty knobs, identity unchanged — brief open (`docs/economy-difficulty/`).
+9. Broader economy / difficulty knobs, identity unchanged — brief **#56 stay-locked**; S26 engine **#57 stay-locked** under `docs/economy-difficulty/`.
 10. Phase 6 **engine** when scoped — brief already exists.
 
 ### 16.4 Working agreement (this backlog)
 
 - Blind: implement from `docs/` only.
-- HTML for weapon/station review; Flash is evidence, not a required viewer. Brief **#54 stay-locked**; S25 pages **#55 stay-locked** under `docs/html-catalogs/`. Broader economy / difficulty knobs: scoreable brief under `docs/economy-difficulty/`.
+- HTML for weapon/station review; Flash is evidence, not a required viewer. Brief **#54 stay-locked**; S25 pages **#55 stay-locked** under `docs/html-catalogs/`. Broader economy / difficulty knobs: **#56 / #57 stay-locked** under `docs/economy-difficulty/`. Standing / purchase tiers: scoreable brief under `docs/standing-tiers/`.
 - Label Flash / pack numbers as source material until Tenth locks them.
 - Do not reopen Phase 1–6 briefs or the side-lane as incomplete.
 - Construction visuals **engine** landed (`docs/construction-visuals/`; PRs #52/#53) — stay locked.
