@@ -5,18 +5,23 @@
  * - docs/boarding/BM1-BOARDING-CAPTURE-PROPOSAL.md §4 / §10
  *
  * One attempt writes capture XOR scuttle XOR fail. Clocks are localElapsedMs.
- * Odds stay TBD / injectable. Away-team XP is not_tracked_yet.
+ * Odds stay TBD / injectable. Away-team XP is a sibling subscribe (S30).
  */
 
-import { AWAY_TEAM_XP, MAGNITUDES_LOCKED_FROM_REMASTERED } from './boarding-eligibility.js';
+import { MAGNITUDES_LOCKED_FROM_REMASTERED } from './boarding-eligibility.js';
+import {
+  applyAwayTeamXpOutcome,
+  awayTeamXpSnapshot,
+} from './away-team-xp.js';
 
 export const BOARDING_BOOK_VERSION = 1;
-export { MAGNITUDES_LOCKED_FROM_REMASTERED };
+export { MAGNITUDES_LOCKED_FROM_REMASTERED, awayTeamXpSnapshot };
 
 export const BOARDING_OUTCOMES = Object.freeze(['capture', 'scuttle', 'fail']);
 
-export function awayTeamXpSnapshot() {
-  return { ...AWAY_TEAM_XP };
+function mirrorAwayTeamXp(book, xpBook) {
+  if (!book || typeof book !== 'object') return;
+  book.awayTeamXp = awayTeamXpSnapshot(xpBook);
 }
 
 export function emptyBoardingBook(extras = {}) {
@@ -37,11 +42,11 @@ export function emptyBoardingBook(extras = {}) {
     npcBoardingImplemented: false,
     magnitudesLockedFromRemastered: false,
     successPercentLocked: false,
-    awayTeamXp: awayTeamXpSnapshot(),
+    awayTeamXp: awayTeamXpSnapshot(extras.xpBook),
   };
 }
 
-export function serializeBoardingBook(book) {
+export function serializeBoardingBook(book, xpBook) {
   const state = emptyBoardingBook(book || {});
   const attempts = {};
   for (const [id, row] of Object.entries(state.attempts || {})) {
@@ -62,19 +67,19 @@ export function serializeBoardingBook(book) {
     npcBoardingImplemented: false,
     magnitudesLockedFromRemastered: false,
     successPercentLocked: false,
-    awayTeamXp: awayTeamXpSnapshot(),
+    awayTeamXp: awayTeamXpSnapshot(xpBook),
   };
 }
 
-export function restoreBoardingBook(saved) {
-  if (!saved || typeof saved !== 'object') return emptyBoardingBook();
+export function restoreBoardingBook(saved, xpBook) {
+  if (!saved || typeof saved !== 'object') return emptyBoardingBook({ xpBook });
   const restored = emptyBoardingBook(saved);
   restored.attempts = {};
   for (const [id, row] of Object.entries(saved.attempts || {})) {
     const clean = sanitizeAttempt(row);
     if (clean?.attemptId) restored.attempts[id] = clean;
   }
-  restored.awayTeamXp = awayTeamXpSnapshot();
+  restored.awayTeamXp = awayTeamXpSnapshot(xpBook || saved.awayTeamXp);
   restored.npcBoardingImplemented = false;
   restored.magnitudesLockedFromRemastered = false;
   restored.successPercentLocked = false;
@@ -186,6 +191,20 @@ export function resolveBoardingAttempt(book, attemptId, outcome, extras = {}) {
   attempt.status = attempt.outcome === 'fail' ? 'failed' : 'resolved';
   store.lastOutcome = attempt.outcome;
   if (store.inFlightId === attempt.attemptId) store.inFlightId = null;
+  let xp = awayTeamXpSnapshot(extras.xpBook);
+  if (extras.xpBook) {
+    applyAwayTeamXpOutcome(extras.xpBook, {
+      outcome: attempt.outcome,
+      unrecovered: extras.unrecovered === true,
+      attemptId: attempt.attemptId,
+      captured: attempt.captured,
+      scuttled: attempt.scuttled,
+    });
+    xp = awayTeamXpSnapshot(extras.xpBook);
+    mirrorAwayTeamXp(store, extras.xpBook);
+  } else {
+    store.awayTeamXp = xp;
+  }
   return {
     ok: true,
     attempt,
@@ -195,7 +214,7 @@ export function resolveBoardingAttempt(book, attemptId, outcome, extras = {}) {
     xorOk: true,
     sayable: sayableOutcome(attempt.outcome),
     applyKillStanding: false,
-    awayTeamXp: awayTeamXpSnapshot(),
+    awayTeamXp: xp,
   };
 }
 
@@ -208,6 +227,8 @@ export function injectBoardingAttempt(book, input = {}, localElapsedMs = 0) {
     localElapsedMs: Number(localElapsedMs) + Number(input.travelMs || 0),
     captured: input.captured,
     scuttled: input.scuttled,
+    xpBook: input.xpBook,
+    unrecovered: input.unrecovered === true,
   });
   return resolved;
 }
@@ -222,12 +243,16 @@ export function tickBoarding(book, localElapsedMs = 0, extras = {}) {
     const outcome = extras.outcome
       || extras.outcomes?.[attempt.attemptId]
       || 'fail';
-    results.push(resolveBoardingAttempt(store, attempt.attemptId, outcome, { localElapsedMs: now }));
+    results.push(resolveBoardingAttempt(store, attempt.attemptId, outcome, {
+      localElapsedMs: now,
+      xpBook: extras.xpBook,
+      unrecovered: extras.unrecovered === true,
+    }));
   }
   return { ok: true, results, book: store };
 }
 
-export function cancelInFlight(book, localElapsedMs = 0) {
+export function cancelInFlight(book, localElapsedMs = 0, extras = {}) {
   const store = book || emptyBoardingBook();
   const attempt = store.inFlightId ? getAttempt(store, store.inFlightId) : null;
   if (!attempt || attempt.status !== 'in-transit') {
@@ -239,7 +264,18 @@ export function cancelInFlight(book, localElapsedMs = 0) {
   attempt.status = 'cancelled';
   attempt.resolvedAtLocalMs = Math.max(0, Number(localElapsedMs) || 0);
   store.inFlightId = null;
-  return { ok: true, attempt, captured: false, scuttled: false };
+  let xp = awayTeamXpSnapshot(extras.xpBook);
+  if (extras.xpBook) {
+    applyAwayTeamXpOutcome(extras.xpBook, {
+      unrecovered: true,
+      attemptId: attempt.attemptId,
+      captured: false,
+      scuttled: false,
+    });
+    xp = awayTeamXpSnapshot(extras.xpBook);
+    mirrorAwayTeamXp(store, extras.xpBook);
+  }
+  return { ok: true, attempt, captured: false, scuttled: false, awayTeamXp: xp };
 }
 
 export function sayableOutcome(outcome) {

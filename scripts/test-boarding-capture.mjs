@@ -165,7 +165,7 @@ const both = injectBoardingAttempt(emptyBoardingBook(), {
 assert('s17.3-both-flags-fail', both.ok === false && both.reason === 'xor-violation' && xorOk(true, true) === false);
 
 const xp = awayTeamXpSnapshot();
-assert('s17.4-xp-explicit', xp.tracked === false && xp.rule === 'not_tracked_yet' && xp.tablePresent === false && xp.magnitudesInjectable === true);
+assert('s17.4-xp-explicit', xp.tracked === true && xp.rule === 'named_mix' && xp.tablePresent === false && xp.magnitudesInjectable === true);
 assert('s17.4-no-locked-odds', MAGNITUDES_LOCKED_FROM_REMASTERED === false && emptyBoardingBook().successPercentLocked === false);
 assert('s17.4-range-not-locked', BOARDING_RANGE_LOCKED === false);
 
@@ -332,7 +332,7 @@ const wiped = { systemStates: {} };
 const restored = restoreBoardingBook(saved);
 assert('s17.15-reload', restored.attempts['brd-1']?.attemptId === Object.values(saved.attempts)[0].attemptId);
 assert('s17.15-prize-survives-systemstates', wiped.systemStates && restored.prizes['pz-1']?.sourceInstanceId === 'npc:persist');
-assert('s17.15-xp-on-restore', restored.awayTeamXp.rule === 'not_tracked_yet');
+assert('s17.15-xp-on-restore', restored.awayTeamXp.tracked === true && restored.awayTeamXp.rule === 'named_mix' && restored.awayTeamXp.tablePresent === false);
 
 const travel = emptyBoardingBook();
 issueBoardingAttempt(travel, { victimInstanceId: 'npc:tick', travelMs: 50 }, 10);

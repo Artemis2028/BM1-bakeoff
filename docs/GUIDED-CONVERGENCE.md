@@ -300,7 +300,7 @@ These packages are **engine-landed**. They are **not** Agreed next. Do not resta
 3. **Flags / passes / utility inventory** — brief + engine landed (`docs/flags-passes/`, PRs #46/#47). Thaleron Test Facility pass **unverified — not shipped**. Capacity / activation **TBD / injectable**. **Stay locked.**
 4. **Standing tiers** as a named gate surface (Open → Excalibur; new-character 20; Independent trade standing in neutral entry) — **brief #58 stay-locked**; S27 engine **#59 stay-locked** @ `52e36d9` under `docs/standing-tiers/` + `src/standing-tiers.js`. Helpers already landed (PR #28). Economy §8 / #56 / #57 **stay-locked**. DockClear S28 does **not** reopen this row.
 5. **Catalog wire + purchase rules** — **engine landed** (PR #28 @ `2b1bb47`). Reuse `meetPackPurchaseDecision` and pack region gates. **Subscribe, do not reopen.** Content (merges + full-roster-v2 balance) is already imported. Older “wire later” copy is **stale**.
-6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). Away-team XP **`not_tracked_yet`**. **Stay locked.**
+6. **Boarding / capture / command transfer** (≤10% hull) — brief + engine landed (`docs/boarding/`, PRs #38/#39). Away-team XP brief **#65 stay-locked**; S30 engine **on this PR** (`named_mix`). Boarding combat **stay locked.**
 7. **Station construction visuals** (scaffolds / workbees / blue beams) — brief + engine landed (`docs/construction-visuals/`, PRs #52/#53). Repair arms stay the side-lane overlay. **Stay locked.**
 8. **HTML weapon / station catalogs** for review — brief **#54 stay-locked**; S25 pages **#55 stay-locked** under `docs/html-catalogs/`. Working agreement: HTML; Flash is evidence, not a required viewer.
 9. **Broader economy / difficulty knobs** (plan §8 / §10), preserving political identity — brief **#56 stay-locked**; S26 engine **#57 stay-locked** @ `b73d960` under `docs/economy-difficulty/` + `src/economy-difficulty.js`.
@@ -313,7 +313,7 @@ Phase 7 fleet coordination (PR #29) and Phase 9–9.4 EW (PRs #33/#35/#37/#42/#4
 ### Soft residuals (explicit — not new packages)
 
 - Top-level `snapshot().alertsActive` S29 engine (this PR) follows `getEffectivePolicy` when a holding override is active. **No Referee Pass claimed.** Do not restore S4-21 to `alertsActive === false`.
-- Away-team XP remains **`not_tracked_yet`** (boarding PRs #38/#39). Do not invent an XP table.
+- Away-team XP S30 engine (this PR) tracks a **named mix** (`tracked: true`). Do not invent an XP table. Boarding combat #38/#39 stay locked. **No Referee Pass claimed.**
 - Phase 10 **full faction roster deferred**. Dominion-first engine stays locked.
 - Magnitudes stay **injectable**; `MAGNITUDES_LOCKED_FROM_REMASTERED` stays false. Do not invent thresholds.
 - Thaleron Test Facility pass **unverified — not shipped**. Flags capacity / activation TBD.

@@ -20,6 +20,7 @@
     "test:phase93": "node scripts/test-phase93-ew-poison-df.mjs",
     "test:phase94": "node scripts/test-phase94-ew-magnitudes.mjs",
     "test:boarding": "node scripts/test-boarding-capture.mjs",
+    "test:away-team-xp": "node scripts/test-away-team-xp.mjs",
     "test:phase10": "node scripts/test-phase10-dominion.mjs",
     "test:utility": "node scripts/test-utility-inventory.mjs",
     "test:weapon-ledger": "node scripts/test-weapon-source-ledger.mjs",

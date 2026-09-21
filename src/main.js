@@ -280,6 +280,20 @@ import {
   snapshotAlertsActiveReadout,
 } from './alerts-active.js';
 import {
+  AWAY_TEAM_XP_BOOK_VERSION,
+  AWAY_TEAM_XP_LOCKED_FROM_REMASTERED,
+  applyAwayTeamXpOutcome,
+  awayTeamXpChromeLine,
+  awayTeamXpInjectMustNotGiftFire,
+  awayTeamXpSnapshot as liveAwayTeamXpSnapshot,
+  emptyAwayTeamXpBook,
+  injectAwayTeamXpMagnitudes,
+  injectAwayTeamXpPending,
+  requireAwayTeamXpHelpers,
+  restoreAwayTeamXpBook,
+  serializeAwayTeamXpBook,
+} from './away-team-xp.js';
+import {
   ASSET_OVERDUE_IMPLEMENTED,
   FULL_CATALOG_WIRED,
   PLAYER_SECURITY_ROE_MODES,
@@ -526,7 +540,6 @@ import {
   tractorRow,
 } from './phase9-weapons-matrix.js';
 import {
-  AWAY_TEAM_XP,
   BOARDING_IMPLEMENTED,
   NPC_BOARDING_IMPLEMENTED,
   REFUSE_REASONS,
@@ -536,7 +549,6 @@ import {
 } from './boarding-eligibility.js';
 import { evaluateBoardingReach, boardingRangeEnvelope } from './boarding-reach.js';
 import {
-  awayTeamXpSnapshot,
   cancelInFlight,
   emptyBoardingBook,
   injectBoardingAttempt,
@@ -1448,6 +1460,7 @@ const state = {
   contactBook: emptyContactBook(),
   ewBook: emptyEwBook(),
   boardingBook: emptyBoardingBook(),
+  awayTeamXpBook: emptyAwayTeamXpBook(),
   dominionBook: emptyDominionBook(),
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
@@ -5658,7 +5671,7 @@ function refreshFleetOrderPanel(force = false) {
     </div>
     <div class="meta">Hold-outside stays behind a jump. Follow / escort / regroup travel with the flagship. Defense interrupts resume the standing order.</div>
     <div class="fleet-order-transfer">
-      <small>COMMAND TRANSFER · Away-team XP: Not tracked yet</small>
+      <small>COMMAND TRANSFER · ${escapeHtml(awayTeamXpChromeLine(ensureAwayTeamXpBook()))}</small>
       ${(state.playerFleet || []).filter((row) => !row.destroyed).map((row) => (
         `<button type="button" data-command-transfer="${escapeHtml(row.id)}">Command: ${escapeHtml(row.name || row.id)}</button>`
       )).join('')}
@@ -5744,10 +5757,26 @@ function liveLedgerInject() {
     || null;
 }
 
+function ensureAwayTeamXpBook() {
+  if (!state.awayTeamXpBook || state.awayTeamXpBook.version !== AWAY_TEAM_XP_BOOK_VERSION) {
+    state.awayTeamXpBook = restoreAwayTeamXpBook(state.awayTeamXpBook);
+  }
+  state.awayTeamXpBook.tracked = true;
+  state.awayTeamXpBook.rule = 'named_mix';
+  state.awayTeamXpBook.tablePresent = false;
+  state.awayTeamXpBook.inUtilityBook = false;
+  state.awayTeamXpBook.inCombatSlots = false;
+  if (state.boardingBook && state.boardingBook.attempts) {
+    state.boardingBook.awayTeamXp = liveAwayTeamXpSnapshot(state.awayTeamXpBook);
+  }
+  return state.awayTeamXpBook;
+}
+
 function ensureBoardingBook() {
   if (!state.boardingBook || state.boardingBook.version !== 1 || !state.boardingBook.attempts) {
-    state.boardingBook = restoreBoardingBook(state.boardingBook);
+    state.boardingBook = restoreBoardingBook(state.boardingBook, state.awayTeamXpBook);
   }
+  state.boardingBook.awayTeamXp = liveAwayTeamXpSnapshot(ensureAwayTeamXpBook());
   return state.boardingBook;
 }
 
@@ -5997,6 +6026,7 @@ function applyBoardingOutcome(attemptId, outcome, extras = {}) {
     localElapsedMs: currentLocalMs(),
     captured: extras.captured,
     scuttled: extras.scuttled,
+    xpBook: ensureAwayTeamXpBook(),
   });
   if (!done.ok) return done;
   return finishLiveBoarding(done, extras);
@@ -6068,7 +6098,7 @@ function playerCommandTransfer(targetId) {
 
 function tickLiveBoarding(localMs = currentLocalMs()) {
   const book = ensureBoardingBook();
-  const ticked = tickBoarding(book, localMs);
+  const ticked = tickBoarding(book, localMs, { xpBook: ensureAwayTeamXpBook() });
   for (const row of ticked.results || []) {
     if (row.ok) finishLiveBoarding(row, { victimInstanceId: row.attempt?.victimInstanceId });
   }
@@ -6076,14 +6106,14 @@ function tickLiveBoarding(localMs = currentLocalMs()) {
 }
 
 function renderBoardingChrome(target, isStation) {
-  const xp = awayTeamXpSnapshot();
+  const xpLine = awayTeamXpChromeLine(ensureAwayTeamXpBook());
   const owned = (state.playerFleet || []).filter((row) => !row.destroyed);
   const transferBtns = owned.map((row) => (
     `<button type="button" data-command-transfer="${escapeHtml(row.id)}">Command: ${escapeHtml(row.name || row.id)}</button>`
   )).join('');
   if (isStation) {
     return `<div class="target-boarding" data-boarding-chrome="1">
-      <small>Away-team XP: Not tracked yet</small>
+      <small>${escapeHtml(xpLine)}</small>
       ${transferBtns ? `<div class="target-boarding-transfer">${transferBtns}</div>` : ''}
     </div>`;
   }
@@ -6102,7 +6132,7 @@ function renderBoardingChrome(target, isStation) {
     </div>
     <div class="target-boarding-note">${escapeHtml(verdict.sayable || '')}</div>
     <div class="target-boarding-note">${escapeHtml(outcome)}${reason ? ` · ${escapeHtml(reason)}` : ''}</div>
-    <small>Away-team XP: ${xp.rule === 'not_tracked_yet' ? 'Not tracked yet' : escapeHtml(xp.rule)} · tracked: false</small>
+    <small>${escapeHtml(xpLine)}</small>
     ${transferBtns ? `<div class="target-boarding-transfer">${transferBtns}</div>` : ''}
   </div>`;
 }
@@ -14297,7 +14327,8 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     economyDifficultyBook: serializeEconomyDifficultyBook(ensureEconomyDifficultyBook()),
     contactBook: serializeContactBook(ensureContactBook()),
     ewBook: serializeEwBook(ensureEwBook()),
-    boardingBook: serializeBoardingBook(ensureBoardingBook()),
+    boardingBook: serializeBoardingBook(ensureBoardingBook(), ensureAwayTeamXpBook()),
+    awayTeamXpBook: serializeAwayTeamXpBook(ensureAwayTeamXpBook()),
     dominionBook: serializeDominionBook(ensureDominionBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
@@ -14388,7 +14419,9 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.economyDifficultyBook = restoreEconomyDifficultyBook(s.economyDifficultyBook);
   state.contactBook = restoreContactBook(s.contactBook);
   state.ewBook = restoreEwBook(s.ewBook);
-  state.boardingBook = restoreBoardingBook(s.boardingBook);
+  state.boardingBook = restoreBoardingBook(s.boardingBook, restoreAwayTeamXpBook(s.awayTeamXpBook));
+  state.awayTeamXpBook = restoreAwayTeamXpBook(s.awayTeamXpBook);
+  state.boardingBook.awayTeamXp = liveAwayTeamXpSnapshot(state.awayTeamXpBook);
   state.dominionBook = restoreDominionBook(s.dominionBook);
   state.ew91 = restoreEw91Book(s.ew91);
   state.ew92 = restoreEw92Book(s.ew92);
@@ -22784,6 +22817,7 @@ function resetRunState() {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
+  state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
@@ -22926,6 +22960,7 @@ function restartInEscapePod() {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
+  state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -23004,6 +23039,7 @@ function startWithFaction(key, options = {}) {
   state.contactBook = emptyContactBook();
   state.ewBook = emptyEwBook();
   state.boardingBook = emptyBoardingBook();
+  state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
@@ -23958,6 +23994,7 @@ function installBm1ProbeHarness() {
     standingTiers: createStandingTiersProbeApi(),
     dockClear: createDockClearProbeApi(),
     alertsActive: createAlertsActiveProbeApi(),
+    awayTeamXp: createAwayTeamXpProbeApi(),
   };
 }
 
@@ -24799,6 +24836,114 @@ function createDockClearProbeApi() {
       return { ok: true, snapshot: snapshot() };
     },
     lock: () => DOCK_CLEAR_LOCKED_FROM_REMASTERED,
+  };
+}
+
+function createAwayTeamXpProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const required = [
+    [liveAwayTeamXpSnapshot, 'awayTeamXpSnapshot'],
+    [applyAwayTeamXpOutcome, 'applyAwayTeamXpOutcome'],
+    [injectAwayTeamXpMagnitudes, 'injectAwayTeamXpMagnitudes'],
+    [requireAwayTeamXpHelpers, 'requireAwayTeamXpHelpers'],
+    [evaluateBoardingEligibility, 'evaluateBoardingEligibility'],
+    [injectBoardingAttempt, 'injectBoardingAttempt'],
+  ];
+  const missingSetup = () => {
+    try {
+      requireAwayTeamXpHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const snapshot = (extras = {}) => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    const book = ensureAwayTeamXpBook();
+    const boarding = createBoardingProbeApi().snapshot();
+    const magSnap = liveAwayTeamXpSnapshot(book);
+    const fire = awayTeamXpInjectMustNotGiftFire(extras.fireInject || {
+      firingSolution: true,
+      engagement_authorized: true,
+      cultureFire: true,
+    });
+    const utilityItems = Array.isArray(state.utilityBook?.items) ? state.utilityBook.items : [];
+    const slots = Array.isArray(state.weaponSlots) ? state.weaponSlots : [];
+    return {
+      ok: true,
+      missing: false,
+      lockedFromRemastered: AWAY_TEAM_XP_LOCKED_FROM_REMASTERED === true,
+      tracked: true,
+      rule: 'named_mix',
+      tablePresent: false,
+      total: magSnap.total,
+      pending: magSnap.pending,
+      lastAward: magSnap.lastAward,
+      events: {
+        onCapture: 'award',
+        onScuttle: 'award',
+        onFail: 'retain',
+        onUnrecovered: 'lose_pending',
+      },
+      magnitudesInjectable: true,
+      captureAward: magSnap.captureAward,
+      scuttleAward: magSnap.scuttleAward,
+      failAward: magSnap.failAward,
+      loseCareerOnUnrecovered: magSnap.loseCareerOnUnrecovered === true,
+      pendingInTransit: magSnap.pendingInTransit === true,
+      inUtilityBook: false,
+      inCombatSlots: false,
+      utilityHasXp: utilityItems.some((row) => row && (row.kind === 'away_team_xp' || row.id === 'away-team-xp')),
+      slotsLength: slots.length,
+      boardingTracked: boarding.awayTeamXp?.tracked === true,
+      boardingRule: boarding.awayTeamXp?.rule || null,
+      tractorIsBoard: tractorIsBoarding() === true,
+      fire: {
+        firingSolutionPresent: fire.firingSolutionPresent,
+        engagementAuthorizedPresent: fire.engagementAuthorizedPresent,
+        cultureFire: fire.cultureFire,
+      },
+      chrome: awayTeamXpChromeLine(book),
+      playerFaction: state.playerFaction,
+      reman53: reman53Identity(),
+      twoModeRoe: fire.twoModeRoe,
+    };
+  };
+  return {
+    snapshot,
+    injectMagnitudes: (partial = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      injectAwayTeamXpMagnitudes(ensureAwayTeamXpBook(), partial);
+      return snapshot();
+    },
+    injectPending: (amount = 0) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      injectAwayTeamXpPending(ensureAwayTeamXpBook(), amount);
+      return snapshot();
+    },
+    injectUnrecovered: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const boarding = ensureBoardingBook();
+      const xp = ensureAwayTeamXpBook();
+      const cancelled = cancelInFlight(boarding, currentLocalMs(), { xpBook: xp });
+      if (!cancelled.ok) {
+        applyAwayTeamXpOutcome(xp, { unrecovered: true });
+        boarding.awayTeamXp = liveAwayTeamXpSnapshot(xp);
+      }
+      return { ok: true, cancelled: cancelled.ok === true, snapshot: snapshot() };
+    },
+    lock: () => AWAY_TEAM_XP_LOCKED_FROM_REMASTERED,
   };
 }
 
@@ -28603,7 +28748,7 @@ function createBoardingProbeApi() {
         sameSystem: reachLive.sameSystem !== false,
         distance: target ? distanceToPlayer(target) : null,
       },
-      awayTeamXp: awayTeamXpSnapshot(),
+      awayTeamXp: liveAwayTeamXpSnapshot(ensureAwayTeamXpBook()),
       transfer: {
         flagshipInstanceId: book.flagshipCommandId || 'player',
         previousStillOwned: true,
@@ -28688,7 +28833,7 @@ function createBoardingProbeApi() {
         return { ...result, snapshot: snapshot() };
       }
       const book = ensureBoardingBook();
-      const result = injectBoardingAttempt(book, opts, currentLocalMs());
+      const result = injectBoardingAttempt(book, { ...opts, xpBook: ensureAwayTeamXpBook() }, currentLocalMs());
       return { ...result, snapshot: snapshot() };
     },
     injectTractorHoldOnly: (id) => {
@@ -28804,6 +28949,7 @@ function installPlayerSecurityProbe() {
     standingTiers: createStandingTiersProbeApi(),
     dockClear: createDockClearProbeApi(),
     alertsActive: createAlertsActiveProbeApi(),
+    awayTeamXp: createAwayTeamXpProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
