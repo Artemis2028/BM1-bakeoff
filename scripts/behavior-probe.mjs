@@ -6022,6 +6022,276 @@ async function runAwayTeamXp(page, results) {
   }));
 }
 
+async function runPhase10Roster(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.phase10Roster));
+  if (!present) {
+    check(results, 'S31.setup phase10Roster-api', false, 'phase10Roster probe API missing');
+    return;
+  }
+
+  const s31 = await page.evaluate(() => {
+    const top = globalThis.__BM1_PROBE__;
+    const p = globalThis.BM1Probe;
+    const roster = top.phase10Roster;
+    if (!roster || roster.failIfMissing !== true || typeof roster.snapshot !== 'function' || typeof roster.unlock !== 'function') {
+      return { missing: true };
+    }
+    const start = roster.snapshot();
+    if (start.missing === true) return { missing: true, reason: start.reason || 'snapshot-missing' };
+    const factionBefore = start.playerFaction;
+    const sideBefore = start.playerSide;
+    const remanBefore = start.reman53 ? { ...start.reman53 } : null;
+    const mayBefore = start.mayAutoEngage === true;
+    const dominicaBefore = start.dominicaSayable === true;
+    const hiddenBefore = (top.phase10.snapshot().hide?.hiddenSystems || []).includes('Dominica');
+    const unlock = roster.unlock({
+      npcId: 's31-ambient',
+      profileId: 'bajoran',
+      firingSolution: true,
+      engagement_authorized: true,
+      cultureFire: true,
+      mapRevealed: true,
+      playerFaction: 'klingon',
+      knowledgeCap: 'contact',
+      discoveryPercent: 12,
+      coverage: 'named',
+    });
+    const after = unlock.snapshot || roster.snapshot();
+    const hiddenAfterUnlock = (top.phase10.snapshot().hide?.hiddenSystems || []).includes('Dominica');
+    const phase10 = top.phase10.snapshot();
+    const xp = top.awayTeamXp.snapshot();
+    const ship = p.spawnShip({
+      id: 's31-ambient',
+      faction: 'neutral',
+      role: 'traffic',
+      hostile: false,
+    });
+    const reused = roster.unlock({ npcId: ship?.id || 's31-ambient', profileId: 'ferengi', grantsFire: true });
+    const newcomer = p.spawnShip({
+      id: 's31-newcomer',
+      faction: 'neutral',
+      role: 'traffic',
+      hostile: false,
+    });
+    const afterReuse = roster.snapshot();
+    const poisoned = roster.serialize();
+    poisoned.stage = 'fronts';
+    poisoned.discovery = { Dominica: true };
+    poisoned.agreements = { live: true };
+    poisoned.npcBindings = { 's31-ambient': 'ferengi' };
+    poisoned.profiles = [{ id: 'rebel', coverage: 'named', grantsFire: true, engagement_authorized: true }];
+    poisoned.discoveryPercent = 12;
+    poisoned.PHASE10_ROSTER_LOCKED_FROM_REMASTERED = true;
+    const restored = roster.restore(poisoned);
+    p.saveSlot(2);
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('bm2_html_save_slot_2') || 'null');
+    } catch {
+      saved = null;
+    }
+    p.wipeSystemStates();
+    const afterWipe = roster.snapshot();
+    const reset = top.phase5?.resetRun?.();
+    const afterReset = roster.snapshot();
+    p.loadSlot(2);
+    const loaded = roster.snapshot();
+    const discovered = top.phase10.injectDiscovery({ systemNames: ['Dominica'] });
+    const afterDiscovery = top.phase10.snapshot();
+    const readout = document.querySelector('[data-phase10-roster]');
+    return {
+      missing: false,
+      start,
+      unlock,
+      after,
+      phase10Scope: phase10.scope,
+      phase10Ferengi: phase10.rosterPlayable?.ferengi === true,
+      phase10Rare: phase10.rareCommanders === true,
+      xpTracked: xp.tracked === true,
+      xpRule: xp.rule,
+      xpTable: xp.tablePresent === true,
+      tractor: phase10.boarding?.tractorIsBoard === true,
+      factionBefore,
+      sideBefore,
+      remanBefore,
+      mayBefore,
+      mayAfter: after.mayAutoEngage === true,
+      mayUnchanged: unlock.mayUnchanged === true,
+      factionUnchanged: unlock.factionUnchanged === true,
+      sideUnchanged: unlock.sideUnchanged === true,
+      remanUnchanged: unlock.remanUnchanged === true,
+      dominicaBefore,
+      dominicaUnchanged: unlock.dominicaUnchanged === true,
+      hiddenBefore,
+      hiddenAfterUnlock,
+      discoveredOk: discovered?.ok === true,
+      hiddenAfterDiscovery: (afterDiscovery.hide?.hiddenSystems || []).includes('Dominica'),
+      npcBound: unlock.npcBound === true || reused.npcBound === true,
+      rowStolen: unlock.rowStolen === true || reused.rowStolen === true,
+      newcomerId: newcomer?.id || null,
+      afterReuseInvented: afterReuse.inventedKeys,
+      restored,
+      savedHasRoster: Boolean(saved && saved.factionRosterBook && Array.isArray(saved.factionRosterBook.profiles)),
+      savedRosterInsideDominion: Boolean(saved && saved.dominionBook && saved.dominionBook.factionRosterBook),
+      savedStage: Boolean(saved && saved.factionRosterBook && saved.factionRosterBook.stage),
+      savedProfileCount: saved?.factionRosterBook?.profiles?.length || 0,
+      afterWipeCount: afterWipe.profileCount,
+      afterResetCount: afterReset.profileCount,
+      loadedCount: loaded.profileCount,
+      loadedScope: loaded.dominion?.scope,
+      loadedLock: loaded.lockedFromRemastered === true,
+      resetOk: reset?.ok === true,
+      lock: roster.lock() === true || after.lockedFromRemastered === true,
+      dockClear: Boolean(top.dockClear),
+      alertsActive: Boolean(top.alertsActive),
+      readout: Boolean(readout),
+      hasEngagementKey: Object.prototype.hasOwnProperty.call(after, 'engagement_authorized'),
+    };
+  });
+
+  const named = ['neutral', 'ferengi', 'vulcan', 'romulan', 'cardassian', 'terran', 'klingon', 'tholian', 'breen', 'bajoran', 'andorian', 'delpin', 'sona', 'tarellian', 'promelli', 'hirogen', 'suliban'];
+  const namedPresent = Array.isArray(s31.start?.namedIds) && named.every((id) => s31.start.namedIds.includes(id));
+  check(results, 'S31.setup phase10Roster-api', s31.missing !== true && s31.start?.ok === true, JSON.stringify(s31.reason || s31.start));
+  check(results, 'S31.1 completeness', s31.start?.profileCount === 22
+    && s31.start?.packFactionCount === 20
+    && s31.start?.cultureCount === 9
+    && Array.isArray(s31.start?.inventedKeys)
+    && s31.start.inventedKeys.length === 0
+    && namedPresent
+    && s31.start?.neutralAlliance === false, JSON.stringify({
+    counts: [s31.start?.profileCount, s31.start?.packFactionCount, s31.start?.cultureCount],
+    invented: s31.start?.inventedKeys,
+    named: s31.start?.namedIds,
+  }));
+  check(results, 'S31.2 named-not-fire', s31.start?.namedClean === true
+    && s31.start?.grantsFire === false
+    && s31.start?.firingSolution === false
+    && s31.start?.engagementAuthorizedPresent === false
+    && s31.hasEngagementKey !== true
+    && s31.start?.knowledgeCap === 'none'
+    && s31.start?.rewritesPlayerFaction === false
+    && s31.factionUnchanged === true
+    && s31.sideUnchanged === true
+    && s31.remanUnchanged === true
+    && s31.factionBefore === 'ferengi'
+    && s31.remanBefore?.id === 53
+    && s31.start?.cultureGrantsFire === false, JSON.stringify({
+    fire: {
+      grantsFire: s31.after?.grantsFire,
+      cap: s31.after?.knowledgeCap,
+      engagement: s31.after?.engagementAuthorizedPresent,
+    },
+    faction: s31.factionBefore,
+    reman: s31.remanBefore,
+  }));
+  check(results, 'S31.3 stubs-do-not-spawn', s31.start?.stubs?.gornPoolEmpty === true
+    && s31.start?.stubs?.borgAmbient === false
+    && s31.start?.stubs?.pirateMinted === false
+    && s31.start?.rareCommanders === false
+    && s31.npcBound !== true
+    && s31.rowStolen !== true
+    && Array.isArray(s31.afterReuseInvented)
+    && s31.afterReuseInvented.length === 0, JSON.stringify({
+    stubs: s31.start?.stubs,
+    npcBound: s31.npcBound,
+    stolen: s31.rowStolen,
+  }));
+  check(results, 'S31.4 dominion-book-untouched', s31.start?.dominion?.scope === 'dominion-first'
+    && s31.start?.dominion?.rosterPlayableFerengi === false
+    && s31.start?.dominion?.bookForked === false
+    && s31.phase10Scope === 'dominion-first'
+    && s31.phase10Ferengi !== true
+    && s31.phase10Rare !== true
+    && s31.restored?.dominion?.scope === 'dominion-first'
+    && s31.restored?.dominion?.bookForked === false
+    && s31.restored?.separateRebelPolity === false, JSON.stringify({
+    dominion: s31.start?.dominion,
+    phase10: s31.phase10Scope,
+    restored: s31.restored?.dominion,
+  }));
+  check(results, 'S31.5 paths-not-roe', Array.isArray(s31.start?.roeModes)
+    && s31.start.roeModes.length === 2
+    && s31.start.roeModes.includes('return-fire')
+    && s31.start.roeModes.includes('defend')
+    && s31.start?.protectAll === false
+    && s31.start?.protectApplied === 'record_only'
+    && s31.start?.mayAutoEngageFromRoster === false
+    && s31.mayUnchanged === true
+    && s31.mayBefore === s31.mayAfter, JSON.stringify({
+    roe: s31.start?.roeModes,
+    protect: s31.start?.protectApplied,
+    protectAll: s31.start?.protectAll,
+    may: { before: s31.mayBefore, after: s31.mayAfter },
+  }));
+  check(results, 'S31.6 discovery-not-unlock', s31.start?.mapRevealed === false
+    && s31.dominicaBefore !== true
+    && s31.dominicaUnchanged === true
+    && s31.hiddenBefore === true
+    && s31.hiddenAfterUnlock === true
+    && s31.discoveredOk === true
+    && s31.hiddenAfterDiscovery === false, JSON.stringify({
+    map: s31.start?.mapRevealed,
+    hiddenBefore: s31.hiddenBefore,
+    hiddenAfterUnlock: s31.hiddenAfterUnlock,
+    hiddenAfterDiscovery: s31.hiddenAfterDiscovery,
+    discoveredOk: s31.discoveredOk,
+  }));
+  check(results, 'S31.7 compartmentation', s31.start?.pactInherit === false
+    && s31.start?.ordinaryCaptainKnowsPact === false
+    && s31.start?.breenDominionStripped === true
+    && s31.after?.pactInherit === false, JSON.stringify({
+    pact: s31.start?.pactInherit,
+    ordinary: s31.start?.ordinaryCaptainKnowsPact,
+    stripped: s31.start?.breenDominionStripped,
+  }));
+  check(results, 'S31.8 lock-and-magnitudes', s31.lock !== true
+    && s31.start?.lockedFromRemastered === false
+    && s31.start?.discoveryOddsLocked === false
+    && s31.start?.invasionOddsLocked === false
+    && s31.start?.secretTablePresent === false
+    && s31.restored?.lockedFromRemastered === false
+    && s31.restored?.secretTablePresent === false
+    && s31.restored?.discoveryOddsLocked === false
+    && s31.restored?.invasionOddsLocked === false
+    && s31.loadedLock !== true, JSON.stringify({
+    lock: s31.lock,
+    restored: {
+      lock: s31.restored?.lockedFromRemastered,
+      secret: s31.restored?.secretTablePresent,
+    },
+  }));
+  check(results, 'S31.9 persistence', s31.savedHasRoster === true
+    && s31.savedRosterInsideDominion !== true
+    && s31.savedStage !== true
+    && s31.savedProfileCount === 22
+    && s31.afterWipeCount === 22
+    && s31.resetOk === true
+    && s31.afterResetCount === 22
+    && s31.loadedCount === 22
+    && s31.loadedScope === 'dominion-first'
+    && s31.restored?.inventedKeys?.length === 0, JSON.stringify({
+    saved: s31.savedProfileCount,
+    inside: s31.savedRosterInsideDominion,
+    wipe: s31.afterWipeCount,
+    reset: s31.afterResetCount,
+    loaded: s31.loadedCount,
+    scope: s31.loadedScope,
+  }));
+  check(results, 'S31.10 landed-lanes', s31.phase10Scope === 'dominion-first'
+    && s31.xpTracked === true
+    && s31.xpRule === 'named_mix'
+    && s31.xpTable !== true
+    && s31.tractor !== true
+    && s31.dockClear === true
+    && s31.alertsActive === true, JSON.stringify({
+    scope: s31.phase10Scope,
+    xp: { tracked: s31.xpTracked, rule: s31.xpRule, table: s31.xpTable },
+    tractor: s31.tractor,
+  }));
+  check(results, 'S31.11 shots-na', s31.readout !== true, JSON.stringify({ readout: s31.readout }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -6061,13 +6331,14 @@ async function main() {
     await runDockClear(page, results);
     await runAlertsActive(page, results);
     await runAwayTeamXp(page, results);
+    await runPhase10Roster(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

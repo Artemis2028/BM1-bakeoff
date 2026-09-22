@@ -643,6 +643,16 @@ import {
   spendProcurementStores,
 } from './phase10-dominion-book.js';
 import {
+  FACTION_ROSTER_BOOK_VERSION,
+  PHASE10_ROSTER_LOCKED_FROM_REMASTERED,
+  applyRosterUnlock,
+  emptyFactionRosterBook,
+  factionRosterSnapshot,
+  requirePhase10RosterHelpers,
+  restoreFactionRosterBook,
+  serializeFactionRosterBook,
+} from './phase10-roster.js';
+import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
   installEwEquipment,
@@ -1462,6 +1472,7 @@ const state = {
   boardingBook: emptyBoardingBook(),
   awayTeamXpBook: emptyAwayTeamXpBook(),
   dominionBook: emptyDominionBook(),
+  factionRosterBook: emptyFactionRosterBook(),
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
@@ -5789,6 +5800,14 @@ function ensureDominionBook() {
   state.dominionBook.debugAuthorizeAllDeployments = false;
   state.dominionBook.weaknessDidAuthorize = false;
   return state.dominionBook;
+}
+
+function ensureFactionRosterBook() {
+  if (!state.factionRosterBook || state.factionRosterBook.version !== FACTION_ROSTER_BOOK_VERSION) {
+    state.factionRosterBook = restoreFactionRosterBook(state.factionRosterBook);
+  }
+  state.factionRosterBook = restoreFactionRosterBook(state.factionRosterBook);
+  return state.factionRosterBook;
 }
 
 function ensureUtilityBook() {
@@ -14330,6 +14349,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     boardingBook: serializeBoardingBook(ensureBoardingBook(), ensureAwayTeamXpBook()),
     awayTeamXpBook: serializeAwayTeamXpBook(ensureAwayTeamXpBook()),
     dominionBook: serializeDominionBook(ensureDominionBook()),
+    factionRosterBook: serializeFactionRosterBook(ensureFactionRosterBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
@@ -14423,6 +14443,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.awayTeamXpBook = restoreAwayTeamXpBook(s.awayTeamXpBook);
   state.boardingBook.awayTeamXp = liveAwayTeamXpSnapshot(state.awayTeamXpBook);
   state.dominionBook = restoreDominionBook(s.dominionBook);
+  state.factionRosterBook = restoreFactionRosterBook(s.factionRosterBook);
   state.ew91 = restoreEw91Book(s.ew91);
   state.ew92 = restoreEw92Book(s.ew92);
   state.ew93 = restoreEw93Book(s.ew93);
@@ -22819,6 +22840,7 @@ function resetRunState() {
   state.boardingBook = emptyBoardingBook();
   state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
+  state.factionRosterBook = emptyFactionRosterBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -22962,6 +22984,7 @@ function restartInEscapePod() {
   state.boardingBook = emptyBoardingBook();
   state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
+  state.factionRosterBook = emptyFactionRosterBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23041,6 +23064,7 @@ function startWithFaction(key, options = {}) {
   state.boardingBook = emptyBoardingBook();
   state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
+  state.factionRosterBook = emptyFactionRosterBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -23995,6 +24019,7 @@ function installBm1ProbeHarness() {
     dockClear: createDockClearProbeApi(),
     alertsActive: createAlertsActiveProbeApi(),
     awayTeamXp: createAwayTeamXpProbeApi(),
+    phase10Roster: createPhase10RosterProbeApi(),
   };
 }
 
@@ -25244,6 +25269,115 @@ function createUtilityProbeApi() {
         text: panel?.textContent || '',
       };
     },
+  };
+}
+
+function createPhase10RosterProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const missingSetup = () => {
+    try {
+      requirePhase10RosterHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    const required = [
+      [factionRosterSnapshot, 'factionRosterSnapshot'],
+      [applyRosterUnlock, 'applyRosterUnlock'],
+      [emptyFactionRosterBook, 'emptyFactionRosterBook'],
+      [serializeFactionRosterBook, 'serializeFactionRosterBook'],
+      [restoreFactionRosterBook, 'restoreFactionRosterBook'],
+    ];
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const sampleMay = () => playerForceMayAutoEngage(
+    { id: 's31-gate', faction: 'klingon', hostile: true, attitude: 'hostile' },
+    getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+  );
+  const dominicaSayable = () => isSystemSayable(ensureDominionBook().discovery, playerObserverKey(), 'Dominica');
+  const liveContext = () => {
+    const book = ensureDominionBook();
+    const catalog = state.shipCatalog;
+    const gornPool = catalog
+      ? spawnIdsLive(catalog, book, { role: 'traffic', systemName: 'Earth', faction: GORN_FACTION })
+      : [];
+    const borgAmbientIds = catalog
+      ? spawnIdsLive(catalog, book, { role: 'traffic', systemName: 'Earth', faction: 'borg' })
+      : [];
+    const pirateHulls = catalog
+      ? spawnIdsLive(catalog, book, { role: 'traffic', systemName: 'Earth', faction: 'pirate' })
+      : [];
+    const pirateFactionHulls = catalog
+      ? catalog.ships.filter((ship) => ship && ship.rosterState === 'active' && ship.faction === 'pirate').length
+      : 0;
+    const dominionEntry = getFactionRelationEntry('dominion');
+    const breenEntry = getFactionRelationEntry('breen');
+    return {
+      dominionBook: book,
+      gornPool,
+      borgAmbientIds,
+      pirateHulls,
+      pirateFactionHulls,
+      playerFaction: state.playerFaction,
+      playerSide: getPlayerSide(),
+      reman53: reman53Identity(),
+      dominionFriendly: dominionEntry?.friendly || [],
+      breenFriendly: breenEntry?.friendly || [],
+      mayAutoEngage: sampleMay() === true,
+      protectAll: offersProtectAll(ensurePlayerSecurity()) === true,
+      dominicaSayable: dominicaSayable(),
+      agreements: book.agreements,
+      startKeys: Object.keys(factionDefs),
+      terranLabel: factionDefs.terran?.label || null,
+    };
+  };
+  const snapshot = () => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    return factionRosterSnapshot(ensureFactionRosterBook(), liveContext());
+  };
+  return {
+    snapshot,
+    failIfMissing: true,
+    unlock: (inject = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const factionBefore = state.playerFaction;
+      const sideBefore = getPlayerSide();
+      const remanBefore = reman53Identity();
+      const mayBefore = sampleMay();
+      const hiddenBefore = dominicaSayable();
+      const result = applyRosterUnlock(ensureFactionRosterBook(), inject);
+      return {
+        ok: result.ok === true,
+        npcBound: result.npcBound === true,
+        rowStolen: result.rowStolen === true,
+        factionUnchanged: state.playerFaction === factionBefore,
+        sideUnchanged: getPlayerSide() === sideBefore,
+        remanUnchanged: reman53Identity().id === remanBefore.id && reman53Identity().key === remanBefore.key,
+        mayUnchanged: sampleMay() === mayBefore,
+        dominicaUnchanged: dominicaSayable() === hiddenBefore,
+        snapshot: snapshot(),
+      };
+    },
+    serialize: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return serializeFactionRosterBook(ensureFactionRosterBook());
+    },
+    restore: (saved) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      state.factionRosterBook = restoreFactionRosterBook(saved);
+      return snapshot();
+    },
+    lock: () => PHASE10_ROSTER_LOCKED_FROM_REMASTERED,
   };
 }
 
@@ -28950,6 +29084,7 @@ function installPlayerSecurityProbe() {
     dockClear: createDockClearProbeApi(),
     alertsActive: createAlertsActiveProbeApi(),
     awayTeamXp: createAwayTeamXpProbeApi(),
+    phase10Roster: createPhase10RosterProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,
