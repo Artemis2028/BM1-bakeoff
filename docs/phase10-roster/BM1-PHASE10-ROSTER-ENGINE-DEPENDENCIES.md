@@ -1,6 +1,7 @@
 # BM1 Phase 10 full roster: later-slice dependencies
 
 **Reviewed document:** `BM1-PHASE10-ROSTER-PROPOSAL.md`  
+**Later status (hygiene 23 September 2026 — cross-link only, deps text below unchanged):** S31 engine **stay-locked** [PR #68](https://github.com/Artemis2028/BM1-bakeoff/pull/68) tip `3ecadd3` merged at `cb9be75`. S18.18 unamended. `PHASE10_ROSTER_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.**  
 **Reviewed against:** `Artemis2028/BM1-bakeoff` at `10540aa` on `main` (22 September 2026), after away-team XP S30 engine (PR #66). Line numbers below refer to this head and may drift.  
 **Method:** read the landed `dominionBook` roster flags, S18.18, doctrine profile/culture ids, pack faction/region counts, Phase 1 Breen–Dominion strip, `factionDefs` start cards, and the BAKEOFF-STATUS / GUIDED note that left the full roster **deferred**. No engine changes made. This is a dependency/risk checklist for a **later** writer **if** Tenth scopes a thin subscribe catalog — not a post-implementation review and not permission to implement before Tenth scopes the lane. **Keep #33–#66 locked.** Do not reopen EW, boarding combat, Dominion-first hard gates, flags/passes, the weapon ledger, empty-armable, construction visuals, HTML catalogs, economy / difficulty, standing tiers, dockClear, hygiene, alertsActive, or away-team XP. Do not rewrite two-mode ROE. Do not retune combat. Do not invent a Thaleron facility. Do not `git am` remastered patches.
 
