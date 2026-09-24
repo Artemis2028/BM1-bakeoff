@@ -1,6 +1,7 @@
 # BM1 Phase 10 full faction roster (Dominion-first soft residual)
 
 **Status:** proposal for the parked Phase 10 **soft residual**; no engine changes made by this document.  
+**Later status (hygiene 23 September 2026 — cross-link only, brief text below unchanged):** S31 engine **stay-locked** [PR #68](https://github.com/Artemis2028/BM1-bakeoff/pull/68) tip `3ecadd3` merged at `cb9be75` (this brief #67 @ `17063c4`; sibling `factionRosterBook`; S18.18 unamended). `PHASE10_ROSTER_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** See `docs/BAKEOFF-STATUS.md`.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `10540aa` on `main` (22 September 2026), after away-team XP S30 engine (PR #66) on `main` @ `10540aa` (brief #65).  
 **This is a Phase 10 full-roster brief.** It opens **roster completeness only**: which factions, pack keys, and discovery-layer caps get **full named coverage** versus **deferred stubs**. It does **not** reopen the seven Dominion-first hard gates, does **not** rewrite two-mode ROE, does **not** open a new alert religion, and does **not** retune combat.  

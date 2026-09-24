@@ -1,6 +1,7 @@
 # BM1 away-team XP (boarding soft residual)
 
 **Status:** proposal for the parked boarding **soft residual**; no engine changes made by this document.  
+**Later status (hygiene 23 September 2026 — cross-link only, brief text below unchanged):** S30 engine **stay-locked** [PR #66](https://github.com/Artemis2028/BM1-bakeoff/pull/66) @ `10540aa` (this brief #65 @ `73b2963`; `named_mix`). `AWAY_TEAM_XP_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** See `docs/BAKEOFF-STATUS.md`.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `ce177f0` on `main` (21 September 2026), after alertsActive S29 engine (PR #64) on `main` @ `ce177f0` (brief #63).  
 **This is an away-team XP brief, not a boarding combat reopen, not Phase 10 / Dominion / faction-slice content.** Boarding #38 / #39 already landed the eight hard gates; gate 8 locked first-slice XP as **`not_tracked_yet`**. Convergence §4 and BAKEOFF-STATUS / GUIDED soft residuals have named that parking since PR #39. This document **opens** that residual as a scoreable brief. It does **not** reopen boarding gates 1–7, does **not** open Phase 10 wider faction / Dominion campaign, and does **not** claim a Referee Pass.  

@@ -1,6 +1,7 @@
 # BM1 alertsActive snapshot policy (Phase 4 soft residual)
 
 **Status:** proposal for the parked Phase 4 **soft residual**; no engine changes made by this document.  
+**Later status (hygiene 23 September 2026 — cross-link only, brief text below unchanged):** S29 engine **stay-locked** [PR #64](https://github.com/Artemis2028/BM1-bakeoff/pull/64) @ `ce177f0` (this brief #63 @ `60c2f69`). `ALERTS_ACTIVE_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** See `docs/BAKEOFF-STATUS.md`.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `a1e4695` on `main` (21 September 2026), after docs hygiene (PR #62) on `main` @ `74f574b` (dockClear engine PR #61).  
 **Referee context:** Phase 4 engine §6 **Pass** on `7f926df` (probe 89; hard gates closed; **soft** `alertsActive` snapshot note). Hygiene **#62 stay-locked**. DockClear **#60 / #61 stay-locked**. EW #33 / #35 / #37 / #42 / #43 / #44 / #45, boarding #38 / #39, Phase 10 #40 / #41, flags #46 / #47, ledger #48 / #49, empty-armable #50 / #51, construction #52 / #53, HTML catalogs #54 / #55, economy-difficulty #56 / #57, and standing-tiers #58 / #59 stay **locked**. This is a **thin readout-alignment brief only**, not a Phase 2 ROE rewrite, not a new alert religion, not a FLASH / ledger reopen, and **not** a claim that those lanes already had a Referee Pass on the status MD. This brief does **not** claim a new Referee Pass.  
