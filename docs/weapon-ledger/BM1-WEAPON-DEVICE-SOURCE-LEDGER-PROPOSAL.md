@@ -1,6 +1,7 @@
 # BM1 weapon / device source ledger
 
 **Status:** proposal for a reviewed source ledger / audit; no engine changes made by this document.  
+**Sail reclass (one line; body below unchanged; #48/#49 not reopened):** §6.1’s deferred-utility classification of Flash Bajoran Sail (and Q4’s slot-utility deferral) is **superseded** by `docs/bajoran-solar-sailor/` — Sail is a **ship**; Warp Core (§6.2) stays a deferred utility.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `6dc279b` on `main` (18 September 2026), after flags / passes / utility inventory engine (PR #47).  
 **Referee context:** Phase 4 engine §6 **Pass** on `7f926df`. Phase 9–9.4 EW (PRs #33 / #35 / #37 / #42 / #43 / #44 / #45), boarding (PRs #38 / #39), Phase 10 Dominion-first (PRs #40 / #41), and flags / passes (PRs #46 / #47) are the **locked** baselines — **Keep #33, #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, and #47 locked.** The Phase 9 weapons matrix (`src/phase9-weapons-matrix.js`, S14.12–S14.15) stays **read-only**. This is a **source ledger / audit brief only**, not a combat retune, not a fire-gate reopen, and **not** a claim that those lanes already had a Referee Pass on the status MD. This brief does **not** claim a new Referee Pass.  
@@ -257,6 +258,8 @@ Phase 9 matrix `INHERITED_NOT_IN_FLASH = [2, 27, 28, 29, 30, 38, 39, 44, 45]` al
 Room lock: classify or explicitly defer. Do not silently cargo-merge.
 
 ### 6.1 Bajoran Sail
+
+**Superseded (one line; table below is the locked #48/#49 record, not the live class):** Flash Bajoran Sail is a **ship** under `docs/bajoran-solar-sailor/`; this utility classification is not the scoreable class; Warp Core in §6.2 stays deferred; #48/#49 gates are not reopened.
 
 | Field | Verdict |
 | --- | --- |
