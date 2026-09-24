@@ -653,6 +653,16 @@ import {
   serializeFactionRosterBook,
 } from './phase10-roster.js';
 import {
+  BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED,
+  SOLAR_SAILOR_BOOK_VERSION,
+  applySolarSailorInject,
+  emptySolarSailorBook,
+  requireSolarSailorHelpers,
+  restoreSolarSailorBook,
+  serializeSolarSailorBook,
+  solarSailorSnapshot,
+} from './bajoran-solar-sailor.js';
+import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
   installEwEquipment,
@@ -1473,6 +1483,7 @@ const state = {
   awayTeamXpBook: emptyAwayTeamXpBook(),
   dominionBook: emptyDominionBook(),
   factionRosterBook: emptyFactionRosterBook(),
+  solarSailorBook: emptySolarSailorBook(),
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
@@ -5808,6 +5819,14 @@ function ensureFactionRosterBook() {
   }
   state.factionRosterBook = restoreFactionRosterBook(state.factionRosterBook);
   return state.factionRosterBook;
+}
+
+function ensureSolarSailorBook() {
+  if (!state.solarSailorBook || state.solarSailorBook.version !== SOLAR_SAILOR_BOOK_VERSION) {
+    state.solarSailorBook = restoreSolarSailorBook(state.solarSailorBook);
+  }
+  state.solarSailorBook = restoreSolarSailorBook(state.solarSailorBook);
+  return state.solarSailorBook;
 }
 
 function ensureUtilityBook() {
@@ -14350,6 +14369,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     awayTeamXpBook: serializeAwayTeamXpBook(ensureAwayTeamXpBook()),
     dominionBook: serializeDominionBook(ensureDominionBook()),
     factionRosterBook: serializeFactionRosterBook(ensureFactionRosterBook()),
+    solarSailorBook: serializeSolarSailorBook(ensureSolarSailorBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
@@ -14444,6 +14464,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.boardingBook.awayTeamXp = liveAwayTeamXpSnapshot(state.awayTeamXpBook);
   state.dominionBook = restoreDominionBook(s.dominionBook);
   state.factionRosterBook = restoreFactionRosterBook(s.factionRosterBook);
+  state.solarSailorBook = restoreSolarSailorBook(s.solarSailorBook);
   state.ew91 = restoreEw91Book(s.ew91);
   state.ew92 = restoreEw92Book(s.ew92);
   state.ew93 = restoreEw93Book(s.ew93);
@@ -22841,6 +22862,7 @@ function resetRunState() {
   state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
   state.factionRosterBook = emptyFactionRosterBook();
+  state.solarSailorBook = emptySolarSailorBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -22985,6 +23007,7 @@ function restartInEscapePod() {
   state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
   state.factionRosterBook = emptyFactionRosterBook();
+  state.solarSailorBook = emptySolarSailorBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23065,6 +23088,7 @@ function startWithFaction(key, options = {}) {
   state.awayTeamXpBook = emptyAwayTeamXpBook();
   state.dominionBook = emptyDominionBook();
   state.factionRosterBook = emptyFactionRosterBook();
+  state.solarSailorBook = emptySolarSailorBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -24020,6 +24044,7 @@ function installBm1ProbeHarness() {
     alertsActive: createAlertsActiveProbeApi(),
     awayTeamXp: createAwayTeamXpProbeApi(),
     phase10Roster: createPhase10RosterProbeApi(),
+    solarSailor: createSolarSailorProbeApi(),
   };
 }
 
@@ -25269,6 +25294,119 @@ function createUtilityProbeApi() {
         text: panel?.textContent || '',
       };
     },
+  };
+}
+
+function solarSailorLiveContext() {
+  const dominion = state.dominionBook;
+  const utilityBlob = JSON.stringify(state.utilityBook || {});
+  const goods = Array.isArray(state.tradeGoodsArray) ? state.tradeGoodsArray : [];
+  const playable = dominion?.rosterPlayable;
+  return {
+    dominionBook: {
+      scope: typeof dominion?.scope === 'string' ? dominion.scope : null,
+      rosterPlayable: {
+        independent: playable?.independent === true,
+        ferengi: playable?.ferengi === true,
+        vulcan: playable?.vulcan === true,
+      },
+    },
+    inLiveUtilityBook: /bajoran sail|bajoran solar sailor/i.test(utilityBlob),
+    inLiveTradeGoods: goods.some((name) => /^(bajoran sail|bajoran solar sailor)$/i.test(String(name))),
+  };
+}
+
+function createSolarSailorProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const missingSetup = () => {
+    try {
+      requireSolarSailorHelpers();
+    } catch (error) {
+      return { ok: false, missing: true, reason: error.helper ? `${error.helper}-missing` : String(error.message || error) };
+    }
+    const required = [
+      [solarSailorSnapshot, 'solarSailorSnapshot'],
+      [applySolarSailorInject, 'applySolarSailorInject'],
+      [emptySolarSailorBook, 'emptySolarSailorBook'],
+      [serializeSolarSailorBook, 'serializeSolarSailorBook'],
+      [restoreSolarSailorBook, 'restoreSolarSailorBook'],
+    ];
+    for (const [helper, name] of required) {
+      const missing = failIfMissing(helper, name);
+      if (missing) return missing;
+    }
+    return null;
+  };
+  const sampleMay = () => playerForceMayAutoEngage(
+    { id: 's32-gate', faction: 'klingon', hostile: true, attitude: 'hostile' },
+    getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+  );
+  const dominionFingerprint = () => {
+    const book = state.dominionBook;
+    return JSON.stringify({
+      scope: book?.scope ?? null,
+      rosterPlayable: book?.rosterPlayable ?? null,
+    });
+  };
+  const snapshot = () => {
+    const setup = missingSetup();
+    if (setup) return setup;
+    return solarSailorSnapshot(ensureSolarSailorBook(), solarSailorLiveContext());
+  };
+  return {
+    snapshot,
+    failIfMissing: true,
+    tryFire: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const before = Array.isArray(state.projectiles) ? state.projectiles.length : 0;
+      const row = snapshot();
+      const after = Array.isArray(state.projectiles) ? state.projectiles.length : 0;
+      return {
+        ok: row.ok === true,
+        emittedProjectile: row.emitsProjectile === true,
+        combatWeaponId: row.combatWeaponId ?? null,
+        unarmedCannotFire: row.unarmedCannotFire === true,
+        projectileDelta: after - before,
+      };
+    },
+    inject: (payload = {}) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      const dominionBefore = dominionFingerprint();
+      const slotsBefore = JSON.stringify(state.weaponSlots);
+      const utilityBefore = JSON.stringify(state.utilityBook || {});
+      const goodsBefore = JSON.stringify(state.tradeGoodsArray || []);
+      const startsBefore = Object.keys(factionDefs).join(',');
+      const mayBefore = sampleMay();
+      applySolarSailorInject(ensureSolarSailorBook(), payload);
+      return {
+        ok: true,
+        idLocked: ensureSolarSailorBook().idLocked === true,
+        dominionUnchanged: dominionFingerprint() === dominionBefore,
+        slotsUnchanged: JSON.stringify(state.weaponSlots) === slotsBefore,
+        utilityUnchanged: JSON.stringify(state.utilityBook || {}) === utilityBefore,
+        tradeGoodsUnchanged: JSON.stringify(state.tradeGoodsArray || []) === goodsBefore,
+        startsUnchanged: Object.keys(factionDefs).join(',') === startsBefore,
+        mayUnchanged: sampleMay() === mayBefore,
+        snapshot: snapshot(),
+      };
+    },
+    serialize: () => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      return serializeSolarSailorBook(ensureSolarSailorBook());
+    },
+    restore: (saved) => {
+      const setup = missingSetup();
+      if (setup) return setup;
+      state.solarSailorBook = restoreSolarSailorBook(saved);
+      return snapshot();
+    },
+    lock: () => BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED,
   };
 }
 
@@ -29085,6 +29223,7 @@ function installPlayerSecurityProbe() {
     alertsActive: createAlertsActiveProbeApi(),
     awayTeamXp: createAwayTeamXpProbeApi(),
     phase10Roster: createPhase10RosterProbeApi(),
+    solarSailor: createSolarSailorProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

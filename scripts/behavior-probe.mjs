@@ -6292,6 +6292,269 @@ async function runPhase10Roster(page, results) {
   check(results, 'S31.11 shots-na', s31.readout !== true, JSON.stringify({ readout: s31.readout }));
 }
 
+async function runBajoranSolarSailor(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.solarSailor));
+  if (!present) {
+    check(results, 'S32.setup solarSailor-api', false, 'solarSailor probe API missing');
+    return;
+  }
+
+  const s32 = await page.evaluate(() => {
+    const top = globalThis.__BM1_PROBE__;
+    const harness = globalThis.BM1Probe;
+    const sailor = top.solarSailor;
+    if (!sailor || sailor.failIfMissing !== true || typeof sailor.snapshot !== 'function' || typeof sailor.inject !== 'function') {
+      return { missing: true };
+    }
+    const start = sailor.snapshot();
+    if (start.missing === true) return { missing: true, reason: start.reason || 'snapshot-missing' };
+    const phase10 = top.phase10.snapshot();
+    const ledger = top.weaponLedger.snapshot();
+    const sail = (ledger.deferredUtilities || []).find((row) => row.flashName === 'Bajoran Sail');
+    const core = (ledger.deferredUtilities || []).find((row) => row.flashName === 'Warp Core');
+    const fireTry = sailor.tryFire();
+    const beforeKeys = JSON.stringify({ ...start, injectedHullId: undefined });
+    const injected = sailor.inject({
+      hullId: 345,
+      idLocked: true,
+      magnitudesLocked: true,
+      cost: 5000,
+      artPath: 'bm-ships/locked.png',
+      hull: 12,
+      shields: 8,
+      speed: 3,
+      firingSolution: true,
+      engagement_authorized: true,
+      cultureFire: true,
+      classification: 'deferred-utility',
+      armedByDefault: true,
+      defaultWeaponSlots: [1, 2, 3],
+      weaponCatalogId: 9,
+      rosterPlayableGift: true,
+      grantsFire: true,
+      cargo: true,
+      utilityBook: true,
+    });
+    const after = injected.snapshot || sailor.snapshot();
+    const afterKeys = JSON.stringify({ ...after, injectedHullId: undefined });
+    const poisoned = sailor.serialize();
+    poisoned.classification = 'deferred-utility';
+    poisoned.idLocked = true;
+    poisoned.magnitudesLocked = true;
+    poisoned.BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED = true;
+    poisoned.defaultWeaponSlots = [1, null, null];
+    poisoned.armedByDefault = true;
+    poisoned.firingSolution = true;
+    poisoned.engagement_authorized = true;
+    poisoned.grantsFire = true;
+    poisoned.rosterPlayableGift = true;
+    poisoned.cost = 5000;
+    poisoned.id = 345;
+    poisoned.weaponCatalogId = 8;
+    delete poisoned.injectedHullId;
+    poisoned.cargo = true;
+    poisoned.utilityBook = true;
+    const restored = sailor.restore(poisoned);
+    sailor.inject({ hullId: 77, idLocked: true });
+    harness.saveSlot(3);
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('bm2_html_save_slot_3') || 'null');
+    } catch {
+      saved = null;
+    }
+    const reset = top.phase5?.resetRun?.();
+    const afterReset = sailor.snapshot();
+    harness.loadSlot(3);
+    const loaded = sailor.snapshot();
+    const readout = document.querySelector('[data-bajoran-solar-sailor]');
+    const utilityBlob = JSON.stringify(saved?.utilityBook || {});
+    const dominionBlob = JSON.stringify(saved?.dominionBook || {});
+    return {
+      missing: false,
+      start,
+      phase10Scope: phase10.scope,
+      phase10Playable: phase10.rosterPlayable,
+      ledgerCombat: ledger.combatUnchanged === true,
+      ledgerFlashLock: ledger.flashPricesAreLiveLocks === true,
+      sail,
+      core,
+      fireTry,
+      injected,
+      after,
+      beforeKeys,
+      afterKeys,
+      restored,
+      savedHasBook: Boolean(saved && saved.solarSailorBook && saved.solarSailorBook.classification === 'ship'),
+      savedInsideDominion: Boolean(saved && saved.dominionBook && saved.dominionBook.solarSailorBook),
+      savedUtilityHasName: /bajoran solar sailor/i.test(utilityBlob),
+      savedDominionHasName: /bajoran solar sailor/i.test(dominionBlob),
+      savedSlots: saved?.solarSailorBook?.defaultWeaponSlots || null,
+      savedIdLocked: saved?.solarSailorBook?.idLocked === true,
+      savedLock: saved?.solarSailorBook?.BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED === true,
+      resetOk: reset?.ok === true,
+      afterResetClass: afterReset.classification,
+      afterResetInjected: Object.prototype.hasOwnProperty.call(afterReset, 'injectedHullId'),
+      loadedClass: loaded.classification,
+      loadedInjected: loaded.injectedHullId,
+      loadedIdLocked: loaded.idLocked === true,
+      loadedScope: loaded.dominionScope,
+      afterResetScope: afterReset.dominionScope,
+      loadedPlayable: {
+        ferengi: loaded.rosterPlayableFerengi === true,
+        independent: loaded.rosterPlayableIndependent === true,
+        vulcan: loaded.rosterPlayableVulcan === true,
+      },
+      lock: sailor.lock() === true || start.lockedFromRemastered === true,
+      readout: Boolean(readout),
+      hasFiring: Object.prototype.hasOwnProperty.call(after, 'firingSolution'),
+      hasEngagement: Object.prototype.hasOwnProperty.call(after, 'engagement_authorized'),
+      hasCultureFire: Object.prototype.hasOwnProperty.call(after, 'cultureFire'),
+      hasId: Object.prototype.hasOwnProperty.call(start, 'id'),
+      hasCost: Object.prototype.hasOwnProperty.call(after, 'cost'),
+    };
+  });
+
+  const slotsEmpty = Array.isArray(s32.start?.defaultWeaponSlots)
+    && s32.start.defaultWeaponSlots.length === 3
+    && s32.start.defaultWeaponSlots.every((slot) => slot == null);
+  check(results, 'S32.setup solarSailor-api', s32.missing !== true && s32.start?.ok === true, JSON.stringify(s32.reason || s32.start));
+  check(results, 'S32.1 ship-not-utility', s32.start?.classification === 'ship'
+    && s32.start?.flashName === 'Bajoran Sail'
+    && s32.start?.displayName === 'Bajoran Solar Sailor'
+    && s32.start?.cargo === false
+    && s32.start?.utilityBook === false
+    && s32.start?.weaponCatalogId === null
+    && s32.start?.inLiveUtilityBook !== true
+    && s32.start?.inLiveTradeGoods !== true
+    && s32.sail?.bakeoffId == null
+    && s32.sail?.cargo === false
+    && s32.sail?.utilityBook === false, JSON.stringify({
+    classification: s32.start?.classification,
+    sail: s32.sail,
+  }));
+  check(results, 'S32.2 begins-unarmed', s32.start?.beginsUnarmed === true
+    && s32.start?.armedByDefault === false
+    && slotsEmpty
+    && s32.start?.unarmedCannotFire === true
+    && s32.start?.emitsProjectile !== true
+    && s32.start?.combatWeaponId == null
+    && s32.start?.emptyButArmable === true
+    && s32.fireTry?.emittedProjectile !== true
+    && s32.fireTry?.projectileDelta === 0
+    && s32.fireTry?.combatWeaponId == null, JSON.stringify({
+    slots: s32.start?.defaultWeaponSlots,
+    fire: s32.fireTry,
+  }));
+  check(results, 'S32.3 no-playable-gift', s32.start?.rosterPlayableGift === false
+    && s32.start?.dominionScope === 'dominion-first'
+    && s32.start?.rosterPlayableFerengi !== true
+    && s32.start?.rosterPlayableIndependent !== true
+    && s32.start?.rosterPlayableVulcan !== true
+    && s32.phase10Scope === 'dominion-first'
+    && s32.phase10Playable?.ferengi !== true
+    && s32.phase10Playable?.independent !== true
+    && s32.phase10Playable?.vulcan !== true
+    && s32.injected?.dominionUnchanged === true
+    && s32.injected?.startsUnchanged === true
+    && s32.loadedScope === 'dominion-first'
+    && s32.afterResetScope === 'dominion-first'
+    && s32.loadedPlayable?.ferengi !== true
+    && s32.readout !== true, JSON.stringify({
+    scope: s32.phase10Scope,
+    playable: s32.phase10Playable,
+    dominionUnchanged: s32.injected?.dominionUnchanged,
+  }));
+  check(results, 'S32.4 no-gifted-fire', s32.start?.grantsFire === false
+    && s32.start?.cultureGrantsFire === false
+    && s32.start?.mayAutoEngageFromSailor === false
+    && s32.hasFiring !== true
+    && s32.hasEngagement !== true
+    && s32.hasCultureFire !== true
+    && s32.after?.grantsFire === false
+    && s32.injected?.mayUnchanged === true, JSON.stringify({
+    grantsFire: s32.after?.grantsFire,
+    mayUnchanged: s32.injected?.mayUnchanged,
+  }));
+  check(results, 'S32.5 lanes-preserved', s32.ledgerCombat === true
+    && s32.core?.classification === 'deferred-utility-not-trade-good'
+    && s32.core?.cargo !== true
+    && s32.core?.cargoNameWarpCoresDistinct === true
+    && s32.core?.utilityBook !== true
+    && s32.sail?.classification === 'deferred-utility'
+    && s32.savedHasBook === true
+    && Array.isArray(s32.savedSlots)
+    && s32.savedSlots.length === 3
+    && s32.savedSlots.every((slot) => slot == null)
+    && s32.savedInsideDominion !== true
+    && s32.savedUtilityHasName !== true
+    && s32.savedDominionHasName !== true
+    && s32.resetOk === true
+    && s32.afterResetClass === 'ship'
+    && s32.afterResetInjected !== true
+    && s32.loadedClass === 'ship'
+    && s32.loadedInjected === 77
+    && s32.phase10Scope === 'dominion-first', JSON.stringify({
+    core: s32.core,
+    combat: s32.ledgerCombat,
+    saved: s32.savedHasBook,
+    loaded: s32.loadedClass,
+  }));
+  check(results, 'S32.6 no-third-roe', Array.isArray(s32.start?.roeModes)
+    && s32.start.roeModes.length === 2
+    && s32.start.roeModes.includes('return-fire')
+    && s32.start.roeModes.includes('defend')
+    && !s32.start.roeModes.includes('protect-all')
+    && s32.start?.protectAll === false
+    && s32.start?.protectApplied === 'record_only', JSON.stringify({
+    roe: s32.start?.roeModes,
+    protectAll: s32.start?.protectAll,
+    protect: s32.start?.protectApplied,
+  }));
+  check(results, 'S32.7 blind', s32.lock !== true
+    && s32.start?.lockedFromRemastered === false
+    && s32.start?.idLocked === false
+    && s32.start?.magnitudesLocked === false
+    && s32.hasId !== true
+    && s32.hasCost !== true
+    && s32.after?.injectedHullId === 345
+    && s32.after?.idLocked === false
+    && s32.after?.magnitudesLocked === false
+    && s32.after?.lockedFromRemastered === false
+    && s32.after?.classification === 'ship'
+    && s32.injected?.idLocked !== true
+    && s32.beforeKeys === s32.afterKeys
+    && s32.restored?.lockedFromRemastered === false
+    && s32.restored?.idLocked === false
+    && s32.restored?.classification === 'ship'
+    && !Object.prototype.hasOwnProperty.call(s32.restored || {}, 'injectedHullId')
+    && s32.savedIdLocked !== true
+    && s32.savedLock !== true
+    && s32.loadedIdLocked !== true, JSON.stringify({
+    lock: s32.lock,
+    afterId: s32.after?.injectedHullId,
+    idLocked: s32.after?.idLocked,
+    keysMatch: s32.beforeKeys === s32.afterKeys,
+    restored: s32.restored?.classification,
+  }));
+  check(results, 'S32.8 named-outs', s32.ledgerFlashLock !== true
+    && s32.start?.namedOuts?.flashPricesAreLiveLocks === false
+    && s32.start?.namedOuts?.thaleronShipped === false
+    && s32.start?.namedOuts?.thaleronVerified === false
+    && s32.start?.namedOuts?.boardingOddsLocked === false
+    && s32.start?.namedOuts?.matrixWarpCoreMapping === 'deferred-utility-not-trade-good'
+    && s32.start?.namedOuts?.matrixSailMapping === 'deferred-utility'
+    && s32.start?.classification === 'ship'
+    && s32.core?.classification === 'deferred-utility-not-trade-good'
+    && s32.injected?.utilityUnchanged === true
+    && s32.injected?.tradeGoodsUnchanged === true
+    && s32.injected?.slotsUnchanged === true, JSON.stringify({
+    named: s32.start?.namedOuts,
+    core: s32.core?.classification,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -6332,13 +6595,14 @@ async function main() {
     await runAlertsActive(page, results);
     await runAwayTeamXp(page, results);
     await runPhase10Roster(page, results);
+    await runBajoranSolarSailor(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
