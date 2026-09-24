@@ -1,6 +1,7 @@
 # BM1 weapon / device source ledger: engine dependencies
 
 **Reviewed document:** `BM1-WEAPON-DEVICE-SOURCE-LEDGER-PROPOSAL.md`  
+**Sail reclass (one line; body below unchanged; #48/#49 not reopened):** §6.1’s deferred-utility classification of Flash Bajoran Sail is **superseded** by `docs/bajoran-solar-sailor/` (ship / unarmed hull); Warp Core stays deferred; do not retune `DEFERRED_FLASH_UTILITIES` from this note.  
 **Reviewed against:** `Artemis2028/BM1-bakeoff` at `6dc279b` on `main` (18 September 2026), after flags / passes / utility inventory engine (PR #47). Line numbers below refer to this head and may drift.  
 **Method:** read the landed Phase 9 weapons matrix, `data/game_items.json` weapons + trade goods, catalog `packDefaultWeaponSlots`, Tractor / disruptor probe helpers, flags `utilityBook`, boarding `tractorIsBoarding()`, and GUIDED §1 Flash table. No engine changes made. This is a dependency/risk checklist for a **later** writer **if** Tenth scopes a thin data/audit engine — not a post-implementation review and not permission to implement before Tenth scopes the lane. **Keep #33, #35, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, and #47 locked.** Do not reopen EW, boarding, Phase 10, or flags/passes. Do not retune combat. Do not open empty-but-armable, construction visuals, dockClear polish, HTML catalogs, or Thaleron facility invent.
 
