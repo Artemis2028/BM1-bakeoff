@@ -26,6 +26,7 @@ const BASE = `http://127.0.0.1:${PORT}/`;
 
 const OPEN_OUTCOME = 'Legal delivery complete.';
 const CLOAK_FAIL = 'Not a legal delivery. Inspection not cleared. Cargo still aboard.';
+const COVERT_PAID = 'Covert drop at Ferenginar. Paid 27 latinum.';
 const COVERT_MARK = 'Inspection not cleared.';
 
 const MIME = {
@@ -118,6 +119,27 @@ function measureWorldCargoHost() {
     }
     const text = String(host?.innerText || '');
     const outcomeText = String(outcome?.innerText || '');
+    const occluders = [];
+    if (hostRect && hostRect.width > 40 && hostRect.height > 40) {
+      const inset = 8;
+      const points = [];
+      const steps = 6;
+      for (let ix = 0; ix <= steps; ix += 1) {
+        for (let iy = 0; iy <= steps; iy += 1) {
+          points.push({
+            x: hostRect.left + inset + ((hostRect.width - inset * 2) * ix) / steps,
+            y: hostRect.top + inset + ((hostRect.height - inset * 2) * iy) / steps,
+          });
+        }
+      }
+      for (const point of points) {
+        const hit = document.elementFromPoint(point.x, point.y);
+        if (!hit || hit === host || host.contains(hit)) continue;
+        const name = hit.id ? `#${hit.id}` : (hit.getAttribute?.('aria-label') || hit.className || hit.tagName);
+        const label = `${String(name).slice(0, 80)} @${Math.round(point.x)},${Math.round(point.y)}`;
+        if (!occluders.includes(label)) occluders.push(label);
+      }
+    }
     const sentenceCut = outcome && (
       getComputedStyle(outcome).textOverflow === 'ellipsis'
       || outcome.scrollWidth > outcome.clientWidth + 1
@@ -136,10 +158,23 @@ function measureWorldCargoHost() {
       outcomeOverflowYContained: Boolean(outcome && (getComputedStyle(outcome).overflowY === 'auto' || getComputedStyle(outcome).overflowY === 'scroll')),
       clippedControls,
       sentenceCut: sentenceCut === true,
+      occluders,
       text,
       outcomeText,
     };
   };
+}
+
+async function clearWorldCargoObstructions(page) {
+  await page.evaluate(() => {
+    document.getElementById('btn-close-map')?.click();
+    document.getElementById('interstellar-map-frame')?.classList.add('hidden');
+    document.getElementById('interstellar-map-canvas')?.classList.add('hidden');
+    const minimap = document.getElementById('minimap-panel');
+    if (minimap) minimap.style.display = 'none';
+    document.getElementById('briefing-archive')?.classList.add('hidden');
+    document.getElementById('phase10-readout')?.classList.add('hidden');
+  });
 }
 
 async function boot(page) {
@@ -226,6 +261,7 @@ async function main() {
       return { enrolled, completed, text };
     });
     await page.waitForTimeout(250);
+    await clearWorldCargoObstructions(page);
     await shot(page, '01-open-delivery');
     const openFit = await page.evaluate(measureWorldCargoHost());
 
@@ -262,6 +298,7 @@ async function main() {
       return { covert, dropped, openFail, failed, text };
     });
     await page.waitForTimeout(250);
+    await clearWorldCargoObstructions(page);
     await shot(page, '02-covert-drop');
     const covertFit = await page.evaluate(measureWorldCargoHost());
 
@@ -275,7 +312,12 @@ async function main() {
       covertDrop: covertFit,
       openOutcomeShown: openText.includes(OPEN_OUTCOME) && openText.includes('Ferenginar') && openText.includes('48'),
       cloakFailShown: covertText.includes(CLOAK_FAIL),
+      covertPaidShown: covertText.includes(COVERT_PAID),
       covertInspectionShown: covertText.includes(COVERT_MARK) && covertText.includes('27'),
+      occluders: [
+        ...(openFit.occluders || []),
+        ...(covertFit.occluders || []),
+      ],
       clippedControls: [
         ...(openFit.clippedControls || []),
         ...(covertFit.clippedControls || []),
@@ -285,6 +327,7 @@ async function main() {
       sentenceCut: openFit.sentenceCut === true || covertFit.sentenceCut === true,
     };
     overflow.clippedControls = [...new Set(overflow.clippedControls)];
+    overflow.occluders = [...new Set(overflow.occluders)];
     fs.writeFileSync(path.join(outDir, 'overflow.json'), JSON.stringify(overflow, null, 2));
     fs.writeFileSync(path.join(outDir, 'NOTES.md'), [
       '# World cargo after shots',
@@ -298,8 +341,10 @@ async function main() {
       '',
     ].join('\n'));
     const ok = overflow.clippedControls.length === 0
+      && overflow.occluders.length === 0
       && overflow.openOutcomeShown
       && overflow.cloakFailShown
+      && overflow.covertPaidShown
       && overflow.covertInspectionShown
       && overflow.hostClearsDock
       && !overflow.hostOverflowX
@@ -308,8 +353,10 @@ async function main() {
       console.error(JSON.stringify({
         openOutcomeShown: overflow.openOutcomeShown,
         cloakFailShown: overflow.cloakFailShown,
+        covertPaidShown: overflow.covertPaidShown,
         covertInspectionShown: overflow.covertInspectionShown,
         clippedControls: overflow.clippedControls,
+        occluders: overflow.occluders,
         hostClearsDock: overflow.hostClearsDock,
         hostOverflowX: overflow.hostOverflowX,
         sentenceCut: overflow.sentenceCut,

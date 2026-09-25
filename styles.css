@@ -886,11 +886,13 @@ body.ui-theme-cardassian .planet-menu::before {
 .briefing-archive.hidden { display: none; }
 .world-cargo {
   position: fixed;
-  top: 78px;
+  /* Below the persistent #phase10-readout (top 70, max-height 220) and the
+     Settings tab, which otherwise cover this host. */
+  top: 298px;
   left: 18px;
   z-index: 27;
   width: min(400px, calc(100vw - 36px));
-  max-height: calc(100vh - 78px - var(--bm1-dock-clear) - 16px);
+  max-height: calc(100vh - 298px - var(--bm1-dock-clear) - 16px);
   display: flex;
   flex-direction: column;
   gap: 6px;
