@@ -34,6 +34,7 @@ import {
   listSecurityHoldings,
   offersProtectAll,
   playerForceMayAutoEngage,
+  ROE_MODES,
   previewEscortAttackOrder,
   pruneObservedAttacks,
   reactivateHoldingOverride,
@@ -662,6 +663,19 @@ import {
   serializeSolarSailorBook,
   solarSailorSnapshot,
 } from './bajoran-solar-sailor.js';
+import {
+  BRIEFING_ARCHIVE_LOCKED_FROM_REMASTERED,
+  applyBriefingArchiveInject,
+  briefingArchiveSnapshot,
+  emptyBriefingArchive,
+  listBriefingFolders,
+  listCampaignBriefings,
+  produceArrivalBriefing,
+  requireBriefingArchiveHelpers,
+  restoreBriefingArchive,
+  selectBriefing,
+  serializeBriefingArchive,
+} from './briefing-archive.js';
 import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
@@ -1484,6 +1498,7 @@ const state = {
   dominionBook: emptyDominionBook(),
   factionRosterBook: emptyFactionRosterBook(),
   solarSailorBook: emptySolarSailorBook(),
+  briefingArchive: emptyBriefingArchive(),
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
@@ -4396,6 +4411,7 @@ function completeWormholeTransit(targetIndex, wormhole = state.wormhole, options
     wormhole: true,
   });
   refreshContactBookNow();
+  fileArrivalBriefing();
   state.ship.velocity = 0;
   state.ship.turnVelocity = 0;
   state.ship.forwardThrustStartedAt = 0;
@@ -5827,6 +5843,49 @@ function ensureSolarSailorBook() {
   }
   state.solarSailorBook = restoreSolarSailorBook(state.solarSailorBook);
   return state.solarSailorBook;
+}
+
+function ensureBriefingArchive() {
+  if (!state.briefingArchive || state.briefingArchive.version !== 1 || !state.briefingArchive.briefings) {
+    state.briefingArchive = restoreBriefingArchive(state.briefingArchive, { discovery: playerDiscovery() });
+  }
+  return state.briefingArchive;
+}
+
+function gatherBriefingSources() {
+  const index = Number(state.currentPlanet) || 0;
+  const planet = state.planets?.[index];
+  const contest = ensureEw91Book().lastContest;
+  const stored = contest
+    && ['own', 'friendly', 'mixed', 'unlabeled'].includes(contest.source)
+    && contest.usedClaim !== true
+    && contest.inventedFaction !== true
+    ? { source: contest.source, usedClaim: false, inventedFaction: false }
+    : null;
+  const copy = ensureIncidentLedger().observerCopies?.[playerObserverKey()];
+  return {
+    contactBook: ensureContactBook(),
+    incidentLedger: ensureIncidentLedger(),
+    objectiveBoard: ensureObjectiveBoard(),
+    dominionBook: ensureDominionBook(),
+    discovery: playerDiscovery(),
+    storedInterference: stored,
+    systemIndex: index,
+    systemName: planet?.name || '',
+    strategicJumps: ensureIncidentLedger().strategicJumps || 0,
+    assignmentObserver: {
+      knownAssignmentIds: Array.isArray(copy?.knownAssignmentIds) ? copy.knownAssignmentIds.map(String) : [],
+    },
+  };
+}
+
+function fileArrivalBriefing() {
+  const produced = produceArrivalBriefing(ensureBriefingArchive(), gatherBriefingSources());
+  state.briefingArchive = produced.book;
+  const host = document.getElementById('briefing-archive');
+  if (host && !host.dataset.view) host.dataset.view = 'briefing';
+  renderBriefingArchive();
+  return produced;
 }
 
 function ensureUtilityBook() {
@@ -10829,6 +10888,55 @@ function renderPhase10CampaignHtml() {
   </div>`;
 }
 
+function renderBriefingArchive() {
+  const host = document.getElementById('briefing-archive');
+  if (!host) return;
+  const visible = Boolean(state.gameStarted && !state.gameOver && !state.mapOpen && !state.topLeftPanelOpen && !state.planetMenuOpen);
+  host.classList.toggle('hidden', !visible);
+  if (!visible) return;
+  const view = host.dataset.view === 'archive' ? 'archive' : 'briefing';
+  host.dataset.view = view;
+  host.classList.toggle('is-archive', view === 'archive');
+  host.classList.toggle('is-briefing', view !== 'archive');
+  const book = ensureBriefingArchive();
+  const campaign = host.dataset.campaign || '';
+  const folders = listBriefingFolders(book);
+  const campaignRows = campaign ? listCampaignBriefings(book, campaign) : null;
+  const campaignIds = campaignRows ? new Set(campaignRows.map((row) => row.id)) : null;
+  const folderHtml = folders.map((folder) => {
+    const rows = campaignIds ? folder.rows.filter((row) => campaignIds.has(row.id)) : folder.rows;
+    if (!rows.length) return '';
+    const buttons = rows.map((row) => (
+      `<button type="button" data-briefing-select="${escapeHtml(row.id)}" class="${row.id === book.selectedId ? 'active' : ''}">${escapeHtml(row.folderLabel)} · jump ${row.producedAtStrategicJumps} · ${escapeHtml(row.id)}</button>`
+    )).join('');
+    return `<div class="briefing-folder"><b>${escapeHtml(folder.folderLabel)}</b>${buttons}</div>`;
+  }).join('');
+  const hasWider = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'wider_dominion');
+  const hasObjectives = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'objectives');
+  const selectHtml = `<div class="briefing-archive-toolbar">
+      <button type="button" data-briefing-view="briefing" class="${view === 'briefing' ? 'active' : ''}">Briefing</button>
+      <button type="button" data-briefing-view="archive" class="${view === 'archive' ? 'active' : ''}">Archive</button>
+      <button type="button" data-briefing-campaign="" class="${campaign === '' ? 'active' : ''}">All</button>
+      ${hasWider ? `<button type="button" data-briefing-campaign="wider_dominion" class="${campaign === 'wider_dominion' ? 'active' : ''}">Wider Dominion</button>` : ''}
+      ${hasObjectives ? `<button type="button" data-briefing-campaign="objectives" class="${campaign === 'objectives' ? 'active' : ''}">Objectives</button>` : ''}
+    </div>${folderHtml || '<div class="briefing-folder-empty">No briefing has been filed.</div>'}`;
+  const selected = book.selectedId ? book.briefings[book.selectedId] : null;
+  const bodyHtml = !selected
+    ? '<p class="briefing-empty">No briefing has been filed.</p>'
+    : `<div class="briefing-jump">Jump ${selected.producedAtStrategicJumps} · ${escapeHtml(selected.folderLabel)}</div>${
+      (selected.lines || []).map((line) => `<div class="briefing-line">${escapeHtml(line)}</div>`).join('')
+    }${selected.omittedCount > 0 ? `<div class="briefing-omitted">Omitted lines: ${selected.omittedCount}</div>` : ''}`;
+  let selectEl = host.querySelector('.briefing-archive-select');
+  let bodyEl = host.querySelector('.briefing-archive-body');
+  if (!selectEl || !bodyEl) {
+    host.innerHTML = '<div class="briefing-archive-select"></div><div class="briefing-archive-body"></div>';
+    selectEl = host.querySelector('.briefing-archive-select');
+    bodyEl = host.querySelector('.briefing-archive-body');
+  }
+  selectEl.innerHTML = selectHtml;
+  bodyEl.innerHTML = bodyHtml;
+}
+
 function renderPhase10Readout() {
   const el = document.getElementById('phase10-readout');
   if (!el) return;
@@ -13515,6 +13623,7 @@ function updateStats() {
     renderWormholeBuildModal();
   }
   renderPhase10Readout();
+  renderBriefingArchive();
 }
 
 function getFlightPlanetMarker() {
@@ -14370,6 +14479,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     dominionBook: serializeDominionBook(ensureDominionBook()),
     factionRosterBook: serializeFactionRosterBook(ensureFactionRosterBook()),
     solarSailorBook: serializeSolarSailorBook(ensureSolarSailorBook()),
+    briefingArchive: serializeBriefingArchive(ensureBriefingArchive()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
@@ -14463,6 +14573,9 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.awayTeamXpBook = restoreAwayTeamXpBook(s.awayTeamXpBook);
   state.boardingBook.awayTeamXp = liveAwayTeamXpSnapshot(state.awayTeamXpBook);
   state.dominionBook = restoreDominionBook(s.dominionBook);
+  state.briefingArchive = restoreBriefingArchive(s.briefingArchive, {
+    discovery: state.dominionBook?.discovery,
+  });
   state.factionRosterBook = restoreFactionRosterBook(s.factionRosterBook);
   state.solarSailorBook = restoreSolarSailorBook(s.solarSailorBook);
   state.ew91 = restoreEw91Book(s.ew91);
@@ -15659,10 +15772,12 @@ function completeWarpTravel() {
   if (!state.warp.active) return;
   const targetIndex = state.warp.to;
   const fromIndex = state.warp.from;
+  let strategicArrival = false;
   if (Number.isFinite(Number(fromIndex)) && Number(fromIndex) !== Number(targetIndex)) {
     expireEffects(ensureEwBook(), currentLocalMs(), { actorsLeftSystem: true });
     closePlayerVisitOnDeparture(fromIndex);
     incrementPlayerStrategicJumps();
+    strategicArrival = true;
   }
   state.day += 1;
   state.currentPlanet = targetIndex;
@@ -15685,6 +15800,7 @@ function completeWarpTravel() {
   setPlayerCloak(false, performance.now(), true);
   applyArrivalPlacement({ fromIndex, toIndex: targetIndex });
   refreshContactBookNow();
+  if (strategicArrival) fileArrivalBriefing();
   state.ship.velocity = 0;
   state.ship.turnVelocity = 0;
   state.ship.forwardThrustStartedAt = 0;
@@ -15804,6 +15920,30 @@ targetWindowEl?.addEventListener('pointerdown', (e) => {
 
 targetWindowEl?.addEventListener('click', (e) => {
   handleTargetWindowAction(e, false);
+});
+
+document.getElementById('briefing-archive')?.addEventListener('click', (event) => {
+  const host = document.getElementById('briefing-archive');
+  if (!host) return;
+  const view = event.target.closest('[data-briefing-view]');
+  if (view) {
+    event.preventDefault();
+    host.dataset.view = view.dataset.briefingView === 'archive' ? 'archive' : 'briefing';
+    renderBriefingArchive();
+    return;
+  }
+  const campaign = event.target.closest('[data-briefing-campaign]');
+  if (campaign) {
+    event.preventDefault();
+    host.dataset.campaign = campaign.dataset.briefingCampaign || '';
+    renderBriefingArchive();
+    return;
+  }
+  const select = event.target.closest('[data-briefing-select]');
+  if (!select) return;
+  event.preventDefault();
+  state.briefingArchive = selectBriefing(ensureBriefingArchive(), select.dataset.briefingSelect);
+  renderBriefingArchive();
 });
 
 wormholeModalEl?.addEventListener('click', (e) => {
@@ -22863,6 +23003,7 @@ function resetRunState() {
   state.dominionBook = emptyDominionBook();
   state.factionRosterBook = emptyFactionRosterBook();
   state.solarSailorBook = emptySolarSailorBook();
+  state.briefingArchive = emptyBriefingArchive();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -23008,6 +23149,7 @@ function restartInEscapePod() {
   state.dominionBook = emptyDominionBook();
   state.factionRosterBook = emptyFactionRosterBook();
   state.solarSailorBook = emptySolarSailorBook();
+  state.briefingArchive = emptyBriefingArchive();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23089,6 +23231,7 @@ function startWithFaction(key, options = {}) {
   state.dominionBook = emptyDominionBook();
   state.factionRosterBook = emptyFactionRosterBook();
   state.solarSailorBook = emptySolarSailorBook();
+  state.briefingArchive = emptyBriefingArchive();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -24045,6 +24188,7 @@ function installBm1ProbeHarness() {
     awayTeamXp: createAwayTeamXpProbeApi(),
     phase10Roster: createPhase10RosterProbeApi(),
     solarSailor: createSolarSailorProbeApi(),
+    briefingArchive: createBriefingArchiveProbeApi(),
   };
 }
 
@@ -25407,6 +25551,209 @@ function createSolarSailorProbeApi() {
       return snapshot();
     },
     lock: () => BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED,
+  };
+}
+
+function briefingAuthorityFingerprint() {
+  const contacts = listContacts(ensureContactBook(), playerObserverKey()).map((contact) => ({
+    id: contact.contactId,
+    firingSolution: contact.firingSolution === true,
+    engagement_authorized: Object.prototype.hasOwnProperty.call(contact, 'engagement_authorized')
+      ? contact.engagement_authorized
+      : undefined,
+  }));
+  return {
+    roeModes: ROE_MODES.slice(),
+    protectAll: offersProtectAll(ensurePlayerSecurity()) === true,
+    standing: JSON.stringify(state.factionStanding || {}),
+    standingWriteCount: Number(state.standingWriteCount) || 0,
+    pursuit: playerForceMayAutoEngage(
+      { id: 's33-gate', faction: 'klingon', hostile: true, attitude: 'hostile' },
+      getPlayerSecurityContext(performance.now(), { targetType: 'ship' }),
+    ),
+    firingSolution: contacts,
+    engagement_authorized: state.engagement_authorized,
+    latinum: state.latinum,
+    duranium: state.duranium,
+    antimatter: state.antimatter,
+    rosterPlayable: JSON.stringify(ensureDominionBook().rosterPlayable || {}),
+    sailorGift: ensureSolarSailorBook().rosterPlayableGift === true,
+    scope: ensureDominionBook().scope,
+    discovery: JSON.stringify(playerDiscovery() || {}),
+  };
+}
+
+function createBriefingArchiveProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const snapshot = () => {
+    const missing = failIfMissing(briefingArchiveSnapshot, 'briefingArchiveSnapshot');
+    if (missing) return missing;
+    return briefingArchiveSnapshot(ensureBriefingArchive());
+  };
+  const unchanged = (before, after) => JSON.stringify(before) === JSON.stringify(after);
+  return {
+    snapshot,
+    lock: () => BRIEFING_ARCHIVE_LOCKED_FROM_REMASTERED,
+    saveSlotCount: SAVE_SLOT_COUNT,
+    installPerceivedContact: (input = {}) => {
+      const record = upsertContact(ensureContactBook(), playerObserverKey(), input, currentLocalMs());
+      return { ok: Boolean(record), contactId: record?.contactId || null, firingSolution: record?.firingSolution === true };
+    },
+    produce: (opts = {}) => {
+      const before = briefingAuthorityFingerprint();
+      const sources = gatherBriefingSources();
+      if (opts.systemIndex != null) sources.systemIndex = opts.systemIndex;
+      if (opts.systemName != null) sources.systemName = opts.systemName;
+      if (opts.strategicJumps != null) sources.strategicJumps = opts.strategicJumps;
+      if (opts.assignmentObserver) sources.assignmentObserver = opts.assignmentObserver;
+      if (opts.storedInterference) sources.storedInterference = opts.storedInterference;
+      const jumpsBefore = ensureIncidentLedger().strategicJumps;
+      const produced = produceArrivalBriefing(ensureBriefingArchive(), sources);
+      state.briefingArchive = produced.book;
+      const host = document.getElementById('briefing-archive');
+      if (host && !host.dataset.view) host.dataset.view = 'briefing';
+      renderBriefingArchive();
+      const after = briefingAuthorityFingerprint();
+      return {
+        ok: true,
+        id: produced.id,
+        deduped: produced.deduped === true,
+        lines: produced.briefing?.lines || [],
+        omittedCount: produced.briefing?.omittedCount || 0,
+        campaignGroup: produced.briefing?.campaignGroup ?? null,
+        jumpsBefore,
+        jumpsAfter: ensureIncidentLedger().strategicJumps,
+        authorityUnchanged: unchanged(before, after),
+        before,
+        after,
+        snapshot: snapshot(),
+      };
+    },
+    select: (id) => {
+      const before = briefingAuthorityFingerprint();
+      const linesBefore = JSON.stringify(ensureBriefingArchive().briefings || {});
+      state.briefingArchive = selectBriefing(ensureBriefingArchive(), id);
+      renderBriefingArchive();
+      const after = briefingAuthorityFingerprint();
+      const selected = state.briefingArchive.briefings[state.briefingArchive.selectedId] || null;
+      return {
+        ok: true,
+        selectedId: state.briefingArchive.selectedId,
+        lines: selected?.lines || [],
+        linesFrozen: JSON.stringify(ensureBriefingArchive().briefings || {}) === linesBefore
+          || (selected && JSON.stringify(selected.lines) === JSON.stringify(JSON.parse(linesBefore)[selected.id]?.lines || selected.lines)),
+        authorityUnchanged: unchanged(before, after),
+        snapshot: snapshot(),
+      };
+    },
+    restore: (payload) => {
+      state.briefingArchive = restoreBriefingArchive(payload, { discovery: playerDiscovery() });
+      renderBriefingArchive();
+      return snapshot();
+    },
+    serialize: () => serializeBriefingArchive(ensureBriefingArchive()),
+    inject: (payload = {}) => {
+      state.briefingArchive = applyBriefingArchiveInject(ensureBriefingArchive(), payload);
+      renderBriefingArchive();
+      return snapshot();
+    },
+    setView: (view) => {
+      const host = document.getElementById('briefing-archive');
+      if (!host) return { ok: false };
+      host.dataset.view = view === 'archive' ? 'archive' : 'briefing';
+      renderBriefingArchive();
+      return { ok: true, view: host.dataset.view };
+    },
+    folders: () => listBriefingFolders(ensureBriefingArchive()).map((folder) => ({
+      folderKey: folder.folderKey,
+      folderLabel: folder.folderLabel,
+      ids: folder.rows.map((row) => row.id),
+    })),
+    exerciseDetached: () => {
+      let book = emptyBriefingArchive();
+      const ids = [];
+      for (let jump = 1; jump <= 25; jump += 1) {
+        const produced = produceArrivalBriefing(book, {
+          systemIndex: jump % 3,
+          systemName: `Lane ${jump % 3}`,
+          strategicJumps: jump,
+          contactBook: { observers: {} },
+          incidentLedger: { observerCopies: {} },
+          objectiveBoard: { assignments: {}, objectives: {} },
+          dominionBook: emptyDominionBook(),
+          discovery: {},
+        });
+        book = produced.book;
+        ids.push(produced.id);
+      }
+      const selected = book.selectedId;
+      const deduped = produceArrivalBriefing(book, {
+        systemIndex: 25 % 3,
+        systemName: 'Lane 1',
+        strategicJumps: 25,
+        contactBook: { observers: {} },
+        incidentLedger: { observerCopies: {} },
+        objectiveBoard: { assignments: {}, objectives: {} },
+        dominionBook: emptyDominionBook(),
+        discovery: {},
+      });
+      const empty = restoreBriefingArchive(undefined);
+      const coerced = restoreBriefingArchive({
+        grantsFire: true,
+        writesRoe: true,
+        writesStanding: true,
+        writesPursuit: true,
+        writesCredits: true,
+        writesRosterPlayable: true,
+        writesDiscovery: true,
+        selectedId: 'missing',
+        cap: 100,
+        briefings: {},
+      });
+      return {
+        count: Object.keys(book.briefings).length,
+        selectedKept: selected != null && book.briefings[selected] != null && book.selectedId === selected,
+        oldestGone: book.briefings['brf-1'] == null,
+        deduped: deduped.deduped === true,
+        dedupedCount: Object.keys(deduped.book.briefings).length,
+        emptyCount: Object.keys(empty.briefings).length,
+        emptySelected: empty.selectedId,
+        coercedFlags: coerced.grantsFire === false
+          && coerced.writesRoe === false
+          && coerced.writesCredits === false
+          && coerced.cap === 24
+          && coerced.selectedId == null,
+        cap: book.cap,
+      };
+    },
+    saveSlots: () => {
+      saveGame(1);
+      const slot1 = JSON.parse(localStorage.getItem('bm2_html_save_slot_1') || '{}');
+      const archive = serializeBriefingArchive(ensureBriefingArchive());
+      state.briefingArchive = emptyBriefingArchive();
+      saveGame(2);
+      const slot2 = JSON.parse(localStorage.getItem('bm2_html_save_slot_2') || '{}');
+      loadGame(2);
+      const loaded2 = Object.keys(ensureBriefingArchive().briefings || {}).length;
+      loadGame(1);
+      const loaded1 = Object.keys(ensureBriefingArchive().briefings || {}).length;
+      const legacy = localStorage.getItem('bm2_html_save');
+      const legacyArchive = legacy ? JSON.parse(legacy).briefingArchive : null;
+      return {
+        saveSlotCount: SAVE_SLOT_COUNT,
+        slot1Count: Object.keys(slot1.briefingArchive?.briefings || {}).length,
+        slot2Count: Object.keys(slot2.briefingArchive?.briefings || {}).length,
+        loaded2,
+        loaded1,
+        slot1InsideSystemStates: Boolean(slot1.systemStates?.briefingArchive),
+        slot2InsideSystemStates: Boolean(slot2.systemStates?.briefingArchive),
+        legacyMirrorsSlot1: Boolean(legacyArchive) && Object.keys(legacyArchive.briefings || {}).length === Object.keys(archive.briefings || {}).length,
+        prefix: 'bm2_html_save_slot_',
+      };
+    },
   };
 }
 
@@ -29224,6 +29571,7 @@ function installPlayerSecurityProbe() {
     awayTeamXp: createAwayTeamXpProbeApi(),
     phase10Roster: createPhase10RosterProbeApi(),
     solarSailor: createSolarSailorProbeApi(),
+    briefingArchive: createBriefingArchiveProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

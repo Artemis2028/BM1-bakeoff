@@ -6555,6 +6555,199 @@ async function runBajoranSolarSailor(page, results) {
   }));
 }
 
+async function runBriefingArchive(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.briefingArchive));
+  if (!present) {
+    check(results, 'S33.setup briefingArchive-api', false, 'briefingArchive probe API missing');
+    return;
+  }
+  const s33 = await page.evaluate(() => {
+    const top = globalThis.__BM1_PROBE__;
+    const api = top.briefingArchive;
+    if (!api || typeof api.snapshot !== 'function' || typeof api.produce !== 'function') return { missing: true };
+    const start = api.snapshot();
+    const ghost = api.installPerceivedContact({
+      contactId: 'ctc-0000-ghost',
+      subjectKey: 'ghost:s33',
+      ghost: true,
+      source: 'ew_ghost',
+      detected: true,
+      identification: 'none',
+      trackQuality: 'area',
+      firingSolution: true,
+      trueHull: 'Jem Hadar Attack Ship',
+      sideId: 'dominion',
+      lastKnown: { x: 4817, y: 9023 },
+    });
+    const spoof = api.installPerceivedContact({
+      contactId: 'ctc-0001-spoof',
+      subjectKey: 'npc:s33-spoof',
+      detected: true,
+      identification: 'partial',
+      trackQuality: 'area',
+      firingSolution: true,
+      spoofExposed: false,
+      sideId: 'dominion',
+      trueHull: 'Jem Hadar Attack Ship',
+      transponderClaim: { mode: 'spoof', spoofedFaction: 'bajoran' },
+    });
+    const produced = api.produce({ systemName: 'Earth' });
+    const selected = api.select(produced.id);
+    const other = api.produce({ systemIndex: 2, systemName: 'Andoria', strategicJumps: 9 });
+    const reopened = api.select(produced.id);
+    const injected = api.inject({
+      grantsFire: true,
+      writesRoe: true,
+      writesStanding: true,
+      writesPursuit: true,
+      writesCredits: true,
+      writesRosterPlayable: true,
+      writesDiscovery: true,
+      cap: 100,
+      lineCap: 40,
+    });
+    const host = document.getElementById('briefing-archive');
+    const line = host?.querySelector('.briefing-line');
+    const lineStyle = line ? getComputedStyle(line) : null;
+    const detached = api.exerciseDetached();
+    const emptied = api.restore(undefined);
+    const refiled = api.produce({ systemIndex: 1, systemName: 'Vulcan', strategicJumps: 2 });
+    api.setView('archive');
+    const folders = api.folders();
+    const slots = api.saveSlots();
+    return {
+      missing: false,
+      start,
+      ghost,
+      spoof,
+      produced,
+      selected,
+      other,
+      reopened,
+      injected,
+      detached,
+      emptied,
+      refiledId: refiled.id,
+      folders,
+      slots,
+      lock: api.lock() === true,
+      sailorLock: top.solarSailor?.lock?.() === true,
+      scope: produced.after?.scope,
+      roster: produced.after?.rosterPlayable,
+      sailorGift: produced.after?.sailorGift === true,
+      hostPresent: Boolean(host),
+      hostHidden: host?.classList.contains('hidden') === true,
+      ghostText: String(host?.innerText || '').includes('Ghost contact. Sensor record only — no hull, no firing solution.'),
+      claimText: String(host?.innerText || '').includes('Claim only — not a true side, not identity.'),
+      trueHullShown: String(host?.innerText || '').includes('Jem Hadar'),
+      noCampaign: !String(produced.lines || []).includes('No campaign knowledge'),
+      ellipsis: lineStyle?.textOverflow === 'ellipsis' || lineStyle?.whiteSpace === 'nowrap',
+      roe: produced.after?.roeModes,
+      protectAll: produced.after?.protectAll === true,
+    };
+  });
+
+  check(results, 'S33.setup briefingArchive-api', s33.missing !== true
+    && s33.start?.cap === 24
+    && s33.start?.lineCap === 12
+    && s33.start?.count === 0
+    && s33.start?.saveSlotCount === 3
+    && s33.start?.grantsFire === false, JSON.stringify(s33.start || s33));
+  check(results, 'S33.1 knowledge-only', s33.ghost?.firingSolution === false
+    && Array.isArray(s33.produced?.lines)
+    && s33.produced.lines.some((line) => line === 'Ghost contact. Sensor record only — no hull, no firing solution.')
+    && s33.produced.lines.some((line) => line.includes('Transponder claim: bajoran') && line.includes('Claim only'))
+    && !s33.produced.lines.join('\n').includes('Jem Hadar')
+    && !s33.produced.lines.join('\n').includes('4817')
+    && s33.noCampaign === true
+    && s33.trueHullShown === false
+    && s33.ghostText === true
+    && s33.claimText === true, JSON.stringify({
+    lines: s33.produced?.lines,
+    ghost: s33.ghost,
+    spoof: s33.spoof,
+  }));
+  check(results, 'S33.2 no-grant', s33.produced?.authorityUnchanged === true
+    && s33.selected?.authorityUnchanged === true
+    && s33.reopened?.authorityUnchanged === true
+    && JSON.stringify(s33.produced?.before?.roeModes) === JSON.stringify(s33.produced?.after?.roeModes)
+    && s33.produced?.before?.standing === s33.produced?.after?.standing
+    && s33.produced?.before?.pursuit === s33.produced?.after?.pursuit
+    && JSON.stringify(s33.produced?.before?.firingSolution) === JSON.stringify(s33.produced?.after?.firingSolution)
+    && s33.produced?.before?.engagement_authorized === s33.produced?.after?.engagement_authorized
+    && JSON.stringify(s33.selected?.snapshot?.grantsFire) === 'false'
+    && s33.roe?.join(',') === 'return-fire,defend'
+    && s33.protectAll === false
+    && s33.produced?.jumpsBefore === s33.produced?.jumpsAfter, JSON.stringify({
+    before: s33.produced?.before,
+    after: s33.produced?.after,
+    jumps: [s33.produced?.jumpsBefore, s33.produced?.jumpsAfter],
+  }));
+  check(results, 'S33.3 no-gift', s33.produced?.before?.latinum === s33.produced?.after?.latinum
+    && s33.produced?.before?.duranium === s33.produced?.after?.duranium
+    && s33.produced?.before?.antimatter === s33.produced?.after?.antimatter
+    && s33.produced?.before?.rosterPlayable === s33.produced?.after?.rosterPlayable
+    && s33.roster === s33.produced?.before?.rosterPlayable
+    && !String(s33.roster || '').includes('true')
+    && s33.sailorGift === false
+    && s33.scope === 'dominion-first'
+    && s33.produced?.before?.discovery === s33.produced?.after?.discovery, JSON.stringify({
+    scope: s33.scope,
+    roster: s33.roster,
+  }));
+  check(results, 'S33.4 bound-and-save', s33.detached?.count === 24
+    && s33.detached?.selectedKept === true
+    && s33.detached?.oldestGone === true
+    && s33.detached?.deduped === true
+    && s33.detached?.dedupedCount === 24
+    && s33.detached?.emptyCount === 0
+    && s33.detached?.emptySelected == null
+    && s33.detached?.coercedFlags === true
+    && s33.injected?.cap === 24
+    && s33.injected?.lineCap === 12
+    && s33.injected?.grantsFire === false
+    && s33.injected?.writesRoe === false
+    && s33.emptied?.count === 0
+    && s33.slots?.saveSlotCount === 3
+    && s33.slots?.slot2Count === 0
+    && s33.slots?.loaded2 === 0
+    && s33.slots?.loaded1 === s33.slots?.slot1Count
+    && s33.slots?.slot1Count > 0
+    && s33.slots?.slot1InsideSystemStates === false
+    && s33.slots?.slot2InsideSystemStates === false, JSON.stringify({
+    detached: s33.detached,
+    injected: s33.injected,
+    slots: s33.slots,
+  }));
+  check(results, 'S33.5 host-visible', s33.hostPresent === true
+    && s33.hostHidden === false
+    && s33.ellipsis !== true
+    && s33.ghostText === true, JSON.stringify({
+    hostPresent: s33.hostPresent,
+    hostHidden: s33.hostHidden,
+    ellipsis: s33.ellipsis,
+  }));
+  check(results, 'S33.6 lanes-preserved', s33.scope === 'dominion-first'
+    && s33.sailorLock === false
+    && s33.sailorGift === false);
+  check(results, 'S33.7 blind', s33.lock === false
+    && s33.start?.lockedFromRemastered === false
+    && s33.injected?.grantsFire === false);
+  check(results, 'S33.8 order-and-folders', s33.reopened?.selectedId === s33.produced?.id
+    && s33.reopened?.linesFrozen === true
+    && Array.isArray(s33.reopened?.lines)
+    && s33.reopened.lines.some((line) => line.includes('Ghost contact'))
+    && Array.isArray(s33.folders)
+    && s33.folders[0]?.folderKey === 'system:1'
+    && s33.other?.id !== s33.produced?.id
+    && s33.other?.deduped === false, JSON.stringify({
+    folders: s33.folders,
+    reopened: s33.reopened?.selectedId,
+    linesFrozen: s33.reopened?.linesFrozen,
+  }));
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -6596,13 +6789,14 @@ async function main() {
     await runAwayTeamXp(page, results);
     await runPhase10Roster(page, results);
     await runBajoranSolarSailor(page, results);
+    await runBriefingArchive(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
