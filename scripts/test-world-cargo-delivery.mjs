@@ -43,6 +43,7 @@ import {
   requireWorldCargoHelpers,
   restoreWorldCargoBook,
   serializeWorldCargoBook,
+  worldCargoSnapshot,
 } from '../src/world-cargo-delivery.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -479,8 +480,8 @@ const tampered = restoreWorldCargoBook({
 });
 assert('s34.tamper-open', tampered.inspectionCleared === false
   && tampered.customsCleared === false
-  && tampered.contracts.openish.mode === 'open'
-  && tampered.contracts.openish.legalPayout === 80
+  && tampered.contracts.openish.mode === 'covert'
+  && tampered.contracts.openish.legalPayout === 0
   && tampered.contracts.openish.covertReward === 0
   && tampered.contracts.openish.contraband === true
   && !tampered.contracts.nope);
@@ -490,6 +491,95 @@ assert('s34.tamper-both', tampered.contracts.bothOpen.mode === 'open'
   && tampered.contracts.bothCovert.mode === 'covert'
   && tampered.contracts.bothCovert.legalPayout === 0
   && tampered.contracts.bothCovert.covertReward === 4);
+
+function mismatchedRow(id, mode, legalPayout, covertReward, extra = {}) {
+  return {
+    id,
+    mode,
+    status: 'open',
+    legalPayout,
+    covertReward,
+    good: 'Grain',
+    tons: 1,
+    targetIndex: 3,
+    targetName: 'World A',
+    ...extra,
+  };
+}
+
+function trustedZero(contract, mode) {
+  return Boolean(contract)
+    && contract.mode === mode
+    && contract.legalPayout === 0
+    && contract.covertReward === 0;
+}
+
+const modeOpenRow = mismatchedRow('mode-open', 'open', 0, 500);
+const modeCovertRow = mismatchedRow('mode-covert', 'covert', 500, 0);
+const directModes = restoreWorldCargoBook({
+  contracts: { 'mode-open': modeOpenRow, 'mode-covert': modeCovertRow },
+});
+const savedModes = restoreWorldCargoBook(serializeWorldCargoBook(directModes));
+const snapOpen = worldCargoSnapshot({ contracts: { 'mode-open': modeOpenRow } }, { contractId: 'mode-open' });
+const snapCovert = worldCargoSnapshot({ contracts: { 'mode-covert': modeCovertRow } }, { contractId: 'mode-covert' });
+const openAttempt = completeWorldCargo(directModes, ctx({
+  contractId: 'mode-open',
+  docked: true,
+  dockedPlanetIndex: 3,
+  cloaked: false,
+  pods: [pod('mode-open', 'Grain', 1, 3, 0)],
+}));
+const covertAttempt = dropWorldCargo(directModes, ctx({
+  contractId: 'mode-covert',
+  docked: false,
+  cloaked: true,
+  pods: [pod('mode-covert', 'Grain', 1, 3, 0)],
+}));
+assert('s34.tamper-mode-open', trustedZero(directModes.contracts['mode-open'], 'open')
+  && trustedZero(savedModes.contracts['mode-open'], 'open')
+  && snapOpen.mode === 'open'
+  && snapOpen.legalPayout === 0
+  && snapOpen.covertReward === 0
+  && openAttempt.latinumDelta === 0
+  && directModes.contracts['mode-open'].mode === 'open');
+assert('s34.tamper-mode-covert', trustedZero(directModes.contracts['mode-covert'], 'covert')
+  && trustedZero(savedModes.contracts['mode-covert'], 'covert')
+  && snapCovert.mode === 'covert'
+  && snapCovert.legalPayout === 0
+  && snapCovert.covertReward === 0
+  && covertAttempt.latinumDelta === 0
+  && covertAttempt.standingDelta === 0
+  && directModes.contracts['mode-covert'].mode === 'covert');
+const missingMode = restoreWorldCargoBook({
+  contracts: {
+    bothMissing: mismatchedRow('bothMissing', 'neither', 9, 8),
+    covertOnly: mismatchedRow('covertOnly', '', 0, 6),
+  },
+});
+assert('s34.tamper-infer', missingMode.contracts.bothMissing.mode === 'open'
+  && missingMode.contracts.bothMissing.legalPayout === 9
+  && missingMode.contracts.bothMissing.covertReward === 0
+  && missingMode.contracts.covertOnly.mode === 'covert'
+  && missingMode.contracts.covertOnly.legalPayout === 0
+  && missingMode.contracts.covertOnly.covertReward === 6);
+const tokenBook = restoreWorldCargoBook({
+  contracts: {
+    tokenOpen: mismatchedRow('tokenOpen', 'open', 12, 0, {
+      status: 'open',
+      completionToken: 'world-cargo:tokenOpen',
+    }),
+  },
+});
+const tokenSaved = restoreWorldCargoBook(serializeWorldCargoBook(tokenBook));
+const tokenSnap = worldCargoSnapshot(tokenBook, { contractId: 'tokenOpen' });
+assert('s34.tamper-token', tokenBook.contracts.tokenOpen.status === 'delivered'
+  && tokenBook.contracts.tokenOpen.completionToken === 'world-cargo:tokenOpen'
+  && deliveriesPendingSafe(tokenBook) === 0
+  && tokenSaved.contracts.tokenOpen.status === 'delivered'
+  && deliveriesPendingSafe(tokenSaved) === 0
+  && tokenSnap.status === 'delivered'
+  && tokenSnap.deliveriesPending === 0
+  && tokenSnap.completionToken === 'world-cargo:tokenOpen');
 
 const evaluated = evaluateWorldService(stationBook, ctx({
   contractId: 'open-a',

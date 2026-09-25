@@ -6819,6 +6819,7 @@ async function runWorldCargo(page, results) {
     const authAfter = api.authority();
     const host = document.getElementById('world-cargo');
     const hostText = String(host?.innerText || '');
+    const modeTarget = api.contract('s34-bare') || {};
     const tamper = api.restore({
       inspectionCleared: true,
       customsCleared: true,
@@ -6849,6 +6850,55 @@ async function runWorldCargo(page, results) {
     });
     const openish = api.contract('openish');
     const both = api.contract('both');
+    const modeRow = (id, mode, legalPayout, covertReward, extra = {}) => ({
+      id,
+      mode,
+      status: 'open',
+      legalPayout,
+      covertReward,
+      good: 'Grain',
+      tons: 1,
+      targetIndex: modeTarget.targetIndex,
+      targetName: modeTarget.targetName || 'Destination',
+      ...extra,
+    });
+    const modePair = {
+      's34-open-covert': modeRow('s34-open-covert', 'open', 0, 500),
+      's34-covert-legal': modeRow('s34-covert-legal', 'covert', 500, 0),
+    };
+    api.restore({ contracts: modePair });
+    const modeDirect = {
+      open: api.contract('s34-open-covert'),
+      covert: api.contract('s34-covert-legal'),
+    };
+    const modeSnap = {
+      open: api.snapshot('s34-open-covert'),
+      covert: api.snapshot('s34-covert-legal'),
+    };
+    api.installPods('s34-open-covert');
+    const modeOpenPay = api.completeOpen({ contractId: 's34-open-covert' });
+    api.installPods('s34-covert-legal');
+    api.setCloak(true);
+    const modeCovertPay = api.drop({ contractId: 's34-covert-legal' });
+    api.restore({ contracts: modePair });
+    api.installPods('s34-open-covert');
+    api.installPods('s34-covert-legal');
+    const modeReloaded = api.saveReloadRedock('s34-open-covert');
+    const modeAfterReload = {
+      open: api.contract('s34-open-covert'),
+      covert: api.contract('s34-covert-legal'),
+    };
+    api.setCloak(true);
+    const modeReloadCovertPay = api.drop({ contractId: 's34-covert-legal' });
+    const tokenRow = modeRow('s34-token-open', 'open', 12, 0, {
+      status: 'open',
+      completionToken: 'world-cargo:s34-token-open',
+    });
+    const tokenDirect = api.restore({ contracts: { 's34-token-open': tokenRow } });
+    const tokenSnap = api.snapshot('s34-token-open');
+    api.restore({ contracts: { 's34-token-open': tokenRow } });
+    const tokenReloaded = api.saveReloadRedock('s34-token-open');
+    const tokenAfter = api.contract('s34-token-open');
     return {
       authBefore,
       authAfter,
@@ -6885,6 +6935,17 @@ async function runWorldCargo(page, results) {
       tamperPending: tamper.deliveriesPending,
       openish,
       both,
+      modeDirect,
+      modeSnap,
+      modeOpenPay,
+      modeCovertPay,
+      modeReloaded,
+      modeAfterReload,
+      modeReloadCovertPay,
+      tokenDirect,
+      tokenSnap,
+      tokenReloaded,
+      tokenAfter,
       noLegacy: api.contract('legacy-open') == null,
       saveSlotCount: api.saveSlotCount,
     };
@@ -6974,8 +7035,8 @@ async function runWorldCargo(page, results) {
     && s34.reloaded?.saveSlotCount === 3
     && s34.tamperFlags === true
     && s34.noLegacy === true
-    && s34.openish?.mode === 'open'
-    && s34.openish?.legalPayout === 80
+    && s34.openish?.mode === 'covert'
+    && s34.openish?.legalPayout === 0
     && s34.openish?.covertReward === 0
     && s34.both?.mode === 'open'
     && s34.both?.legalPayout === 10
@@ -6984,6 +7045,42 @@ async function runWorldCargo(page, results) {
     reloaded: s34.reloaded,
     openish: s34.openish,
     both: s34.both,
+  }));
+  const modeOpenTrusted = (row) => row?.mode === 'open' && row?.legalPayout === 0 && row?.covertReward === 0;
+  const modeCovertTrusted = (row) => row?.mode === 'covert' && row?.legalPayout === 0 && row?.covertReward === 0;
+  check(results, 'S34.6 mode-trust', modeOpenTrusted(s34.modeDirect?.open)
+    && modeCovertTrusted(s34.modeDirect?.covert)
+    && modeOpenTrusted(s34.modeSnap?.open)
+    && modeCovertTrusted(s34.modeSnap?.covert)
+    && s34.modeOpenPay?.latinumDelta === 0
+    && s34.modeOpenPay?.mode === 'open'
+    && s34.modeCovertPay?.latinumDelta === 0
+    && s34.modeCovertPay?.mode === 'covert'
+    && s34.modeCovertPay?.standingDelta === 0
+    && modeOpenTrusted(s34.modeAfterReload?.open)
+    && modeCovertTrusted(s34.modeAfterReload?.covert)
+    && s34.modeReloaded?.delta === 0
+    && s34.modeReloadCovertPay?.latinumDelta === 0
+    && s34.modeReloadCovertPay?.mode === 'covert'
+    && s34.tokenDirect?.status === 'delivered'
+    && s34.tokenDirect?.deliveriesPending === 0
+    && s34.tokenSnap?.status === 'delivered'
+    && s34.tokenSnap?.deliveriesPending === 0
+    && s34.tokenSnap?.completionToken === 'world-cargo:s34-token-open'
+    && s34.tokenAfter?.status === 'delivered'
+    && s34.tokenAfter?.mode === 'open'
+    && s34.tokenReloaded?.delta === 0
+    && s34.tokenReloaded?.status === 'delivered', JSON.stringify({
+    direct: s34.modeDirect,
+    snap: s34.modeSnap,
+    openPay: s34.modeOpenPay?.latinumDelta,
+    covertPay: s34.modeCovertPay,
+    reload: s34.modeReloaded,
+    afterReload: s34.modeAfterReload,
+    reloadCovert: s34.modeReloadCovertPay?.latinumDelta,
+    token: s34.tokenDirect,
+    tokenSnap: s34.tokenSnap,
+    tokenAfter: s34.tokenAfter,
   }));
   check(results, 'S34.7 host-visible', s34.hostPresent === true
     && s34.hostHidden === false

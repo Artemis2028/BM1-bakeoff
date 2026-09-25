@@ -102,26 +102,24 @@ function restoreOneContract(row, key) {
   if (!id) return null;
   let legalPayout = roundNonNeg(source.legalPayout);
   let covertReward = roundNonNeg(source.covertReward);
-  let mode = source.mode === 'covert' || source.mode === 'open' ? source.mode : null;
-  if (legalPayout > 0 && covertReward > 0) {
-    if (mode === 'covert') legalPayout = 0;
-    else {
-      mode = 'open';
-      covertReward = 0;
-    }
-  } else if (legalPayout > 0) {
-    mode = 'open';
+  const savedMode = source.mode === 'covert' || source.mode === 'open' ? source.mode : null;
+  let mode = savedMode;
+  if (mode === 'open') {
     covertReward = 0;
-  } else if (covertReward > 0) {
+  } else if (mode === 'covert') {
+    legalPayout = 0;
+  } else if (covertReward > 0 && legalPayout <= 0) {
     mode = 'covert';
     legalPayout = 0;
-  } else if (mode !== 'open' && mode !== 'covert') {
+  } else {
     mode = 'open';
+    covertReward = 0;
   }
-  const status = source.status === 'delivered' || source.status === 'expired' ? source.status : 'open';
+  let status = source.status === 'delivered' || source.status === 'expired' ? source.status : 'open';
   let completionToken = null;
   if (source.completionToken === `world-cargo:${id}`) completionToken = `world-cargo:${id}`;
-  if (status === 'delivered' && !completionToken) completionToken = `world-cargo:${id}`;
+  if (completionToken) status = 'delivered';
+  else if (status === 'delivered') completionToken = `world-cargo:${id}`;
   return {
     id,
     mode,
