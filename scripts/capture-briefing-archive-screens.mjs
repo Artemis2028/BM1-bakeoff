@@ -242,37 +242,65 @@ async function main() {
         sideId: 'dominion',
         transponderClaim: { mode: 'spoof', spoofedFaction: 'bajoran' },
       });
-      api.produce({ systemIndex: 0 });
+      const first = api.produce({ systemIndex: 0, strategicJumps: 0 });
+      api.select(first.id);
       api.setView('briefing');
       globalThis.BM1Probe?.paint?.();
     });
     await page.waitForTimeout(250);
     await shot(page, '01-briefing-view');
     const briefingFit = await page.evaluate(measureBriefingHost());
-    await page.evaluate(() => {
-      globalThis.__BM1_PROBE__.briefingArchive.setView('archive');
+    const archiveScene = await page.evaluate(() => {
+      const api = globalThis.__BM1_PROBE__.briefingArchive;
+      const second = api.produce({ systemIndex: 0, strategicJumps: 1 });
+      api.setView('archive');
+      const selected = api.select('brf-1');
       globalThis.BM1Probe?.paint?.();
+      const text = String(document.getElementById('briefing-archive')?.innerText || '');
+      return {
+        secondId: second.id,
+        secondDeduped: second.deduped === true,
+        selectedId: selected.selectedId,
+        bodyStartsJump0: (selected.lines || []).some((line) => String(line).includes('Jump 0')),
+        text,
+      };
     });
     await page.waitForTimeout(200);
     await shot(page, '02-archive-view');
     const archiveFit = await page.evaluate(measureBriefingHost());
+    const archiveText = String(archiveScene.text || '');
+    const archiveList = archiveText.toLowerCase();
+    const twoRows = archiveList.includes('brf-1') && archiveList.includes('brf-2');
     const overflow = {
       viewport: { width: 1280, height: 720 },
       measuredOn: '#briefing-archive',
       briefingView: briefingFit,
       archiveView: archiveFit,
+      archiveScene: {
+        secondId: archiveScene.secondId,
+        secondDeduped: archiveScene.secondDeduped,
+        selectedId: archiveScene.selectedId,
+        bodyStartsJump0: archiveScene.bodyStartsJump0,
+        twoRows,
+      },
       clippedControls: [
         ...(briefingFit.clippedControls || []),
         ...(archiveFit.clippedControls || []),
       ],
       hostClearsDock: briefingFit.hostClearsDock === true && archiveFit.hostClearsDock === true,
       hostOverflowX: briefingFit.hostOverflowX === true || archiveFit.hostOverflowX === true,
-      ghostWordClipped: briefingFit.ghostWordClipped === true,
-      ghostSentencePresent: briefingFit.ghostSentencePresent === true,
+      ghostWordClipped: briefingFit.ghostWordClipped === true || archiveFit.ghostWordClipped === true,
+      ghostSentencePresent: briefingFit.ghostSentencePresent === true && archiveFit.ghostSentencePresent === true,
     };
     overflow.clippedControls = [...new Set(overflow.clippedControls)];
     fs.writeFileSync(path.join(outDir, 'overflow.json'), JSON.stringify(overflow, null, 2));
-    if (overflow.clippedControls.length || overflow.ghostWordClipped || !overflow.ghostSentencePresent || !overflow.hostClearsDock || overflow.hostOverflowX) {
+    const archiveShowsFrozenJump0 = archiveScene.secondDeduped === false
+      && archiveScene.secondId === 'brf-2'
+      && archiveScene.selectedId === 'brf-1'
+      && archiveScene.bodyStartsJump0 === true
+      && twoRows
+      && archiveList.includes('jump 0');
+    if (overflow.clippedControls.length || overflow.ghostWordClipped || !overflow.ghostSentencePresent || !overflow.hostClearsDock || overflow.hostOverflowX || !archiveShowsFrozenJump0) {
       console.error(JSON.stringify(overflow, null, 2));
       process.exitCode = 1;
     }
