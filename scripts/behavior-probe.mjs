@@ -6814,6 +6814,7 @@ async function runWorldCargo(page, results) {
     api.setCloak(false);
     const bareDrop = api.drop({ contractId: 's34-bare' });
     const bareTons = api.podsFor('s34-bare').reduce((sum, pod) => sum + Number(pod.tons || 0), 0);
+    const bareStatus = api.contract('s34-bare')?.status;
     const suspicion = api.noteSuspicion({ contractId: 's34-covert' });
     const authAfter = api.authority();
     const host = document.getElementById('world-cargo');
@@ -6875,7 +6876,7 @@ async function runWorldCargo(page, results) {
       covertAgain,
       bareDrop,
       bareTons,
-      bareStatus: api.contract('s34-bare')?.status,
+      bareStatus,
       suspicion,
       hostPresent: Boolean(host),
       hostHidden: host?.classList.contains('hidden') === true,
@@ -6928,6 +6929,8 @@ async function runWorldCargo(page, results) {
     cloak: s34.cloakDrop,
     covert: s34.covertDrop,
     bare: s34.bareDrop,
+    bareStatus: s34.bareStatus,
+    bareTons: s34.bareTons,
   }));
   check(results, 'S34.3 cargo-stays-on-fail', s34.cloakDrop?.podsMoved === false
     && s34.cloakDrop?.inspectionCleared === false
