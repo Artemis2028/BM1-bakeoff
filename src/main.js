@@ -10620,6 +10620,7 @@ function setLog(msg, opts = {}) {
   if (messageText) {
     messageText.textContent = msg;
     messageEl.title = msg;
+    fitHeaderStatusPill();
   } else if (messageEl) {
     messageEl.textContent = msg;
   }
@@ -13747,6 +13748,43 @@ function createEmptyCargoArray() {
   return Array.from({ length: 10 }, () => ({ tons: 0, item: 'Nothing', destination: undefined, payout: 0 }));
 }
 
+function readHeaderStatusFit(messageEl, textEl) {
+  const pill = messageEl.getBoundingClientRect();
+  const range = document.createRange();
+  range.selectNodeContents(textEl);
+  const lines = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+  const style = getComputedStyle(textEl);
+  const linesInside = lines.length > 0 && lines.every((rect) => (
+    rect.top >= pill.top - 0.5
+    && rect.bottom <= pill.bottom + 0.5
+    && rect.left >= pill.left - 0.5
+    && rect.right <= pill.right + 0.5
+  ));
+  const scrollFits = textEl.scrollWidth <= textEl.clientWidth + 1
+    && textEl.scrollHeight <= textEl.clientHeight + 1
+    && messageEl.scrollHeight <= messageEl.clientHeight + 1;
+  return {
+    lineCount: lines.length,
+    linesInside,
+    fits: linesInside
+      && scrollFits
+      && style.textOverflow !== 'ellipsis'
+      && style.whiteSpace !== 'nowrap',
+  };
+}
+
+function fitHeaderStatusPill() {
+  const messageEl = statsEl?.querySelector('.top-message');
+  const textEl = messageEl?.querySelector('.top-message-text');
+  if (!messageEl || !textEl) return;
+  const sizes = [13, 12, 11];
+  for (const size of sizes) {
+    textEl.style.fontSize = `${size}px`;
+    const fit = readHeaderStatusFit(messageEl, textEl);
+    if (fit.lineCount <= 2 && fit.fits) return;
+  }
+}
+
 function updateStats() {
   applyFactionUiTheme();
   state.mylatinum = state.latinum;
@@ -13775,6 +13813,7 @@ function updateStats() {
       <div class="top-stat"><span>LAT</span>${state.latinum}</div>
       <div class="top-stat" title="${escapeHtml(formatFaction(getSystemFaction(state.currentPlanet)) + ' standing')}"><span>STD</span>${getFactionStanding(getSystemFaction(state.currentPlanet))}</div>
     </div>`;
+  fitHeaderStatusPill();
   updatePanel();
   refreshFleetOrderPanel();
   updateBottomDock();
@@ -23484,10 +23523,6 @@ function startWithFaction(key, options = {}) {
   renderStartMenu('main');
   playGameSound('shipLaunch', { cooldownKey: 'ship:new-game' });
   setLog(`${state.captainName} aboard ${state.shipName}. ${f.label} selected.`);
-  const hint = getFactionHint(f.playership);
-  if (hint) {
-    setLog(`${state.captainName} aboard ${state.shipName}. FLA action hint -> ${hint}`);
-  }
   syncLegacyState();
   updateStats();
 }
@@ -24130,6 +24165,13 @@ function installBm1ProbeHarness() {
     paint: () => {
       probeTick(1, 1);
       render();
+    },
+    redraw: () => render(),
+    worldPopTexts: () => {
+      const now = performance.now();
+      return state.worldPops
+        .filter((pop) => now - pop.born < pop.ttl)
+        .map((pop) => String(pop.text || ''));
     },
     skipIntro: skipIntroStory,
     startGame(faction = 'ferengi', options = {}) {
@@ -25886,6 +25928,10 @@ function createWorldCargoProbeApi() {
         dockDistance,
         inside: Number.isFinite(dockDistance) && distance <= dockDistance,
         docked: state.docked === true,
+        planetWorld: {
+          x: state.systemPlanet?.x ?? null,
+          y: state.systemPlanet?.y ?? null,
+        },
       };
     },
     completeOpen: (opts = {}) => {

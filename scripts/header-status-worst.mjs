@@ -1,7 +1,13 @@
 /**
- * Longest header status the game can show: forced max-length captain and ship
- * names (sanitizePlayerName / sanitizeShipName caps) combined with the longest
- * aboard-status template, including a loaded FLA hint when one exists.
+ * Longest player-facing header status.
+ *
+ * The new-game line is "<captain> aboard <ship>. <Faction> selected."
+ * Captain length is the start-screen field maximum (32). Ship is the longest
+ * roster name, capped the same way sanitizeShipName caps a typed name (36).
+ * Faction is the longest faction label. Other real status templates are
+ * compared by length; the longer string is the worst case.
+ *
+ * The removed FLA action-hint line is not a template here.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +17,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export const HEADER_CAPTAIN_LIMIT = 32;
 export const HEADER_SHIP_LIMIT = 36;
+/** Longest captain the start screen will keep. */
+export const HEADER_CAPTAIN_NAME = 'Maximilian Bartholomew Clarkeson';
+
+function capName(value, limit, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return (text || fallback).slice(0, limit);
+}
 
 function longestFactionLabel() {
   const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
@@ -21,28 +34,52 @@ function longestFactionLabel() {
   return labels.reduce((best, label) => (label.length > best.length ? label : best), '');
 }
 
-function longestFlaHint() {
-  const hints = JSON.parse(fs.readFileSync(path.join(root, 'data/fla_actions_index.json'), 'utf8'));
+function longestShipName() {
+  const files = ['bm-ships/ships.json', 'data/starship_manifest.json'];
   let best = '';
-  for (const symbol of hints.symbols || []) {
-    for (const match of symbol.matches || []) {
-      if (!String(match).includes('_root.playership ==')) continue;
-      const hint = `${symbol.symbol}: ${String(match).slice(0, 120)}`;
-      if (hint.length > best.length) best = hint;
+  for (const relative of files) {
+    const data = JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
+    for (const ship of data.ships || []) {
+      const name = capName(ship.name, HEADER_SHIP_LIMIT, '');
+      if (name.length > best.length) best = name;
+    }
+  }
+  return best;
+}
+
+function longestPlanetName() {
+  const data = JSON.parse(fs.readFileSync(path.join(root, 'data/mapnames.json'), 'utf8'));
+  return (data.names || []).reduce((best, name) => {
+    const text = String(name || '').trim();
+    return text.length > best.length ? text : best;
+  }, '');
+}
+
+function longestStationName() {
+  const files = ['data/stationData.json', 'data/station_manifest.json'];
+  let best = '';
+  for (const relative of files) {
+    const data = JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
+    for (const station of data.stations || []) {
+      const name = String(station.name || '').trim();
+      if (name.length > best.length) best = name;
     }
   }
   return best;
 }
 
 export function longestHeaderStatusMessage() {
-  const captain = 'W'.repeat(HEADER_CAPTAIN_LIMIT);
-  const ship = 'W'.repeat(HEADER_SHIP_LIMIT);
-  const label = longestFactionLabel() || 'Tholian Web Captain';
-  const hint = longestFlaHint();
+  const captain = capName(HEADER_CAPTAIN_NAME, HEADER_CAPTAIN_LIMIT, 'Captain');
+  const ship = longestShipName() || 'Ship';
+  const label = longestFactionLabel() || 'Independent Captain';
+  const planet = longestPlanetName() || 'Ferenginar';
+  const station = longestStationName() || 'Station';
   const candidates = [
     `${captain} aboard ${ship}. ${label} selected.`,
     `${captain} aboard ${ship}. Game loaded from slot 3.`,
+    `Docked at ${planet}. Planet services open.`,
+    `Docked at ${station}. Station defenses are active.`,
+    'Undocked. Fly to a planet and click it to dock again.',
   ];
-  if (hint) candidates.push(`${captain} aboard ${ship}. FLA action hint -> ${hint}`);
   return candidates.reduce((best, row) => (row.length > best.length ? row : best), '');
 }

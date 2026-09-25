@@ -660,21 +660,27 @@ body.ui-theme-cardassian .planet-menu::before {
 }
 .top-message {
   justify-content: flex-start;
-  padding-inline: 10px;
+  align-items: center;
+  min-height: max(42px, min-content);
+  height: auto;
+  padding: 6px 18px 6px 12px;
   gap: 8px;
   white-space: normal;
   overflow: hidden;
   text-overflow: clip;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   line-height: 1.15;
   pointer-events: auto;
 }
 .top-message-text {
+  display: block;
   min-width: 0;
+  max-width: 100%;
   flex: 1 1 auto;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   text-overflow: clip;
+  line-height: 1.15;
 }
 .flash-ack {
   margin-left: auto;

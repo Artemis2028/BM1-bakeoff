@@ -267,6 +267,8 @@ async function main() {
 
     const covertScene = await page.evaluate(() => {
       const api = globalThis.__BM1_PROBE__.worldCargo;
+      const probe = globalThis.BM1Probe;
+      const statusText = () => String(document.querySelector('.top-message-text')?.textContent || '');
       const requireRange = (label, range) => {
         const distance = Number(range?.distance);
         const dockDistance = Number(range?.dockDistance);
@@ -275,6 +277,25 @@ async function main() {
         }
         if (range.docked === true) throw new Error(`${label} is still docked`);
         return { distance, dockDistance, inside: true, docked: false };
+      };
+      const undockAlongFlightPath = () => {
+        const before = api.serviceRange();
+        if (before.docked !== true) {
+          api.placeAtWorld();
+          const docked = probe.tryDockPlanet();
+          if (docked !== true) throw new Error(`flight undock needs a dock first, tryDockPlanet returned ${docked}`);
+        }
+        const planet = api.serviceRange().planetWorld;
+        if (!Number.isFinite(Number(planet?.x)) || !Number.isFinite(Number(planet?.y))) {
+          throw new Error('planet world position missing');
+        }
+        probe.placePlayer(planet.x + 6000, planet.y + 6000);
+        probe.tick(1);
+        api.placeAtWorld();
+        const range = requireRange('flight undock', api.serviceRange());
+        const status = statusText();
+        if (status.includes('Docked')) throw new Error(`status still contains Docked after flight undock: ${status}`);
+        return { range, status };
       };
       const covert = api.enroll({
         id: 'wc-covert-shot',
@@ -287,8 +308,8 @@ async function main() {
       });
       api.installPods(covert.id);
       api.placeAtWorld();
+      const undocked = undockAlongFlightPath();
       api.setCloak(true);
-      api.undock();
       const covertRange = requireRange('covert drop', api.serviceRange());
       const dropped = api.drop({ contractId: covert.id });
       const openFail = api.enroll({
@@ -303,17 +324,39 @@ async function main() {
       api.installPods(openFail.id);
       api.placeAtWorld();
       api.setCloak(true);
-      api.undock();
       const openCloakRange = requireRange('cloaked open drop', api.serviceRange());
       const failed = api.drop({ contractId: openFail.id });
       if (failed?.reason !== 'cloak-not-legal') {
         throw new Error(`cloaked open drop failed for ${failed?.reason || 'unknown'}, expected cloak-not-legal`);
       }
-      globalThis.BM1Probe?.paint?.();
-      const text = String(document.getElementById('world-cargo')?.innerText || '');
-      return { covert, dropped, openFail, failed, text, covertRange, openCloakRange };
+      const status = statusText();
+      if (status.includes('Docked')) throw new Error(`status contains Docked after cloaked open drop: ${status}`);
+      return { covert, dropped, openFail, failed, text: String(document.getElementById('world-cargo')?.innerText || ''), covertRange, openCloakRange, undocked, status };
     });
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(1600);
+    const captureState = await page.evaluate(() => {
+      globalThis.BM1Probe.redraw();
+      const status = String(document.querySelector('.top-message-text')?.textContent || '');
+      const pops = globalThis.BM1Probe.worldPopTexts();
+      const range = globalThis.__BM1_PROBE__.worldCargo.serviceRange();
+      if (status.includes('Docked')) throw new Error(`visible status contains Docked at capture: ${status}`);
+      if (pops.some((text) => String(text).includes('Docked'))) {
+        throw new Error(`planet tag still says Docked at capture: ${pops.join(' | ')}`);
+      }
+      const distance = Number(range?.distance);
+      const dockDistance = Number(range?.dockDistance);
+      if (!Number.isFinite(distance) || !Number.isFinite(dockDistance) || distance > dockDistance || range?.inside !== true || range?.docked === true) {
+        throw new Error(`capture left the dock radius: ${distance} / ${dockDistance} docked=${range?.docked}`);
+      }
+      return {
+        status,
+        pops,
+        distance,
+        dockDistance,
+        inside: true,
+        docked: false,
+      };
+    });
     await clearWorldCargoObstructions(page);
     await shot(page, '02-covert-drop');
     const covertFit = await page.evaluate(measureWorldCargoHost());
@@ -325,6 +368,15 @@ async function main() {
       measuredOn: '#world-cargo',
       headerStrip: 'Measured separately under docs/header-strip/screenshots/after/overflow.json',
       covertUndock: covertScene.covertRange,
+      flightUndock: covertScene.undocked || null,
+      statusAtCapture: captureState.status,
+      planetTagsAtCapture: captureState.pops,
+      captureRange: {
+        distance: captureState.distance,
+        dockDistance: captureState.dockDistance,
+        inside: captureState.inside,
+        docked: captureState.docked,
+      },
       openCloakUndock: {
         ...(covertScene.openCloakRange || {}),
         reason: covertScene.failed?.reason || null,
@@ -356,7 +408,7 @@ async function main() {
       'Viewport 1280×720. `01-open-delivery.png` is a completed open delivery at the world.',
       '`02-covert-drop.png` is the covert-drop outcome, including the cloaked drop of an open contract.',
       '',
-      'The cloaked drops are taken undocked, still inside getPlanetDockDistance. The open-contract cloak failure is cloak-not-legal.',
+      'The cloaked drops are taken after the flight undock path, still inside getPlanetDockDistance. The open-contract cloak failure is cloak-not-legal. The header and planet tag do not say Docked.',
       '',
       `clippedControls: ${JSON.stringify(overflow.clippedControls)}`,
       '',
@@ -375,7 +427,12 @@ async function main() {
       && covertScene.openCloakRange?.docked === false
       && Number(covertScene.openCloakRange?.distance) <= Number(covertScene.openCloakRange?.dockDistance)
       && covertScene.covertRange?.inside === true
-      && covertScene.covertRange?.docked === false;
+      && covertScene.covertRange?.docked === false
+      && captureState.status.includes('Docked') === false
+      && captureState.pops.some((text) => String(text).includes('Docked')) === false
+      && captureState.inside === true
+      && captureState.docked === false
+      && Number(captureState.distance) <= Number(captureState.dockDistance);
     if (!ok) {
       console.error(JSON.stringify({
         openOutcomeShown: overflow.openOutcomeShown,

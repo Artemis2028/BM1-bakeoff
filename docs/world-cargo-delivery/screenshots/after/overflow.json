@@ -11,6 +11,23 @@
     "inside": true,
     "docked": false
   },
+  "flightUndock": {
+    "range": {
+      "distance": 0,
+      "dockDistance": 226.98000000000002,
+      "inside": true,
+      "docked": false
+    },
+    "status": "Undocked. Fly to a planet and click it to dock again."
+  },
+  "statusAtCapture": "Undocked. Fly to a planet and click it to dock again.",
+  "planetTagsAtCapture": [],
+  "captureRange": {
+    "distance": 0,
+    "dockDistance": 226.98000000000002,
+    "inside": true,
+    "docked": false
+  },
   "openCloakUndock": {
     "distance": 0,
     "dockDistance": 226.98000000000002,

@@ -83,6 +83,21 @@ function measureHeaderStrip() {
     };
     const textEl = document.querySelector('.top-message-text') || document.querySelector('.top-message');
     const message = document.querySelector('.top-message');
+    const lineRects = [];
+    if (textEl) {
+      const range = document.createRange();
+      range.selectNodeContents(textEl);
+      for (const rect of range.getClientRects()) {
+        if (rect.width > 0.5 && rect.height > 0.5) lineRects.push(rect);
+      }
+    }
+    const pill = message ? message.getBoundingClientRect() : null;
+    const linesInside = Boolean(pill) && lineRects.length > 0 && lineRects.every((rect) => (
+      rect.top >= pill.top - 0.5
+      && rect.bottom <= pill.bottom + 0.5
+      && rect.left >= pill.left - 0.5
+      && rect.right <= pill.right + 0.5
+    ));
     const pills = [...document.querySelectorAll('.top-strip > *')];
     const pillBoxes = pills.map((el) => {
       const r = el.getBoundingClientRect();
@@ -150,18 +165,29 @@ function measureHeaderStrip() {
     const clientWidth = textEl ? textEl.clientWidth : 0;
     const scrollHeight = textEl ? textEl.scrollHeight : 0;
     const clientHeight = textEl ? textEl.clientHeight : 0;
-    const fits = Boolean(textEl)
+    const pillScrollHeight = message ? message.scrollHeight : 0;
+    const pillClientHeight = message ? message.clientHeight : 0;
+    const fits = Boolean(textEl && message)
       && scrollWidth <= clientWidth + 1
       && scrollHeight <= clientHeight + 1
+      && pillScrollHeight <= pillClientHeight + 1
+      && linesInside
+      && lineRects.length <= 2
       && style?.textOverflow !== 'ellipsis'
       && style?.whiteSpace !== 'nowrap';
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       text: String(textEl?.textContent || ''),
+      title: message?.getAttribute('title') || '',
       scrollWidth,
       clientWidth,
       scrollHeight,
       clientHeight,
+      pillScrollHeight,
+      pillClientHeight,
+      lineCount: lineRects.length,
+      linesInside,
+      fontSize: style?.fontSize || null,
       fits,
       textOverflow: style?.textOverflow || null,
       whiteSpace: style?.whiteSpace || null,
@@ -286,6 +312,11 @@ async function main() {
           clientWidth: captain?.clientWidth,
           scrollHeight: captain?.scrollHeight,
           clientHeight: captain?.clientHeight,
+          pillScrollHeight: captain?.pillScrollHeight,
+          pillClientHeight: captain?.pillClientHeight,
+          lineCount: captain?.lineCount,
+          linesInside: captain?.linesInside === true,
+          fontSize: captain?.fontSize,
           fits: captain?.fits === true,
           stripBottom: captain?.stripBottom,
           clearsReadout: captain?.clearsReadout === true,
@@ -297,6 +328,11 @@ async function main() {
           clientWidth: docked?.clientWidth,
           scrollHeight: docked?.scrollHeight,
           clientHeight: docked?.clientHeight,
+          pillScrollHeight: docked?.pillScrollHeight,
+          pillClientHeight: docked?.pillClientHeight,
+          lineCount: docked?.lineCount,
+          linesInside: docked?.linesInside === true,
+          fontSize: docked?.fontSize,
           fits: docked?.fits === true,
           stripBottom: docked?.stripBottom,
           clearsReadout: docked?.clearsReadout === true,
@@ -305,11 +341,17 @@ async function main() {
         worstCase: {
           text: worst?.text,
           expected: worstText,
+          title: worst?.title,
           scrollWidth: worst?.scrollWidth,
           clientWidth: worst?.clientWidth,
           scrollHeight: worst?.scrollHeight,
           clientHeight: worst?.clientHeight,
-          fits: worst?.fits === true && worst?.text === worstText,
+          pillScrollHeight: worst?.pillScrollHeight,
+          pillClientHeight: worst?.pillClientHeight,
+          lineCount: worst?.lineCount,
+          linesInside: worst?.linesInside === true,
+          fontSize: worst?.fontSize,
+          fits: worst?.fits === true && worst?.text === worstText && worst?.title === worstText,
           stripBottom: worst?.stripBottom,
           readoutTop: worst?.readoutTop,
           worldCargoTop: worst?.worldCargoTop,
@@ -327,6 +369,11 @@ async function main() {
         && overflow.captain.fits
         && overflow.docked.fits
         && overflow.worstCase.scrollWidth <= overflow.worstCase.clientWidth + 1
+        && overflow.worstCase.scrollHeight <= overflow.worstCase.clientHeight + 1
+        && overflow.worstCase.pillScrollHeight <= overflow.worstCase.pillClientHeight + 1
+        && overflow.worstCase.linesInside
+        && overflow.worstCase.lineCount <= 2
+        && overflow.worstCase.lineCount >= 1
         && overflow.captain.clearsReadout
         && overflow.docked.clearsReadout
         && overflow.worstCase.clearsReadout

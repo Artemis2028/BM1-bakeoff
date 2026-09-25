@@ -7136,7 +7136,16 @@ async function runWorldCargo(page, results) {
 
 async function runHeaderStrip(page, results) {
   const worst = longestHeaderStatusMessage();
-  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  await startScenario(page, 'terran', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const fresh = await page.evaluate(() => ({
+    log: String(globalThis.BM1Probe.snapshot().log || ''),
+    text: String(document.querySelector('.top-message-text')?.textContent || ''),
+  }));
+  const freshBlob = `${fresh.log}\n${fresh.text}`;
+  check(results, 'header.new-game-hides-fla-source', fresh.text.includes('selected.')
+    && freshBlob.includes('FLA action hint') === false
+    && freshBlob.includes('_root') === false
+    && freshBlob.includes('Symbol ') === false, freshBlob.slice(0, 400));
   const fit = await page.evaluate((message) => {
     const setStatus = globalThis.__BM1_PROBE__?.setStatus;
     if (typeof setStatus !== 'function') return { missing: true };
@@ -7167,6 +7176,21 @@ async function runHeaderStrip(page, results) {
       return strip && r.left < strip.right - 0.5 && r.right > strip.left + 0.5 && r.top < strip.bottom - 0.5 && r.bottom > strip.top + 0.5;
     }).map((el) => el.innerText.trim());
     const style = textEl ? getComputedStyle(textEl) : null;
+    const lineRects = [];
+    if (textEl) {
+      const range = document.createRange();
+      range.selectNodeContents(textEl);
+      for (const rect of range.getClientRects()) {
+        if (rect.width > 0.5 && rect.height > 0.5) lineRects.push(rect);
+      }
+    }
+    const pill = messageEl ? messageEl.getBoundingClientRect() : null;
+    const linesInside = Boolean(pill) && lineRects.length > 0 && lineRects.every((rect) => (
+      rect.top >= pill.top - 0.5
+      && rect.bottom <= pill.bottom + 0.5
+      && rect.left >= pill.left - 0.5
+      && rect.right <= pill.right + 0.5
+    ));
     return {
       missing: !textEl,
       text: textEl?.textContent || '',
@@ -7174,6 +7198,11 @@ async function runHeaderStrip(page, results) {
       clientWidth: textEl?.clientWidth || 0,
       scrollHeight: textEl?.scrollHeight || 0,
       clientHeight: textEl?.clientHeight || 0,
+      pillScrollHeight: messageEl?.scrollHeight || 0,
+      pillClientHeight: messageEl?.clientHeight || 0,
+      lineCount: lineRects.length,
+      linesInside,
+      fontSize: style?.fontSize || null,
       textOverflow: style?.textOverflow || null,
       whiteSpace: style?.whiteSpace || null,
       overlaps,
@@ -7190,18 +7219,28 @@ async function runHeaderStrip(page, results) {
     && fit.text === worst
     && fit.scrollWidth <= fit.clientWidth + 1
     && fit.scrollHeight <= fit.clientHeight + 1
+    && fit.pillScrollHeight <= fit.pillClientHeight + 1
+    && fit.linesInside === true
+    && fit.lineCount <= 2
+    && fit.lineCount >= 1
     && fit.textOverflow !== 'ellipsis'
     && fit.whiteSpace !== 'nowrap'
     && fit.overlaps.length === 0
     && fit.menuHits.length === 0
     && fit.clearsReadout === true
-    && fit.clearsCargo === true;
+    && fit.clearsCargo === true
+    && fit.title === worst;
   check(results, 'header.worst-status-fits', fits, JSON.stringify({
     length: worst.length,
     scrollWidth: fit.scrollWidth,
     clientWidth: fit.clientWidth,
     scrollHeight: fit.scrollHeight,
     clientHeight: fit.clientHeight,
+    pillScrollHeight: fit.pillScrollHeight,
+    pillClientHeight: fit.pillClientHeight,
+    lineCount: fit.lineCount,
+    linesInside: fit.linesInside,
+    fontSize: fit.fontSize,
     textOverflow: fit.textOverflow,
     overlaps: fit.overlaps,
     menuHits: fit.menuHits,
