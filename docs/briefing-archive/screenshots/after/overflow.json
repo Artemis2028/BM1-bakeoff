@@ -1,0 +1,172 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "measuredOn": "#briefing-archive",
+  "briefingView": {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "hostPresent": true,
+    "host": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 392,
+      "clientW": 392,
+      "top": 78,
+      "bottom": 313,
+      "left": 548,
+      "right": 948,
+      "text": "BRIEFING\nARCHIVE\nALL\nOrion\nORION · JUMP 0 · BRF-1\nJump 0 · Orion\nArrival: Orion. Jump 0.\nStored interference label: unlabeled. usedClaim false. inventedFaction false.\nGhost contact. Sensor record only — no hull, no firing solution.\nTransponder claim: bajoran. Claim only — not a true side, not identity."
+    },
+    "select": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 368,
+      "clientW": 368,
+      "top": 92,
+      "bottom": 174,
+      "left": 564,
+      "right": 932,
+      "text": "BRIEFING\nARCHIVE\nALL\nOrion\nORION · JUMP 0 · BRF-1"
+    },
+    "body": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 368,
+      "clientW": 368,
+      "top": 180,
+      "bottom": 299,
+      "left": 564,
+      "right": 932,
+      "text": "Jump 0 · Orion\nArrival: Orion. Jump 0.\nStored interference label: unlabeled. usedClaim false. inventedFaction false.\nGhost contact. Sensor record only — no hull, no firing solution.\nTransponder claim: bajoran. Claim only — not a true side, not identity."
+    },
+    "dock": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 378,
+      "clientW": 378,
+      "top": 648,
+      "bottom": 706,
+      "left": 447,
+      "right": 833,
+      "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+    },
+    "hostClearsDock": true,
+    "hostOverflowX": false,
+    "selectOverflowX": false,
+    "bodyOverflowX": false,
+    "bodyOverflowYContained": true,
+    "clippedControls": [],
+    "ghostSentencePresent": true,
+    "suspicionPresent": true,
+    "ghostWordClipped": false,
+    "ghostWordBox": {
+      "left": 564,
+      "right": 594,
+      "top": 258,
+      "bottom": 274,
+      "width": 30
+    },
+    "view": "briefing"
+  },
+  "archiveView": {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "hostPresent": true,
+    "host": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 392,
+      "clientW": 392,
+      "top": 78,
+      "bottom": 313,
+      "left": 548,
+      "right": 948,
+      "text": "BRIEFING\nARCHIVE\nALL\nOrion\nORION · JUMP 0 · BRF-1\nJump 0 · Orion\nArrival: Orion. Jump 0.\nStored interference label: unlabeled. usedClaim false. inventedFaction false.\nGhost contact. Sensor record only — no hull, no firing solution.\nTransponder claim: bajoran. Claim only — not a true side, not identity."
+    },
+    "select": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 368,
+      "clientW": 368,
+      "top": 92,
+      "bottom": 174,
+      "left": 564,
+      "right": 932,
+      "text": "BRIEFING\nARCHIVE\nALL\nOrion\nORION · JUMP 0 · BRF-1"
+    },
+    "body": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 368,
+      "clientW": 368,
+      "top": 180,
+      "bottom": 299,
+      "left": 564,
+      "right": 932,
+      "text": "Jump 0 · Orion\nArrival: Orion. Jump 0.\nStored interference label: unlabeled. usedClaim false. inventedFaction false.\nGhost contact. Sensor record only — no hull, no firing solution.\nTransponder claim: bajoran. Claim only — not a true side, not identity."
+    },
+    "dock": {
+      "hidden": false,
+      "overflowX": false,
+      "overflowY": false,
+      "textOverflow": "clip",
+      "whiteSpace": "normal",
+      "scrollW": 378,
+      "clientW": 378,
+      "top": 648,
+      "bottom": 706,
+      "left": 447,
+      "right": 833,
+      "text": "TGT\nTARGET\nHAIL\nHAIL\nMAP\nMAP\nCAR\nCARGO\nPWR\nPOWER\nCON\nCONTRACT\nSAV\nSAVE"
+    },
+    "hostClearsDock": true,
+    "hostOverflowX": false,
+    "selectOverflowX": false,
+    "bodyOverflowX": false,
+    "bodyOverflowYContained": true,
+    "clippedControls": [],
+    "ghostSentencePresent": true,
+    "suspicionPresent": true,
+    "ghostWordClipped": false,
+    "ghostWordBox": {
+      "left": 564,
+      "right": 594,
+      "top": 258,
+      "bottom": 274,
+      "width": 30
+    },
+    "view": "archive"
+  },
+  "clippedControls": [],
+  "hostClearsDock": true,
+  "hostOverflowX": false,
+  "ghostWordClipped": false,
+  "ghostSentencePresent": true
+}
