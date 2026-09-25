@@ -1,5 +1,7 @@
 # BM1 Bajoran Solar Sailor (ship brief — reclass from deferred utility)
 
+**Later status (hygiene 25 September 2026 — cross-link only, brief text below unchanged):** S32 engine **stay-locked** [PR #71](https://github.com/Artemis2028/BM1-bakeoff/pull/71) @ `557200f` (this brief #70 @ `d5e1c41`). `BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED` stays false. Shots N/A. **No Referee Pass claimed.** See `docs/BAKEOFF-STATUS.md`.
+
 **Status:** proposal for a **ship** classification; no engine changes made by this document.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `e92db623283b0aa6ef6897e6d787f7d51bbc5ba3` on `main` (24 September 2026), after docs hygiene #69.  
