@@ -1,5 +1,7 @@
 # BM1 captains briefing / jump-intel archive
 
+**Later status (hygiene 25 September 2026 — cross-link only, brief text below unchanged):** S33 engine **merged** [PR #73](https://github.com/Artemis2028/BM1-bakeoff/pull/73) @ `0534015` (this brief #72 @ `37bca25`). `BRIEFING_ARCHIVE_LOCKED_FROM_REMASTERED` stays false. **No Referee Pass claimed.** World cargo delivery is a separate brief under `docs/world-cargo-delivery/` and does not reopen this lane. See `docs/BAKEOFF-STATUS.md`.
+
 **Status:** proposal for a **knowledge-only** captains briefing and bounded archive; no engine changes made by this document.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `557200fac56556242691a7072763a7a876697253` on `main` (25 September 2026), after S32 Bajoran Solar Sailor engine [PR #71](https://github.com/Artemis2028/BM1-bakeoff/pull/71).  
