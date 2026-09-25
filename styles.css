@@ -617,7 +617,9 @@ body.ui-theme-cardassian .planet-menu::before {
 }
 .top-strip {
   margin-left: auto;
+  height: 42px;
   min-height: 42px;
+  max-height: 42px;
   display: grid;
   grid-template-columns: 92px minmax(160px, 1fr) repeat(6, 76px);
   gap: 6px;
@@ -625,11 +627,15 @@ body.ui-theme-cardassian .planet-menu::before {
   background: transparent;
   border: 0;
   box-shadow: none;
+  align-items: stretch;
+  overflow: hidden;
 }
 .top-slot,
 .top-stat {
   min-width: 0;
+  height: 42px;
   min-height: 42px;
+  max-height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -661,8 +667,9 @@ body.ui-theme-cardassian .planet-menu::before {
 .top-message {
   justify-content: flex-start;
   align-items: center;
-  min-height: max(42px, min-content);
-  height: auto;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
   padding: 6px 18px 6px 12px;
   gap: 8px;
   white-space: normal;
@@ -676,11 +683,20 @@ body.ui-theme-cardassian .planet-menu::before {
   display: block;
   min-width: 0;
   max-width: 100%;
+  max-height: 100%;
   flex: 1 1 auto;
   white-space: normal;
+  overflow: hidden;
   overflow-wrap: break-word;
   text-overflow: clip;
   line-height: 1.15;
+}
+.top-message-text.top-message-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .flash-ack {
   margin-left: auto;

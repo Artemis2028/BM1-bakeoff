@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { longestHeaderStatusMessage } from './header-status-worst.mjs';
+import { longestHeaderStatusMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PROBE_PORT) || 8765;
@@ -7146,12 +7146,13 @@ async function runHeaderStrip(page, results) {
     && freshBlob.includes('FLA action hint') === false
     && freshBlob.includes('_root') === false
     && freshBlob.includes('Symbol ') === false, freshBlob.slice(0, 400));
-  const fit = await page.evaluate((message) => {
+  const measure = (message) => page.evaluate((message) => {
     const setStatus = globalThis.__BM1_PROBE__?.setStatus;
     if (typeof setStatus !== 'function') return { missing: true };
     setStatus(message);
     const textEl = document.querySelector('.top-message-text');
     const messageEl = document.querySelector('.top-message');
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
     const pills = [...document.querySelectorAll('.top-strip > *')].map((el) => {
       const r = el.getBoundingClientRect();
       return { text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40), left: r.left, right: r.right, top: r.top, bottom: r.bottom };
@@ -7159,98 +7160,154 @@ async function runHeaderStrip(page, results) {
     const overlaps = [];
     for (let i = 0; i < pills.length; i += 1) {
       for (let j = i + 1; j < pills.length; j += 1) {
-        const a = pills[i];
-        const b = pills[j];
-        if (a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5) {
-          overlaps.push(`${a.text} ~ ${b.text}`);
+        if (overlap(pills[i], pills[j])) overlaps.push(`${pills[i].text} ~ ${pills[j].text}`);
+      }
+    }
+    const horizontalGap = (a, b) => Math.max(a.left, b.left) - Math.min(a.right, b.right);
+    const statusBox = messageEl ? messageEl.getBoundingClientRect() : null;
+    const flight = document.querySelector('.top-ship')?.getBoundingClientRect() || null;
+    const menuBoxes = ['inventory', 'power', 'settings'].map((tab) => {
+      const el = document.querySelector(`#top-left-menu button[data-top-left-tab="${tab}"]`);
+      if (!el) return { name: tab.toUpperCase(), missing: true };
+      const r = el.getBoundingClientRect();
+      return { name: tab.toUpperCase(), missing: r.width < 2, left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    });
+    const gapTargets = [
+      { name: 'FLIGHT', missing: !flight, box: flight },
+      ...menuBoxes.map((button) => ({ name: button.name, missing: button.missing === true, box: button })),
+    ];
+    const statusGaps = [];
+    if (statusBox) {
+      for (const target of gapTargets) {
+        if (target.missing || !target.box) {
+          statusGaps.push({ name: target.name, missing: true, gap: null });
+          continue;
+        }
+        const gap = Math.round(horizontalGap(statusBox, target.box) * 100) / 100;
+        statusGaps.push({ name: target.name, missing: false, gap });
+        if (overlap(statusBox, target.box) && !overlaps.includes(`status ~ ${target.name}`)) {
+          overlaps.push(`status ~ ${target.name}`);
         }
       }
     }
+    const finiteGaps = statusGaps.filter((row) => Number.isFinite(row.gap)).map((row) => row.gap);
+    const lineRectsOf = (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+    };
+    const pill = messageEl ? messageEl.getBoundingClientRect() : null;
+    const clampClass = Boolean(textEl?.classList.contains('top-message-clamped'));
+    const clampedRects = textEl ? lineRectsOf(textEl) : [];
+    let layoutLineCount = clampedRects.length;
+    if (clampClass && textEl) {
+      textEl.classList.remove('top-message-clamped');
+      layoutLineCount = lineRectsOf(textEl).length;
+      textEl.classList.add('top-message-clamped');
+    }
+    const textBox = textEl ? textEl.getBoundingClientRect() : null;
+    const inside = (rect) => Boolean(pill)
+      && rect.top >= pill.top - 0.5
+      && rect.bottom <= pill.bottom + 0.5
+      && rect.left >= pill.left - 0.5
+      && rect.right <= pill.right + 0.5;
+    const paintedFragment = (rect) => {
+      if (!textBox) return null;
+      const top = Math.max(rect.top, textBox.top);
+      const bottom = Math.min(rect.bottom, textBox.bottom);
+      const left = Math.max(rect.left, textBox.left);
+      const right = Math.min(rect.right, textBox.right);
+      if (bottom - top < 4 || right - left < 1) return null;
+      return { top, bottom, left, right };
+    };
+    const paintedLines = clampedRects.map(paintedFragment).filter(Boolean);
+    const visibleLines = paintedLines.filter(inside);
+    const glyphCrosses = paintedLines.some((rect) => !inside(rect));
+    const style = textEl ? getComputedStyle(textEl) : null;
+    const clampCss = clampClass
+      && style?.webkitLineClamp === '2'
+      && (style?.display === '-webkit-box' || style?.display === 'flow-root')
+      && style?.overflow === 'hidden'
+      && style?.textOverflow === 'ellipsis';
+    const full = Boolean(textEl)
+      && !clampClass
+      && layoutLineCount >= 1
+      && layoutLineCount <= 2
+      && visibleLines.length === layoutLineCount
+      && !glyphCrosses
+      && textEl.scrollWidth <= textEl.clientWidth + 1
+      && textEl.scrollHeight <= textEl.clientHeight + 1
+      && messageEl.scrollHeight <= messageEl.clientHeight + 1
+      && style?.textOverflow !== 'ellipsis'
+      && style?.whiteSpace !== 'nowrap';
+    const ellipsisShowing = clampCss && layoutLineCount > 2 && visibleLines.length === 2 && !glyphCrosses;
+    const clamped = Boolean(textEl)
+      && ellipsisShowing
+      && messageEl.scrollHeight <= messageEl.clientHeight + 1
+      && messageEl.getAttribute('title') === textEl.textContent;
+    const mode = full ? 'full' : clamped ? 'clamped' : 'fail';
     const strip = document.querySelector('.top-strip')?.getBoundingClientRect();
     const readout = document.getElementById('phase10-readout');
     const cargo = document.getElementById('world-cargo');
     const readoutBox = readout && !readout.classList.contains('hidden') ? readout.getBoundingClientRect() : null;
     const cargoBox = cargo && !cargo.classList.contains('hidden') ? cargo.getBoundingClientRect() : null;
-    const menuHits = [...document.querySelectorAll('#top-left-menu button')].filter((el) => {
-      const r = el.getBoundingClientRect();
-      return strip && r.left < strip.right - 0.5 && r.right > strip.left + 0.5 && r.top < strip.bottom - 0.5 && r.bottom > strip.top + 0.5;
-    }).map((el) => el.innerText.trim());
-    const style = textEl ? getComputedStyle(textEl) : null;
-    const lineRects = [];
-    if (textEl) {
-      const range = document.createRange();
-      range.selectNodeContents(textEl);
-      for (const rect of range.getClientRects()) {
-        if (rect.width > 0.5 && rect.height > 0.5) lineRects.push(rect);
-      }
-    }
-    const pill = messageEl ? messageEl.getBoundingClientRect() : null;
-    const linesInside = Boolean(pill) && lineRects.length > 0 && lineRects.every((rect) => (
-      rect.top >= pill.top - 0.5
-      && rect.bottom <= pill.bottom + 0.5
-      && rect.left >= pill.left - 0.5
-      && rect.right <= pill.right + 0.5
-    ));
     return {
-      missing: !textEl,
+      missing: !textEl || gapTargets.some((target) => target.missing),
       text: textEl?.textContent || '',
-      scrollWidth: textEl?.scrollWidth || 0,
-      clientWidth: textEl?.clientWidth || 0,
-      scrollHeight: textEl?.scrollHeight || 0,
-      clientHeight: textEl?.clientHeight || 0,
-      pillScrollHeight: messageEl?.scrollHeight || 0,
-      pillClientHeight: messageEl?.clientHeight || 0,
-      lineCount: lineRects.length,
-      linesInside,
+      mode,
+      lineCount: visibleLines.length,
+      layoutLineCount,
+      ellipsisShowing,
+      glyphCrosses,
       fontSize: style?.fontSize || null,
       textOverflow: style?.textOverflow || null,
-      whiteSpace: style?.whiteSpace || null,
       overlaps,
-      menuHits,
-      stripBottom: strip ? strip.bottom : null,
-      readoutTop: readoutBox ? readoutBox.top : null,
-      cargoTop: cargoBox ? cargoBox.top : null,
+      statusGaps,
+      smallestHorizontalGap: finiteGaps.length ? Math.min(...finiteGaps) : null,
+      stripBottom: strip ? Math.round(strip.bottom) : null,
       clearsReadout: !readoutBox || !strip || strip.bottom <= readoutBox.top + 0.5,
       clearsCargo: !cargoBox || !strip || strip.bottom <= cargoBox.top + 0.5,
       title: messageEl?.getAttribute('title') || '',
     };
-  }, worst);
-  const fits = fit.missing !== true
-    && fit.text === worst
-    && fit.scrollWidth <= fit.clientWidth + 1
-    && fit.scrollHeight <= fit.clientHeight + 1
-    && fit.pillScrollHeight <= fit.pillClientHeight + 1
-    && fit.linesInside === true
-    && fit.lineCount <= 2
-    && fit.lineCount >= 1
-    && fit.textOverflow !== 'ellipsis'
-    && fit.whiteSpace !== 'nowrap'
-    && fit.overlaps.length === 0
-    && fit.menuHits.length === 0
-    && fit.clearsReadout === true
-    && fit.clearsCargo === true
-    && fit.title === worst;
-  check(results, 'header.worst-status-fits', fits, JSON.stringify({
-    length: worst.length,
-    scrollWidth: fit.scrollWidth,
-    clientWidth: fit.clientWidth,
-    scrollHeight: fit.scrollHeight,
-    clientHeight: fit.clientHeight,
-    pillScrollHeight: fit.pillScrollHeight,
-    pillClientHeight: fit.pillClientHeight,
-    lineCount: fit.lineCount,
-    linesInside: fit.linesInside,
-    fontSize: fit.fontSize,
-    textOverflow: fit.textOverflow,
-    overlaps: fit.overlaps,
-    menuHits: fit.menuHits,
-    stripBottom: fit.stripBottom,
-    readoutTop: fit.readoutTop,
-    cargoTop: fit.cargoTop,
-    clearsReadout: fit.clearsReadout,
-    clearsCargo: fit.clearsCargo,
-    text: String(fit.text || '').slice(0, 180),
-  }));
+  }, message);
+  const cases = [
+    ['header.worst-status-fits', worst, 'full'],
+    ['header.typed-36-ship-full', typedShipHeaderStatusMessage(), 'full'],
+    ['header.wide-caps-clamped', wideCapsHeaderStatusMessage(), 'clamped'],
+  ];
+  for (const [id, message, expectedMode] of cases) {
+    const fit = await measure(message);
+    const fits = fit.missing !== true
+      && fit.text === message
+      && fit.mode === expectedMode
+      && fit.title === message
+      && fit.glyphCrosses === false
+      && fit.overlaps.length === 0
+      && fit.clearsReadout === true
+      && fit.clearsCargo === true
+      && fit.stripBottom === 50
+      && Number.isFinite(fit.smallestHorizontalGap)
+      && fit.smallestHorizontalGap > 0
+      && (expectedMode === 'full'
+        ? fit.lineCount >= 1 && fit.lineCount <= 2 && fit.ellipsisShowing === false
+        : fit.lineCount === 2 && fit.ellipsisShowing === true && fit.layoutLineCount > 2);
+    check(results, id, fits, JSON.stringify({
+      expectedMode,
+      mode: fit.mode,
+      lineCount: fit.lineCount,
+      layoutLineCount: fit.layoutLineCount,
+      ellipsisShowing: fit.ellipsisShowing,
+      fontSize: fit.fontSize,
+      textOverflow: fit.textOverflow,
+      overlaps: fit.overlaps,
+      smallestHorizontalGap: fit.smallestHorizontalGap,
+      statusGaps: fit.statusGaps,
+      stripBottom: fit.stripBottom,
+      clearsReadout: fit.clearsReadout,
+      clearsCargo: fit.clearsCargo,
+      text: String(fit.text || '').slice(0, 180),
+    }));
+  }
 }
 
 async function main() {

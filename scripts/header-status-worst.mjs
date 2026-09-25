@@ -19,6 +19,15 @@ export const HEADER_CAPTAIN_LIMIT = 32;
 export const HEADER_SHIP_LIMIT = 36;
 /** Longest captain the start screen will keep. */
 export const HEADER_CAPTAIN_NAME = 'Maximilian Bartholomew Clarkeson';
+/** Typed ship name at the start-screen maxlength and sanitizeShipName cap. */
+export const HEADER_TYPED_SHIP_NAME = 'Concord Starfarer of New Switzerland';
+
+if (HEADER_CAPTAIN_NAME.length !== HEADER_CAPTAIN_LIMIT) {
+  throw new Error(`captain worst case is ${HEADER_CAPTAIN_NAME.length}, expected ${HEADER_CAPTAIN_LIMIT}`);
+}
+if (HEADER_TYPED_SHIP_NAME.length !== HEADER_SHIP_LIMIT) {
+  throw new Error(`typed ship worst case is ${HEADER_TYPED_SHIP_NAME.length}, expected ${HEADER_SHIP_LIMIT}`);
+}
 
 function capName(value, limit, fallback) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -68,6 +77,10 @@ function longestStationName() {
   return best;
 }
 
+function aboardSelected(captain, ship, label) {
+  return `${captain} aboard ${ship}. ${label} selected.`;
+}
+
 export function longestHeaderStatusMessage() {
   const captain = capName(HEADER_CAPTAIN_NAME, HEADER_CAPTAIN_LIMIT, 'Captain');
   const ship = longestShipName() || 'Ship';
@@ -75,11 +88,23 @@ export function longestHeaderStatusMessage() {
   const planet = longestPlanetName() || 'Ferenginar';
   const station = longestStationName() || 'Station';
   const candidates = [
-    `${captain} aboard ${ship}. ${label} selected.`,
+    aboardSelected(captain, ship, label),
     `${captain} aboard ${ship}. Game loaded from slot 3.`,
     `Docked at ${planet}. Planet services open.`,
     `Docked at ${station}. Station defenses are active.`,
     'Undocked. Fly to a planet and click it to dock again.',
   ];
   return candidates.reduce((best, row) => (row.length > best.length ? row : best), '');
+}
+
+/** 32-character captain and a typed 36-character ship, normal mixed case. */
+export function typedShipHeaderStatusMessage() {
+  const label = longestFactionLabel() || 'Independent Captain';
+  return aboardSelected(HEADER_CAPTAIN_NAME, HEADER_TYPED_SHIP_NAME, label);
+}
+
+/** Same lengths in wide capitals: 32 W's and 36 M's, plus the longest faction label. */
+export function wideCapsHeaderStatusMessage() {
+  const label = longestFactionLabel() || 'Independent Captain';
+  return aboardSelected('W'.repeat(HEADER_CAPTAIN_LIMIT), 'M'.repeat(HEADER_SHIP_LIMIT), label);
 }

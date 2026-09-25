@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { longestHeaderStatusMessage } from './header-status-worst.mjs';
+import { longestHeaderStatusMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -117,6 +117,37 @@ function measureHeaderStrip() {
         }
       }
     }
+    const horizontalGap = (a, b) => Math.max(a.left, b.left) - Math.min(a.right, b.right);
+    const statusBox = message ? message.getBoundingClientRect() : null;
+    const flightEl = document.querySelector('.top-ship');
+    const flightBox = flightEl ? flightEl.getBoundingClientRect() : null;
+    const menuTargets = ['inventory', 'power', 'settings'].map((tab) => {
+      const el = document.querySelector(`#top-left-menu button[data-top-left-tab="${tab}"]`);
+      if (!el) return { name: tab.toUpperCase(), missing: true };
+      const r = el.getBoundingClientRect();
+      return { name: tab.toUpperCase(), missing: r.width < 2 || r.height < 2, left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    });
+    const gapTargets = [
+      ...(flightBox ? [{ name: 'FLIGHT', box: flightBox }] : [{ name: 'FLIGHT', missing: true }]),
+      ...menuTargets.map((button) => ({ name: button.name, missing: button.missing === true, box: button })),
+    ];
+    const statusGaps = [];
+    if (statusBox) {
+      for (const target of gapTargets) {
+        if (target.missing || !target.box) {
+          statusGaps.push({ name: target.name, missing: true, gap: null });
+          continue;
+        }
+        const gap = horizontalGap(statusBox, target.box);
+        statusGaps.push({ name: target.name, missing: false, gap: Math.round(gap * 100) / 100 });
+        if (overlap(statusBox, target.box)) {
+          const label = `status ~ ${target.name}`;
+          if (!pillOverlaps.includes(label)) pillOverlaps.push(label);
+        }
+      }
+    }
+    const finiteGaps = statusGaps.filter((row) => Number.isFinite(row.gap)).map((row) => row.gap);
+    const smallestHorizontalGap = finiteGaps.length ? Math.min(...finiteGaps) : null;
     const menuButtons = [...document.querySelectorAll('#top-left-menu button')].map((el) => ({
       text: String(el.innerText || '').trim(),
       ...(() => {
@@ -167,14 +198,58 @@ function measureHeaderStrip() {
     const clientHeight = textEl ? textEl.clientHeight : 0;
     const pillScrollHeight = message ? message.scrollHeight : 0;
     const pillClientHeight = message ? message.clientHeight : 0;
-    const fits = Boolean(textEl && message)
+    const textBox = textEl ? textEl.getBoundingClientRect() : null;
+    const paintedFragment = (rect) => {
+      if (!textBox) return null;
+      const top = Math.max(rect.top, textBox.top);
+      const bottom = Math.min(rect.bottom, textBox.bottom);
+      const left = Math.max(rect.left, textBox.left);
+      const right = Math.min(rect.right, textBox.right);
+      if (bottom - top < 4 || right - left < 1) return null;
+      return { top, bottom, left, right };
+    };
+    const insidePill = (rect) => Boolean(pill)
+      && rect.top >= pill.top - 0.5
+      && rect.bottom <= pill.bottom + 0.5
+      && rect.left >= pill.left - 0.5
+      && rect.right <= pill.right + 0.5;
+    const paintedLines = lineRects.map(paintedFragment).filter(Boolean);
+    const visibleLines = paintedLines.filter(insidePill);
+    const glyphCrosses = paintedLines.some((rect) => !insidePill(rect));
+    const clampClass = Boolean(textEl?.classList.contains('top-message-clamped'));
+    let layoutLineCount = lineRects.length;
+    if (clampClass && textEl) {
+      textEl.classList.remove('top-message-clamped');
+      const openRange = document.createRange();
+      openRange.selectNodeContents(textEl);
+      layoutLineCount = [...openRange.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5).length;
+      textEl.classList.add('top-message-clamped');
+    }
+    const clampedStyle = textEl ? getComputedStyle(textEl) : style;
+    const clampCss = clampClass
+      && clampedStyle?.webkitLineClamp === '2'
+      && (clampedStyle?.display === '-webkit-box' || clampedStyle?.display === 'flow-root')
+      && clampedStyle?.overflow === 'hidden'
+      && clampedStyle?.textOverflow === 'ellipsis';
+    const full = Boolean(textEl && message)
+      && !clampClass
+      && layoutLineCount >= 1
+      && layoutLineCount <= 2
+      && visibleLines.length === layoutLineCount
+      && linesInside
+      && !glyphCrosses
       && scrollWidth <= clientWidth + 1
       && scrollHeight <= clientHeight + 1
       && pillScrollHeight <= pillClientHeight + 1
-      && linesInside
-      && lineRects.length <= 2
       && style?.textOverflow !== 'ellipsis'
       && style?.whiteSpace !== 'nowrap';
+    const ellipsisShowing = clampCss && layoutLineCount > 2 && visibleLines.length === 2 && !glyphCrosses;
+    const clamped = Boolean(textEl && message)
+      && ellipsisShowing
+      && pillScrollHeight <= pillClientHeight + 1
+      && message?.getAttribute('title') === String(textEl?.textContent || '');
+    const mode = full ? 'full' : clamped ? 'clamped' : 'fail';
+    const fits = mode === 'full' || mode === 'clamped';
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       text: String(textEl?.textContent || ''),
@@ -185,12 +260,18 @@ function measureHeaderStrip() {
       clientHeight,
       pillScrollHeight,
       pillClientHeight,
-      lineCount: lineRects.length,
-      linesInside,
-      fontSize: style?.fontSize || null,
+      lineCount: visibleLines.length,
+      layoutLineCount,
+      linesInside: mode === 'clamped' ? visibleLines.length === 2 && !glyphCrosses : linesInside,
+      glyphCrosses,
+      ellipsisShowing,
+      mode,
+      fontSize: (clampedStyle || style)?.fontSize || null,
       fits,
-      textOverflow: style?.textOverflow || null,
-      whiteSpace: style?.whiteSpace || null,
+      textOverflow: (clampedStyle || style)?.textOverflow || null,
+      whiteSpace: (clampedStyle || style)?.whiteSpace || null,
+      statusGaps,
+      smallestHorizontalGap,
       stripBottom: strip ? Math.round(strip.bottom) : null,
       readoutTop: readout && !readout.hidden ? Math.round(readout.top) : null,
       worldCargoTop: cargo && !cargo.hidden ? Math.round(cargo.top) : null,
@@ -278,116 +359,96 @@ async function main() {
     await showDocked(page);
     await shot(page, '02-docked-ferenginar');
     const docked = mode === 'after' ? await page.evaluate(measureHeaderStrip()) : null;
-    let worst = null;
     const worstText = longestHeaderStatusMessage();
+    const typedText = typedShipHeaderStatusMessage();
+    const wideText = wideCapsHeaderStatusMessage();
     if (mode === 'after') {
+      const record = (measured, expected, expectedMode) => ({
+        text: measured?.text,
+        expected,
+        title: measured?.title,
+        mode: measured?.mode || null,
+        expectedMode,
+        scrollWidth: measured?.scrollWidth,
+        clientWidth: measured?.clientWidth,
+        scrollHeight: measured?.scrollHeight,
+        clientHeight: measured?.clientHeight,
+        pillScrollHeight: measured?.pillScrollHeight,
+        pillClientHeight: measured?.pillClientHeight,
+        lineCount: measured?.lineCount,
+        layoutLineCount: measured?.layoutLineCount,
+        linesInside: measured?.linesInside === true,
+        glyphCrosses: measured?.glyphCrosses === true,
+        ellipsisShowing: measured?.ellipsisShowing === true,
+        fontSize: measured?.fontSize,
+        textOverflow: measured?.textOverflow,
+        fits: measured?.fits === true
+          && measured?.mode === expectedMode
+          && measured?.text === expected
+          && measured?.title === expected
+          && measured?.stripBottom === 50,
+        stripBottom: measured?.stripBottom,
+        readoutTop: measured?.readoutTop,
+        worldCargoTop: measured?.worldCargoTop,
+        clearsReadout: measured?.clearsReadout === true,
+        clearsWorldCargo: measured?.clearsWorldCargo === true,
+        smallestHorizontalGap: measured?.smallestHorizontalGap,
+        statusGaps: measured?.statusGaps || [],
+      });
       await showWorst(page, worstText);
       await shot(page, '03-worst-case');
-      worst = await page.evaluate(measureHeaderStrip());
+      const worst = await page.evaluate(measureHeaderStrip());
+      await showWorst(page, typedText);
+      await shot(page, '04-typed-36-ship');
+      const typed = await page.evaluate(measureHeaderStrip());
+      await showWorst(page, wideText);
+      await shot(page, '05-wide-caps-clamped');
+      const wide = await page.evaluate(measureHeaderStrip());
+      const shots = [captain, docked, worst, typed, wide];
+      const gapValues = shots.map((shot) => shot?.smallestHorizontalGap).filter((gap) => Number.isFinite(gap));
       const overflow = {
         viewport: { width: 1280, height: 720 },
         measuredOn: '.top-message-text',
-        clippedControls: [...new Set([
-          ...(captain?.clippedControls || []),
-          ...(docked?.clippedControls || []),
-          ...(worst?.clippedControls || []),
-        ])],
-        occluders: [...new Set([
-          ...(captain?.occluders || []),
-          ...(docked?.occluders || []),
-          ...(worst?.occluders || []),
-          ...(captain?.pillOverlaps || []),
-          ...(docked?.pillOverlaps || []),
-          ...(worst?.pillOverlaps || []),
-        ])],
-        pillOverlaps: [...new Set([
-          ...(captain?.pillOverlaps || []),
-          ...(docked?.pillOverlaps || []),
-          ...(worst?.pillOverlaps || []),
-        ])],
-        statusScrollFits: captain?.fits === true && docked?.fits === true && worst?.fits === true,
-        captain: {
-          text: captain?.text,
-          scrollWidth: captain?.scrollWidth,
-          clientWidth: captain?.clientWidth,
-          scrollHeight: captain?.scrollHeight,
-          clientHeight: captain?.clientHeight,
-          pillScrollHeight: captain?.pillScrollHeight,
-          pillClientHeight: captain?.pillClientHeight,
-          lineCount: captain?.lineCount,
-          linesInside: captain?.linesInside === true,
-          fontSize: captain?.fontSize,
-          fits: captain?.fits === true,
-          stripBottom: captain?.stripBottom,
-          clearsReadout: captain?.clearsReadout === true,
-          clearsWorldCargo: captain?.clearsWorldCargo === true,
-        },
-        docked: {
-          text: docked?.text,
-          scrollWidth: docked?.scrollWidth,
-          clientWidth: docked?.clientWidth,
-          scrollHeight: docked?.scrollHeight,
-          clientHeight: docked?.clientHeight,
-          pillScrollHeight: docked?.pillScrollHeight,
-          pillClientHeight: docked?.pillClientHeight,
-          lineCount: docked?.lineCount,
-          linesInside: docked?.linesInside === true,
-          fontSize: docked?.fontSize,
-          fits: docked?.fits === true,
-          stripBottom: docked?.stripBottom,
-          clearsReadout: docked?.clearsReadout === true,
-          clearsWorldCargo: docked?.clearsWorldCargo === true,
-        },
-        worstCase: {
-          text: worst?.text,
-          expected: worstText,
-          title: worst?.title,
-          scrollWidth: worst?.scrollWidth,
-          clientWidth: worst?.clientWidth,
-          scrollHeight: worst?.scrollHeight,
-          clientHeight: worst?.clientHeight,
-          pillScrollHeight: worst?.pillScrollHeight,
-          pillClientHeight: worst?.pillClientHeight,
-          lineCount: worst?.lineCount,
-          linesInside: worst?.linesInside === true,
-          fontSize: worst?.fontSize,
-          fits: worst?.fits === true && worst?.text === worstText && worst?.title === worstText,
-          stripBottom: worst?.stripBottom,
-          readoutTop: worst?.readoutTop,
-          worldCargoTop: worst?.worldCargoTop,
-          clearsReadout: worst?.clearsReadout === true,
-          clearsWorldCargo: worst?.clearsWorldCargo === true,
-          textOverflow: worst?.textOverflow,
-        },
+        clippedControls: [...new Set(shots.flatMap((shot) => shot?.clippedControls || []))],
+        occluders: [...new Set(shots.flatMap((shot) => [...(shot?.occluders || []), ...(shot?.pillOverlaps || [])]))],
+        pillOverlaps: [...new Set(shots.flatMap((shot) => shot?.pillOverlaps || []))],
+        smallestHorizontalGap: gapValues.length ? Math.min(...gapValues) : null,
+        statusScrollFits: shots.every((shot) => shot?.fits === true),
+        captain: record(captain, captain?.text, 'full'),
+        docked: record(docked, docked?.text, 'full'),
+        worstCase: record(worst, worstText, 'full'),
+        typed36Ship: record(typed, typedText, 'full'),
+        wideCaps: record(wide, wideText, 'clamped'),
       };
       fs.writeFileSync(path.join(outDir, 'overflow.json'), JSON.stringify(overflow, null, 2));
+      const cases = [overflow.captain, overflow.docked, overflow.worstCase, overflow.typed36Ship, overflow.wideCaps];
       const ok = overflow.clippedControls.length === 0
         && overflow.occluders.length === 0
         && overflow.pillOverlaps.length === 0
         && overflow.statusScrollFits
-        && overflow.worstCase.fits
-        && overflow.captain.fits
-        && overflow.docked.fits
-        && overflow.worstCase.scrollWidth <= overflow.worstCase.clientWidth + 1
-        && overflow.worstCase.scrollHeight <= overflow.worstCase.clientHeight + 1
-        && overflow.worstCase.pillScrollHeight <= overflow.worstCase.pillClientHeight + 1
-        && overflow.worstCase.linesInside
-        && overflow.worstCase.lineCount <= 2
-        && overflow.worstCase.lineCount >= 1
-        && overflow.captain.clearsReadout
-        && overflow.docked.clearsReadout
-        && overflow.worstCase.clearsReadout
-        && overflow.captain.clearsWorldCargo
-        && overflow.docked.clearsWorldCargo
-        && overflow.worstCase.clearsWorldCargo;
+        && cases.every((row) => row.fits && row.clearsReadout && row.clearsWorldCargo && row.stripBottom === 50 && row.glyphCrosses === false)
+        && overflow.captain.mode === 'full'
+        && overflow.docked.mode === 'full'
+        && overflow.worstCase.mode === 'full'
+        && overflow.typed36Ship.mode === 'full'
+        && overflow.typed36Ship.ellipsisShowing === false
+        && overflow.typed36Ship.lineCount <= 2
+        && overflow.wideCaps.mode === 'clamped'
+        && overflow.wideCaps.lineCount === 2
+        && overflow.wideCaps.ellipsisShowing === true
+        && Number.isFinite(overflow.smallestHorizontalGap)
+        && overflow.smallestHorizontalGap > 0;
       if (!ok) {
         console.error(JSON.stringify({
           clippedControls: overflow.clippedControls,
           occluders: overflow.occluders,
           pillOverlaps: overflow.pillOverlaps,
+          smallestHorizontalGap: overflow.smallestHorizontalGap,
           captain: overflow.captain,
           docked: overflow.docked,
           worstCase: overflow.worstCase,
+          typed36Ship: overflow.typed36Ship,
+          wideCaps: overflow.wideCaps,
         }, null, 2));
         process.exitCode = 1;
       }

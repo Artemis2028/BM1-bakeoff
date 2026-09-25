@@ -13777,12 +13777,19 @@ function fitHeaderStatusPill() {
   const messageEl = statsEl?.querySelector('.top-message');
   const textEl = messageEl?.querySelector('.top-message-text');
   if (!messageEl || !textEl) return;
+  textEl.classList.remove('top-message-clamped');
   const sizes = [13, 12, 11];
   for (const size of sizes) {
     textEl.style.fontSize = `${size}px`;
     const fit = readHeaderStatusFit(messageEl, textEl);
-    if (fit.lineCount <= 2 && fit.fits) return;
+    if (fit.lineCount >= 1 && fit.lineCount <= 2 && fit.fits) {
+      messageEl.dataset.headerMode = 'full';
+      return;
+    }
   }
+  textEl.style.fontSize = '11px';
+  textEl.classList.add('top-message-clamped');
+  messageEl.dataset.headerMode = 'clamped';
 }
 
 function updateStats() {
