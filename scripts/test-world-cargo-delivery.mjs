@@ -98,6 +98,9 @@ assert('s34.save-slots', srcMain.includes('const SAVE_SLOT_COUNT = 3'));
 assert('s34.host', srcHtml.includes('id="world-cargo"')
   && srcHtml.includes('world-cargo-contracts')
   && srcHtml.includes('world-cargo-outcome'));
+assert('s34.pending-label', srcMain.includes("contract.status === 'open' ? 'pending' : contract.status")
+  && !src.includes("'pending'")
+  && !src.includes('"pending"'));
 assert('s34.probe-wired', srcMain.includes('worldCargo: createWorldCargoProbeApi()')
   && srcProbe.includes('runWorldCargo'));
 assert('s34.roe', ROE_MODES.length === 2

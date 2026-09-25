@@ -600,7 +600,7 @@ body.ui-theme-cardassian .planet-menu::before {
 }
 #stats {
   position: fixed;
-  left: 392px;
+  left: 260px;
   right: 18px;
   top: 8px;
   z-index: 30;
@@ -617,19 +617,25 @@ body.ui-theme-cardassian .planet-menu::before {
 }
 .top-strip {
   margin-left: auto;
+  height: 42px;
   min-height: 42px;
+  max-height: 42px;
   display: grid;
-  grid-template-columns: 92px minmax(260px, 1fr) repeat(6, minmax(74px, 88px));
+  grid-template-columns: 92px minmax(160px, 1fr) repeat(6, 76px);
   gap: 6px;
   padding: 0 2px;
   background: transparent;
   border: 0;
   box-shadow: none;
+  align-items: stretch;
+  overflow: hidden;
 }
 .top-slot,
 .top-stat {
   min-width: 0;
+  height: 42px;
   min-height: 42px;
+  max-height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -660,8 +666,37 @@ body.ui-theme-cardassian .planet-menu::before {
 }
 .top-message {
   justify-content: flex-start;
-  padding-inline: 14px;
+  align-items: center;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  padding: 6px 18px 6px 12px;
   gap: 8px;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+  line-height: 1.15;
+  pointer-events: auto;
+}
+.top-message-text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  text-overflow: clip;
+  line-height: 1.15;
+}
+.top-message-text.top-message-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .flash-ack {
   margin-left: auto;

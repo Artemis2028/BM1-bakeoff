@@ -1,0 +1,257 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "measuredOn": ".top-message-text",
+  "clippedControls": [],
+  "occluders": [],
+  "pillOverlaps": [],
+  "smallestHorizontalGap": 6,
+  "statusScrollFits": true,
+  "captain": {
+    "text": "Captain aboard Ferengi Cargo Shuttle. Ferengi Merchant selected.",
+    "expected": "Captain aboard Ferengi Cargo Shuttle. Ferengi Merchant selected.",
+    "title": "Captain aboard Ferengi Cargo Shuttle. Ferengi Merchant selected.",
+    "mode": "full",
+    "expectedMode": "full",
+    "scrollWidth": 378,
+    "clientWidth": 378,
+    "scrollHeight": 15,
+    "clientHeight": 15,
+    "pillScrollHeight": 42,
+    "pillClientHeight": 42,
+    "lineCount": 1,
+    "layoutLineCount": 1,
+    "linesInside": true,
+    "glyphCrosses": false,
+    "ellipsisShowing": false,
+    "fontSize": "13px",
+    "textOverflow": "clip",
+    "fits": true,
+    "stripBottom": 50,
+    "readoutTop": 70,
+    "worldCargoTop": 298,
+    "clearsReadout": true,
+    "clearsWorldCargo": true,
+    "smallestHorizontalGap": 6,
+    "statusGaps": [
+      {
+        "name": "FLIGHT",
+        "missing": false,
+        "gap": 6
+      },
+      {
+        "name": "INVENTORY",
+        "missing": false,
+        "gap": 230
+      },
+      {
+        "name": "POWER",
+        "missing": false,
+        "gap": 112
+      },
+      {
+        "name": "SETTINGS",
+        "missing": false,
+        "gap": 230
+      }
+    ]
+  },
+  "docked": {
+    "text": "Docked at Ferenginar. Planet services open.",
+    "expected": "Docked at Ferenginar. Planet services open.",
+    "title": "Docked at Ferenginar. Planet services open.",
+    "mode": "full",
+    "expectedMode": "full",
+    "scrollWidth": 378,
+    "clientWidth": 378,
+    "scrollHeight": 15,
+    "clientHeight": 15,
+    "pillScrollHeight": 42,
+    "pillClientHeight": 42,
+    "lineCount": 1,
+    "layoutLineCount": 1,
+    "linesInside": true,
+    "glyphCrosses": false,
+    "ellipsisShowing": false,
+    "fontSize": "13px",
+    "textOverflow": "clip",
+    "fits": true,
+    "stripBottom": 50,
+    "readoutTop": null,
+    "worldCargoTop": 298,
+    "clearsReadout": true,
+    "clearsWorldCargo": true,
+    "smallestHorizontalGap": 6,
+    "statusGaps": [
+      {
+        "name": "FLIGHT",
+        "missing": false,
+        "gap": 6
+      },
+      {
+        "name": "INVENTORY",
+        "missing": false,
+        "gap": 230
+      },
+      {
+        "name": "POWER",
+        "missing": false,
+        "gap": 112
+      },
+      {
+        "name": "SETTINGS",
+        "missing": false,
+        "gap": 230
+      }
+    ]
+  },
+  "worstCase": {
+    "text": "Maximilian Bartholomew Clarkeson aboard Vulcan Expeditionary Explorer. Independent Captain selected.",
+    "expected": "Maximilian Bartholomew Clarkeson aboard Vulcan Expeditionary Explorer. Independent Captain selected.",
+    "title": "Maximilian Bartholomew Clarkeson aboard Vulcan Expeditionary Explorer. Independent Captain selected.",
+    "mode": "full",
+    "expectedMode": "full",
+    "scrollWidth": 378,
+    "clientWidth": 378,
+    "scrollHeight": 30,
+    "clientHeight": 30,
+    "pillScrollHeight": 42,
+    "pillClientHeight": 42,
+    "lineCount": 2,
+    "layoutLineCount": 2,
+    "linesInside": true,
+    "glyphCrosses": false,
+    "ellipsisShowing": false,
+    "fontSize": "13px",
+    "textOverflow": "clip",
+    "fits": true,
+    "stripBottom": 50,
+    "readoutTop": 70,
+    "worldCargoTop": 298,
+    "clearsReadout": true,
+    "clearsWorldCargo": true,
+    "smallestHorizontalGap": 6,
+    "statusGaps": [
+      {
+        "name": "FLIGHT",
+        "missing": false,
+        "gap": 6
+      },
+      {
+        "name": "INVENTORY",
+        "missing": false,
+        "gap": 230
+      },
+      {
+        "name": "POWER",
+        "missing": false,
+        "gap": 112
+      },
+      {
+        "name": "SETTINGS",
+        "missing": false,
+        "gap": 230
+      }
+    ]
+  },
+  "typed36Ship": {
+    "text": "Maximilian Bartholomew Clarkeson aboard Concord Starfarer of New Switzerland. Independent Captain selected.",
+    "expected": "Maximilian Bartholomew Clarkeson aboard Concord Starfarer of New Switzerland. Independent Captain selected.",
+    "title": "Maximilian Bartholomew Clarkeson aboard Concord Starfarer of New Switzerland. Independent Captain selected.",
+    "mode": "full",
+    "expectedMode": "full",
+    "scrollWidth": 378,
+    "clientWidth": 378,
+    "scrollHeight": 30,
+    "clientHeight": 30,
+    "pillScrollHeight": 42,
+    "pillClientHeight": 42,
+    "lineCount": 2,
+    "layoutLineCount": 2,
+    "linesInside": true,
+    "glyphCrosses": false,
+    "ellipsisShowing": false,
+    "fontSize": "13px",
+    "textOverflow": "clip",
+    "fits": true,
+    "stripBottom": 50,
+    "readoutTop": 70,
+    "worldCargoTop": 298,
+    "clearsReadout": true,
+    "clearsWorldCargo": true,
+    "smallestHorizontalGap": 6,
+    "statusGaps": [
+      {
+        "name": "FLIGHT",
+        "missing": false,
+        "gap": 6
+      },
+      {
+        "name": "INVENTORY",
+        "missing": false,
+        "gap": 230
+      },
+      {
+        "name": "POWER",
+        "missing": false,
+        "gap": 112
+      },
+      {
+        "name": "SETTINGS",
+        "missing": false,
+        "gap": 230
+      }
+    ]
+  },
+  "wideCaps": {
+    "text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW aboard MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM. Independent Captain selected.",
+    "expected": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW aboard MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM. Independent Captain selected.",
+    "title": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW aboard MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM. Independent Captain selected.",
+    "mode": "clamped",
+    "expectedMode": "clamped",
+    "scrollWidth": 378,
+    "clientWidth": 378,
+    "scrollHeight": 38,
+    "clientHeight": 25,
+    "pillScrollHeight": 42,
+    "pillClientHeight": 42,
+    "lineCount": 2,
+    "layoutLineCount": 3,
+    "linesInside": true,
+    "glyphCrosses": false,
+    "ellipsisShowing": true,
+    "fontSize": "11px",
+    "textOverflow": "ellipsis",
+    "fits": true,
+    "stripBottom": 50,
+    "readoutTop": 70,
+    "worldCargoTop": 298,
+    "clearsReadout": true,
+    "clearsWorldCargo": true,
+    "smallestHorizontalGap": 6,
+    "statusGaps": [
+      {
+        "name": "FLIGHT",
+        "missing": false,
+        "gap": 6
+      },
+      {
+        "name": "INVENTORY",
+        "missing": false,
+        "gap": 230
+      },
+      {
+        "name": "POWER",
+        "missing": false,
+        "gap": 112
+      },
+      {
+        "name": "SETTINGS",
+        "missing": false,
+        "gap": 230
+      }
+    ]
+  }
+}

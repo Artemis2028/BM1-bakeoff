@@ -10616,7 +10616,14 @@ function setLog(msg, opts = {}) {
   state.log = msg;
   if (logEl) logEl.textContent = msg;
   const messageEl = statsEl?.querySelector('.top-message');
-  if (messageEl) messageEl.textContent = msg;
+  const messageText = messageEl?.querySelector('.top-message-text');
+  if (messageText) {
+    messageText.textContent = msg;
+    messageEl.title = msg;
+    fitHeaderStatusPill();
+  } else if (messageEl) {
+    messageEl.textContent = msg;
+  }
 }
 
 function addWorldPop(x, y, text, color = '#ffd66e') {
@@ -11078,9 +11085,10 @@ function renderWorldCargo() {
       const drop = contract.status === 'open'
         ? `<button type="button" data-world-cargo-drop="${escapeHtml(contract.id)}">Drop cargo at world</button>`
         : '';
+      const statusLabel = contract.status === 'open' ? 'pending' : contract.status;
       return `<div class="world-cargo-line">
         <b>${escapeHtml(contract.targetName || 'Destination world')}</b>
-        · ${escapeHtml(contract.mode)} · ${escapeHtml(contract.status)}
+        · ${escapeHtml(contract.mode)} · ${escapeHtml(statusLabel)}
         · ${escapeHtml(contract.tons)}t ${escapeHtml(contract.good)}
         · ${escapeHtml(payLabel)} ${escapeHtml(pay)}
         ${drop}
@@ -13740,6 +13748,50 @@ function createEmptyCargoArray() {
   return Array.from({ length: 10 }, () => ({ tons: 0, item: 'Nothing', destination: undefined, payout: 0 }));
 }
 
+function readHeaderStatusFit(messageEl, textEl) {
+  const pill = messageEl.getBoundingClientRect();
+  const range = document.createRange();
+  range.selectNodeContents(textEl);
+  const lines = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+  const style = getComputedStyle(textEl);
+  const linesInside = lines.length > 0 && lines.every((rect) => (
+    rect.top >= pill.top - 0.5
+    && rect.bottom <= pill.bottom + 0.5
+    && rect.left >= pill.left - 0.5
+    && rect.right <= pill.right + 0.5
+  ));
+  const scrollFits = textEl.scrollWidth <= textEl.clientWidth + 1
+    && textEl.scrollHeight <= textEl.clientHeight + 1
+    && messageEl.scrollHeight <= messageEl.clientHeight + 1;
+  return {
+    lineCount: lines.length,
+    linesInside,
+    fits: linesInside
+      && scrollFits
+      && style.textOverflow !== 'ellipsis'
+      && style.whiteSpace !== 'nowrap',
+  };
+}
+
+function fitHeaderStatusPill() {
+  const messageEl = statsEl?.querySelector('.top-message');
+  const textEl = messageEl?.querySelector('.top-message-text');
+  if (!messageEl || !textEl) return;
+  textEl.classList.remove('top-message-clamped');
+  const sizes = [13, 12, 11];
+  for (const size of sizes) {
+    textEl.style.fontSize = `${size}px`;
+    const fit = readHeaderStatusFit(messageEl, textEl);
+    if (fit.lineCount >= 1 && fit.lineCount <= 2 && fit.fits) {
+      messageEl.dataset.headerMode = 'full';
+      return;
+    }
+  }
+  textEl.style.fontSize = '11px';
+  textEl.classList.add('top-message-clamped');
+  messageEl.dataset.headerMode = 'clamped';
+}
+
 function updateStats() {
   applyFactionUiTheme();
   state.mylatinum = state.latinum;
@@ -13760,7 +13812,7 @@ function updateStats() {
     : (dockName || 'In Flight');
   statsEl.innerHTML = `<div class="top-strip">
       <div class="top-slot top-ship alert-${getAlertStatus()}">${escapeHtml(mode)} &middot; ${getAlertStatus().toUpperCase()}</div>
-      <div class="top-slot top-message">${escapeHtml(safeMessage)}${flashAck}</div>
+      <div class="top-slot top-message" title="${escapeHtml(safeMessage)}"><span class="top-message-text">${escapeHtml(safeMessage)}</span>${flashAck}</div>
       <div class="top-stat"><span>AM</span>${state.antimatter}/${state.fuelCap}</div>
       <div class="top-stat"><span>SHLD</span>${Math.round(clamp(finiteNumber(state.shields, 0), 0, 100))}%</div>
       <div class="top-stat"><span>Hull</span>${Math.round(clamp(finiteNumber(state.hull, 0), 0, 100))}%</div>
@@ -13768,6 +13820,7 @@ function updateStats() {
       <div class="top-stat"><span>LAT</span>${state.latinum}</div>
       <div class="top-stat" title="${escapeHtml(formatFaction(getSystemFaction(state.currentPlanet)) + ' standing')}"><span>STD</span>${getFactionStanding(getSystemFaction(state.currentPlanet))}</div>
     </div>`;
+  fitHeaderStatusPill();
   updatePanel();
   refreshFleetOrderPanel();
   updateBottomDock();
@@ -23477,10 +23530,6 @@ function startWithFaction(key, options = {}) {
   renderStartMenu('main');
   playGameSound('shipLaunch', { cooldownKey: 'ship:new-game' });
   setLog(`${state.captainName} aboard ${state.shipName}. ${f.label} selected.`);
-  const hint = getFactionHint(f.playership);
-  if (hint) {
-    setLog(`${state.captainName} aboard ${state.shipName}. FLA action hint -> ${hint}`);
-  }
   syncLegacyState();
   updateStats();
 }
@@ -24123,6 +24172,13 @@ function installBm1ProbeHarness() {
     paint: () => {
       probeTick(1, 1);
       render();
+    },
+    redraw: () => render(),
+    worldPopTexts: () => {
+      const now = performance.now();
+      return state.worldPops
+        .filter((pop) => now - pop.born < pop.ttl)
+        .map((pop) => String(pop.text || ''));
     },
     skipIntro: skipIntroStory,
     startGame(faction = 'ferengi', options = {}) {
@@ -25868,6 +25924,22 @@ function createWorldCargoProbeApi() {
       state.dockedStationId = null;
       closePlanetMenu();
       return true;
+    },
+    serviceRange: () => {
+      const planet = state.planets?.[state.currentPlanet];
+      const marker = getFlightPlanetMarker();
+      const dockDistance = getPlanetDockDistance(planet);
+      const distance = Math.hypot(state.ship.x - marker.x, state.ship.y - marker.y);
+      return {
+        distance,
+        dockDistance,
+        inside: Number.isFinite(dockDistance) && distance <= dockDistance,
+        docked: state.docked === true,
+        planetWorld: {
+          x: state.systemPlanet?.x ?? null,
+          y: state.systemPlanet?.y ?? null,
+        },
+      };
     },
     completeOpen: (opts = {}) => {
       const beforeLatinum = state.latinum;
@@ -29954,6 +30026,11 @@ function createBoardingProbeApi() {
 function installPlayerSecurityProbe() {
   globalThis.__BM1_PROBE__ = {
     ready: () => Boolean(globalThis.__BM1_SOURCE_READY__ && Array.isArray(state.planets) && state.planets.length),
+    setStatus: (message) => {
+      state.log = String(message ?? '');
+      updateStats();
+      return state.log;
+    },
     skipIntro: () => skipIntroStory(),
     startFaction: (key = 'ferengi') => {
       skipIntroStory();
