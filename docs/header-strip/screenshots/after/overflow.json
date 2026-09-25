@@ -1,0 +1,48 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "measuredOn": ".top-message-text",
+  "clippedControls": [],
+  "occluders": [],
+  "pillOverlaps": [],
+  "statusScrollFits": true,
+  "captain": {
+    "text": "Captain aboard Ferengi Cargo Shuttle. Ferengi Merchant selected.",
+    "scrollWidth": 388,
+    "clientWidth": 388,
+    "scrollHeight": 15,
+    "clientHeight": 15,
+    "fits": true,
+    "stripBottom": 50,
+    "clearsReadout": true,
+    "clearsWorldCargo": true
+  },
+  "docked": {
+    "text": "Docked at Ferenginar. Planet services open.",
+    "scrollWidth": 388,
+    "clientWidth": 388,
+    "scrollHeight": 15,
+    "clientHeight": 15,
+    "fits": true,
+    "stripBottom": 50,
+    "clearsReadout": true,
+    "clearsWorldCargo": true
+  },
+  "worstCase": {
+    "text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW aboard WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW. FLA action hint -> Symbol 329: } else if (_root.playership == 67) {",
+    "expected": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW aboard WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW. FLA action hint -> Symbol 329: } else if (_root.playership == 67) {",
+    "scrollWidth": 388,
+    "clientWidth": 388,
+    "scrollHeight": 45,
+    "clientHeight": 45,
+    "fits": true,
+    "stripBottom": 53,
+    "readoutTop": 70,
+    "worldCargoTop": 298,
+    "clearsReadout": true,
+    "clearsWorldCargo": true,
+    "textOverflow": "clip"
+  }
+}

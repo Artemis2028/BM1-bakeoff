@@ -267,7 +267,15 @@ async function main() {
 
     const covertScene = await page.evaluate(() => {
       const api = globalThis.__BM1_PROBE__.worldCargo;
-      api.undock();
+      const requireRange = (label, range) => {
+        const distance = Number(range?.distance);
+        const dockDistance = Number(range?.dockDistance);
+        if (!Number.isFinite(distance) || !Number.isFinite(dockDistance) || distance > dockDistance || range?.inside !== true) {
+          throw new Error(`${label} distance ${distance} is outside getPlanetDockDistance ${dockDistance}`);
+        }
+        if (range.docked === true) throw new Error(`${label} is still docked`);
+        return { distance, dockDistance, inside: true, docked: false };
+      };
       const covert = api.enroll({
         id: 'wc-covert-shot',
         mode: 'covert',
@@ -280,6 +288,8 @@ async function main() {
       api.installPods(covert.id);
       api.placeAtWorld();
       api.setCloak(true);
+      api.undock();
+      const covertRange = requireRange('covert drop', api.serviceRange());
       const dropped = api.drop({ contractId: covert.id });
       const openFail = api.enroll({
         id: 'wc-open-cloak-shot',
@@ -291,11 +301,17 @@ async function main() {
         contraband: false,
       });
       api.installPods(openFail.id);
+      api.placeAtWorld();
       api.setCloak(true);
+      api.undock();
+      const openCloakRange = requireRange('cloaked open drop', api.serviceRange());
       const failed = api.drop({ contractId: openFail.id });
+      if (failed?.reason !== 'cloak-not-legal') {
+        throw new Error(`cloaked open drop failed for ${failed?.reason || 'unknown'}, expected cloak-not-legal`);
+      }
       globalThis.BM1Probe?.paint?.();
       const text = String(document.getElementById('world-cargo')?.innerText || '');
-      return { covert, dropped, openFail, failed, text };
+      return { covert, dropped, openFail, failed, text, covertRange, openCloakRange };
     });
     await page.waitForTimeout(250);
     await clearWorldCargoObstructions(page);
@@ -307,7 +323,12 @@ async function main() {
     const overflow = {
       viewport: { width: 1280, height: 720 },
       measuredOn: '#world-cargo',
-      headerStrip: 'Captain aboard Ferengi Cargo Shuttle. Fereng — pre-existing, out of scope',
+      headerStrip: 'Measured separately under docs/header-strip/screenshots/after/overflow.json',
+      covertUndock: covertScene.covertRange,
+      openCloakUndock: {
+        ...(covertScene.openCloakRange || {}),
+        reason: covertScene.failed?.reason || null,
+      },
       openDelivery: openFit,
       covertDrop: covertFit,
       openOutcomeShown: openText.includes(OPEN_OUTCOME) && openText.includes('Ferenginar') && openText.includes('48'),
@@ -335,7 +356,7 @@ async function main() {
       'Viewport 1280×720. `01-open-delivery.png` is a completed open delivery at the world.',
       '`02-covert-drop.png` is the covert-drop outcome, including the cloaked drop of an open contract.',
       '',
-      'The top header strip clip (“Captain aboard Ferengi Cargo Shuttle. Fereng”) predates this work and is out of scope.',
+      'The cloaked drops are taken undocked, still inside getPlanetDockDistance. The open-contract cloak failure is cloak-not-legal.',
       '',
       `clippedControls: ${JSON.stringify(overflow.clippedControls)}`,
       '',
@@ -348,7 +369,13 @@ async function main() {
       && overflow.covertInspectionShown
       && overflow.hostClearsDock
       && !overflow.hostOverflowX
-      && !overflow.sentenceCut;
+      && !overflow.sentenceCut
+      && covertScene.failed?.reason === 'cloak-not-legal'
+      && covertScene.openCloakRange?.inside === true
+      && covertScene.openCloakRange?.docked === false
+      && Number(covertScene.openCloakRange?.distance) <= Number(covertScene.openCloakRange?.dockDistance)
+      && covertScene.covertRange?.inside === true
+      && covertScene.covertRange?.docked === false;
     if (!ok) {
       console.error(JSON.stringify({
         openOutcomeShown: overflow.openOutcomeShown,

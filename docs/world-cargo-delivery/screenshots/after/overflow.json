@@ -4,7 +4,20 @@
     "height": 720
   },
   "measuredOn": "#world-cargo",
-  "headerStrip": "Captain aboard Ferengi Cargo Shuttle. Fereng — pre-existing, out of scope",
+  "headerStrip": "Measured separately under docs/header-strip/screenshots/after/overflow.json",
+  "covertUndock": {
+    "distance": 0,
+    "dockDistance": 226.98000000000002,
+    "inside": true,
+    "docked": false
+  },
+  "openCloakUndock": {
+    "distance": 0,
+    "dockDistance": 226.98000000000002,
+    "inside": true,
+    "docked": false,
+    "reason": "cloak-not-legal"
+  },
   "openDelivery": {
     "viewport": {
       "width": 1280,
@@ -96,7 +109,7 @@
       "bottom": 511,
       "left": 18,
       "right": 418,
-      "text": "Ferenginar · open · delivered · 4t Grain · legal payout 48\nFerenginar · covert · delivered · 3t Spices · covert reward 27\nFerenginar · open · open · 2t Medical Supplies · legal payout 36 DROP CARGO AT WORLD\n\nNot a legal delivery. Inspection not cleared. Cargo still aboard.\n\nCovert drop at Ferenginar. Paid 27 latinum. Not a legal delivery. Inspection not cleared.\n\nLegal delivery complete. Delivered at Ferenginar. Paid 48 latinum."
+      "text": "Ferenginar · open · delivered · 4t Grain · legal payout 48\nFerenginar · covert · delivered · 3t Spices · covert reward 27\nFerenginar · open · pending · 2t Medical Supplies · legal payout 36 DROP CARGO AT WORLD\n\nNot a legal delivery. Inspection not cleared. Cargo still aboard.\n\nCovert drop at Ferenginar. Paid 27 latinum. Not a legal delivery. Inspection not cleared.\n\nLegal delivery complete. Delivered at Ferenginar. Paid 48 latinum."
     },
     "contracts": {
       "hidden": false,
@@ -110,7 +123,7 @@
       "bottom": 409,
       "left": 34,
       "right": 402,
-      "text": "Ferenginar · open · delivered · 4t Grain · legal payout 48\nFerenginar · covert · delivered · 3t Spices · covert reward 27\nFerenginar · open · open · 2t Medical Supplies · legal payout 36 DROP CARGO AT WORLD"
+      "text": "Ferenginar · open · delivered · 4t Grain · legal payout 48\nFerenginar · covert · delivered · 3t Spices · covert reward 27\nFerenginar · open · pending · 2t Medical Supplies · legal payout 36 DROP CARGO AT WORLD"
     },
     "outcome": {
       "hidden": false,
@@ -148,7 +161,7 @@
     "clippedControls": [],
     "sentenceCut": false,
     "occluders": [],
-    "text": "Ferenginar · open · delivered · 4t Grain · legal payout 48\nFerenginar · covert · delivered · 3t Spices · covert reward 27\nFerenginar · open · open · 2t Medical Supplies · legal payout 36 DROP CARGO AT WORLD\n\nNot a legal delivery. Inspection not cleared. Cargo still aboard.\n\nCovert drop at Ferenginar. Paid 27 latinum. Not a legal delivery. Inspection not cleared.\n\nLegal delivery complete. Delivered at Ferenginar. Paid 48 latinum.",
+    "text": "Ferenginar · open · delivered · 4t Grain · legal payout 48\nFerenginar · covert · delivered · 3t Spices · covert reward 27\nFerenginar · open · pending · 2t Medical Supplies · legal payout 36 DROP CARGO AT WORLD\n\nNot a legal delivery. Inspection not cleared. Cargo still aboard.\n\nCovert drop at Ferenginar. Paid 27 latinum. Not a legal delivery. Inspection not cleared.\n\nLegal delivery complete. Delivered at Ferenginar. Paid 48 latinum.",
     "outcomeText": "Not a legal delivery. Inspection not cleared. Cargo still aboard.\n\nCovert drop at Ferenginar. Paid 27 latinum. Not a legal delivery. Inspection not cleared.\n\nLegal delivery complete. Delivered at Ferenginar. Paid 48 latinum."
   },
   "openOutcomeShown": true,

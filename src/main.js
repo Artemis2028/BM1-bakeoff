@@ -10616,7 +10616,13 @@ function setLog(msg, opts = {}) {
   state.log = msg;
   if (logEl) logEl.textContent = msg;
   const messageEl = statsEl?.querySelector('.top-message');
-  if (messageEl) messageEl.textContent = msg;
+  const messageText = messageEl?.querySelector('.top-message-text');
+  if (messageText) {
+    messageText.textContent = msg;
+    messageEl.title = msg;
+  } else if (messageEl) {
+    messageEl.textContent = msg;
+  }
 }
 
 function addWorldPop(x, y, text, color = '#ffd66e') {
@@ -11078,9 +11084,10 @@ function renderWorldCargo() {
       const drop = contract.status === 'open'
         ? `<button type="button" data-world-cargo-drop="${escapeHtml(contract.id)}">Drop cargo at world</button>`
         : '';
+      const statusLabel = contract.status === 'open' ? 'pending' : contract.status;
       return `<div class="world-cargo-line">
         <b>${escapeHtml(contract.targetName || 'Destination world')}</b>
-        · ${escapeHtml(contract.mode)} · ${escapeHtml(contract.status)}
+        · ${escapeHtml(contract.mode)} · ${escapeHtml(statusLabel)}
         · ${escapeHtml(contract.tons)}t ${escapeHtml(contract.good)}
         · ${escapeHtml(payLabel)} ${escapeHtml(pay)}
         ${drop}
@@ -13760,7 +13767,7 @@ function updateStats() {
     : (dockName || 'In Flight');
   statsEl.innerHTML = `<div class="top-strip">
       <div class="top-slot top-ship alert-${getAlertStatus()}">${escapeHtml(mode)} &middot; ${getAlertStatus().toUpperCase()}</div>
-      <div class="top-slot top-message">${escapeHtml(safeMessage)}${flashAck}</div>
+      <div class="top-slot top-message" title="${escapeHtml(safeMessage)}"><span class="top-message-text">${escapeHtml(safeMessage)}</span>${flashAck}</div>
       <div class="top-stat"><span>AM</span>${state.antimatter}/${state.fuelCap}</div>
       <div class="top-stat"><span>SHLD</span>${Math.round(clamp(finiteNumber(state.shields, 0), 0, 100))}%</div>
       <div class="top-stat"><span>Hull</span>${Math.round(clamp(finiteNumber(state.hull, 0), 0, 100))}%</div>
@@ -25869,6 +25876,18 @@ function createWorldCargoProbeApi() {
       closePlanetMenu();
       return true;
     },
+    serviceRange: () => {
+      const planet = state.planets?.[state.currentPlanet];
+      const marker = getFlightPlanetMarker();
+      const dockDistance = getPlanetDockDistance(planet);
+      const distance = Math.hypot(state.ship.x - marker.x, state.ship.y - marker.y);
+      return {
+        distance,
+        dockDistance,
+        inside: Number.isFinite(dockDistance) && distance <= dockDistance,
+        docked: state.docked === true,
+      };
+    },
     completeOpen: (opts = {}) => {
       const beforeLatinum = state.latinum;
       const beforeWrites = Number(state.standingWriteCount) || 0;
@@ -29954,6 +29973,11 @@ function createBoardingProbeApi() {
 function installPlayerSecurityProbe() {
   globalThis.__BM1_PROBE__ = {
     ready: () => Boolean(globalThis.__BM1_SOURCE_READY__ && Array.isArray(state.planets) && state.planets.length),
+    setStatus: (message) => {
+      state.log = String(message ?? '');
+      updateStats();
+      return state.log;
+    },
     skipIntro: () => skipIntroStory(),
     startFaction: (key = 'ferengi') => {
       skipIntroStory();

@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { longestHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PROBE_PORT) || 8765;
@@ -7095,6 +7096,122 @@ async function runWorldCargo(page, results) {
     && s34.enrolledCovert === 0
     && s34.covertMode === 'covert'
     && s34.covertLegal === 0);
+  const pending = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.worldCargo;
+    api.restore({ contracts: {} });
+    const open = api.enroll({
+      id: 's34-label-open',
+      mode: 'open',
+      good: 'Grain',
+      tons: 1,
+      legalPayout: 4,
+      targetName: 'Ferenginar',
+    });
+    const covert = api.enroll({
+      id: 's34-label-covert',
+      mode: 'covert',
+      good: 'Spices',
+      tons: 1,
+      covertReward: 5,
+      targetName: 'Ferenginar',
+    });
+    const text = String(document.getElementById('world-cargo')?.innerText || '');
+    return {
+      text,
+      openStatus: open.contract?.status || api.contract('s34-label-open')?.status || null,
+      covertStatus: covert.contract?.status || api.contract('s34-label-covert')?.status || null,
+    };
+  });
+  check(results, 'S34.8 pending-label', pending.openStatus === 'open'
+    && pending.covertStatus === 'open'
+    && pending.text.includes('open · pending')
+    && pending.text.includes('covert · pending')
+    && pending.text.includes('open · open') === false
+    && pending.text.includes('covert · open') === false, JSON.stringify({
+    openStatus: pending.openStatus,
+    covertStatus: pending.covertStatus,
+    text: pending.text.slice(0, 400),
+  }));
+}
+
+async function runHeaderStrip(page, results) {
+  const worst = longestHeaderStatusMessage();
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const fit = await page.evaluate((message) => {
+    const setStatus = globalThis.__BM1_PROBE__?.setStatus;
+    if (typeof setStatus !== 'function') return { missing: true };
+    setStatus(message);
+    const textEl = document.querySelector('.top-message-text');
+    const messageEl = document.querySelector('.top-message');
+    const pills = [...document.querySelectorAll('.top-strip > *')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40), left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    });
+    const overlaps = [];
+    for (let i = 0; i < pills.length; i += 1) {
+      for (let j = i + 1; j < pills.length; j += 1) {
+        const a = pills[i];
+        const b = pills[j];
+        if (a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5) {
+          overlaps.push(`${a.text} ~ ${b.text}`);
+        }
+      }
+    }
+    const strip = document.querySelector('.top-strip')?.getBoundingClientRect();
+    const readout = document.getElementById('phase10-readout');
+    const cargo = document.getElementById('world-cargo');
+    const readoutBox = readout && !readout.classList.contains('hidden') ? readout.getBoundingClientRect() : null;
+    const cargoBox = cargo && !cargo.classList.contains('hidden') ? cargo.getBoundingClientRect() : null;
+    const menuHits = [...document.querySelectorAll('#top-left-menu button')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return strip && r.left < strip.right - 0.5 && r.right > strip.left + 0.5 && r.top < strip.bottom - 0.5 && r.bottom > strip.top + 0.5;
+    }).map((el) => el.innerText.trim());
+    const style = textEl ? getComputedStyle(textEl) : null;
+    return {
+      missing: !textEl,
+      text: textEl?.textContent || '',
+      scrollWidth: textEl?.scrollWidth || 0,
+      clientWidth: textEl?.clientWidth || 0,
+      scrollHeight: textEl?.scrollHeight || 0,
+      clientHeight: textEl?.clientHeight || 0,
+      textOverflow: style?.textOverflow || null,
+      whiteSpace: style?.whiteSpace || null,
+      overlaps,
+      menuHits,
+      stripBottom: strip ? strip.bottom : null,
+      readoutTop: readoutBox ? readoutBox.top : null,
+      cargoTop: cargoBox ? cargoBox.top : null,
+      clearsReadout: !readoutBox || !strip || strip.bottom <= readoutBox.top + 0.5,
+      clearsCargo: !cargoBox || !strip || strip.bottom <= cargoBox.top + 0.5,
+      title: messageEl?.getAttribute('title') || '',
+    };
+  }, worst);
+  const fits = fit.missing !== true
+    && fit.text === worst
+    && fit.scrollWidth <= fit.clientWidth + 1
+    && fit.scrollHeight <= fit.clientHeight + 1
+    && fit.textOverflow !== 'ellipsis'
+    && fit.whiteSpace !== 'nowrap'
+    && fit.overlaps.length === 0
+    && fit.menuHits.length === 0
+    && fit.clearsReadout === true
+    && fit.clearsCargo === true;
+  check(results, 'header.worst-status-fits', fits, JSON.stringify({
+    length: worst.length,
+    scrollWidth: fit.scrollWidth,
+    clientWidth: fit.clientWidth,
+    scrollHeight: fit.scrollHeight,
+    clientHeight: fit.clientHeight,
+    textOverflow: fit.textOverflow,
+    overlaps: fit.overlaps,
+    menuHits: fit.menuHits,
+    stripBottom: fit.stripBottom,
+    readoutTop: fit.readoutTop,
+    cargoTop: fit.cargoTop,
+    clearsReadout: fit.clearsReadout,
+    clearsCargo: fit.clearsCargo,
+    text: String(fit.text || '').slice(0, 180),
+  }));
 }
 
 async function main() {
@@ -7140,6 +7257,7 @@ async function main() {
     await runBajoranSolarSailor(page, results);
     await runBriefingArchive(page, results);
     await runWorldCargo(page, results);
+    await runHeaderStrip(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
