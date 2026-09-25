@@ -324,7 +324,7 @@ Phase 7 fleet coordination (PR #29) and Phase 9–9.4 EW (PRs #33/#35/#37/#42/#4
 - **Warp Core** stays an **explicitly deferred utility** (ledger #48/#49 §6.2). Not cargo “Warp Cores,” not `utilityBook`, no invented id. **Not** the Sail ship brief.
 - Bajoran Sail / Bajoran Solar Sailor is **not** a deferred-utility leftover. S32 engine **stay-locked** (brief #70 @ `d5e1c41`; engine #71 @ `557200f`; begins unarmed; no playable unlock; ledger §6.1 superseded; #48/#49 not reopened).
 - Captains briefing / jump-intel archive brief is **merged** [PR #72](https://github.com/Artemis2028/BM1-bakeoff/pull/72) @ `37bca25` (opened from `main` @ `557200f`). S33 `briefingArchive` engine is **merged** [PR #73](https://github.com/Artemis2028/BM1-bakeoff/pull/73) @ `0534015`. Not a Referee Pass. Does not reopen #33–#72. S32 stays @ `557200f`.
-- World cargo delivery brief is **in review** under `docs/world-cargo-delivery/` (`worldCargoDelivery`, S34), opened from `main` @ `0534015`. Not merged. Not a Referee Pass. Does not reopen #33–#73. `WORLD_CARGO_LOCKED_FROM_REMASTERED` stays false.
+- World cargo delivery brief is **in review** under `docs/world-cargo-delivery/` (`worldCargoDelivery`, S34), opened from `main` @ `0534015`. Nine hard gates: a cloaked drop never earns a legal payout; it only moves cargo; patrol suspicion is not a weapons grant; deliver-once holds across reload and re-dock; old saves have no deliveries pending. Not merged. Not a Referee Pass. Does not reopen #33–#73. `WORLD_CARGO_LOCKED_FROM_REMASTERED` stays false.
 - `protect-all` ROE stays on **hold**. Do not invent a third ROE.
 - Thaleron Test Facility pass **unverified — not shipped**.
 - Flash weapon prices remain **source material, not final prices**.
