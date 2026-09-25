@@ -677,6 +677,24 @@ import {
   serializeBriefingArchive,
 } from './briefing-archive.js';
 import {
+  WORLD_CARGO_LOCKED_FROM_REMASTERED,
+  bookOwnsContractId,
+  completeWorldCargo,
+  dropWorldCargo,
+  emptyWorldCargoBook,
+  enrollWorldCargoContract,
+  evaluateWorldService,
+  expireDueContracts,
+  noteHailNotWorld,
+  noteStationNotWorld,
+  noteSuspicion,
+  noteWarpNotWorld,
+  requireWorldCargoHelpers,
+  restoreWorldCargoBook,
+  serializeWorldCargoBook,
+  worldCargoSnapshot,
+} from './world-cargo-delivery.js';
+import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
   installEwEquipment,
@@ -1499,6 +1517,7 @@ const state = {
   factionRosterBook: emptyFactionRosterBook(),
   solarSailorBook: emptySolarSailorBook(),
   briefingArchive: emptyBriefingArchive(),
+  worldCargoBook: emptyWorldCargoBook(),
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
@@ -5724,6 +5743,7 @@ function incrementPlayerStrategicJumps() {
     openPhase5Overdue(objective, { currentStrategicJumps: ledger.strategicJumps });
   }
   tickPhase8OnStrategicJump(ledger.strategicJumps);
+  expireWorldCargoOnJump(ledger.strategicJumps);
   return ledger.strategicJumps;
 }
 
@@ -5850,6 +5870,111 @@ function ensureBriefingArchive() {
     state.briefingArchive = restoreBriefingArchive(state.briefingArchive, { discovery: playerDiscovery() });
   }
   return state.briefingArchive;
+}
+
+function ensureWorldCargoBook() {
+  if (!state.worldCargoBook || state.worldCargoBook.version !== 1 || !state.worldCargoBook.contracts) {
+    state.worldCargoBook = restoreWorldCargoBook(state.worldCargoBook);
+  }
+  state.worldCargoBook.inspectionCleared = false;
+  state.worldCargoBook.customsCleared = false;
+  return state.worldCargoBook;
+}
+
+function playerCloakHull() {
+  return { cloak: state.cloak };
+}
+
+function worldCargoEncounterFacts() {
+  const order = typeof getPlayerCheckpointOrder === 'function' ? getPlayerCheckpointOrder() : null;
+  return order ? deriveEncounterFacts(order) : null;
+}
+
+function worldCargoContext(extra = {}) {
+  const planet = state.planets?.[state.currentPlanet];
+  const marker = getFlightPlanetMarker();
+  const ctx = {
+    currentPlanet: state.currentPlanet,
+    ship: { x: state.ship.x, y: state.ship.y },
+    planet: { x: marker.x, y: marker.y, name: planet?.name || '' },
+    dockDistance: getPlanetDockDistance(planet),
+    docked: state.docked === true,
+    dockedPlanetIndex: state.dockedPlanetIndex,
+    dockedStationId: state.dockedStationId ?? null,
+    silentRunning: false,
+    pods: state.cargoArray,
+    strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+    checkpointRefused: Boolean(getCheckpointDockRefusal(null, { planet: true })),
+    encounterFacts: worldCargoEncounterFacts(),
+    firingSolution: extra.firingSolution,
+    engagement_authorized: state.engagement_authorized,
+    pursuit: extra.pursuit,
+    contractId: extra.contractId,
+    stationId: extra.stationId,
+    action: extra.action,
+  };
+  ctx.cloaked = isHullCloaked(playerCloakHull(), currentLocalMs());
+  return ctx;
+}
+
+function applyWorldCargoEconomy(result) {
+  if (!result) return result;
+  const delta = Math.max(0, Math.round(Number(result.latinumDelta) || 0));
+  if (delta > 0) {
+    state.latinum += delta;
+    state.mylatinum = state.latinum;
+  }
+  let standingDelta = 0;
+  if (result.requestTrip === true && Array.isArray(result.trips)) {
+    for (const trip of result.trips) {
+      if (!trip?.token) continue;
+      const index = Number.isFinite(Number(trip.targetIndex)) ? Number(trip.targetIndex) : state.currentPlanet;
+      const faction = getSystemFaction(index);
+      const before = getFactionStanding(faction);
+      const paid = creditWorthwhileTrip(ensureMarketBook(), trip.token, () => {
+        adjustFactionStanding(faction, 3);
+      });
+      if (paid?.paid) standingDelta += getFactionStanding(faction) - before;
+    }
+  }
+  result.standingDelta = standingDelta;
+  state.worldCargoBook = ensureWorldCargoBook();
+  return result;
+}
+
+function placePlayerAtWorldBody() {
+  const planet = state.systemPlanet;
+  if (!planet) return false;
+  setCamera(planet.x, planet.y);
+  state.ship.x = canvas.width * 0.5;
+  state.ship.y = canvas.height * 0.5;
+  return true;
+}
+
+function expireWorldCargoOnJump(strategicJumps) {
+  expireDueContracts(ensureWorldCargoBook(), {
+    strategicJumps,
+    pods: state.cargoArray,
+  });
+  recalcCargoFromPods();
+}
+
+function enrollAcceptedWorldCargo(offer, mode = 'open') {
+  const jumps = Number(ensureIncidentLedger().strategicJumps) || 0;
+  return enrollWorldCargoContract(ensureWorldCargoBook(), {
+    id: offer.id,
+    mode,
+    good: offer.goods || offer.good,
+    tons: offer.tons,
+    legalPayout: mode === 'covert' ? 0 : getContractTotal(offer),
+    covertReward: mode === 'covert' ? Math.max(0, Math.round(Number(offer.covertReward) || 0)) : 0,
+    originIndex: offer.originIndex,
+    targetIndex: offer.targetIndex,
+    targetName: offer.targetName,
+    contraband: offer.contraband === true,
+    acceptedAtStrategicJumps: jumps,
+    deadlineSlack: offer.deadlineSlack,
+  });
 }
 
 function gatherBriefingSources() {
@@ -10786,6 +10911,7 @@ function cloneCargoPods(pods = state.cargoArray) {
 function restoreMissingContractCargo({ onlyCurrentDestination = false } = {}) {
   let restored = 0;
   for (const contract of getOpenContracts()) {
+    if (bookOwnsContractId(ensureWorldCargoBook(), contract.id)) continue;
     const targetIndex = getContractTargetIndex(contract);
     const targetNameMatches = normalizePlaceName(contract.targetName) === normalizePlaceName(state.planets[state.currentPlanet]?.name);
     if (onlyCurrentDestination && targetIndex !== state.currentPlanet && !targetNameMatches) continue;
@@ -10935,6 +11061,45 @@ function renderBriefingArchive() {
   }
   selectEl.innerHTML = selectHtml;
   bodyEl.innerHTML = bodyHtml;
+}
+
+function renderWorldCargo() {
+  const host = document.getElementById('world-cargo');
+  if (!host) return;
+  const visible = Boolean(state.gameStarted && !state.gameOver && !state.mapOpen);
+  host.classList.toggle('hidden', !visible);
+  if (!visible) return;
+  const book = ensureWorldCargoBook();
+  const rows = Object.values(book.contracts || {});
+  const contractsHtml = rows.length
+    ? rows.map((contract) => {
+      const pay = contract.mode === 'covert' ? contract.covertReward : contract.legalPayout;
+      const payLabel = contract.mode === 'covert' ? 'covert reward' : 'legal payout';
+      const drop = contract.status === 'open'
+        ? `<button type="button" data-world-cargo-drop="${escapeHtml(contract.id)}">Drop cargo at world</button>`
+        : '';
+      return `<div class="world-cargo-line">
+        <b>${escapeHtml(contract.targetName || 'Destination world')}</b>
+        · ${escapeHtml(contract.mode)} · ${escapeHtml(contract.status)}
+        · ${escapeHtml(contract.tons)}t ${escapeHtml(contract.good)}
+        · ${escapeHtml(payLabel)} ${escapeHtml(pay)}
+        ${drop}
+      </div>`;
+    }).join('')
+    : '<div class="world-cargo-line">No world-cargo contracts.</div>';
+  const outcomeLines = (book.outcomeLog || []).slice().reverse();
+  const outcomeHtml = outcomeLines.length
+    ? outcomeLines.map((line) => `<p class="world-cargo-outcome-line">${escapeHtml(line)}</p>`).join('')
+    : '<p class="world-cargo-outcome-line">No delivery outcome yet.</p>';
+  let contractsEl = host.querySelector('.world-cargo-contracts');
+  let outcomeEl = host.querySelector('.world-cargo-outcome');
+  if (!contractsEl || !outcomeEl) {
+    host.innerHTML = '<div class="world-cargo-contracts"></div><div class="world-cargo-outcome"></div>';
+    contractsEl = host.querySelector('.world-cargo-contracts');
+    outcomeEl = host.querySelector('.world-cargo-outcome');
+  }
+  contractsEl.innerHTML = contractsHtml;
+  outcomeEl.innerHTML = outcomeHtml;
 }
 
 function renderPhase10Readout() {
@@ -13624,6 +13789,7 @@ function updateStats() {
   }
   renderPhase10Readout();
   renderBriefingArchive();
+  renderWorldCargo();
 }
 
 function getFlightPlanetMarker() {
@@ -13654,6 +13820,7 @@ function tryDockAtPlanetIndex(i, marker = state.planets[i]) {
   const popOffset = (marker.drawSize || getPlanetVisualSize(p)) * 0.55;
   const checkpointBlock = getCheckpointDockRefusal(null, { planet: true });
   if (checkpointBlock) {
+    applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext()));
     setLog(checkpointBlock);
     addWorldPop(marker.x, marker.y - popOffset, 'Clearance');
     return false;
@@ -13671,6 +13838,7 @@ function tryDockAtPlanetIndex(i, marker = state.planets[i]) {
   setLog(`Docked at ${p.name}. Planet services open.`);
   addWorldPop(marker.x, marker.y - popOffset, 'Docked', '#9cffb4');
   openPlanetMenu();
+  applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext()));
   updateStats();
   return true;
 }
@@ -14480,6 +14648,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     factionRosterBook: serializeFactionRosterBook(ensureFactionRosterBook()),
     solarSailorBook: serializeSolarSailorBook(ensureSolarSailorBook()),
     briefingArchive: serializeBriefingArchive(ensureBriefingArchive()),
+    worldCargoBook: serializeWorldCargoBook(ensureWorldCargoBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
@@ -14576,6 +14745,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   state.briefingArchive = restoreBriefingArchive(s.briefingArchive, {
     discovery: state.dominionBook?.discovery,
   });
+  state.worldCargoBook = restoreWorldCargoBook(s.worldCargoBook);
   state.factionRosterBook = restoreFactionRosterBook(s.factionRosterBook);
   state.solarSailorBook = restoreSolarSailorBook(s.solarSailorBook);
   state.ew91 = restoreEw91Book(s.ew91);
@@ -14823,6 +14993,7 @@ function deliverDestinationCargoAtCurrentPlanet() {
   const deliveredContractNames = new Set();
 
   for (const pod of state.cargoArray) {
+    if (bookOwnsContractId(ensureWorldCargoBook(), pod.contractId)) continue;
     if (isCargoDueAtCurrentPlanet(pod)) {
       const podTons = Number(pod.tons || 0);
       const podPayout = Number(pod.payout || 0);
@@ -15065,6 +15236,7 @@ function hailSelectedShip() {
     return;
   }
   npc.hailSession = createShipHailSession(npc);
+  applyWorldCargoEconomy(noteHailNotWorld(ensureWorldCargoBook(), worldCargoContext({ stationId: npc.id })));
   playGameSound('hail', { cooldownKey: `hail:${npc.id}` });
   setLog(`${getShipDisplayName(npc)} responds: ${npc.hailSession.line}`);
   rerenderTargetWindowNow();
@@ -15300,6 +15472,7 @@ function acceptPendingContract() {
   }
   state.openContracts = [...getOpenContracts(), offer];
   state.activeContract = state.openContracts[0] || null;
+  enrollAcceptedWorldCargo(offer, 'open');
   state.pendingContractOffer = null;
   playGameSound('contract', { cooldownKey: `contract:${offer.id}` });
   setLog(`Accepted contract: ${offer.tons} tons of ${offer.goods} to ${offer.targetName} for ${getContractTotal(offer)} latinum.`);
@@ -15920,6 +16093,22 @@ targetWindowEl?.addEventListener('pointerdown', (e) => {
 
 targetWindowEl?.addEventListener('click', (e) => {
   handleTargetWindowAction(e, false);
+});
+
+document.getElementById('world-cargo')?.addEventListener('click', (event) => {
+  const drop = event.target.closest('[data-world-cargo-drop]');
+  if (!drop) return;
+  event.preventDefault();
+  placePlayerAtWorldBody();
+  state.docked = false;
+  state.dockedPlanetIndex = null;
+  state.dockedStationId = null;
+  closePlanetMenu();
+  const result = applyWorldCargoEconomy(dropWorldCargo(ensureWorldCargoBook(), worldCargoContext({
+    contractId: drop.dataset.worldCargoDrop,
+  })));
+  setLog(result?.outcome || 'Drop recorded.');
+  updateStats();
 });
 
 document.getElementById('briefing-archive')?.addEventListener('click', (event) => {
@@ -17190,6 +17379,7 @@ function tryDockAtStation(station) {
   state.combatTargetId = null;
   state.combatTargetType = 'ship';
   openStationMenu(station);
+  applyWorldCargoEconomy(noteStationNotWorld(ensureWorldCargoBook(), worldCargoContext({ stationId: station.id })));
   addWorldPop(screen.x, screen.y - 44, 'Docked', '#9cffb4');
   return true;
 }
@@ -23004,6 +23194,7 @@ function resetRunState() {
   state.factionRosterBook = emptyFactionRosterBook();
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
+  state.worldCargoBook = emptyWorldCargoBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -23150,6 +23341,7 @@ function restartInEscapePod() {
   state.factionRosterBook = emptyFactionRosterBook();
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
+  state.worldCargoBook = emptyWorldCargoBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23232,6 +23424,7 @@ function startWithFaction(key, options = {}) {
   state.factionRosterBook = emptyFactionRosterBook();
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
+  state.worldCargoBook = emptyWorldCargoBook();
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -24189,6 +24382,7 @@ function installBm1ProbeHarness() {
     phase10Roster: createPhase10RosterProbeApi(),
     solarSailor: createSolarSailorProbeApi(),
     briefingArchive: createBriefingArchiveProbeApi(),
+    worldCargo: createWorldCargoProbeApi(),
   };
 }
 
@@ -25583,6 +25777,245 @@ function briefingAuthorityFingerprint() {
   };
 }
 
+function createWorldCargoProbeApi() {
+  const failIfMissing = (helper, name) => {
+    if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
+    return null;
+  };
+  const finish = (result, beforeLatinum, beforeStandingWrites) => {
+    updateStats();
+    return {
+      ...(result || {}),
+      latinum: state.latinum,
+      latinumDelta: state.latinum - beforeLatinum,
+      standingWriteDelta: (Number(state.standingWriteCount) || 0) - beforeStandingWrites,
+      standingDelta: result?.standingDelta || 0,
+      cloaked: isHullCloaked(playerCloakHull(), currentLocalMs()),
+      inspectionCleared: ensureWorldCargoBook().inspectionCleared === true,
+      customsCleared: ensureWorldCargoBook().customsCleared === true,
+      deliveriesPending: Object.values(ensureWorldCargoBook().contracts || {}).filter((row) => row.status === 'open').length,
+      bookInsideSystemStates: Boolean(state.systemStates?.[state.currentPlanet]?.worldCargoBook),
+      saveSlotCount: SAVE_SLOT_COUNT,
+      roeModes: ROE_MODES.slice(),
+      offersProtectAll: offersProtectAll() === true,
+    };
+  };
+  return {
+    lock: () => WORLD_CARGO_LOCKED_FROM_REMASTERED,
+    saveSlotCount: SAVE_SLOT_COUNT,
+    snapshot: (contractId = null) => {
+      const missing = failIfMissing(worldCargoSnapshot, 'worldCargoSnapshot');
+      if (missing) return missing;
+      return worldCargoSnapshot(ensureWorldCargoBook(), {
+        contractId,
+        saveSlotCount: SAVE_SLOT_COUNT,
+        firingSolution: false,
+        engagement_authorized: state.engagement_authorized,
+        pursuit: false,
+      });
+    },
+    enroll: (input = {}) => {
+      const planet = state.planets[state.currentPlanet];
+      const enrolled = enrollAcceptedWorldCargo({
+        id: input.id,
+        goods: input.good || input.goods || 'Grain',
+        tons: input.tons,
+        payPerTon: input.mode === 'covert' ? 0 : (Number(input.legalPayout) && Number(input.tons) ? Number(input.legalPayout) / Number(input.tons) : 0),
+        originIndex: Number.isFinite(Number(input.originIndex)) ? Number(input.originIndex) : state.currentPlanet,
+        targetIndex: Number.isFinite(Number(input.targetIndex)) ? Number(input.targetIndex) : state.currentPlanet,
+        targetName: input.targetName || planet?.name || 'Destination',
+        contraband: input.contraband === true,
+        covertReward: input.covertReward,
+        deadlineSlack: input.deadlineSlack,
+      }, input.mode === 'covert' ? 'covert' : 'open');
+      if (enrolled.enrolled === true && input.mode === 'open' && Number.isFinite(Number(input.legalPayout)) && enrolled.contract) {
+        enrolled.contract.legalPayout = Math.max(0, Math.round(Number(input.legalPayout)));
+        enrolled.contract.covertReward = 0;
+      }
+      if (enrolled.enrolled === true && input.mode === 'covert' && Number.isFinite(Number(input.covertReward)) && enrolled.contract) {
+        enrolled.contract.covertReward = Math.max(0, Math.round(Number(input.covertReward)));
+        enrolled.contract.legalPayout = 0;
+      }
+      updateStats();
+      return { ok: enrolled.ok === true, id: enrolled.contract?.id || null, contract: enrolled.contract || null, retagged: false };
+    },
+    installPods: (id) => {
+      const contract = ensureWorldCargoBook().contracts[String(id)];
+      if (!contract) return { ok: false, reason: 'missing-contract' };
+      let pod = state.cargoArray.find((row) => !Number(row.tons));
+      if (!pod) {
+        pod = { tons: 0, item: 'Nothing', destination: undefined, payout: 0 };
+        state.cargoArray.push(pod);
+      }
+      pod.tons = contract.tons;
+      pod.item = contract.good;
+      pod.destination = contract.targetName;
+      pod.destinationIndex = contract.targetIndex;
+      pod.contractId = contract.id;
+      pod.payout = contract.mode === 'covert' ? contract.covertReward : contract.legalPayout;
+      recalcCargoFromPods();
+      return { ok: true, tons: pod.tons, contractId: pod.contractId };
+    },
+    placeAtWorld: () => placePlayerAtWorldBody(),
+    setCloak: (on) => {
+      setPlayerCloak(on === true, performance.now(), true);
+      return isHullCloaked(playerCloakHull(), currentLocalMs());
+    },
+    readCloaked: () => isHullCloaked(playerCloakHull(), currentLocalMs()),
+    undock: () => {
+      state.docked = false;
+      state.dockedPlanetIndex = null;
+      state.dockedStationId = null;
+      closePlanetMenu();
+      return true;
+    },
+    completeOpen: (opts = {}) => {
+      const beforeLatinum = state.latinum;
+      const beforeWrites = Number(state.standingWriteCount) || 0;
+      const faction = getSystemFaction(state.currentPlanet);
+      const standBefore = getFactionStanding(faction);
+      placePlayerAtWorldBody();
+      setPlayerCloak(false, performance.now(), true);
+      state.dockedStationId = null;
+      const docked = tryDockAtPlanetIndex(state.currentPlanet, getFlightPlanetMarker());
+      const contract = opts.contractId ? ensureWorldCargoBook().contracts[String(opts.contractId)] : null;
+      return finish({
+        docked: docked === true,
+        status: contract?.status || null,
+        mode: contract?.mode || null,
+        reason: contract?.lastAttempt?.reason || null,
+        completionToken: contract?.completionToken || null,
+        countedAsLegal: contract?.status === 'delivered' && contract?.mode === 'open',
+        standingDelta: getFactionStanding(faction) - standBefore,
+        outcome: ensureWorldCargoBook().lastOutcome,
+        contraband: contract?.contraband === true,
+      }, beforeLatinum, beforeWrites);
+    },
+    drop: (opts = {}) => {
+      const beforeLatinum = state.latinum;
+      const beforeWrites = Number(state.standingWriteCount) || 0;
+      placePlayerAtWorldBody();
+      state.docked = false;
+      state.dockedPlanetIndex = null;
+      state.dockedStationId = null;
+      closePlanetMenu();
+      const factsBefore = worldCargoEncounterFacts();
+      const result = applyWorldCargoEconomy(dropWorldCargo(ensureWorldCargoBook(), worldCargoContext({
+        contractId: opts.contractId,
+      })));
+      const factsAfter = worldCargoEncounterFacts();
+      return finish({
+        ...result,
+        factsUnchanged: JSON.stringify(factsBefore) === JSON.stringify(factsAfter),
+      }, beforeLatinum, beforeWrites);
+    },
+    noteStation: (opts = {}) => {
+      const beforeLatinum = state.latinum;
+      const beforeWrites = Number(state.standingWriteCount) || 0;
+      state.docked = true;
+      state.dockedPlanetIndex = null;
+      state.dockedStationId = opts.stationId || 'probe-station';
+      const result = applyWorldCargoEconomy(noteStationNotWorld(ensureWorldCargoBook(), worldCargoContext({
+        contractId: opts.contractId,
+        stationId: state.dockedStationId,
+      })));
+      return finish(result, beforeLatinum, beforeWrites);
+    },
+    noteHail: (opts = {}) => {
+      const beforeLatinum = state.latinum;
+      const beforeWrites = Number(state.standingWriteCount) || 0;
+      const result = applyWorldCargoEconomy(noteHailNotWorld(ensureWorldCargoBook(), worldCargoContext({
+        contractId: opts.contractId,
+        stationId: opts.stationId || 'probe-hail',
+      })));
+      return finish(result, beforeLatinum, beforeWrites);
+    },
+    noteSuspicion: (opts = {}) => {
+      const beforeLatinum = state.latinum;
+      const beforeWrites = Number(state.standingWriteCount) || 0;
+      const result = applyWorldCargoEconomy(noteSuspicion(ensureWorldCargoBook(), {
+        contractId: opts.contractId,
+        text: opts.text,
+        firingSolution: opts.firingSolution === true,
+        engagement_authorized: state.engagement_authorized,
+        pursuit: opts.pursuit === true,
+      }));
+      return finish(result, beforeLatinum, beforeWrites);
+    },
+    outside: (opts = {}) => {
+      const beforeLatinum = state.latinum;
+      const beforeWrites = Number(state.standingWriteCount) || 0;
+      if (state.systemPlanet) setCamera(state.systemPlanet.x + 4000, state.systemPlanet.y + 4000);
+      state.docked = true;
+      state.dockedPlanetIndex = state.currentPlanet;
+      state.dockedStationId = null;
+      setPlayerCloak(false, performance.now(), true);
+      const result = applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext({
+        contractId: opts.contractId,
+      })));
+      return finish(result, beforeLatinum, beforeWrites);
+    },
+    expire: (strategicJumps) => {
+      const result = expireDueContracts(ensureWorldCargoBook(), {
+        strategicJumps,
+        pods: state.cargoArray,
+      });
+      recalcCargoFromPods();
+      updateStats();
+      return result;
+    },
+    restore: (payload) => {
+      state.worldCargoBook = restoreWorldCargoBook(payload);
+      updateStats();
+      return worldCargoSnapshot(state.worldCargoBook, { saveSlotCount: SAVE_SLOT_COUNT });
+    },
+    evaluate: (opts = {}) => evaluateWorldService(ensureWorldCargoBook(), worldCargoContext(opts)),
+    deliverLegacy: () => {
+      const before = state.latinum;
+      const paid = deliverDestinationCargoAtCurrentPlanet();
+      return { paid: paid === true, latinumDelta: state.latinum - before };
+    },
+    contract: (id) => ensureWorldCargoBook().contracts[String(id)] || null,
+    podsFor: (id) => state.cargoArray.filter((pod) => String(pod.contractId || '') === String(id)),
+    saveReloadRedock: (id) => {
+      const tokenBefore = ensureWorldCargoBook().contracts[String(id)]?.completionToken || null;
+      const latinumBefore = state.latinum;
+      saveGame(1);
+      state.latinum += 5;
+      loadGame(1);
+      freezeLoop();
+      const loaded = ensureWorldCargoBook().contracts[String(id)] || null;
+      const afterLoad = state.latinum;
+      placePlayerAtWorldBody();
+      setPlayerCloak(false, performance.now(), true);
+      state.docked = false;
+      state.dockedStationId = null;
+      tryDockAtPlanetIndex(state.currentPlanet, getFlightPlanetMarker());
+      return {
+        tokenBefore,
+        tokenAfter: loaded?.completionToken || null,
+        latinumBefore,
+        afterLoad,
+        afterRedock: state.latinum,
+        delta: state.latinum - afterLoad,
+        status: ensureWorldCargoBook().contracts[String(id)]?.status || null,
+        bookInsideSystemStates: Boolean(JSON.parse(localStorage.getItem('bm2_html_save_slot_1') || '{}').systemStates?.worldCargoBook),
+        saveSlotCount: SAVE_SLOT_COUNT,
+      };
+    },
+    authority: () => ({
+      roeModes: ROE_MODES.slice(),
+      offersProtectAll: offersProtectAll() === true,
+      engagement_authorized: state.engagement_authorized,
+      rosterPlayable: JSON.stringify(ensureDominionBook().rosterPlayable || {}),
+      discovery: JSON.stringify(playerDiscovery() || {}),
+      scope: ensureDominionBook().scope,
+      sailorGift: ensureSolarSailorBook().rosterPlayableGift === true,
+      lock: WORLD_CARGO_LOCKED_FROM_REMASTERED === true,
+    }),
+  };
+}
+
 function createBriefingArchiveProbeApi() {
   const failIfMissing = (helper, name) => {
     if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
@@ -25734,6 +26167,7 @@ function createBriefingArchiveProbeApi() {
       const slot1 = JSON.parse(localStorage.getItem('bm2_html_save_slot_1') || '{}');
       const archive = serializeBriefingArchive(ensureBriefingArchive());
       state.briefingArchive = emptyBriefingArchive();
+      state.worldCargoBook = emptyWorldCargoBook();
       saveGame(2);
       const slot2 = JSON.parse(localStorage.getItem('bm2_html_save_slot_2') || '{}');
       loadGame(2);
@@ -29572,6 +30006,7 @@ function installPlayerSecurityProbe() {
     phase10Roster: createPhase10RosterProbeApi(),
     solarSailor: createSolarSailorProbeApi(),
     briefingArchive: createBriefingArchiveProbeApi(),
+    worldCargo: createWorldCargoProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

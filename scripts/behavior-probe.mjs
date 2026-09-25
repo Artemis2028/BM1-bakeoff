@@ -6748,6 +6748,255 @@ async function runBriefingArchive(page, results) {
   }));
 }
 
+async function runWorldCargo(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.worldCargo?.enroll));
+  if (!present) {
+    check(results, 'S34.setup worldCargo-api', false, 'worldCargo probe API missing');
+    return;
+  }
+  const s34 = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.worldCargo;
+    const authBefore = api.authority();
+    const empty = api.restore(undefined);
+    const enrolled = api.enroll({
+      id: 's34-open',
+      mode: 'open',
+      good: 'Grain',
+      tons: 4,
+      legalPayout: 40,
+      contraband: true,
+    });
+    api.installPods('s34-open');
+    const legacy = api.deliverLegacy();
+    const station = api.noteStation({ contractId: 's34-open', stationId: 'sta-s34' });
+    const hail = api.noteHail({ contractId: 's34-open', stationId: 'hail-s34' });
+    const outside = api.outside({ contractId: 's34-open' });
+    const podsHeld = api.podsFor('s34-open').reduce((sum, pod) => sum + Number(pod.tons || 0), 0);
+    api.undock();
+    const delivered = api.completeOpen({ contractId: 's34-open' });
+    const redock = api.completeOpen({ contractId: 's34-open' });
+    const reloaded = api.saveReloadRedock('s34-open');
+    const cloakOpen = api.enroll({
+      id: 's34-open-cloak',
+      mode: 'open',
+      good: 'Medical Supplies',
+      tons: 2,
+      legalPayout: 22,
+      contraband: true,
+    });
+    api.installPods('s34-open-cloak');
+    api.setCloak(true);
+    const cloakDrop = api.drop({ contractId: 's34-open-cloak' });
+    const cloakTons = api.podsFor('s34-open-cloak').reduce((sum, pod) => sum + Number(pod.tons || 0), 0);
+    const cloakContract = api.contract('s34-open-cloak');
+    const covert = api.enroll({
+      id: 's34-covert',
+      mode: 'covert',
+      good: 'Spices',
+      tons: 3,
+      covertReward: 17,
+      contraband: true,
+    });
+    api.installPods('s34-covert');
+    api.setCloak(true);
+    const covertDrop = api.drop({ contractId: 's34-covert' });
+    const covertAgain = api.drop({ contractId: 's34-covert' });
+    const bare = api.enroll({
+      id: 's34-bare',
+      mode: 'covert',
+      good: 'Spices',
+      tons: 1,
+      covertReward: 9,
+      contraband: true,
+    });
+    api.installPods('s34-bare');
+    api.setCloak(false);
+    const bareDrop = api.drop({ contractId: 's34-bare' });
+    const bareTons = api.podsFor('s34-bare').reduce((sum, pod) => sum + Number(pod.tons || 0), 0);
+    const suspicion = api.noteSuspicion({ contractId: 's34-covert' });
+    const authAfter = api.authority();
+    const host = document.getElementById('world-cargo');
+    const hostText = String(host?.innerText || '');
+    const tamper = api.restore({
+      inspectionCleared: true,
+      customsCleared: true,
+      openContracts: [{ id: 'legacy-open', mode: 'open', legalPayout: 12, covertReward: 12, status: 'open' }],
+      contracts: {
+        openish: {
+          id: 'openish',
+          mode: 'covert',
+          status: 'open',
+          legalPayout: 80,
+          covertReward: 0,
+          good: 'Grain',
+          tons: 1,
+          targetIndex: 0,
+          contraband: true,
+        },
+        both: {
+          id: 'both',
+          mode: 'open',
+          status: 'open',
+          legalPayout: 10,
+          covertReward: 4,
+          good: 'Grain',
+          tons: 1,
+          targetIndex: 0,
+        },
+      },
+    });
+    const openish = api.contract('openish');
+    const both = api.contract('both');
+    return {
+      authBefore,
+      authAfter,
+      emptyPending: empty.deliveriesPending,
+      enrolledMode: enrolled.contract?.mode,
+      enrolledCovert: enrolled.contract?.covertReward,
+      legacy,
+      station,
+      hail,
+      outside,
+      podsHeld,
+      delivered,
+      redock,
+      reloaded,
+      cloakOpen: cloakOpen.contract?.mode,
+      cloakDrop,
+      cloakTons,
+      cloakStatus: cloakContract?.status,
+      cloakMode: cloakContract?.mode,
+      cloakToken: cloakContract?.completionToken,
+      cloakContraband: cloakContract?.contraband,
+      covertMode: covert.contract?.mode,
+      covertLegal: covert.contract?.legalPayout,
+      covertDrop,
+      covertAgain,
+      bareDrop,
+      bareTons,
+      bareStatus: api.contract('s34-bare')?.status,
+      suspicion,
+      hostPresent: Boolean(host),
+      hostHidden: host?.classList.contains('hidden') === true,
+      hostText,
+      tamperFlags: tamper.inspectionCleared === false && tamper.customsCleared === false,
+      tamperPending: tamper.deliveriesPending,
+      openish,
+      both,
+      noLegacy: api.contract('legacy-open') == null,
+      saveSlotCount: api.saveSlotCount,
+    };
+  });
+  check(results, 'S34.1 world-center', s34.station?.reason === 'station-not-world'
+    && s34.station?.latinumDelta === 0
+    && s34.hail?.reason === 'hail-not-world'
+    && s34.outside?.reason === 'outside-radius'
+    && s34.podsHeld === 4
+    && s34.delivered?.status === 'delivered'
+    && s34.delivered?.latinumDelta === 40
+    && s34.delivered?.docked === true
+    && s34.legacy?.latinumDelta === 0
+    && s34.legacy?.paid === false, JSON.stringify({
+    station: s34.station?.reason,
+    hail: s34.hail?.reason,
+    outside: s34.outside?.reason,
+    delivered: s34.delivered,
+    legacy: s34.legacy,
+  }));
+  check(results, 'S34.2 cloak-both-directions', s34.cloakDrop?.reason === 'cloak-not-legal'
+    && s34.cloakDrop?.latinumDelta === 0
+    && s34.cloakDrop?.standingDelta === 0
+    && s34.cloakDrop?.standingWriteDelta === 0
+    && s34.cloakStatus === 'open'
+    && s34.cloakMode === 'open'
+    && s34.cloakToken == null
+    && s34.cloakTons === 2
+    && s34.cloakContraband === true
+    && s34.covertDrop?.status === 'delivered'
+    && s34.covertDrop?.latinumDelta === 17
+    && s34.covertDrop?.legalPayoutDelta === 0
+    && s34.covertDrop?.covertRewardDelta === 17
+    && s34.covertDrop?.standingDelta === 0
+    && s34.covertDrop?.standingWriteDelta === 0
+    && s34.covertDrop?.countedAsLegal === false
+    && s34.covertAgain?.latinumDelta === 0
+    && s34.bareDrop?.reason === 'uncloaked-not-covert'
+    && s34.bareDrop?.latinumDelta === 0
+    && s34.bareStatus === 'open'
+    && s34.bareTons === 1, JSON.stringify({
+    cloak: s34.cloakDrop,
+    covert: s34.covertDrop,
+    bare: s34.bareDrop,
+  }));
+  check(results, 'S34.3 cargo-stays-on-fail', s34.cloakDrop?.podsMoved === false
+    && s34.cloakDrop?.inspectionCleared === false
+    && s34.cloakDrop?.customsCleared === false
+    && s34.cloakDrop?.factsUnchanged === true
+    && String(s34.cloakDrop?.outcome || '').includes('Not a legal delivery. Inspection not cleared. Cargo still aboard.')
+    && String(s34.covertDrop?.outcome || '').includes('Inspection not cleared'));
+  check(results, 'S34.4 suspicion-not-authority', s34.suspicion?.suspicionOnly === true
+    && s34.suspicion?.firingSolution !== true
+    && s34.suspicion?.engagement_authorized !== true
+    && s34.suspicion?.pursuit !== true
+    && s34.authBefore?.roeModes?.join(',') === 'return-fire,defend'
+    && s34.authAfter?.roeModes?.join(',') === 'return-fire,defend'
+    && s34.authAfter?.offersProtectAll === false
+    && !s34.authAfter?.roeModes?.includes('protect-all')
+    && s34.authBefore?.engagement_authorized === s34.authAfter?.engagement_authorized
+    && s34.authBefore?.rosterPlayable === s34.authAfter?.rosterPlayable
+    && s34.authBefore?.discovery === s34.authAfter?.discovery
+    && s34.delivered?.standingDelta === 3
+    && s34.redock?.standingDelta === 0
+    && s34.covertDrop?.standingDelta === 0, JSON.stringify({
+    before: s34.authBefore,
+    after: s34.authAfter,
+    openStanding: s34.delivered?.standingDelta,
+  }));
+  check(results, 'S34.5 no-gifts', s34.delivered?.latinumDelta === 40
+    && s34.covertDrop?.latinumDelta === 17
+    && s34.redock?.latinumDelta === 0
+    && s34.covertAgain?.latinumDelta === 0
+    && s34.authAfter?.rosterPlayable === s34.authBefore?.rosterPlayable
+    && !String(s34.authAfter?.rosterPlayable || '').includes('true')
+    && s34.authAfter?.discovery === s34.authBefore?.discovery
+    && s34.authBefore?.scope === 'dominion-first');
+  check(results, 'S34.6 save-deliver-once', s34.emptyPending === 0
+    && s34.saveSlotCount === 3
+    && s34.redock?.latinumDelta === 0
+    && s34.reloaded?.delta === 0
+    && s34.reloaded?.status === 'delivered'
+    && s34.reloaded?.tokenAfter === 'world-cargo:s34-open'
+    && s34.reloaded?.bookInsideSystemStates === false
+    && s34.reloaded?.saveSlotCount === 3
+    && s34.tamperFlags === true
+    && s34.noLegacy === true
+    && s34.openish?.mode === 'open'
+    && s34.openish?.legalPayout === 80
+    && s34.openish?.covertReward === 0
+    && s34.both?.mode === 'open'
+    && s34.both?.legalPayout === 10
+    && s34.both?.covertReward === 0, JSON.stringify({
+    empty: s34.emptyPending,
+    reloaded: s34.reloaded,
+    openish: s34.openish,
+    both: s34.both,
+  }));
+  check(results, 'S34.7 host-visible', s34.hostPresent === true
+    && s34.hostHidden === false
+    && s34.hostText.includes('world-cargo') === false
+    && (s34.hostText.length > 0), JSON.stringify({
+    hostPresent: s34.hostPresent,
+    hidden: s34.hostHidden,
+  }));
+  check(results, 'S34.9 blind', s34.authBefore?.lock === false
+    && s34.authAfter?.lock === false
+    && s34.enrolledMode === 'open'
+    && s34.enrolledCovert === 0
+    && s34.covertMode === 'covert'
+    && s34.covertLegal === 0);
+}
+
 async function main() {
   const server = await startServer();
   let browser;
@@ -6790,13 +7039,14 @@ async function main() {
     await runPhase10Roster(page, results);
     await runBajoranSolarSailor(page, results);
     await runBriefingArchive(page, results);
+    await runWorldCargo(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
       fs.mkdirSync(artifactDir, { recursive: true });
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive + S34 world cargo Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;
