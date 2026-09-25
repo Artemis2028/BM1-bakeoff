@@ -1,0 +1,9 @@
+{
+  "mode": "baseline",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "hostPresent": false,
+  "note": "Captured on main before #world-cargo existed. 01 is the cargo inventory. 02 is the planet-dock / contract area. The header strip clip predates this work and is out of scope."
+}
