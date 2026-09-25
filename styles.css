@@ -862,6 +862,76 @@ body.ui-theme-cardassian .planet-menu::before {
 .phase10-readout.hidden {
   display: none;
 }
+.briefing-archive {
+  position: fixed;
+  top: 78px;
+  right: 332px;
+  z-index: 26;
+  width: 400px;
+  max-height: calc(100vh - 78px - var(--bm1-dock-clear) - 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  color: var(--lcars-text);
+  background: rgba(5, 7, 14, 0.92);
+  border: 4px solid var(--lcars-amber);
+  border-radius: 14px 4px 14px 4px;
+  box-shadow: inset 0 0 0 2px #000, 0 0 14px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  pointer-events: auto;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.briefing-archive.hidden { display: none; }
+.briefing-archive-select,
+.briefing-archive-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+}
+.briefing-archive-select { flex: 0 1 auto; max-height: 42%; }
+.briefing-archive.is-briefing .briefing-archive-select { max-height: 108px; }
+.briefing-archive.is-archive .briefing-archive-select { flex: 1 1 auto; max-height: 62%; }
+.briefing-archive-body { flex: 1 1 auto; min-height: 72px; }
+.briefing-archive-toolbar,
+.briefing-folder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: flex-start;
+}
+.briefing-folder { margin-top: 6px; }
+.briefing-folder b,
+.briefing-jump,
+.briefing-omitted {
+  flex: 1 0 100%;
+  color: #ffd66e;
+  font-size: 12px;
+}
+.briefing-archive button {
+  white-space: normal;
+  text-align: left;
+  height: auto;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow: visible;
+  text-overflow: unset;
+}
+.briefing-line,
+.briefing-empty,
+.briefing-folder-empty {
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: normal;
+  overflow-wrap: break-word;
+  margin: 3px 0;
+}
 .phase10-readout .p10-k {
   font-weight: 700;
   color: #ffd66e;

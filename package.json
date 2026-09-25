@@ -24,6 +24,7 @@
     "test:phase10": "node scripts/test-phase10-dominion.mjs",
     "test:phase10-roster": "node scripts/test-phase10-roster.mjs",
     "test:bajoran-solar-sailor": "node scripts/test-bajoran-solar-sailor.mjs",
+    "test:briefing-archive": "node scripts/test-briefing-archive.mjs",
     "test:utility": "node scripts/test-utility-inventory.mjs",
     "test:weapon-ledger": "node scripts/test-weapon-source-ledger.mjs",
     "test:empty-armable": "node scripts/test-empty-armable.mjs",
