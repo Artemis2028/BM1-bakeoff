@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { longestHeaderStatusMessage, realAllCapsFactionShipMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
+import { longestHeaderStatusMessage, realAllCapsFactionShipMessage, realWmHeavyAllCapsMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PROBE_PORT) || 8765;
@@ -7313,7 +7313,7 @@ async function runHeaderStrip(page, results) {
       text: String(fit.text || '').slice(0, 180),
     }));
   }
-  const flashAck = await page.evaluate(({ typedText, realCapsText, wideText }) => {
+  const flashAck = await page.evaluate(({ typedText, realCapsText, wmHeavyText, wideText }) => {
     const probe = globalThis.__BM1_PROBE__;
     if (typeof probe?.showHeaderFlashAck !== 'function') return { missing: true };
     const fingerprint = () => {
@@ -7355,6 +7355,7 @@ async function runHeaderStrip(page, results) {
       range.selectNodeContents(textEl);
       const lines = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
       const overlap = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+      const shortLabel = ack.textContent === 'ACK';
       return {
         missing: false,
         text: textEl.textContent,
@@ -7366,6 +7367,10 @@ async function runHeaderStrip(page, results) {
           && ackBox.left >= pill.left - 0.5
           && ackBox.right <= pill.right + 0.5,
         fontSize: getComputedStyle(textEl).fontSize,
+        shortLabel,
+        ackText: ack.textContent,
+        ackTitle: ack.getAttribute('title') || '',
+        ackAria: ack.getAttribute('aria-label') || '',
       };
     };
     return {
@@ -7374,24 +7379,31 @@ async function runHeaderStrip(page, results) {
       untouched,
       typed: measureOne(typedText),
       realCaps: measureOne(realCapsText),
+      wmHeavy: measureOne(wmHeavyText),
       wide: measureOne(wideText),
     };
   }, {
     typedText: typedShipHeaderStatusMessage(),
     realCapsText: realAllCapsFactionShipMessage(),
+    wmHeavyText: realWmHeavyAllCapsMessage(),
     wideText: wideCapsHeaderStatusMessage(),
   });
+  const labelOk = (row) => (row.shortLabel
+    ? row.ackText === 'ACK' && row.ackTitle === 'Acknowledge' && row.ackAria === 'Acknowledge'
+    : row.ackText === 'Acknowledge' && row.ackTitle === '' && row.ackAria === '');
   const rowOk = (row, text, mode) => row && row.missing !== true
     && row.text === text
     && row.displayOnly === true
     && row.lineHitsAck === false
     && row.ackInside === true
-    && row.mode === mode;
+    && row.mode === mode
+    && labelOk(row);
   check(results, 'header.flash-ack-visible', flashAck.missing !== true
     && flashAck.shown?.displayOnly === true
     && flashAck.untouched === true
     && rowOk(flashAck.typed, typedShipHeaderStatusMessage(), 'full')
     && rowOk(flashAck.realCaps, realAllCapsFactionShipMessage(), 'full')
+    && rowOk(flashAck.wmHeavy, realWmHeavyAllCapsMessage(), 'full')
     && rowOk(flashAck.wide, wideCapsHeaderStatusMessage(), 'clamped'), JSON.stringify(flashAck));
 }
 

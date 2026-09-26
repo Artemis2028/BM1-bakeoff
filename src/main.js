@@ -13798,19 +13798,51 @@ function readHeaderStatusFit(messageEl, textEl) {
   };
 }
 
+function headerStatusFitsFull(messageEl, textEl) {
+  const fit = readHeaderStatusFit(messageEl, textEl);
+  return fit.lineCount >= 1 && fit.lineCount <= 2 && fit.fits;
+}
+
+function applyFlashAckLabel(messageEl, ack, short) {
+  if (!ack) {
+    delete messageEl.dataset.headerAck;
+    return;
+  }
+  messageEl.dataset.headerAck = short ? 'short' : 'full';
+  if (short) {
+    ack.textContent = 'ACK';
+    ack.title = 'Acknowledge';
+    ack.setAttribute('aria-label', 'Acknowledge');
+    return;
+  }
+  ack.textContent = 'Acknowledge';
+  ack.removeAttribute('title');
+  ack.removeAttribute('aria-label');
+}
+
 function fitHeaderStatusPill() {
   const messageEl = statsEl?.querySelector('.top-message');
   const textEl = messageEl?.querySelector('.top-message-text');
   if (!messageEl || !textEl) return;
+  const ack = messageEl.querySelector('.flash-ack');
   textEl.classList.remove('top-message-clamped');
+  applyFlashAckLabel(messageEl, ack, false);
   const sizes = [13, 12, 11];
-  for (const size of sizes) {
-    textEl.style.fontSize = `${size}px`;
-    const fit = readHeaderStatusFit(messageEl, textEl);
-    if (fit.lineCount >= 1 && fit.lineCount <= 2 && fit.fits) {
-      messageEl.dataset.headerMode = 'full';
-      return;
+  const trySizes = () => {
+    for (const size of sizes) {
+      textEl.style.fontSize = `${size}px`;
+      if (headerStatusFitsFull(messageEl, textEl)) {
+        messageEl.dataset.headerMode = 'full';
+        return true;
+      }
     }
+    return false;
+  };
+  if (trySizes()) return;
+  if (ack) {
+    applyFlashAckLabel(messageEl, ack, true);
+    textEl.classList.remove('top-message-clamped');
+    if (trySizes()) return;
   }
   textEl.style.fontSize = '11px';
   textEl.classList.add('top-message-clamped');

@@ -104,13 +104,29 @@ export function typedShipHeaderStatusMessage() {
 }
 
 /**
- * Real ship name and faction label in capitals, in the same aboard template.
+ * Captain and the typed 36-character ship, both plain capitals.
+ * The faction label stays the usual mixed-case label.
  * This is not the W/M wide-capitals stress line.
  */
 export function realAllCapsFactionShipMessage() {
-  const ship = (longestShipName() || 'Ship').toUpperCase();
-  const label = (longestFactionLabel() || 'Independent Captain').toUpperCase();
-  return aboardSelected(HEADER_CAPTAIN_NAME, ship, label);
+  const label = longestFactionLabel() || 'Independent Captain';
+  return aboardSelected(
+    HEADER_CAPTAIN_NAME.toUpperCase(),
+    HEADER_TYPED_SHIP_NAME.toUpperCase(),
+    label,
+  );
+}
+
+/**
+ * All-caps form of the W/M-heavy real captain name used on #76
+ * (Maximilian Bartholomew Clarkeson: the W and M glyphs are real letters,
+ * not a synthetic run of W's and M's), with the longest real roster ship,
+ * both plain capitals. Faction label stays the usual mixed-case label.
+ */
+export function realWmHeavyAllCapsMessage() {
+  const label = longestFactionLabel() || 'Independent Captain';
+  const ship = longestShipName() || 'Ship';
+  return aboardSelected(HEADER_CAPTAIN_NAME.toUpperCase(), ship.toUpperCase(), label);
 }
 
 /** Same lengths in wide capitals: 32 W's and 36 M's, plus the longest faction label. */

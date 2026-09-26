@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { longestHeaderStatusMessage, realAllCapsFactionShipMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
+import { longestHeaderStatusMessage, realAllCapsFactionShipMessage, realWmHeavyAllCapsMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -340,10 +340,15 @@ async function measureFit(page, message) {
     const messageEl = document.querySelector('.top-message');
     const textEl = document.querySelector('.top-message-text');
     const ack = document.querySelector('.flash-ack');
+    const shortLabel = ack?.textContent === 'ACK';
     return {
       text: textEl?.textContent || '',
       mode: messageEl?.dataset.headerMode || null,
       fontSize: textEl ? getComputedStyle(textEl).fontSize : null,
+      shortLabel,
+      ackText: ack?.textContent || '',
+      ackTitle: ack?.getAttribute('title') || '',
+      ackAria: ack?.getAttribute('aria-label') || '',
       displayOnly: Boolean(ack?.hasAttribute('data-flash-ack-display')) && !ack?.hasAttribute('data-flash-ack'),
     };
   }, message);
@@ -368,6 +373,7 @@ async function main() {
     await boot(page);
     const typedText = typedShipHeaderStatusMessage();
     const realCapsText = realAllCapsFactionShipMessage();
+    const wmHeavyText = realWmHeavyAllCapsMessage();
     const wideText = wideCapsHeaderStatusMessage();
     const longestText = longestHeaderStatusMessage();
     await showFlashAck(page, typedText);
@@ -416,6 +422,7 @@ async function main() {
     const fits = {
       typed36: await measureFit(page, typedText),
       realAllCapsFactionShip: await measureFit(page, realCapsText),
+      realWmHeavyAllCaps: await measureFit(page, wmHeavyText),
       longestRealNames: await measureFit(page, longestText),
       wideCaps: await measureFit(page, wideText),
     };
@@ -462,10 +469,12 @@ async function main() {
     if (mode === 'after') {
       const fitOk = overflow.fits?.typed36?.mode === 'full'
         && overflow.fits?.realAllCapsFactionShip?.mode === 'full'
+        && overflow.fits?.realWmHeavyAllCaps?.mode === 'full'
         && overflow.fits?.longestRealNames?.mode === 'full'
         && overflow.fits?.wideCaps?.mode === 'clamped'
         && overflow.fits?.typed36?.displayOnly === true
         && overflow.fits?.realAllCapsFactionShip?.displayOnly === true
+        && overflow.fits?.realWmHeavyAllCaps?.displayOnly === true
         && overflow.fits?.wideCaps?.displayOnly === true;
       const ok = overflow.clippedControls.length === 0
         && overflow.occluders.length === 0
