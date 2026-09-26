@@ -6558,6 +6558,11 @@ async function runBajoranSolarSailor(page, results) {
 
 async function runBriefingArchive(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const emptyBriefingCount = await page.evaluate(() => {
+    const text = String(document.getElementById('briefing-archive')?.textContent || '');
+    return text.split('No briefing has been filed.').length - 1;
+  });
+  check(results, 'S33.empty-briefing-once', emptyBriefingCount === 1, String(emptyBriefingCount));
   const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.briefingArchive));
   if (!present) {
     check(results, 'S33.setup briefingArchive-api', false, 'briefingArchive probe API missing');
@@ -7308,6 +7313,74 @@ async function runHeaderStrip(page, results) {
       text: String(fit.text || '').slice(0, 180),
     }));
   }
+  const flashAck = await page.evaluate(({ fullText, wideText }) => {
+    const probe = globalThis.__BM1_PROBE__;
+    const raised = probe?.phase93?.injectDeliveredReport?.({ summary: 'Distress observed.' });
+    if (!raised?.flashId) return { missing: true, raised: raised || null };
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    const measureOne = (text) => {
+      probe.setStatus(text);
+      const messageEl = document.querySelector('.top-message');
+      const textEl = document.querySelector('.top-message-text');
+      const ack = document.querySelector('.flash-ack');
+      if (!messageEl || !textEl || !ack) return { missing: true, ack: Boolean(ack) };
+      const pill = messageEl.getBoundingClientRect();
+      const ackBox = ack.getBoundingClientRect();
+      const textBox = textEl.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(textEl);
+      const lines = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+      const menu = ['inventory', 'power', 'settings'].map((tab) => {
+        const el = document.querySelector(`#top-left-menu button[data-top-left-tab="${tab}"]`);
+        const r = el?.getBoundingClientRect();
+        return r ? { name: tab.toUpperCase(), left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null;
+      });
+      const campaignEl = document.getElementById('phase10-readout');
+      const campaign = campaignEl && !campaignEl.classList.contains('hidden') ? campaignEl.getBoundingClientRect() : null;
+      const menuHits = [];
+      for (const button of menu) {
+        if (!button) continue;
+        if (overlap(button, pill)) menuHits.push(`${button.name} overlaps header pill`);
+        if (campaign && overlap(button, campaign)) menuHits.push(`${button.name} overlaps campaign panel`);
+      }
+      return {
+        missing: false,
+        text: textEl.textContent,
+        mode: messageEl.dataset.headerMode || null,
+        visible: ackBox.width > 2 && ackBox.height > 2,
+        lineHitsAck: lines.some((rect) => overlap(rect, ackBox) || rect.right > ackBox.left + 0.5),
+        textClearsAck: textBox.right <= ackBox.left + 0.5,
+        ackInside: ackBox.top >= pill.top - 0.5
+          && ackBox.bottom <= pill.bottom + 0.5
+          && ackBox.left >= pill.left - 0.5
+          && ackBox.right <= pill.right + 0.5,
+        ackClipped: ack.scrollWidth > ack.clientWidth + 1
+          || ack.scrollHeight > ack.clientHeight + 1
+          || ackBox.right > pill.right + 1
+          || ackBox.bottom > pill.bottom + 1
+          || ackBox.left < pill.left - 1
+          || ackBox.top < pill.top - 1,
+        menuHits,
+      };
+    };
+    return {
+      missing: false,
+      full: measureOne(fullText),
+      wide: measureOne(wideText),
+    };
+  }, { fullText: worst, wideText: wideCapsHeaderStatusMessage() });
+  const flashRowOk = (row, text) => row && row.missing !== true
+    && row.visible === true
+    && row.text === text
+    && row.lineHitsAck === false
+    && row.textClearsAck === true
+    && row.ackInside === true
+    && row.ackClipped === false
+    && row.menuHits.length === 0
+    && (row.mode === 'full' || row.mode === 'clamped');
+  check(results, 'header.flash-ack-visible', flashAck.missing !== true
+    && flashRowOk(flashAck.full, worst)
+    && flashRowOk(flashAck.wide, wideCapsHeaderStatusMessage()), JSON.stringify(flashAck));
 }
 
 async function main() {
