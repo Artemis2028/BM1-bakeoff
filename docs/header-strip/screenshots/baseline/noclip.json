@@ -1,0 +1,72 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "clippedControls": [
+    "Settings"
+  ],
+  "occluders": [
+    "SETTINGS overlaps campaign panel"
+  ],
+  "pillOverlaps": [],
+  "flashAckVisible": true,
+  "ackInsidePill": true,
+  "textClearsAck": true,
+  "linesClearAck": true,
+  "emptyBriefingCount": 2,
+  "headerMode": "full",
+  "fontSize": "12px",
+  "statusText": "Maximilian Bartholomew Clarkeson aboard Vulcan Expeditionary Explorer. Independent Captain selected.",
+  "menu": [
+    {
+      "name": "INVENTORY",
+      "left": 18,
+      "right": 130,
+      "top": 8,
+      "bottom": 44,
+      "scrollWidth": 112,
+      "clientWidth": 112
+    },
+    {
+      "name": "POWER",
+      "left": 136,
+      "right": 248,
+      "top": 8,
+      "bottom": 44,
+      "scrollWidth": 112,
+      "clientWidth": 112
+    },
+    {
+      "name": "SETTINGS",
+      "left": 18,
+      "right": 130,
+      "top": 50,
+      "bottom": 86,
+      "scrollWidth": 112,
+      "clientWidth": 112
+    }
+  ],
+  "campaign": {
+    "left": 18,
+    "right": 298,
+    "top": 70,
+    "bottom": 279
+  },
+  "ack": {
+    "left": 664,
+    "right": 750,
+    "top": 17,
+    "bottom": 41
+  },
+  "text": {
+    "left": 372,
+    "right": 656,
+    "top": 15,
+    "bottom": 43
+  },
+  "lineRights": [
+    618,
+    637
+  ]
+}

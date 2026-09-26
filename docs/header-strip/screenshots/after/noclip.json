@@ -1,0 +1,186 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "clippedControls": [],
+  "occluders": [],
+  "pillOverlaps": [],
+  "flashAckVisible": true,
+  "ackInsidePill": true,
+  "textClearsAck": true,
+  "linesClearAck": true,
+  "emptyBriefingCount": 1,
+  "headerMode": "full",
+  "fontSize": "11px",
+  "statusText": "Maximilian Bartholomew Clarkeson aboard Concord Starfarer of New Switzerland. Independent Captain selected.",
+  "menu": [
+    {
+      "name": "INVENTORY",
+      "left": 18,
+      "right": 130,
+      "top": 8,
+      "bottom": 44,
+      "scrollWidth": 112,
+      "clientWidth": 112
+    },
+    {
+      "name": "POWER",
+      "left": 136,
+      "right": 248,
+      "top": 8,
+      "bottom": 44,
+      "scrollWidth": 112,
+      "clientWidth": 112
+    },
+    {
+      "name": "SETTINGS",
+      "left": 18,
+      "right": 130,
+      "top": 48,
+      "bottom": 66,
+      "scrollWidth": 112,
+      "clientWidth": 112
+    }
+  ],
+  "campaign": {
+    "left": 18,
+    "right": 298,
+    "top": 70,
+    "bottom": 279
+  },
+  "ack": {
+    "left": 664,
+    "right": 750,
+    "top": 17,
+    "bottom": 41
+  },
+  "text": {
+    "left": 372,
+    "right": 656,
+    "top": 16,
+    "bottom": 42
+  },
+  "lineRights": [
+    648,
+    601
+  ],
+  "panelGaps": [
+    {
+      "pair": "INVENTORY ~ POWER",
+      "gap": 6
+    },
+    {
+      "pair": "INVENTORY ~ SETTINGS",
+      "gap": 4
+    },
+    {
+      "pair": "INVENTORY ~ campaign panel",
+      "gap": 26
+    },
+    {
+      "pair": "INVENTORY ~ world cargo",
+      "gap": 254
+    },
+    {
+      "pair": "INVENTORY ~ bottom dock",
+      "gap": 682.13
+    },
+    {
+      "pair": "POWER ~ SETTINGS",
+      "gap": 7.21
+    },
+    {
+      "pair": "POWER ~ campaign panel",
+      "gap": 26
+    },
+    {
+      "pair": "POWER ~ world cargo",
+      "gap": 254
+    },
+    {
+      "pair": "POWER ~ bottom dock",
+      "gap": 635.94
+    },
+    {
+      "pair": "SETTINGS ~ campaign panel",
+      "gap": 4
+    },
+    {
+      "pair": "SETTINGS ~ world cargo",
+      "gap": 232
+    },
+    {
+      "pair": "SETTINGS ~ bottom dock",
+      "gap": 662.73
+    },
+    {
+      "pair": "campaign panel ~ world cargo",
+      "gap": 18.66
+    },
+    {
+      "pair": "campaign panel ~ bottom dock",
+      "gap": 397.63
+    },
+    {
+      "pair": "world cargo ~ bottom dock",
+      "gap": 222.35
+    }
+  ],
+  "minimumGap": 4,
+  "campaignTop": 70,
+  "worldCargoTop": 298,
+  "dockTop": 648,
+  "fits": {
+    "typed36": {
+      "text": "Maximilian Bartholomew Clarkeson aboard Concord Starfarer of New Switzerland. Independent Captain selected.",
+      "mode": "full",
+      "fontSize": "11px",
+      "shortLabel": false,
+      "ackText": "Acknowledge",
+      "ackTitle": "",
+      "ackAria": "",
+      "displayOnly": true
+    },
+    "realAllCapsFactionShip": {
+      "text": "MAXIMILIAN BARTHOLOMEW CLARKESON aboard CONCORD STARFARER OF NEW SWITZERLAND. Independent Captain selected.",
+      "mode": "full",
+      "fontSize": "12px",
+      "shortLabel": true,
+      "ackText": "ACK",
+      "ackTitle": "Acknowledge",
+      "ackAria": "Acknowledge",
+      "displayOnly": true
+    },
+    "realWmHeavyAllCaps": {
+      "text": "MAXIMILIAN BARTHOLOMEW CLARKESON aboard VULCAN EXPEDITIONARY EXPLORER. Independent Captain selected.",
+      "mode": "full",
+      "fontSize": "12px",
+      "shortLabel": false,
+      "ackText": "Acknowledge",
+      "ackTitle": "",
+      "ackAria": "",
+      "displayOnly": true
+    },
+    "longestRealNames": {
+      "text": "Maximilian Bartholomew Clarkeson aboard Vulcan Expeditionary Explorer. Independent Captain selected.",
+      "mode": "full",
+      "fontSize": "12px",
+      "shortLabel": false,
+      "ackText": "Acknowledge",
+      "ackTitle": "",
+      "ackAria": "",
+      "displayOnly": true
+    },
+    "wideCaps": {
+      "text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW aboard MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM. Independent Captain selected.",
+      "mode": "clamped",
+      "fontSize": "11px",
+      "shortLabel": true,
+      "ackText": "ACK",
+      "ackTitle": "Acknowledge",
+      "ackAria": "Acknowledge",
+      "displayOnly": true
+    }
+  }
+}
