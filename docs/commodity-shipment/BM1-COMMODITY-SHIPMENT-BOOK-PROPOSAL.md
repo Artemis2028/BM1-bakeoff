@@ -19,7 +19,7 @@ This is **one** docs brief: publish what a commodity entry is, what a shipment r
 
 A later writer can treat the book the way the briefing archive treats a filed snapshot: the captain reads a copy of freight the game already holds, and reading it cannot deliver, pay, clear inspection, or change standing.
 
-**Exit condition:** the eight hard gates in §2 are scoreable; the entry, the record, the panel, and the save rule in §3 are the contract; #33–#77 and the landed S34 rules stay closed; no Referee Pass from this PR.
+**Exit condition:** the twelve hard gates in §2 are scoreable; the entry, the record, the panel, and the save rule in §3 are the contract; #33–#77 and the landed S34 rules stay closed; no Referee Pass from this PR.
 
 **Proposed first-release decisions:**
 
@@ -36,7 +36,10 @@ A later writer can treat the book the way the briefing archive treats a filed sn
 | Standing? | **No write.** The book does not call `adjustFactionStanding` or `creditWorthwhileTrip`. The landed open-delivery +3 stays inside world cargo only. |
 | Cloak? | **No write.** The book does not read `isHullCloaked` in order to complete, retag, or clear. It may **show** `mode`, `deliveredCloaked`, and a stored `cloak-not-legal` reason. Silent running is still not a cloak. |
 | Delivery? | **Unchanged.** This book never calls `completeWorldCargo`, `dropWorldCargo`, `noteStationNotWorld`, `expireDueContracts`, `deliverContractIfPossible`, or `tradeAtPlanet`. |
-| Prize / captured goods? | **Out.** No sale, no new commodity class, no copy of a prize hull’s cargo onto the player hold. That is the separate alt item. |
+| Prize / captured goods? | **Out.** No sale, no new commodity class, no copy of a prize hull’s cargo onto the player hold. Tractoring a loose pod does not make it sellable through this book. Only a lot this book itself sold may be sold back, until the separate salvage/capture brief locks otherwise. `tractorIsBoarding()` stays false. |
+| Trade versus reports? | A buy, a sell, or a price move does not write or clear the contact book, delivered reports, FLASH, or the briefing archive. A market event may be an ordinary log line only. |
+| Who may trade? | Dominion world and faction access is the landed pack `regionAllows` scope for `dominion-all` and `dominion-core`, the same scope spawn and purchase already use. An embargo or a price shift does not add an ROE mode, restore `protect-all`, or grant permission to engage. |
+| Culture? | No commodity, price, or trade route grants culture fire, a firing solution, or `engagement_authorized`. No Phase 1 text is rewritten to explain the economy. |
 | May we reopen #33–#77 or relax S34? | **No.** Touched systems in §4 stay **unchanged**, including the #75 restore rules. |
 | May we `git am` remastered or invent remastered ids / prices? | **No.** `COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === false`. Every existing `*_LOCKED_FROM_REMASTERED` stays false. |
 | Must a later engine PR prove the UI? | **Yes.** The standing UI gate: baseline and after screenshots, plus a no-clip check at 1280×720 with `clippedControls: []`, `occluders: []`, and `pillOverlaps: []`. Text and controls fit their boxes. This docs PR attaches no PNGs. |
@@ -56,14 +59,18 @@ Cite landed stores as the sources this brief **subscribes to**, not as a second 
 | Phase 8 `marketBook`, `applyShopBuy` / `applyShopSell`, loose pods (`destination === undefined`) | Gates 1 and 5. No second market. Loose cargo is not a shipment under the §7 default. |
 | Standing tiers (#58 / #59); open +3 via `creditWorthwhileTrip` inside world cargo only | Gate 4. No standing write from this book. |
 | Phase 6 `isHullCloaked`; silent ≠ cloak | Gate 4. Display a stored reason. Do not complete from cloak. |
-| Phase 2 `ROE_MODES` (`return-fire`, `defend`); `offersProtectAll() === false` | Gate 5. |
+| Phase 2 `ROE_MODES` (`return-fire`, `defend`); `offersProtectAll() === false` | Gates 5 and 11. An embargo or a price does not add a mode. |
+| Phase 4 delivered reports / FLASH; Phase 6 contact book; briefing archive `produceArrivalBriefing` | Gate 9. Trade does not write or clear them. A market event is a log line only. |
+| `tractorIsBoarding()`; loose pods (`destination === undefined`) | Gate 10. Tractor does not make a loose pod sellable through this book. |
+| Pack `regionAllows` for `dominion-all` / `dominion-core`; spawn and purchase contexts | Gate 11. No second trade map. |
+| `cultureFireFromMarketForbidden`; `consultDoctrineFire`; Phase 1 identity text | Gate 12. No culture gift. No Phase 1 rewrite. |
 | Boarding #38 / #39: ≤10% hull; capture XOR scuttle; tractor ≠ board; prize identity | Gate 5. No prize sale. No new boarding start. |
 | Save slots: `SAVE_SLOT_COUNT = 3`; books outside `systemStates` | Gate 6. |
 | Phase 9 / dockClear / header-strip no-clip (1280×720; `clippedControls`, `occluders`, `pillOverlaps`) | Gate 7. Engine-PR merge gate. Do not reopen dockClear or the header strip. |
 
 ## 2. Locked constraints (do not reopen)
 
-The bake-off room locked world cargo, ROE, standing, and boarding before this brief. Implementation and probes must treat **gates 1–8** as **hard gates**. Referee / One score this brief against those **eight** **before** any engine PR. Number Three probes only after a later S35 slice. EW / boarding / Dominion-first / roster / flags / ledger / empty-armable / construction / HTML / economy / standing / dockClear / hygiene / alertsActive / away-team XP / sailor / briefing / world-cargo / header-strip gates stay **closed**; they are restated only as **gate 8** (preserve / do-not-open), not as a reopen. This docs PR **does not** claim a Referee Pass.
+The bake-off room locked world cargo, ROE, standing, and boarding before this brief. Doctrine lane locks gates 9–12 in the same score: trade does not touch reports or FLASH; loose cargo is not a capture/salvage bypass; market access follows the Dominion pack scope; culture does not gift fire. Implementation and probes must treat **gates 1–12** as **hard gates**. Referee / One score this brief against those **twelve** **before** any engine PR. Number Three probes only after a later S35 slice. EW / boarding / Dominion-first / roster / flags / ledger / empty-armable / construction / HTML / economy / standing / dockClear / hygiene / alertsActive / away-team XP / sailor / briefing / world-cargo / header-strip gates stay **closed**; they are restated only as **gate 8** (preserve / do-not-open), not as a reopen. This docs PR **does not** claim a Referee Pass.
 
 ### Hard gate 1 — A commodity entry is a name, not a market
 
@@ -137,6 +144,42 @@ Lane owner (wording): **Referee / One**.
 **Pass:** the new flag is false, every prior remastered-lock flag is false, a preservation replay (S4–S34, doctrine, Phase 10 including S18.18) stays green, and the module cites `docs/commodity-shipment/` plus landed bake-off helpers only.  
 **Fail:** a remastered patch, a copied remastered id or price, a lock flag set true, or an edited S34 completion rule.
 
+### Hard gate 9 — Trade never touches reports or FLASH
+
+> A buy, a sell, or a price move does not write to or clear the contact book, delivered reports, FLASH, or the briefing archive. Indexing a commodity, indexing a shipment, restoring this book, and any later sell-back that passes gate 10 do not call `listContacts` in order to add or delete a row, do not write `observerCopies` / `knownIncidentIds`, do not call the Phase 4 report path, do not call `setLog` with `band: 'flash'`, do not enqueue a `FLASH_ELIGIBLE_KINDS` row, and do not call `produceArrivalBriefing`. They do not delete a delivered report. Jamming still cannot unsend a report that already exists; this book does not clear one either. A market event may appear as an ordinary log line only (`setLog` with no flash band and no incident class). That line is never a FLASH and never a report. A later slice that files a trade as FLASH, wipes a delivered report because a price moved, or produces a briefing because a good was bought **fails**.
+
+Lane owner (wording): **Number 2**.
+
+**Pass:** before/after a buy, a sell, and a price move, the contact book, `knownIncidentIds`, the FLASH queue, and `briefingArchive` are deep-equal. The only new player-visible line, if any, is an ordinary log line.  
+**Fail:** any contact row appears or disappears, any delivered report is added or cleared, any FLASH is queued, or the briefing archive gains or loses a row because of the trade.
+
+### Hard gate 10 — Loose cargo is not a capture/salvage bypass
+
+> Tractoring a loose cargo pod does not make its goods sellable through this book. `tractorIsBoarding()` stays **false**. Tractor is not boarding, not capture, and not a sale. Sell-back through this book accepts only a lot the book itself sold: a `saleId` this book wrote at the time of that sale, with `soldByBook === true`. Indexing a pod does not write that id. A Phase 8 shop buy, a world-cargo delivery, a world-cargo expiry leftover, a tractor tow of a loose pod, a capture, and a salvage do not write it. A tampered `soldByBook: true` on a pod or a shipment row, with no matching `saleId` in this book, restores as not sellable. Until the separate salvage/capture brief locks otherwise, captured goods and salvaged goods are not sellable through this book. This gate does not reopen Phase 8 `applyShopSell` / `removeCargoFromPods`, and it does not add a prize-goods price. A later slice that pays latinum for a tractored loose pod, a prize hull’s cargo, or any lot this book did not sell **fails**.
+
+Lane owner (wording): **Number 2** on sell-back versus salvage; **Number Four** on `tractorIsBoarding() === false`.
+
+**Pass:** tractor a loose pod whose `item` is a trade good. `tractorIsBoarding()` is false. The book’s `sales` map does not gain an id. A sell-back of that good through the book pays 0 and does not clear the pod. A fixture sale id that this book wrote can be the only sell-back candidate; a pod that merely shares the name cannot.  
+**Fail:** `tractorIsBoarding()` becomes true, a tractored pod becomes sellable through the book, or captured/salvaged cargo pays latinum through this book.
+
+### Hard gate 11 — Market access follows the Dominion rule
+
+> Which worlds and factions trade with the player, where the question is Dominion scope, is decided by the same `dominion-all` / `dominion-core` rule pack spawn and purchase already use. That rule is `regionAllows` in `bm-ships/catalog.mjs`: `dominion-all` allows Blender, Dominica, a context whose `region` is `dominion-core`, or a live authorized invasion or mission; `dominion-core` allows Dominica, `region === 'dominion-core'`, or that same authorized invasion or mission. Spawn reads it through `spawnPool` / `catalogSpawnContext` / `spawnIdsLive`. Purchase reads it through `catalogPurchaseContext` / `stockIdsLive` / `evaluateWiredPurchase`. This book **reads** that predicate. It does not publish a second world list, a second faction list, or a trade-only region. An unknown region still does not silently authorize. An embargo or a price shift does not add an ROE mode beyond `return-fire` and `defend`, does not bring back `protect-all`, and does not grant permission to engage (`engagement_authorized`, `mayAutoEngage`, pursuit). `embargoNoticeStandingWrite()` stays a non-attack. Phase 8 price-is-not-a-ban stays. A later slice that opens Dominica trade because a price rose, or that treats an embargo as a weapons grant, **fails**.
+
+Lane owner (wording): **Number 2** on embargo versus permission to engage; **Number Four** on the pack predicate.
+
+**Pass:** a world the pack would refuse for `dominion-core` ambient traffic is not given a trade right by this book. Before/after an embargo refusal and a price change, `ROE_MODES` is still the two landed modes, `offersProtectAll()` is false, and `engagement_authorized` is unchanged.  
+**Fail:** a new region string, a third ROE mode, `protect-all`, or `engagement_authorized` set true because of an embargo or a price.
+
+### Hard gate 12 — No gifts from culture
+
+> No commodity, no price, and no trade route grants culture fire, a firing solution, or `engagement_authorized`. The book does not call `consultDoctrineFire`. It does not set `cultureFire`, `firingSolution`, or `engagement_authorized` on the player, a contact, or a deal. `cultureFireFromMarketForbidden` stays the Phase 8 refusal (a market deal does not carry the forbidden fire inject). Showing a route in `.shipment-records` does not arm it. No Phase 1 text is rewritten to explain the economy: doctrine JSON, Phase 1 political-identity copy, and the landed “who owns this world” sentences stay byte-for-byte. A price, a commodity name, or a route is not a reason to edit them. A later slice that gifts culture fire from a good, or that rewrites Phase 1 copy so a trade “makes sense,” **fails**.
+
+Lane owner (wording): **Number 2**.
+
+**Pass:** before/after index, a price move, and a route display, `cultureFire` is not set, `firingSolution` is unchanged, `engagement_authorized` is unchanged, and a hash of the Phase 1 doctrine text and the Phase 1 identity sentences is unchanged.  
+**Fail:** any of those fire bits flips, or any Phase 1 sentence changes because of this package.
+
 #### Touched but unchanged
 
 | System | What S35 may read | What stays unchanged |
@@ -144,16 +187,19 @@ Lane owner (wording): **Referee / One**.
 | Cargo hold (`src/main.js`) | Pod `item`, `tons`, `destination`, `destinationIndex`, `contractId`, `payout` | `cargoCap`, ten-slot schema, `addCargoToPods`, `removeCargoFromPods`, `clearCargoPod`, `tradeAtPlanet` |
 | `openContracts` | `id`, `goods`, `tons`, route, `payPerTon` as display | `normalizeContract`, accept, decline, `getContractTotal` as the payer |
 | World cargo (#74 / #75) | Contract fields after S34 has written them, including `cloak-not-legal` | `completeWorldCargo`, `dropWorldCargo`, `restoreWorldCargoBook` mode-trust and token rule, station/hail refusal, expiry |
-| Phase 8 markets (#31), economy (#56 / #57) | Nothing required | Stock, demand, shop sell, jump-farm, loose-cargo sale |
+| Phase 8 markets (#31), economy (#56 / #57) | `cultureFireFromMarketForbidden`, `embargoNoticeStandingWrite` to assert they did not change | Stock, demand, shop sell, jump-farm, price-is-not-a-ban. No second embargo table |
 | Standing tiers (#58 / #59) | A standing total, only to assert it did not change | Tier table, `evaluateWiredPurchase`, the +3 callback |
+| Phase 6 contact book; Phase 4 reports / FLASH | Digests, to assert a trade did not write them | Contact rows, `knownIncidentIds`, FLASH queue, `FLASH_ELIGIBLE_KINDS` |
 | Phase 6 cloak | Nothing required for completion | `isHullCloaked`, silent ≠ cloak, first-frame cloak |
-| Phase 2 ROE | `ROE_MODES`, `offersProtectAll` | Two modes; `protect-all` stays false |
-| Boarding (#38 / #39), away-team XP (#65 / #66) | `tractorIsBoarding()` to assert false | ≤10% hull, capture XOR scuttle, prize identity, no sale |
-| Briefing archive (#72 / #73) | Nothing required | Cap 24 × 12, knowledge-only produce |
+| Phase 2 ROE; `consultDoctrineFire` | `ROE_MODES`, `offersProtectAll` | Two modes; `protect-all` stays false; no culture fire from a good |
+| Phase 1 identity / doctrine text | A hash, to assert it did not change | No rewrite to explain a price or a route |
+| Pack `regionAllows` (`dominion-all` / `dominion-core`) | The landed spawn/purchase predicate | No trade-only region. No ambient core authorization |
+| Boarding (#38 / #39), away-team XP (#65 / #66) | `tractorIsBoarding()` to assert false | ≤10% hull, capture XOR scuttle, prize identity, no sale of tractored or captured goods |
+| Briefing archive (#72 / #73) | A digest, to assert a trade did not file one | Cap 24 × 12, knowledge-only produce. No `produceArrivalBriefing` from a buy, sell, or price |
 | Header strip (#76 / #77), dockClear (#60 / #61) | The 1280×720 no-clip **rule**, including `pillOverlaps` | Do not reflow those panels |
 | Save machinery | `saveGame` / `loadGame` / `resetRunState` slot path | `SAVE_SLOT_COUNT`, prefix, world-cargo key |
 
-### Soft gate 9 — Suites stay green (after a later slice)
+### Soft gate 13 — Suites stay green (after a later slice)
 
 > **Soft:** existing suites stay green (Phase 1 / S4–S34 / catalog / doctrine / boarding / Phase 10 / Phase 8 / Phase 9.4 / utility / weapon-ledger / empty-armable / construction / html-catalogs / economy-difficulty / standing-tiers / dock-clear / alerts-active / away-team XP / phase10-roster / bajoran-solar-sailor / briefing-archive / world-cargo / side-lane). A later S35 engine does **not** reopen those locks. Screenshot evidence is gate 7, not a waiver.
 
@@ -171,7 +217,11 @@ Lane owner (wording): **Number Four** (process); **Number Three** scores suite-g
 | Old saves; three slots; book outside `systemStates` | Gate 6. |
 | Standing UI gate: baseline + after shots; 1280×720; `clippedControls: []`, `occluders: []`, `pillOverlaps: []`; text and controls fit | Gate 7. |
 | Do not reopen #33–#77; blind; new lock flag false | Gate 8. |
-| Suites green; no Referee Pass from this PR | Soft gate 9. |
+| Trade never writes or clears the contact book, delivered reports, FLASH, or the briefing archive. A market event is a log line only | Gate 9. |
+| Tractoring a loose pod does not make it sellable through the book. `tractorIsBoarding() === false`. Only a lot this book sold may be sold back, until the salvage/capture brief | Gate 10. |
+| Dominion trade access is pack `dominion-all` / `dominion-core`. An embargo or a price does not add an ROE mode, `protect-all`, or permission to engage | Gate 11. |
+| No culture fire, firing solution, or `engagement_authorized` from a commodity, price, or route. No Phase 1 rewrite | Gate 12. |
+| Suites green; no Referee Pass from this PR | Soft gate 13. |
 
 ### Must not break (cite landed work)
 
@@ -183,12 +233,16 @@ Lane owner (wording): **Number Four** (process); **Number Three** scores suite-g
 | `completionToken` restores as `delivered` | #75 | Drop the token or pay it again from this book |
 | Open standing is only the existing +3 once-token | `creditWorthwhileTrip` inside world cargo | Call it from the commodity book |
 | Two-mode ROE; `protect-all` hold | Phase 2; #6 | Add a mode |
-| ≤10% hull; capture XOR scuttle; tractor ≠ board | #38 / #39 | Board, scuttle, or sell from this book |
+| ≤10% hull; capture XOR scuttle; tractor ≠ board | #38 / #39; `tractorIsBoarding()` | Board, scuttle, or sell a tractored or captured lot from this book |
+| Delivered reports stay; jamming cannot unsend; FLASH is not a trade ticker | Phase 4; Phase 9 | File or clear a report or a FLASH from a buy, sell, or price |
+| Briefing archive is knowledge-only on arrival | #72 / #73 | `produceArrivalBriefing` from a market event |
+| `dominion-all` / `dominion-core` spawn and purchase | Phase 10; `regionAllows` | A second trade map, or a price that authorizes core traffic |
+| Culture fire is not a market outcome | Phase 8 `cultureFireFromMarketForbidden`; Phase 1 text | Gift `cultureFire`, `firingSolution`, or `engagement_authorized`, or rewrite Phase 1 to explain a price |
 | Three save slots; books outside `systemStates` | `saveGame` / `loadGame` | A fourth slot, or a book inside `systemStates` |
 | `*_LOCKED_FROM_REMASTERED === false` | #44–#75 | Flip any remastered-lock, including the new flag |
 | Header strip and dockClear | #60 / #61 / #76 / #77 | Restyle them to pass gate 7 |
 
-### Process locks (not a change to gates 1–8)
+### Process locks (not a change to gates 1–12)
 
 - **Proposal first.** Do not implement the book from this text until Tenth scopes S35 after a brief score.
 - **Blind bake-off.** Implement against bake-off `main` (`bc00a86` after #77), **not** remastered. From `docs/commodity-shipment/` + landed read helpers only. Do **not** `git am`.
@@ -199,7 +253,7 @@ Lane owner (wording): **Number Four** (process); **Number Three** scores suite-g
 
 ### Scoring note
 
-Referee / One score the **eight hard gates** **before** any engine PR. Number 2 scores gates **1** (name versus price), **3** (legal versus covert, including `cloak-not-legal`), **4** (standing and cloak), and **5** (fire, ROE, prize sale). Number Four scores gates **2** (hold ownership), **3** (the book is not the payer), **6** (old saves and world-cargo restore), and **7** (fit + merge gate). Number Three probes **only after** a later S35 slice. **No Referee Pass is claimed by this docs PR.**
+Referee / One score the **twelve hard gates** **before** any engine PR. Number 2 scores gates **1** (name versus price), **3** (legal versus covert, including `cloak-not-legal`), **4** (standing and cloak), **5** (fire, ROE, prize sale), **9** (reports and FLASH), **10** (sell-back versus tractor), **11** (embargo is not permission to engage), and **12** (no culture gift, no Phase 1 rewrite). Number Four scores gates **2** (hold ownership), **3** (the book is not the payer), **6** (old saves and world-cargo restore), **7** (fit + merge gate), **10** (`tractorIsBoarding() === false` and the sale id), and **11** (the pack `regionAllows` predicate, not a new list). Number Three probes **only after** a later S35 slice. **No Referee Pass is claimed by this docs PR.**
 
 ## 3. Data shape (gates 1–6)
 
@@ -278,9 +332,12 @@ commodityShipmentBook = {
   lockedFromRemastered: false,  // constant; restore forces false
   selectedId: null,
   commodities: { [name]: entry },
-  shipments: { [contractId]: record }
+  shipments: { [contractId]: record },
+  sales: { [saleId]: { saleId, good, tons, soldByBook: true } }
 }
 ```
+
+`sales` is the only sell-back list (gate 10). An empty book has `sales` empty. Restore drops a sale row whose `soldByBook` is not true, and drops a pod or shipment flag that claims `soldByBook` without a `saleId` in this map. Index, tractor, capture, and salvage do not insert a sale row. This brief does not add the action that would write one.
 
 `saveGame` adds `commodityShipmentBook` beside `worldCargoBook` and the other sibling books. `loadGame` restores it with the other books, not from inside `systemStates`. Missing, null, or non-object → empty book. Slot clamp stays 1..3. Loading slot 2 does not import slot 1’s book. Restore forces `lockedFromRemastered` false. Restore drops any payable fields on a shipment row. Load does not run the index pass inside the restore function; the caller may index after both restores have finished, and that index must not pay.
 
@@ -293,6 +350,10 @@ commodityShipmentBook = {
 | Delivery | Show copied `open` / `delivered` / `expired` | Call world-cargo completion, drop, expiry, or the legacy planet deliver. Pay `legalPayout` or `covertReward`. |
 | Dock / hail | Show that status is still `open` after a station attempt the world-cargo book already refused | Record `station-not-world` itself, or treat a station as the world. |
 | Prize cargo | Nothing | Copy it, price it, or sell it. |
+| Reports / FLASH / briefing | An ordinary log line, with no flash band | Write or clear the contact book, a delivered report, FLASH, or `briefingArchive`. |
+| Loose pod / tractor | Show the pod in Inventory as the hold already does | Write `soldByBook`. Treat tractor as boarding. Sell that lot back through this book. |
+| Dominion access | Read pack `regionAllows` for `dominion-all` / `dominion-core` | Invent a trade region. Let an embargo or a price add an ROE mode or `engagement_authorized`. |
+| Culture | Nothing | Set `cultureFire`, `firingSolution`, or `engagement_authorized`. Rewrite Phase 1 text. |
 
 ## 4. What a later slice may change
 
@@ -311,7 +372,10 @@ Leave `completeWorldCargo`, `dropWorldCargo`, `restoreWorldCargoBook`, `deliverC
 - No second market, no commodity ticker, no futures price, no shop-standing rewrite.
 - No change to world-cargo completion, cloak refusal, mode-trust restore, or deliver-once.
 - No `protect-all`. No third ROE. No pursuit grant. No gifted `firingSolution`.
-- No boarding change. No sale of captured or prize goods. No new capture rule.
+- No boarding change. No sale of captured, salvaged, or tractored goods through this book. No new capture rule. `tractorIsBoarding()` stays false.
+- No trade write into the contact book, delivered reports, FLASH, or the briefing archive.
+- No trade-only Dominion map. No embargo or price that adds an ROE mode, `protect-all`, or permission to engage.
+- No culture fire, firing solution, or `engagement_authorized` from a commodity, a price, or a route. No Phase 1 rewrite to explain the economy.
 - No playable unlock, no `rosterPlayable` flip, no hidden Dominion reveal.
 - No fourth save slot. No book inside `systemStates`.
 - No dockClear reopen. No header-strip restyle.
@@ -333,35 +397,39 @@ Keep Phase 1 / S4–S34 / doctrine / catalog / boarding / Phase 10 green. **S18.
 | **S35.7** Old save | `restore(undefined)` empty. Slots stay 3. Book not in `systemStates`. | Gate 6. |
 | **S35.8** UI merge gate | Baseline + after shots. Overflow JSON `clippedControls: []`, `occluders: []`, `pillOverlaps: []`. Standing totals unchanged. | Gate 7. |
 | **S35.9** Blind | `COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === false`. Existing remastered-locks still false. S34 tests still pass. | Gate 8. |
+| **S35.10** Trade is not a report | Buy, sell, and a price move leave the contact book, `knownIncidentIds`, the FLASH queue, and `briefingArchive` unchanged. Any new line is an ordinary log line. | Gate 9. |
+| **S35.11** Tractor is not a sale | Tractor a loose pod. `tractorIsBoarding()` is false. `sales` does not gain an id. Sell-back of that good through the book pays 0. | Gate 10. |
+| **S35.12** Dominion scope, not a new ROE | A world `regionAllows` would refuse for ambient `dominion-core` is not opened by a price. Embargo leaves `ROE_MODES` at two and `offersProtectAll` false. `engagement_authorized` unchanged. | Gate 11. |
+| **S35.13** No culture gift | Commodity, price, and route leave `cultureFire`, `firingSolution`, and `engagement_authorized` unset. Phase 1 text hash unchanged. | Gate 12. |
 
 ## 7. Open questions
 
-These are **not** locked doctrine. The scoreable default is what a probe may use until Tenth amends the row. A later engine that picks a different answer still has to pass gates 1–8.
+These are **not** locked doctrine. The scoreable default is what a probe may use until Tenth amends the row. A later engine that picks a different answer still has to pass gates 1–12. Gates 9–12 are locks, not rows in this table.
 
 | ID | Question | Scoreable default until Tenth amends |
 | --- | --- | --- |
 | Q1 | Seed every `tradeGoods` string at new game, or only names already on a pod or an accepted contract? | **Only names already on a pod or an accepted contract.** Do not pre-seed the JSON list. Phase 8 already refused a galaxy-wide ticker. This default is not a new price table. |
-| Q2 | Do loose pods (no `contractId`, `destination === undefined`), including shop buys and world-cargo expiry leftovers, get shipment records? | **No.** They stay shop cargo. Expiry still clears `contractId` and sets pod `payout` to 0 inside world cargo. This book does not adopt them. |
+| Q2 | Do loose pods (no `contractId`, `destination === undefined`), including shop buys and world-cargo expiry leftovers, get shipment **display** rows? | **No.** They stay off the shipment list. Sell-back is not this question: gate 10 already locks that a tractored loose pod is not sellable through the book. |
 | Q3 | Is there a retention cap on delivered or expired shipment rows? | **Not locked.** Open shipments are not evicted. Briefing archive’s cap of 24 is **not** copied as a lock. Unbounded history is an open risk. Tenth should set a cap before an engine ships if the list must be bounded. |
 | Q4 | After world cargo marks `delivered` or `expired`, does the shipment row stay? | **Yes, as a copy.** The next index pass overwrites status from `worldCargoBook`. The copy cannot be paid. |
 | Q5 | Which DOM ids host the panel? | `#commodity-shipment`, `.commodity-entries`, `.shipment-records`, `.commodity-shipment-detail`. Not inside `#world-cargo`. Not a rewrite of the Inventory pod list. |
 | Q6 | May the panel show `legalPayout`, `covertReward`, or `getContractTotal`? | **Yes, as a read at render time.** The shipment record does not store a payable field. A tampered payable on the saved row is ignored. |
 | Q7 | When does the index pass run? | **After** accept, after world-cargo service returns, and after load. Never inside `restoreWorldCargoBook` or the completion functions. |
-| Q8 | Cargo that boarding left on a prize hull, not on `state.cargoArray`? | **Out of scope.** Not indexed. Not sold. The alt capture-rules brief owns any sale. |
+| Q8 | Cargo that boarding left on a prize hull, not on `state.cargoArray`? | **Out of scope for a sale.** Not sold through this book (gate 10). The salvage/capture brief owns any later exception. Whether a name already on the player hold is indexed is Q1, and indexing still does not write `soldByBook`. |
 | Q9 | May an entry remember a price the player once saw? | **No, not in this slice.** A remembered price would be a second market. |
 
 ## 8. Suggested order if a later slice is scoped
 
-1. **Brief score.** Referee / One score the **eight** hard gates. Do not open an engine PR on this document alone.
+1. **Brief score.** Referee / One score the **twelve** hard gates. Do not open an engine PR on this document alone.
 2. **Tenth scopes** a later thin subscribe module **or** leaves this as docs-only. Blind implement from `docs/commodity-shipment/` against bake-off `main` after #77 (`bc00a86`). Do not crib remastered.
-3. **Suggested order if scoped:** name-only entries (S35.1) → index does not touch pods (S35.2) → book does not deliver and `cloak-not-legal` still fails closed (S35.3) → mode-trust and token restore unchanged (S35.4) → standing and cloak unchanged (S35.5) → no prize sale and no third ROE (S35.6) → empty old save (S35.7) → preservation replay (S35.9) → UI shots and no-clip (S35.8) **before merge**.
+3. **Suggested order if scoped:** name-only entries (S35.1) → index does not touch pods (S35.2) → book does not deliver and `cloak-not-legal` still fails closed (S35.3) → mode-trust and token restore unchanged (S35.4) → standing and cloak unchanged (S35.5) → no prize sale and no third ROE (S35.6) → trade is not a report (S35.10) → tractor is not a sale (S35.11) → Dominion scope is not a new ROE (S35.12) → no culture gift (S35.13) → empty old save (S35.7) → preservation replay (S35.9) → UI shots and no-clip (S35.8) **before merge**.
 4. **Number Three** adds/runs S35 after that later slice. Keep S4–S34 green. Do not weaken S18.18 or the world-cargo tests.
 
 | Who | What they score | When |
 | --- | --- | --- |
-| **Referee / One** | All **eight** hard gates, before engine | This brief |
-| **Number 2** | Gates **1, 3, 4, 5** | This brief |
-| **Number Four** | Gates **2, 3, 6, 7** | This brief; gate 7 evidence is the later engine PR |
+| **Referee / One** | All **twelve** hard gates, before engine | This brief |
+| **Number 2** | Gates **1, 3, 4, 5, 9, 10, 11, 12** | This brief |
+| **Number Four** | Gates **2, 3, 6, 7, 10, 11** | This brief; gate 7 evidence is the later engine PR |
 | **Number Three** | Probe gate **after** a later S35 slice (S35; S4–S34 and S18.18 stay green) | Not this brief |
 
 **No Referee Pass is claimed.**

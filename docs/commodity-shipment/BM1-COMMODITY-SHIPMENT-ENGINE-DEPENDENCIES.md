@@ -6,7 +6,7 @@
 
 ## Verdict in one paragraph
 
-The commodity and shipment book can stay **docs-only** on this PR. **This PR ships proposal + deps only.** If Tenth later scopes a thin slice, prefer a **sibling book** (`src/commodity-shipment.js`, name can change) that **reads** pods, `openContracts`, and `worldCargoBook` and **writes only** `state.commodityShipmentBook`. A commodity entry is a name. A shipment record is a contract id plus a display copy. Indexing does not complete, pay, clear inspection, change standing, or move pods. A cloaked drop of an open contract still fails `cloak-not-legal` inside world cargo (pods stay, status stays open, pays 0). Restore of world cargo still trusts saved `mode` and zeroes the other reward, and a `completionToken` still restores as `delivered`. Selling captured or prize goods stays **out** (alt item; own capture-rules brief). `SAVE_SLOT_COUNT` stays 3. The book stays outside `systemStates`. `COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === false`. The later engine PR **must not merge** without baseline and after screenshots and a 1280×720 no-clip check with `clippedControls: []`, `occluders: []`, and `pillOverlaps: []`. The load-bearing risks are a second payer and a customs stamp: paying from a shipment row, completing from the panel, rewriting `mode` or `completionToken`, clearing contraband, writing standing, copying prize cargo aboard, or a reopen of #33–#77.
+The commodity and shipment book can stay **docs-only** on this PR. **This PR ships proposal + deps only.** If Tenth later scopes a thin slice, prefer a **sibling book** (`src/commodity-shipment.js`, name can change) that **reads** pods, `openContracts`, and `worldCargoBook` and **writes only** `state.commodityShipmentBook`. A commodity entry is a name. A shipment record is a contract id plus a display copy. Indexing does not complete, pay, clear inspection, change standing, or move pods. A cloaked drop of an open contract still fails `cloak-not-legal` inside world cargo (pods stay, status stays open, pays 0). Restore of world cargo still trusts saved `mode` and zeroes the other reward, and a `completionToken` still restores as `delivered`. Selling captured or prize goods stays **out** (alt item; own capture-rules brief). A buy, sell, or price move does not write or clear the contact book, delivered reports, FLASH, or the briefing archive. Tractoring a loose pod does not make it sellable through the book, and `tractorIsBoarding()` stays false. Only a lot this book itself sold may be sold back, until the salvage/capture brief locks otherwise. Dominion trade access is the pack `dominion-all` / `dominion-core` scope spawn and purchase already use. An embargo or a price shift does not add an ROE mode, restore `protect-all`, or grant permission to engage. No commodity, price, or route grants culture fire, a firing solution, or `engagement_authorized`, and no Phase 1 text is rewritten to explain the economy. `SAVE_SLOT_COUNT` stays 3. The book stays outside `systemStates`. `COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === false`. The later engine PR **must not merge** without baseline and after screenshots and a 1280×720 no-clip check with `clippedControls: []`, `occluders: []`, and `pillOverlaps: []`. The load-bearing risks are a second payer and a customs stamp: paying from a shipment row, completing from the panel, rewriting `mode` or `completionToken`, clearing contraband, writing standing, copying prize cargo aboard, or a reopen of #33–#77.
 
 ## Natural later deliverable (say this clearly)
 
@@ -23,6 +23,11 @@ A thin **subscribe module** that publishes proposal §3 (entry, record, index-af
 | UI host + lists + detail that fit at 1280×720 | A dockClear reopen or a header-strip restyle |
 | `COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === false` | A remastered `git am` |
 | Replay `test:world-cargo` unchanged | A relaxation of `cloak-not-legal`, mode-trust, or token restore |
+| Ordinary log line for a market event | A FLASH, a delivered report, a contact-book write, or a briefing |
+| `sales` empty unless this book wrote the `saleId` | A tractored loose pod, a capture, or a salvage becoming sellable |
+| `tractorIsBoarding() === false` | Tractor-as-board, or tractor-as-sale |
+| Read pack `regionAllows` for `dominion-all` / `dominion-core` | A trade-only region, or an embargo that adds an ROE mode |
+| No `cultureFire` / `firingSolution` / `engagement_authorized` | A Phase 1 rewrite that explains the economy |
 
 A prize-goods shop, if ever wanted, is a **different** Tenth-scoped lane and needs its own capture-rules brief first.
 
@@ -48,6 +53,13 @@ A prize-goods shop, if ever wanted, is a **different** Tenth-scoped lane and nee
 | Boarding | ≤10% combat hull to start. Capture XOR scuttle. `tractorIsBoarding()` false. Prize identity may keep a hull `cargo` / `cargoArray` on that hull (`src/boarding-identity.js`). That is not the player hold. |
 | Save slots | `SAVE_SLOT_COUNT = 3`. Payload already includes `worldCargoBook` and `briefingArchive` beside each other, outside `systemStates`. |
 | UI measure | World-cargo overflow JSON and header-strip `noclip.json` at 1280×720 report `clippedControls: []`, `occluders: []`. Header strip also reports `pillOverlaps: []`. DockClear #60 / #61 and header #76 / #77 stay locked. |
+| Reports and FLASH | Phase 4 incident ledger, `observerCopies.knownIncidentIds`, `setLog(..., { band: 'flash' })`, `FLASH_ELIGIBLE_KINDS`. A trade must not call these. An ordinary `setLog` line has no flash band. |
+| Briefing archive | `produceArrivalBriefing` runs on completed warp/wormhole only (#73). A buy, sell, or price move must not call it. |
+| Contact book | Phase 6 `listContacts` / contact rows. A trade must not add or delete a row. |
+| Tractor | `tractorIsBoarding()` in `src/phase9-ew.js` returns false. Do not flip it. Towing a loose pod does not write `sales`. |
+| Dominion scope | `regionAllows` in `bm-ships/catalog.mjs` for `dominion-all` and `dominion-core`. Spawn: `spawnPool` / `catalogSpawnContext` / `spawnIdsLive`. Purchase: `catalogPurchaseContext` / `stockIdsLive` / `evaluateWiredPurchase`. Read that predicate. Do not copy it into a trade table. |
+| Embargo is not fire | Phase 8 `embargoNoticeStandingWrite()` returns `standingWrite: false` and `attackId: null`. `ROE_MODES` stays two. `offersProtectAll()` stays false. |
+| Culture | `cultureFireFromMarketForbidden` in `src/phase8-markets.js`. `consultDoctrineFire` is not this book’s to call. Phase 1 doctrine text stays unedited. |
 | Remastered locks | `MAGNITUDES_LOCKED_FROM_REMASTERED`, `UTILITY_LOCKED_FROM_REMASTERED`, `LEDGER_LOCKED_FROM_REMASTERED`, `EMPTY_ARMABLE_LOCKED_FROM_REMASTERED`, `CONSTRUCTION_LOCKED_FROM_REMASTERED`, `HTML_CATALOG_LOCKED_FROM_REMASTERED`, `ECONOMY_DIFFICULTY_LOCKED_FROM_REMASTERED`, `STANDING_TIERS_LOCKED_FROM_REMASTERED`, `DOCK_CLEAR_LOCKED_FROM_REMASTERED`, `ALERTS_ACTIVE_LOCKED_FROM_REMASTERED`, `AWAY_TEAM_XP_LOCKED_FROM_REMASTERED`, `PHASE10_ROSTER_LOCKED_FROM_REMASTERED`, `BAJORAN_SOLAR_SAILOR_LOCKED_FROM_REMASTERED`, `BRIEFING_ARCHIVE_LOCKED_FROM_REMASTERED`, `WORLD_CARGO_LOCKED_FROM_REMASTERED` all **false**. |
 
 **Gap this brief closes (docs now; module only if scoped):** there is no scoreable book that lists a commodity name and a shipment record without becoming a second payer, a second market, or a prize shop.
@@ -76,7 +88,10 @@ Do **not** implement this inside `src/world-cargo-delivery.js`, `src/phase8-mark
 | `applyWorldCargoEconomy` / `creditWorthwhileTrip` | **Untouched.** Fail if the commodity book calls them. |
 | `applyShopSell` / `removeCargoFromPods` | **Untouched.** Loose cargo stays their job. Fail if the book sells. |
 | `adjustFactionStanding` | **Untouched** by this package. Fail if a book call changes `factionStanding`. |
-| `ROE_MODES` / `offersProtectAll` / `tractorIsBoarding` | **Untouched.** Fail if any changes. |
+| `ROE_MODES` / `offersProtectAll` / `tractorIsBoarding` | **Untouched.** Fail if any changes, including after an embargo or a price move. Fail if a tractored loose pod becomes sellable. |
+| Contact book / delivered reports / FLASH / `produceArrivalBriefing` | **Untouched** by buy, sell, and price. Fail if any of those stores change. An ordinary log line is the only allowed notice. |
+| `regionAllows` / `spawnIdsLive` / `evaluateWiredPurchase` | **Read** for Dominion trade access. Fail if this book authorizes a world the pack would refuse, or adds a region string. |
+| `cultureFireFromMarketForbidden` / Phase 1 text | **Untouched.** Fail if `cultureFire`, `firingSolution`, or `engagement_authorized` is set, or if Phase 1 copy changes. |
 | Prize hull `cargo` / `cargoArray` | **Do not copy** onto the player hold. Fail if indexing a capture increases player tons. |
 | `saveGame` / `loadGame` / `resetRunState` | New sibling key. Missing key → empty. `SAVE_SLOT_COUNT` stays 3. |
 | `__BM1_PROBE__.worldCargo` | Keep. Add `.commodityShipment`. S34 checks still read world cargo. |
@@ -96,9 +111,13 @@ Do **not** implement this inside `src/world-cargo-delivery.js`, `src/phase8-mark
 | `pillOverlaps` non-empty because the panel covers a header pill | Gate 7. Fit the host. Do not restyle the strip to hide the overlap. |
 | Editing `restoreOneContract` so both rewards survive | Gate 8. That is an S34 reopen. |
 | Copying a remastered price table or flipping a lock flag | Gate 8. |
+| A price move queues FLASH or files a briefing | Gate 9. |
+| Tractor writes `soldByBook` or `tractorIsBoarding()` returns true | Gate 10. |
+| An embargo adds `protect-all` or sets `engagement_authorized` | Gate 11. |
+| A route display sets `cultureFire` or edits Phase 1 text | Gate 12. |
 
 ## Probe hook sketch (later)
 
-`__BM1_PROBE__.commodityShipment` may expose `index`, `restore`, `snapshot`. Snapshot fields a scorer needs: `commodityNames`, `shipmentIds`, `podDigest` (so a probe can see the hold did not change), `worldCargoStatus`, `mode`, `lastAttemptReason`, `latinumDelta`, `standingDelta`, `inspectionCleared`, `customsCleared`, `wroteWorldCargo`, `prizeCargoCopied`, `roeModes`, `offersProtectAll`, `tractorIsBoarding`, `saveSlotCount`, `bookInsideSystemStates`, `lockedFromRemastered`. This docs PR does not add the hook.
+`__BM1_PROBE__.commodityShipment` may expose `index`, `restore`, `snapshot`. Snapshot fields a scorer needs: `commodityNames`, `shipmentIds`, `podDigest` (so a probe can see the hold did not change), `worldCargoStatus`, `mode`, `lastAttemptReason`, `latinumDelta`, `standingDelta`, `inspectionCleared`, `customsCleared`, `wroteWorldCargo`, `prizeCargoCopied`, `sales`, `soldByBook`, `contactBookDigest`, `knownIncidentIds`, `flashQueued`, `briefingArchiveDigest`, `logBand`, `regionAllowsRefused`, `cultureFire`, `firingSolution`, `engagement_authorized`, `phase1TextUnchanged`, `roeModes`, `offersProtectAll`, `tractorIsBoarding`, `saveSlotCount`, `bookInsideSystemStates`, `lockedFromRemastered`. This docs PR does not add the hook.
 
 World-cargo snapshot fields the S35 replay must still see unchanged: `reason` `cloak-not-legal` on a cloaked open drop, `latinumDelta` 0, status `open`, and on restore a trusted `mode` with the other reward zeroed and `completionToken` forcing `delivered`.
