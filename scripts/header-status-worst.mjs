@@ -103,6 +103,16 @@ export function typedShipHeaderStatusMessage() {
   return aboardSelected(HEADER_CAPTAIN_NAME, HEADER_TYPED_SHIP_NAME, label);
 }
 
+/**
+ * Real ship name and faction label in capitals, in the same aboard template.
+ * This is not the W/M wide-capitals stress line.
+ */
+export function realAllCapsFactionShipMessage() {
+  const ship = (longestShipName() || 'Ship').toUpperCase();
+  const label = (longestFactionLabel() || 'Independent Captain').toUpperCase();
+  return aboardSelected(HEADER_CAPTAIN_NAME, ship, label);
+}
+
 /** Same lengths in wide capitals: 32 W's and 36 M's, plus the longest faction label. */
 export function wideCapsHeaderStatusMessage() {
   const label = longestFactionLabel() || 'Independent Captain';

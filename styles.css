@@ -879,11 +879,11 @@ body.ui-theme-cardassian .planet-menu::before {
 .phase10-readout {
   position: fixed;
   left: 18px;
-  top: 96px;
+  top: 70px;
   right: auto;
   z-index: 28;
   width: min(280px, calc(100vw - 360px));
-  max-height: min(220px, calc(100vh - 96px - var(--bm1-dock-clear) - 8px));
+  max-height: min(220px, calc(100vh - 70px - var(--bm1-dock-clear)));
   padding: 10px 12px;
   color: var(--lcars-text);
   background: rgba(5, 7, 14, 0.9);
@@ -923,12 +923,13 @@ body.ui-theme-cardassian .planet-menu::before {
 .briefing-archive.hidden { display: none; }
 .world-cargo {
   position: fixed;
-  /* Below #phase10-readout (top 96, max-height 220) and the top-left tabs. */
-  top: 324px;
+  /* Below the persistent #phase10-readout (top 70, max-height 220) and the
+     Settings tab, which otherwise cover this host. */
+  top: 298px;
   left: 18px;
   z-index: 27;
   width: min(400px, calc(100vw - 36px));
-  max-height: calc(100vh - 324px - var(--bm1-dock-clear) - 16px);
+  max-height: calc(100vh - 298px - var(--bm1-dock-clear) - 16px);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1229,7 +1230,7 @@ body.ui-theme-cardassian .target-meter-track {
   top: 8px;
   z-index: 32;
   width: min(230px, calc(100vw - 36px));
-  max-height: 84px;
+  max-height: 52px;
   padding: 0;
   overflow: visible;
   background: transparent;
@@ -1264,6 +1265,21 @@ body.ui-theme-cardassian .target-meter-track {
 }
 .top-left-tabs button.active {
   background: var(--lcars-orange);
+}
+@media (min-width: 981px) {
+  .top-left-tabs button[data-top-left-tab="settings"] {
+    position: absolute;
+    left: 0;
+    top: 40px;
+    width: 112px;
+    min-width: 0;
+    height: 18px;
+    min-height: 18px;
+    padding: 0 6px;
+    font-size: 11px;
+    line-height: 18px;
+    z-index: 3;
+  }
 }
 .top-left-panel {
   position: fixed;

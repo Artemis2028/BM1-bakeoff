@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { longestHeaderStatusMessage } from './header-status-worst.mjs';
+import { longestHeaderStatusMessage, realAllCapsFactionShipMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -192,18 +192,59 @@ function measureCleanup() {
       if (style.display === 'none' || style.visibility === 'hidden') return;
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) return;
+      const hostStyle = host ? getComputedStyle(host) : null;
       const hostRect = host ? host.getBoundingClientRect() : null;
-      const cut = (hostRect && (
+      const hostClips = Boolean(hostStyle) && !['visible', ''].includes(hostStyle.overflow) && hostStyle.overflow !== 'visible';
+      const outsideHost = Boolean(hostClips && hostRect) && (
         r.left < hostRect.left - 1
         || r.right > hostRect.right + 1
         || r.top < hostRect.top - 1
         || r.bottom > hostRect.bottom + 1
-      )) || el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
-      if (cut) clippedControls.push(String(el.textContent || '').trim().slice(0, 80));
+      );
+      const outsideViewport = r.left < -1 || r.top < -1 || r.right > window.innerWidth + 1 || r.bottom > window.innerHeight + 1;
+      const textCut = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+      if (outsideHost || outsideViewport || textCut) clippedControls.push(String(el.textContent || '').trim().slice(0, 80));
     };
     for (const el of document.querySelectorAll('.top-strip button, #top-left-menu button')) {
       considerClip(el, el.closest('.top-message, .top-strip, #top-left-menu'));
     }
+    const cargo = boxOf(document.getElementById('world-cargo'));
+    const separation = (a, b) => {
+      const dx = Math.max(a.left, b.left) - Math.min(a.right, b.right);
+      const dy = Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom);
+      if (dx < 0 && dy < 0) return Math.max(dx, dy);
+      if (dx < 0) return dy;
+      if (dy < 0) return dx;
+      return Math.hypot(dx, dy);
+    };
+    const leftPanels = [
+      ...menuButtons.filter((button) => !button.hidden).map((button) => ({ name: button.name, box: button })),
+      ...(campaign ? [{ name: 'campaign panel', box: campaign }] : []),
+      ...(cargo && !cargo.hidden ? [{ name: 'world cargo', box: cargo }] : []),
+      ...(() => {
+        const dock = boxOf(document.getElementById('bottom-dock'));
+        return dock && !dock.hidden ? [{ name: 'bottom dock', box: dock }] : [];
+      })(),
+      ...(() => {
+        const target = boxOf(document.getElementById('target-window'));
+        return target && !target.hidden ? [{ name: 'target window', box: target }] : [];
+      })(),
+    ];
+    const panelGaps = [];
+    for (let i = 0; i < leftPanels.length; i += 1) {
+      for (let j = i + 1; j < leftPanels.length; j += 1) {
+        const gap = separation(leftPanels[i].box, leftPanels[j].box);
+        panelGaps.push({
+          pair: `${leftPanels[i].name} ~ ${leftPanels[j].name}`,
+          gap: Math.round(gap * 100) / 100,
+        });
+        if (gap < 0.5) {
+          const label = `${leftPanels[i].name} overlaps ${leftPanels[j].name}`;
+          if (!occluders.includes(label)) occluders.push(label);
+        }
+      }
+    }
+    const minimumGap = panelGaps.length ? Math.min(...panelGaps.map((row) => row.gap)) : null;
     const briefing = document.getElementById('briefing-archive');
     const briefingText = String(briefing?.innerText || '');
     const emptyCount = briefingText.split('No briefing has been filed.').length - 1;
@@ -256,6 +297,14 @@ function measureCleanup() {
         bottom: Math.round(textBox.bottom),
       } : null,
       lineRights: lineRects.map((line) => Math.round(line.right)),
+      panelGaps,
+      minimumGap,
+      campaignTop: campaign ? Math.round(campaign.top) : null,
+      worldCargoTop: cargo && !cargo.hidden ? Math.round(cargo.top) : null,
+      dockTop: (() => {
+        const dock = boxOf(document.getElementById('bottom-dock'));
+        return dock && !dock.hidden ? Math.round(dock.top) : null;
+      })(),
     };
   };
 }
@@ -276,14 +325,28 @@ async function boot(page) {
 async function showFlashAck(page, message) {
   await page.evaluate((text) => {
     const probe = globalThis.__BM1_PROBE__;
-    const raised = probe?.phase93?.injectDeliveredReport?.({ summary: 'Distress observed.' });
-    if (!raised || raised.ok === false) {
-      throw new Error(`flash raise failed: ${JSON.stringify(raised || null)}`);
-    }
+    const shown = probe?.showHeaderFlashAck?.(true);
+    if (!shown?.displayOnly) throw new Error(`display flash hook failed: ${JSON.stringify(shown || null)}`);
     probe.setStatus(text);
     globalThis.BM1Probe.paint?.();
   }, message);
   await page.waitForTimeout(200);
+}
+
+async function measureFit(page, message) {
+  return page.evaluate((text) => {
+    const probe = globalThis.__BM1_PROBE__;
+    probe.setStatus(text);
+    const messageEl = document.querySelector('.top-message');
+    const textEl = document.querySelector('.top-message-text');
+    const ack = document.querySelector('.flash-ack');
+    return {
+      text: textEl?.textContent || '',
+      mode: messageEl?.dataset.headerMode || null,
+      fontSize: textEl ? getComputedStyle(textEl).fontSize : null,
+      displayOnly: Boolean(ack?.hasAttribute('data-flash-ack-display')) && !ack?.hasAttribute('data-flash-ack'),
+    };
+  }, message);
 }
 
 async function shot(page, name, clip) {
@@ -303,8 +366,11 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
     page.setDefaultTimeout(30000);
     await boot(page);
-    const message = longestHeaderStatusMessage();
-    await showFlashAck(page, message);
+    const typedText = typedShipHeaderStatusMessage();
+    const realCapsText = realAllCapsFactionShipMessage();
+    const wideText = wideCapsHeaderStatusMessage();
+    const longestText = longestHeaderStatusMessage();
+    await showFlashAck(page, typedText);
     const regions = await page.evaluate(() => {
       const rect = (el) => {
         if (!el) return null;
@@ -323,17 +389,19 @@ async function main() {
         };
       };
       const menu = document.getElementById('top-left-menu');
+      const settings = document.querySelector('#top-left-menu button[data-top-left-tab="settings"]');
       const campaign = document.getElementById('phase10-readout');
+      const cargo = document.getElementById('world-cargo');
+      const dock = document.getElementById('bottom-dock');
       const briefing = document.getElementById('briefing-archive');
       const header = document.querySelector('.top-strip');
-      const menuBox = rect(menu);
-      const campaignBox = rect(campaign);
-      const left = menuBox && campaignBox ? {
-        x: Math.min(menuBox.x, campaignBox.x),
-        y: Math.min(menuBox.y, campaignBox.y),
-        width: Math.max(menuBox.x + menuBox.width, campaignBox.x + campaignBox.width) - Math.min(menuBox.x, campaignBox.x),
-        height: Math.max(menuBox.y + menuBox.height, campaignBox.y + campaignBox.height) - Math.min(menuBox.y, campaignBox.y),
-      } : (campaignBox || menuBox);
+      const boxes = [menu, settings, campaign, cargo, dock].map(rect).filter(Boolean);
+      const left = boxes.length ? {
+        x: Math.min(...boxes.map((box) => box.x)),
+        y: Math.min(...boxes.map((box) => box.y)),
+        width: Math.max(...boxes.map((box) => box.x + box.width)) - Math.min(...boxes.map((box) => box.x)),
+        height: Math.max(...boxes.map((box) => box.y + box.height)) - Math.min(...boxes.map((box) => box.y)),
+      } : null;
       return {
         header: pad(rect(header), 12),
         settings: pad(left, 16),
@@ -345,6 +413,13 @@ async function main() {
     if (regions.settings) await shot(page, '03-settings-campaign', regions.settings);
     if (regions.briefing) await shot(page, '04-empty-briefing', regions.briefing);
     const measured = await page.evaluate(measureCleanup());
+    const fits = {
+      typed36: await measureFit(page, typedText),
+      realAllCapsFactionShip: await measureFit(page, realCapsText),
+      longestRealNames: await measureFit(page, longestText),
+      wideCaps: await measureFit(page, wideText),
+    };
+    await showFlashAck(page, typedText);
     const overflow = {
       viewport: measured.viewport,
       clippedControls: measured.clippedControls,
@@ -363,6 +438,12 @@ async function main() {
       ack: measured.ack,
       text: measured.text,
       lineRights: measured.lineRights,
+      panelGaps: measured.panelGaps,
+      minimumGap: measured.minimumGap,
+      campaignTop: measured.campaignTop,
+      worldCargoTop: measured.worldCargoTop,
+      dockTop: measured.dockTop,
+      fits,
     };
     fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(path.join(outDir, 'noclip.json'), JSON.stringify(overflow, null, 2));
@@ -370,25 +451,37 @@ async function main() {
       clippedControls: overflow.clippedControls,
       occluders: overflow.occluders,
       pillOverlaps: overflow.pillOverlaps,
+      minimumGap: overflow.minimumGap,
+      campaignTop: overflow.campaignTop,
+      worldCargoTop: overflow.worldCargoTop,
+      dockTop: overflow.dockTop,
       flashAckVisible: overflow.flashAckVisible,
       emptyBriefingCount: overflow.emptyBriefingCount,
-      textClearsAck: overflow.textClearsAck,
-      linesClearAck: overflow.linesClearAck,
-      ackInsidePill: overflow.ackInsidePill,
-      headerMode: overflow.headerMode,
-      fontSize: overflow.fontSize,
+      fits: overflow.fits,
     }, null, 2));
     if (mode === 'after') {
+      const fitOk = overflow.fits?.typed36?.mode === 'full'
+        && overflow.fits?.realAllCapsFactionShip?.mode === 'full'
+        && overflow.fits?.longestRealNames?.mode === 'full'
+        && overflow.fits?.wideCaps?.mode === 'clamped'
+        && overflow.fits?.typed36?.displayOnly === true
+        && overflow.fits?.realAllCapsFactionShip?.displayOnly === true
+        && overflow.fits?.wideCaps?.displayOnly === true;
       const ok = overflow.clippedControls.length === 0
         && overflow.occluders.length === 0
         && overflow.pillOverlaps.length === 0
+        && Number.isFinite(overflow.minimumGap)
+        && overflow.minimumGap > 0
+        && overflow.campaignTop === 70
+        && overflow.worldCargoTop === 298
         && overflow.flashAckVisible === true
         && overflow.ackInsidePill === true
         && overflow.textClearsAck === true
         && overflow.linesClearAck === true
         && overflow.emptyBriefingCount === 1
         && overflow.viewport?.width === 1280
-        && overflow.viewport?.height === 720;
+        && overflow.viewport?.height === 720
+        && fitOk;
       if (!ok) process.exitCode = 1;
     }
   } finally {

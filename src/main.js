@@ -1483,6 +1483,7 @@ const state = {
     switched: false,
   },
   log: 'Ready.',
+  flaHints: null,
   planetManifest: null,
   planetModelSprites: {},
   planetRingSprites: {},
@@ -3885,6 +3886,15 @@ async function loadSourceData() {
     rebuildTravelRoutes();
     setLog('Using fallback data tables.');
     globalThis.__BM1_SOURCE_READY__ = true;
+  }
+}
+
+async function loadFlaHints() {
+  try {
+    const hints = await fetch('data/fla_actions_index.json').then((r) => r.json());
+    state.flaHints = hints;
+  } catch {
+    state.flaHints = null;
   }
 }
 
@@ -13723,6 +13733,8 @@ function clearCargoPod(pod) {
   pod.payout = 0;
 }
 
+let headerFlashAckDisplay = false;
+
 function createEmptyCargoArray() {
   return Array.from({ length: 10 }, () => ({ tons: 0, item: 'Nothing', destination: undefined, payout: 0 }));
 }
@@ -13816,7 +13828,9 @@ function updateStats() {
   const flash = currentFlash(ensureIncidentLedger());
   const flashAck = flash
     ? `<button type="button" class="flash-ack" data-flash-ack="${escapeHtml(flash.flashId)}">Acknowledge</button>`
-    : '';
+    : headerFlashAckDisplay
+      ? '<button type="button" class="flash-ack" data-flash-ack-display="1">Acknowledge</button>'
+      : '';
   const dockName = state.docked
     ? redactHiddenText(getCurrentDockedStation()?.name || state.planets[state.dockedPlanetIndex]?.name || 'Docked', playerDiscovery(), playerObserverKey())
     : null;
@@ -30044,6 +30058,14 @@ function installPlayerSecurityProbe() {
       updateStats();
       return state.log;
     },
+    showHeaderFlashAck: (on = true) => {
+      headerFlashAckDisplay = on !== false;
+      updateStats();
+      return {
+        shown: headerFlashAckDisplay,
+        displayOnly: Boolean(document.querySelector('.flash-ack[data-flash-ack-display]')),
+      };
+    },
     skipIntro: () => skipIntroStory(),
     startFaction: (key = 'ferengi') => {
       skipIntroStory();
@@ -30197,6 +30219,7 @@ if (navigator.webdriver) {
 syncLegacyState();
 resizeCanvasDisplay();
 loadSourceData();
+loadFlaHints();
 loadPlanetModels();
 loadShipManifest();
 installBm1ProbeHarness();
