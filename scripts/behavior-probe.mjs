@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { longestHeaderStatusMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
+import { longestHeaderStatusMessage, realAllCapsFactionShipMessage, realWmHeavyAllCapsMessage, typedShipHeaderStatusMessage, wideCapsHeaderStatusMessage } from './header-status-worst.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PROBE_PORT) || 8765;
@@ -6558,6 +6558,11 @@ async function runBajoranSolarSailor(page, results) {
 
 async function runBriefingArchive(page, results) {
   await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 2800, hull: 100, shields: 100 });
+  const emptyBriefingCount = await page.evaluate(() => {
+    const text = String(document.getElementById('briefing-archive')?.textContent || '');
+    return text.split('No briefing has been filed.').length - 1;
+  });
+  check(results, 'S33.empty-briefing-once', emptyBriefingCount === 1, String(emptyBriefingCount));
   const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.briefingArchive));
   if (!present) {
     check(results, 'S33.setup briefingArchive-api', false, 'briefingArchive probe API missing');
@@ -7308,6 +7313,98 @@ async function runHeaderStrip(page, results) {
       text: String(fit.text || '').slice(0, 180),
     }));
   }
+  const flashAck = await page.evaluate(({ typedText, realCapsText, wmHeavyText, wideText }) => {
+    const probe = globalThis.__BM1_PROBE__;
+    if (typeof probe?.showHeaderFlashAck !== 'function') return { missing: true };
+    const fingerprint = () => {
+      const incidents = probe.incidents.snapshot();
+      const security = probe.snapshot();
+      return {
+        ledger: JSON.stringify(incidents.ledger),
+        flash: JSON.stringify(incidents.flash),
+        currentFlash: JSON.stringify(incidents.currentFlash),
+        standing: JSON.stringify(incidents.standing),
+        standingWriteCount: incidents.standingWriteCount,
+        alertsMode: incidents.alertsMode,
+        alertsActive: security.alertsActive,
+        effectiveRoe: security.effectiveRoe,
+        incidentCount: security.incidentCount,
+      };
+    };
+    const before = fingerprint();
+    const shown = probe.showHeaderFlashAck(true);
+    const after = fingerprint();
+    const untouched = before.ledger === after.ledger
+      && before.flash === after.flash
+      && before.currentFlash === after.currentFlash
+      && before.standing === after.standing
+      && before.standingWriteCount === after.standingWriteCount
+      && before.alertsMode === after.alertsMode
+      && before.alertsActive === after.alertsActive
+      && before.effectiveRoe === after.effectiveRoe
+      && before.incidentCount === after.incidentCount;
+    const measureOne = (text) => {
+      probe.setStatus(text);
+      const messageEl = document.querySelector('.top-message');
+      const textEl = document.querySelector('.top-message-text');
+      const ack = document.querySelector('.flash-ack');
+      if (!messageEl || !textEl || !ack) return { missing: true, ack: Boolean(ack) };
+      const pill = messageEl.getBoundingClientRect();
+      const ackBox = ack.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(textEl);
+      const lines = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+      const overlap = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+      const shortLabel = ack.textContent === 'ACK';
+      return {
+        missing: false,
+        text: textEl.textContent,
+        mode: messageEl.dataset.headerMode || null,
+        displayOnly: ack.hasAttribute('data-flash-ack-display') && !ack.hasAttribute('data-flash-ack'),
+        lineHitsAck: lines.some((rect) => overlap(rect, ackBox) || rect.right > ackBox.left + 0.5),
+        ackInside: ackBox.top >= pill.top - 0.5
+          && ackBox.bottom <= pill.bottom + 0.5
+          && ackBox.left >= pill.left - 0.5
+          && ackBox.right <= pill.right + 0.5,
+        fontSize: getComputedStyle(textEl).fontSize,
+        shortLabel,
+        ackText: ack.textContent,
+        ackTitle: ack.getAttribute('title') || '',
+        ackAria: ack.getAttribute('aria-label') || '',
+      };
+    };
+    return {
+      missing: false,
+      shown,
+      untouched,
+      typed: measureOne(typedText),
+      realCaps: measureOne(realCapsText),
+      wmHeavy: measureOne(wmHeavyText),
+      wide: measureOne(wideText),
+    };
+  }, {
+    typedText: typedShipHeaderStatusMessage(),
+    realCapsText: realAllCapsFactionShipMessage(),
+    wmHeavyText: realWmHeavyAllCapsMessage(),
+    wideText: wideCapsHeaderStatusMessage(),
+  });
+  const labelOk = (row) => (row.shortLabel
+    ? row.ackText === 'ACK' && row.ackTitle === 'Acknowledge' && row.ackAria === 'Acknowledge'
+    : row.ackText === 'Acknowledge' && row.ackTitle === '' && row.ackAria === '');
+  const rowOk = (row, text, mode) => row && row.missing !== true
+    && row.text === text
+    && row.displayOnly === true
+    && row.lineHitsAck === false
+    && row.ackInside === true
+    && row.mode === mode
+    && labelOk(row);
+  check(results, 'header.flash-ack-visible', flashAck.missing !== true
+    && flashAck.shown?.displayOnly === true
+    && flashAck.untouched === true
+    && rowOk(flashAck.typed, typedShipHeaderStatusMessage(), 'full')
+    && rowOk(flashAck.realCaps, realAllCapsFactionShipMessage(), 'full')
+    && rowOk(flashAck.wmHeavy, realWmHeavyAllCapsMessage(), 'full')
+    && rowOk(flashAck.wide, wideCapsHeaderStatusMessage(), 'clamped'), JSON.stringify(flashAck));
 }
 
 async function main() {

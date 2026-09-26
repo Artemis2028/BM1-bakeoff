@@ -5023,17 +5023,6 @@ function getShipSprite(playership = state.playership) {
   return state.shipSprites[id];
 }
 
-function getFactionHint(playership) {
-  const symbols = state.flaHints?.symbols || [];
-  const token = `if (_root.playership == ${playership}`;
-  for (const s of symbols) {
-    for (const m of s.matches || []) {
-      if (m.includes(token)) return `${s.symbol}: ${m.slice(0, 120)}`;
-    }
-  }
-  return null;
-}
-
 const factionNames = {
   terran: 'Terran',
   ferengi: 'Ferengi',
@@ -11052,7 +11041,7 @@ function renderBriefingArchive() {
       <button type="button" data-briefing-campaign="" class="${campaign === '' ? 'active' : ''}">All</button>
       ${hasWider ? `<button type="button" data-briefing-campaign="wider_dominion" class="${campaign === 'wider_dominion' ? 'active' : ''}">Wider Dominion</button>` : ''}
       ${hasObjectives ? `<button type="button" data-briefing-campaign="objectives" class="${campaign === 'objectives' ? 'active' : ''}">Objectives</button>` : ''}
-    </div>${folderHtml || '<div class="briefing-folder-empty">No briefing has been filed.</div>'}`;
+    </div>${folderHtml}`;
   const selected = book.selectedId ? book.briefings[book.selectedId] : null;
   const bodyHtml = !selected
     ? '<p class="briefing-empty">No briefing has been filed.</p>'
@@ -13744,22 +13733,54 @@ function clearCargoPod(pod) {
   pod.payout = 0;
 }
 
+let headerFlashAckDisplay = false;
+
 function createEmptyCargoArray() {
   return Array.from({ length: 10 }, () => ({ tons: 0, item: 'Nothing', destination: undefined, payout: 0 }));
 }
 
+function headerFlashAckRect(messageEl) {
+  const ack = messageEl.querySelector('.flash-ack');
+  if (!ack) return null;
+  const style = getComputedStyle(ack);
+  if (style.display === 'none' || style.visibility === 'hidden') return null;
+  const rect = ack.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return null;
+  return { ack, rect };
+}
+
 function readHeaderStatusFit(messageEl, textEl) {
   const pill = messageEl.getBoundingClientRect();
+  const ackInfo = headerFlashAckRect(messageEl);
+  const ack = ackInfo?.rect || null;
   const range = document.createRange();
   range.selectNodeContents(textEl);
   const lines = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
   const style = getComputedStyle(textEl);
+  const textBox = textEl.getBoundingClientRect();
+  const rightLimit = ack ? ack.left - 0.5 : pill.right + 0.5;
   const linesInside = lines.length > 0 && lines.every((rect) => (
     rect.top >= pill.top - 0.5
     && rect.bottom <= pill.bottom + 0.5
     && rect.left >= pill.left - 0.5
     && rect.right <= pill.right + 0.5
+    && rect.right <= rightLimit
   ));
+  const linesClearAck = !ack || lines.every((rect) => (
+    rect.right <= ack.left + 0.5
+    && !(rect.left < ack.right - 0.5 && rect.right > ack.left + 0.5 && rect.top < ack.bottom - 0.5 && rect.bottom > ack.top + 0.5)
+  ));
+  const textClearsAck = !ack || textBox.right <= ack.left + 0.5;
+  const ackInside = !ack || (
+    ack.top >= pill.top - 0.5
+    && ack.bottom <= pill.bottom + 0.5
+    && ack.left >= pill.left - 0.5
+    && ack.right <= pill.right + 0.5
+  );
+  const ackNotClipped = !ackInfo || (
+    ackInfo.ack.scrollWidth <= ackInfo.ack.clientWidth + 1
+    && ackInfo.ack.scrollHeight <= ackInfo.ack.clientHeight + 1
+  );
   const scrollFits = textEl.scrollWidth <= textEl.clientWidth + 1
     && textEl.scrollHeight <= textEl.clientHeight + 1
     && messageEl.scrollHeight <= messageEl.clientHeight + 1;
@@ -13767,25 +13788,61 @@ function readHeaderStatusFit(messageEl, textEl) {
     lineCount: lines.length,
     linesInside,
     fits: linesInside
+      && linesClearAck
+      && textClearsAck
+      && ackInside
+      && ackNotClipped
       && scrollFits
       && style.textOverflow !== 'ellipsis'
       && style.whiteSpace !== 'nowrap',
   };
 }
 
+function headerStatusFitsFull(messageEl, textEl) {
+  const fit = readHeaderStatusFit(messageEl, textEl);
+  return fit.lineCount >= 1 && fit.lineCount <= 2 && fit.fits;
+}
+
+function applyFlashAckLabel(messageEl, ack, short) {
+  if (!ack) {
+    delete messageEl.dataset.headerAck;
+    return;
+  }
+  messageEl.dataset.headerAck = short ? 'short' : 'full';
+  if (short) {
+    ack.textContent = 'ACK';
+    ack.title = 'Acknowledge';
+    ack.setAttribute('aria-label', 'Acknowledge');
+    return;
+  }
+  ack.textContent = 'Acknowledge';
+  ack.removeAttribute('title');
+  ack.removeAttribute('aria-label');
+}
+
 function fitHeaderStatusPill() {
   const messageEl = statsEl?.querySelector('.top-message');
   const textEl = messageEl?.querySelector('.top-message-text');
   if (!messageEl || !textEl) return;
+  const ack = messageEl.querySelector('.flash-ack');
   textEl.classList.remove('top-message-clamped');
+  applyFlashAckLabel(messageEl, ack, false);
   const sizes = [13, 12, 11];
-  for (const size of sizes) {
-    textEl.style.fontSize = `${size}px`;
-    const fit = readHeaderStatusFit(messageEl, textEl);
-    if (fit.lineCount >= 1 && fit.lineCount <= 2 && fit.fits) {
-      messageEl.dataset.headerMode = 'full';
-      return;
+  const trySizes = () => {
+    for (const size of sizes) {
+      textEl.style.fontSize = `${size}px`;
+      if (headerStatusFitsFull(messageEl, textEl)) {
+        messageEl.dataset.headerMode = 'full';
+        return true;
+      }
     }
+    return false;
+  };
+  if (trySizes()) return;
+  if (ack) {
+    applyFlashAckLabel(messageEl, ack, true);
+    textEl.classList.remove('top-message-clamped');
+    if (trySizes()) return;
   }
   textEl.style.fontSize = '11px';
   textEl.classList.add('top-message-clamped');
@@ -13803,7 +13860,9 @@ function updateStats() {
   const flash = currentFlash(ensureIncidentLedger());
   const flashAck = flash
     ? `<button type="button" class="flash-ack" data-flash-ack="${escapeHtml(flash.flashId)}">Acknowledge</button>`
-    : '';
+    : headerFlashAckDisplay
+      ? '<button type="button" class="flash-ack" data-flash-ack-display="1">Acknowledge</button>'
+      : '';
   const dockName = state.docked
     ? redactHiddenText(getCurrentDockedStation()?.name || state.planets[state.dockedPlanetIndex]?.name || 'Docked', playerDiscovery(), playerObserverKey())
     : null;
@@ -30030,6 +30089,14 @@ function installPlayerSecurityProbe() {
       state.log = String(message ?? '');
       updateStats();
       return state.log;
+    },
+    showHeaderFlashAck: (on = true) => {
+      headerFlashAckDisplay = on !== false;
+      updateStats();
+      return {
+        shown: headerFlashAckDisplay,
+        displayOnly: Boolean(document.querySelector('.flash-ack[data-flash-ack-display]')),
+      };
     },
     skipIntro: () => skipIntroStory(),
     startFaction: (key = 'ferengi') => {
