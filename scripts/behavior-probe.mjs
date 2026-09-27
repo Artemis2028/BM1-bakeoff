@@ -7734,10 +7734,44 @@ async function runCommodityShipment(page, results) {
     const archiveBox = rectOf(archive);
     const bookBox = rectOf(archive?.querySelector(':scope > .commodity-book-section'));
     const targetBox = rectOf(document.getElementById('target-window'));
-    const scrollArchiveTo = (el) => {
-      const host = archive.getBoundingClientRect();
+    const scrollHostTo = (host, el) => {
+      if (!host || host === document.body || host === document.documentElement) return;
+      const style = getComputedStyle(host);
+      if (!/(auto|scroll)/.test(style.overflowY) || host.scrollHeight <= host.clientHeight + 1) return;
+      const hostBox = host.getBoundingClientRect();
       const box = el.getBoundingClientRect();
-      archive.scrollTop = Math.max(0, archive.scrollTop + (box.top - host.top) - 4);
+      host.scrollTop = Math.max(0, host.scrollTop + (box.top - hostBox.top) - 4);
+    };
+    const scrollArchiveTo = (el) => {
+      const chain = [];
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        chain.push(node);
+        node = node.parentElement;
+      }
+      chain.forEach((host) => scrollHostTo(host, el));
+      [...chain].reverse().forEach((host) => scrollHostTo(host, el));
+    };
+    const clippedBox = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      let top = rect.top;
+      let bottom = rect.bottom;
+      let left = rect.left;
+      let right = rect.right;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) {
+          const host = node.getBoundingClientRect();
+          top = Math.max(top, host.top);
+          bottom = Math.min(bottom, host.bottom);
+          left = Math.max(left, host.left);
+          right = Math.min(right, host.right);
+        }
+        node = node.parentElement;
+      }
+      return { left, right, top, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
     };
     const buy = archive.querySelector('[data-commodity-buy]');
     archive.scrollTop = 0;
@@ -7799,7 +7833,7 @@ async function runCommodityShipment(page, results) {
       stockAfter,
       docked: probe?.snapshot?.().docked === true,
       targetSame: JSON.stringify(targetBefore) === JSON.stringify(targetAfter),
-      targetClear: Boolean(targetBox && archiveBox && !overlap(targetBox, archiveBox) && (!bookBox || !overlap(targetBox, bookBox))),
+      targetClear: Boolean(targetBox && archiveBox && !overlap(clippedBox(document.getElementById('target-window')), clippedBox(archive)) && (!bookBox || !overlap(clippedBox(document.getElementById('target-window')), clippedBox(archive.querySelector(':scope > .commodity-book-section'))))),
       targetBefore,
       targetAfter,
       squashedControls: clip?.squashedControls,
@@ -8047,8 +8081,15 @@ async function runCommodityShipment(page, results) {
     const closed = coreOf(closedCard);
     const closedArchive = document.getElementById('briefing-archive');
     const closedBar = archiveBar(closedArchive);
+    if (closedArchive) {
+      closedArchive.scrollTop = 0;
+      const select = closedArchive.querySelector('.briefing-archive-select');
+      if (select) select.scrollTop = 0;
+    }
+    const scrollBeforeOpen = closedArchive?.scrollTop || 0;
     document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
     probe?.paint?.();
+    const scrollAfterOpen = document.getElementById('briefing-archive')?.scrollTop || 0;
     const openCard = document.getElementById('target-window');
     const open = coreOf(openCard);
     const archive = document.getElementById('briefing-archive');
@@ -8058,7 +8099,7 @@ async function runCommodityShipment(page, results) {
     api?.clearCombatTarget?.();
     api?.close?.();
     probe?.paint?.();
-    return { closed, open, closedBar, openBar, shown, clip: {
+    return { closed, open, closedBar, openBar, shown, scrollSame: scrollBeforeOpen === scrollAfterOpen, clip: {
       squashedControls: clip?.squashedControls,
       cutOffLines: clip?.cutOffLines,
       clippedControls: clip?.clippedControls,
@@ -8073,6 +8114,7 @@ async function runCommodityShipment(page, results) {
     bar: cardFit.closedBar,
   }));
   check(results, 'S35.22 target-core-open', coreOk(cardFit.open) && cardFit.openBar?.visible === true
+    && cardFit.scrollSame === true
     && (cardFit.shown?.toggle === true || cardFit.shown?.title === true)
     && clipEmpty({
       clippedControls: cardFit.clip?.clippedControls,
@@ -8134,6 +8176,7 @@ async function runCommodityShipment(page, results) {
         return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
       };
       if (pseudo('::before') || pseudo('::after')) return true;
+      if (el.offsetWidth - el.clientWidth > 1 || el.offsetHeight - el.clientHeight > 1) return true;
       const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
       const bar = frame?.querySelector(':scope > .commodity-book-bar');
       if (!bar) return false;
@@ -8233,10 +8276,15 @@ async function runCommodityShipment(page, results) {
         if (target.nodeType === 1) return [target.getBoundingClientRect()];
         return [];
       };
+      const innerReveals = (outer, el, rect) => clippingAncestors(el).some((node) => {
+        if (node === outer || !outer.contains(node) || !canReveal(node, rect)) return false;
+        const box = node.getBoundingClientRect();
+        return !edgeCuts(outer, box) || canReveal(outer, box);
+      });
       const lineCut = (el, rects) => rects.some((rect) => {
         const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
         if (!cutters.length) return false;
-        return cutters.some((node) => !canReveal(node, rect));
+        return cutters.some((node) => !canReveal(node, rect) && !innerReveals(node, el, rect));
       });
       for (const panel of panelRoots()) {
         const pieces = [];
@@ -8726,6 +8774,7 @@ async function runCommodityShipment(page, results) {
         return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
       };
       if (pseudo('::before') || pseudo('::after')) return true;
+      if (el.offsetWidth - el.clientWidth > 1 || el.offsetHeight - el.clientHeight > 1) return true;
       const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
       const bar = frame?.querySelector(':scope > .commodity-book-bar');
       if (!bar) return false;
@@ -8777,7 +8826,18 @@ async function runCommodityShipment(page, results) {
           if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`) && edgeCuts(node, rect)) cutters.push(node);
           node = node.parentElement;
         }
-        return cutters.length > 0 && cutters.some((node) => !canReveal(node, rect));
+        const innerReveals = (outer) => cutters.some((node) => {
+          if (node === outer || !outer.contains(node) || !canReveal(node, rect)) return false;
+          const host = outer.getBoundingClientRect();
+          const style = getComputedStyle(outer);
+          const top = host.top + (parseFloat(style.borderTopWidth) || 0);
+          const bottom = host.bottom - (parseFloat(style.borderBottomWidth) || 0);
+          const left = host.left + (parseFloat(style.borderLeftWidth) || 0);
+          const right = host.right - (parseFloat(style.borderRightWidth) || 0);
+          const box = node.getBoundingClientRect();
+          return box.top >= top - 1 && box.bottom <= bottom + 1 && box.left >= left - 1 && box.right <= right + 1;
+        });
+        return cutters.length > 0 && cutters.some((node) => !canReveal(node, rect) && !innerReveals(node));
       });
     };
     const frameInside = (el, host) => {
@@ -9162,6 +9222,224 @@ async function runCommodityShipment(page, results) {
   check(results, 'S35.25 hide-restores-archive', cardHide.shrunk === true && cardHide.sameFrame === true
     && cardHide.hidden === true && cardHide.height === '' && cardHide.overflowY === ''
     && cardHide.left === '' && cardHide.width === '', JSON.stringify(cardHide));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const cardLock = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    probe?.freezeLoop?.();
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
+    globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+    probe?.redraw?.();
+    const spawned = probe.spawnShip({
+      id: 's35-card-lock',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+      speed: 0,
+    });
+    const selected = globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id);
+    probe?.redraw?.();
+    const card = document.getElementById('target-window');
+    const hidden = !card || card.classList.contains('hidden') || getComputedStyle(card).display === 'none';
+    return {
+      ok: selected?.ok === true,
+      reason: selected?.reason || null,
+      hidden,
+      name: hidden ? '' : String(card.querySelector('.target-window-head b')?.textContent || '').trim(),
+    };
+  });
+  check(results, 'S35.26 target-card-on-lock', cardLock.ok === true && cardLock.hidden === false && cardLock.name === 'SS Odyssey', JSON.stringify(cardLock));
+
+  const bookVisible = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
+    probe?.destroy?.('s35-card-lock');
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    api?.emptyHold?.();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const goods = [
+      "Xiang's Brand Vodka",
+      'Feminine Products',
+      'Isolinear Chips',
+      'Medical Supplies',
+      'Dinner Napkins',
+      'Historic Books',
+      'Beetlesnuff',
+      'Old Paintings',
+    ];
+    const buys = [];
+    for (const good of goods) {
+      const marketId = `mkt-vis-${good.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      p8.injectMarket({
+        marketId, good, stock: 8, demand: 6, stockCap: 8, demandCap: 8, floor: 0, price: 10,
+        systemIndex: here, restriction: 'open',
+      });
+      const before = p8.snapshot().book.markets[marketId]?.stock;
+      const bought = api.playBuy(good);
+      const after = p8.snapshot().book.markets[marketId]?.stock;
+      buys.push(bought?.ok === true && (bought?.paid || 0) > 0 && before != null && after === before - 1);
+    }
+    for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api?.close?.();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const beforeScroll = document.getElementById('briefing-archive')?.scrollTop || 0;
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const afterScroll = document.getElementById('briefing-archive')?.scrollTop || 0;
+    const lineHeightOf = (el) => {
+      const parsed = Number.parseFloat(getComputedStyle(el).lineHeight);
+      if (Number.isFinite(parsed) && parsed >= 8) return parsed;
+      const font = Number.parseFloat(getComputedStyle(el).fontSize);
+      return Number.isFinite(font) && font > 0 ? font : 16;
+    };
+    const clippingAncestors = (el) => {
+      const list = [];
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+        node = node.parentElement;
+      }
+      return list;
+    };
+    const rowVisible = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return false;
+      let top = Math.max(rect.top, 0);
+      let bottom = Math.min(rect.bottom, window.innerHeight);
+      let left = Math.max(rect.left, 0);
+      let right = Math.min(rect.right, window.innerWidth);
+      for (const node of clippingAncestors(el)) {
+        const host = node.getBoundingClientRect();
+        const edge = getComputedStyle(node);
+        top = Math.max(top, host.top + (parseFloat(edge.borderTopWidth) || 0));
+        bottom = Math.min(bottom, host.bottom - (parseFloat(edge.borderBottomWidth) || 0));
+        left = Math.max(left, host.left + (parseFloat(edge.borderLeftWidth) || 0));
+        right = Math.min(right, host.right - (parseFloat(edge.borderRightWidth) || 0));
+      }
+      const height = Math.max(0, bottom - top);
+      const width = Math.max(0, right - left);
+      if (width < 2 || height + 0.5 < lineHeightOf(el)) return false;
+      const hit = document.elementsFromPoint((left + right) / 2, (top + bottom) / 2)[0];
+      return Boolean(hit && (hit === el || el.contains(hit)));
+    };
+    const entries = [...document.querySelectorAll('#briefing-archive .commodity-entry')];
+    const visible = entries.filter(rowVisible).length;
+    const measured = api.measureNoClip().bookCounts?.entries;
+    return {
+      seeded: buys.every(Boolean) && buys.length === 8,
+      dom: entries.length,
+      visible,
+      measured,
+      scrollSame: beforeScroll === afterScroll,
+      scroll: afterScroll,
+    };
+  });
+  check(results, 'S35.26 book-counts-are-visible', bookVisible.seeded === true
+    && bookVisible.dom === 8
+    && bookVisible.visible === 0
+    && bookVisible.measured === 0
+    && bookVisible.scrollSame === true, JSON.stringify(bookVisible));
+
+  const dockMust = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    document.querySelector('#planet-menu [data-dock-tab="market"]')?.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const panel = document.querySelector('#planet-menu .dock-panel');
+    const book = document.querySelector('#planet-menu .commodity-book-scroll');
+    const lineHeightOf = (el) => {
+      const parsed = Number.parseFloat(getComputedStyle(el).lineHeight);
+      if (Number.isFinite(parsed) && parsed >= 8) return parsed;
+      const font = Number.parseFloat(getComputedStyle(el).fontSize);
+      return Number.isFinite(font) && font > 0 ? font : 16;
+    };
+    const clippingAncestors = (el) => {
+      const list = [];
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+        node = node.parentElement;
+      }
+      return list;
+    };
+    const rowVisible = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return false;
+      let top = Math.max(rect.top, 0);
+      let bottom = Math.min(rect.bottom, window.innerHeight);
+      let left = Math.max(rect.left, 0);
+      let right = Math.min(rect.right, window.innerWidth);
+      for (const node of clippingAncestors(el)) {
+        const host = node.getBoundingClientRect();
+        const edge = getComputedStyle(node);
+        top = Math.max(top, host.top + (parseFloat(edge.borderTopWidth) || 0));
+        bottom = Math.min(bottom, host.bottom - (parseFloat(edge.borderBottomWidth) || 0));
+        left = Math.max(left, host.left + (parseFloat(edge.borderLeftWidth) || 0));
+        right = Math.min(right, host.right - (parseFloat(edge.borderRightWidth) || 0));
+      }
+      if (Math.max(0, right - left) < 2 || Math.max(0, bottom - top) + 0.5 < lineHeightOf(el)) return false;
+      const hit = document.elementsFromPoint((left + right) / 2, (top + bottom) / 2)[0];
+      return Boolean(hit && (hit === el || el.contains(hit)));
+    };
+    const exact = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    const good = document.querySelector('#planet-menu .market-good');
+    const wanted = [
+      [document.querySelector('#planet-menu .commodity-shipment-title'), 'COMMODITY BOOK'],
+      [document.querySelector('#planet-menu [data-commodity-buy]'), 'Buy one ton'],
+      [[...document.querySelectorAll('#planet-menu .panel-head')].find((el) => exact(el) === 'Cargo Market'), 'Cargo Market'],
+      [good, exact(good)],
+      [document.querySelector('#planet-menu [data-market-buy]'), 'Buy'],
+      [document.querySelector('#planet-menu [data-market-sell]'), 'Sell'],
+    ];
+    const inlineMissing = wanted.filter(([el, text]) => !text || exact(el) !== text || !rowVisible(el)).map(([, text]) => text);
+    const must = api.measureNoClip(wanted.filter(([, text]) => text).map(([el, text]) => ({
+      selector: el?.id ? `#${el.id}` : (
+        el?.matches?.('.commodity-shipment-title') ? '#planet-menu .commodity-shipment-title'
+          : el?.matches?.('[data-commodity-buy]') ? '#planet-menu [data-commodity-buy]'
+            : el?.matches?.('.panel-head') ? '#planet-menu .panel-head'
+              : el?.matches?.('.market-good') ? '#planet-menu .market-good'
+                : el?.matches?.('[data-market-buy]') ? '#planet-menu [data-market-buy]'
+                  : '#planet-menu [data-market-sell]'
+      ),
+      text,
+    })));
+    return {
+      panelScroll: panel?.scrollTop || 0,
+      bookScroll: book?.scrollTop || 0,
+      inlineMissing,
+      mustOk: must?.mustShow?.ok === true,
+      missing: must?.mustShow?.missing || inlineMissing,
+    };
+  });
+  check(results, 'S35.26 dock-must-show', dockMust.mustOk === true
+    && dockMust.panelScroll === 0
+    && dockMust.bookScroll === 0
+    && dockMust.inlineMissing.length === 0, JSON.stringify(dockMust));
 }
 
 async function runHeaderStrip(page, results) {

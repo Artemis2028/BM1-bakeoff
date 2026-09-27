@@ -1890,24 +1890,30 @@ body.ui-theme-cardassian .target-meter-track {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  margin: 0 0 8px;
+  margin: 0 0 4px;
+  padding: 6px 8px;
   overflow: visible;
 }
 .planet-menu .dock-panel > .commodity-book-section .commodity-book-frame {
   flex: 0 0 auto;
+  max-height: 36px;
   min-height: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   gap: 6px;
-  overflow: visible;
+  overflow: hidden;
 }
 .planet-menu .dock-panel > .commodity-book-section .commodity-book-scroll {
-  flex: 0 0 auto;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
   height: auto;
   min-height: 0;
-  max-height: none;
-  overflow: visible;
+  max-height: 36px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lcars-amber) #05070e;
 }
 .planet-menu .dock-panel > .commodity-book-section .commodity-entries,
 .planet-menu .dock-panel > .commodity-book-section .shipment-records,
@@ -1918,7 +1924,14 @@ body.ui-theme-cardassian .target-meter-track {
   overflow: visible;
 }
 .planet-menu .dock-panel > .commodity-book-section .commodity-book-bar {
-  display: none;
+  display: block;
+  flex: 0 0 10px;
+  align-self: stretch;
+  min-height: 24px;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center top 8px / 8px 42% no-repeat,
+    #141820;
 }
 .planet-menu.station-menu .dock-panel {
   top: 82px;

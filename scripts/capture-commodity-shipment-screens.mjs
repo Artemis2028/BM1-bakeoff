@@ -231,7 +231,7 @@ async function main() {
       process.exitCode = 1;
     }
     console.log('capped book', JSON.stringify(filled));
-    const measurePaused = () => page.evaluate(() => {
+    const measurePaused = (mustShow = []) => page.evaluate((mustShow) => {
       globalThis.BM1Probe?.freezeLoop?.();
       globalThis.BM1Probe?.redraw?.();
       const hashOf = () => {
@@ -260,11 +260,11 @@ async function main() {
         const root = document.getElementById(id);
         if (root) observer.observe(root, { subtree: true, childList: true, attributes: true, characterData: true });
       }
-      const measured = globalThis.__BM1_PROBE__.commodityShipment.measureNoClip();
+      const measured = globalThis.__BM1_PROBE__.commodityShipment.measureNoClip(mustShow);
       observer.disconnect();
       const saveHashAfter = hashOf();
       return { ...measured, observerMutations: mutations.length, saveHash, saveHashAfter, saveHashMatch: saveHash === saveHashAfter };
-    });
+    }, mustShow);
     const listsOf = (row) => ({
       clippedControls: row.clippedControls,
       occluders: row.occluders,
@@ -274,12 +274,9 @@ async function main() {
       bookCounts: row.bookCounts,
       reachableCounts: row.reachableCounts,
       expectedCounts: row.expectedCounts,
-      bookHeadingVisible: row.bookHeadingVisible,
-      firstEntryVisible: row.firstEntryVisible,
-      buyVisible: row.buyVisible,
-      frameBottomVisible: row.frameBottomVisible,
-      cargoHeadingVisible: row.cargoHeadingVisible,
-      firstMarketVisible: row.firstMarketVisible,
+      mustShow: row.mustShow,
+      doctrine: row.doctrine,
+      doctrineBefore: row.doctrineBefore || null,
       targetCard: row.targetCard,
       observerMutations: row.observerMutations,
       saveHashMatch: row.saveHashMatch,
@@ -314,6 +311,95 @@ async function main() {
       };
     });
     await showCampaignAndCargo(page);
+    const initialDoctrine = await page.evaluate(() => globalThis.__BM1_PROBE__.commodityShipment.doctrineFacts());
+    const failStep = (step, detail) => {
+      console.error(`setup step failed: ${step}`, typeof detail === 'string' ? detail : JSON.stringify(detail));
+      process.exitCode = 1;
+    };
+    const sameThree = (before, after) => before
+      && after
+      && before.roe === after.roe
+      && before.engagement_authorized === after.engagement_authorized
+      && before.firingSolution === after.firingSolution
+      && before.targetFiringSolution === after.targetFiringSolution;
+    const assertUnchanged = (before, after, step) => {
+      if (sameThree(before, after)) return true;
+      failStep(step, { changed: ['roe', 'firingSolution', 'engagement_authorized'], before, after });
+      return false;
+    };
+    const withBefore = (row, before) => ({ ...row, doctrineBefore: before });
+    const briefingLine = await page.evaluate(() => {
+      const el = document.querySelector('#briefing-archive .briefing-line');
+      return String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    });
+    if (!briefingLine) failStep('briefing-line', 'no filed briefing line');
+    const cardHigh = [
+      { selector: '#target-window .target-window-head b', text: 'SS Odyssey' },
+      { selector: '#target-window .target-meter-head', text: 'Hull100%' },
+      { selector: '#target-window [data-hail-action="hail"]', text: 'Hail Ship' },
+      { selector: '#target-window .target-boarding-note', text: 'Tractor hold is not a capture.' },
+      { selector: '#target-window .target-boarding-note', text: 'Hull above 10%. Boarding refused. · hull-above-threshold' },
+    ];
+    const cardLow = [
+      { selector: '#target-window .target-window-head b', text: 'SS Odyssey' },
+      { selector: '#target-window .target-meter-head', text: 'Hull10%' },
+      { selector: '#target-window [data-hail-action="hail"]', text: 'Hail Ship' },
+      { selector: '#target-window .target-boarding-note', text: 'Tractor hold is not a capture.' },
+      { selector: '#target-window .target-boarding-note', text: 'Hull at or below 10%. Boarding available — tractor hold is not a capture.' },
+      { selector: '#target-window [data-board-action="capture"]', text: 'Capture', enabled: true },
+      { selector: '#target-window [data-board-action="scuttle"]', text: 'Scuttle', enabled: true },
+    ];
+    const bookHead = [
+      { selector: '#briefing-archive .commodity-shipment-title', text: 'COMMODITY BOOK' },
+      { selector: '#briefing-archive .commodity-entry', text: "Xiang's Brand Vodka" },
+    ];
+    const briefingTop = [{ selector: '#briefing-archive .briefing-line', text: briefingLine }];
+    const archivePoint = () => page.evaluate(() => {
+      const host = document.getElementById('briefing-archive');
+      const rect = host?.getBoundingClientRect();
+      if (!rect || rect.width < 20) return null;
+      return { x: Math.round(rect.left + Math.min(48, rect.width / 3)), y: Math.round(rect.top + 28) };
+    });
+    const wheelTo = async (point, mustShow, step) => {
+      if (!point) {
+        failStep(step, 'no wheel point');
+        return false;
+      }
+      await page.mouse.move(point.x, point.y);
+      let wheeled = false;
+      for (let stepN = 0; stepN < 48; stepN += 1) {
+        const place = await page.evaluate((mustShow) => {
+          const row = globalThis.__BM1_PROBE__.commodityShipment.measureNoClip(mustShow);
+          if (row.mustShow.ok) return 'ready';
+          const host = document.getElementById('briefing-archive')?.getBoundingClientRect();
+          const missing = row.mustShow.missing?.[0];
+          const wanted = String(missing?.text || '').replace(/\s+/g, ' ').trim();
+          const el = missing ? [...document.querySelectorAll(missing.selector)].find((node) => String(node.textContent || '').replace(/\s+/g, ' ').trim() === wanted) : null;
+          const box = el?.getBoundingClientRect();
+          if (!box || !host) return 'below';
+          if (box.bottom < host.top + 4) return 'above';
+          return 'below';
+        }, mustShow);
+        if (place === 'ready' && wheeled) return true;
+        await page.mouse.wheel(0, place === 'above' ? -110 : 130);
+        wheeled = true;
+        await page.waitForTimeout(30);
+      }
+      failStep(step, 'wheel did not bring the row into view');
+      return false;
+    };
+    const openBook = async (step) => {
+      const scroll = await page.evaluate(() => {
+        const host = document.getElementById('briefing-archive');
+        const before = host?.scrollTop || 0;
+        document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+        globalThis.BM1Probe?.freezeLoop?.();
+        globalThis.BM1Probe?.redraw?.();
+        return { before, after: host?.scrollTop || 0 };
+      });
+      if (scroll.before !== scroll.after) failStep(step, scroll);
+      return scroll.before === scroll.after;
+    };
     await page.evaluate(() => {
       const book = globalThis.__BM1_PROBE__?.commodityShipment;
       book?.close?.();
@@ -324,47 +410,16 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-campaign');
-    const campaign = await measurePaused();
-    await page.evaluate(() => {
-      document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
-      globalThis.BM1Probe?.freezeLoop?.();
-      globalThis.BM1Probe?.redraw?.();
-    });
+    const campaign = withBefore(await measurePaused(), initialDoctrine);
+    if (!(await openBook('briefing-open'))) return;
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-briefing');
-    const briefing = await measurePaused();
-    const briefingFit = await page.evaluate(() => {
-      const archive = document.getElementById('briefing-archive');
-      const box = (el) => {
-        if (!el) return null;
-        const rect = el.getBoundingClientRect();
-        return {
-          top: Math.round(rect.top),
-          bottom: Math.round(rect.bottom),
-          left: Math.round(rect.left),
-          right: Math.round(rect.right),
-          height: Math.round(rect.height),
-          text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
-        };
-      };
-      const scroll = archive?.querySelector('.commodity-book-scroll');
-      return {
-        pill: box(archive?.querySelector('[data-briefing-select]')),
-        jump: box(archive?.querySelector('.briefing-jump')),
-        body: box(archive?.querySelector('.briefing-archive-body')),
-        buy: box(archive?.querySelector('[data-commodity-buy]')),
-        book: box(archive?.querySelector(':scope > .commodity-book-section')),
-        scroll: scroll ? {
-          client: scroll.clientHeight,
-          scroll: scroll.scrollHeight,
-          bar: scroll.offsetWidth - scroll.clientWidth,
-        } : null,
-        lines: [...(archive?.querySelectorAll('.briefing-line') || [])].map((el) => box(el)),
-      };
-    });
-    console.log('briefing fit', JSON.stringify(briefingFit));
-    console.log('briefing rects', JSON.stringify(await rectsOf()));
+    const briefing = withBefore(await measurePaused(briefingTop), initialDoctrine);
+    const point = await archivePoint();
+    await wheelTo(point, bookHead, 'briefing-book-wheel');
+    await shot(page, 'after-briefing-book');
+    const briefingBook = withBefore(await measurePaused(bookHead), initialDoctrine);
     await page.evaluate(() => {
       const book = globalThis.__BM1_PROBE__?.commodityShipment;
       if (document.querySelector('#briefing-archive > .commodity-book-section')) {
@@ -377,148 +432,240 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-world-cargo');
-    const worldCargo = await measurePaused();
+    const worldCargo = withBefore(await measurePaused(), initialDoctrine);
     await showCampaignAndCargo(page);
-    const locked = await page.evaluate(() => {
+    const lockPrep = await page.evaluate(() => {
+      const probe = globalThis.BM1Probe;
+      const facts = () => globalThis.__BM1_PROBE__.commodityShipment.doctrineFacts();
+      const before = facts();
       globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
-      const spawned = globalThis.BM1Probe?.spawnShip?.({
+      const spawned = probe.spawnShip({
         id: 'shot-odyssey',
         name: 'SS Odyssey',
         faction: 'ferengi',
         attitude: 'neutral',
+        speed: 0,
       });
-      const selected = globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 'shot-odyssey');
-      globalThis.BM1Probe?.paint?.();
-      globalThis.BM1Probe?.freezeLoop?.();
-      const card = document.getElementById('target-window');
-      const hidden = !card || card.classList.contains('hidden') || getComputedStyle(card).display === 'none';
-      return {
-        spawnedId: spawned?.id || null,
-        selectedOk: selected?.ok === true,
-        selectedReason: selected?.reason || null,
-        cardHidden: hidden,
-        cardText: hidden ? '' : String(card.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 180),
-      };
+      if (!spawned?.id) return { ok: false, step: 'spawn', before };
+      const playerX = spawned.x - 240;
+      const playerY = spawned.y;
+      const canvas = document.getElementById('game');
+      const rect = canvas.getBoundingClientRect();
+      const offsets = [];
+      for (const dx of [-220, -160, -100, -40, 40, 100, 160, 220, 260]) {
+        for (const dy of [-210, -150, -90, -30, 40, 110]) {
+          const dist = Math.hypot(dx, dy);
+          if (dist < 90 || dist > 360) continue;
+          offsets.push([dx, dy, dist]);
+        }
+      }
+      offsets.sort((a, b) => a[2] - b[2]);
+      let last = null;
+      for (const [dx, dy, dist] of offsets) {
+        probe.patchShip('shot-odyssey', {
+          x: playerX + dx,
+          y: playerY + dy,
+          speed: 0,
+          destination: { x: playerX + dx, y: playerY + dy },
+        });
+        probe.paint();
+        probe.freezeLoop();
+        const screen = probe.screenOf('shot-odyssey');
+        const distance = probe.ship('shot-odyssey')?.playerDistance;
+        if (!screen || !Number.isFinite(distance)) continue;
+        const x = rect.left + screen.x * (rect.width / canvas.width);
+        const y = rect.top + screen.y * (rect.height / canvas.height);
+        const after = facts();
+        const hit = (x >= 2 && y >= 2 && x <= window.innerWidth - 2 && y <= window.innerHeight - 2)
+          ? document.elementFromPoint(x, y)
+          : null;
+        const onCanvas = Boolean(hit && (hit === canvas || canvas.contains(hit)));
+        last = {
+          dx, dy, dist: Math.round(distance), x: Math.round(x), y: Math.round(y),
+          onCanvas,
+          hit: hit ? (hit.id || String(hit.className || '') || hit.tagName) : null,
+          after,
+        };
+        if (onCanvas && distance >= 100 && distance <= 360 && after.roe === before.roe && after.engagement_authorized === false && !after.boardingOutcome && !after.lastRefuse) {
+          return { ok: true, step: 'sensor-paint', before, spawnedId: spawned.id, ...last };
+        }
+      }
+      return { ok: false, step: 'lock-sky', before, last };
     });
-    console.log('target lock', JSON.stringify(locked));
-    if (!locked.selectedOk || locked.cardHidden) {
-      console.error('target card was not shown', JSON.stringify(locked));
-      process.exitCode = 1;
+    console.log('target lock prep', JSON.stringify(lockPrep));
+    if (!lockPrep.ok) {
+      failStep(lockPrep.step || 'lock-sky', lockPrep);
+    } else if (lockPrep.before.roe !== lockPrep.after.roe || lockPrep.after.engagement_authorized !== false) {
+      failStep('sensor-paint', lockPrep);
     }
+    let locked = { hidden: true, facts: lockPrep.after, text: '' };
+    if (lockPrep.ok) {
+      await page.mouse.click(lockPrep.x, lockPrep.y);
+      locked = await page.evaluate(() => {
+        globalThis.BM1Probe?.freezeLoop?.();
+        globalThis.BM1Probe?.redraw?.();
+        const card = document.getElementById('target-window');
+        const hidden = !card || card.classList.contains('hidden') || getComputedStyle(card).display === 'none';
+        return {
+          hidden,
+          text: hidden ? '' : String(card.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 260),
+          facts: globalThis.__BM1_PROBE__.commodityShipment.doctrineFacts(),
+        };
+      });
+      console.log('target lock click', JSON.stringify(locked));
+      if (locked.hidden || !/odyssey/i.test(locked.text || '')) failStep('lock-click', locked);
+      else if (locked.facts.roe !== lockPrep.before.roe || locked.facts.engagement_authorized !== false) failStep('lock-click', locked.facts);
+      else if (locked.facts.firingSolution !== lockPrep.after.firingSolution) failStep('lock-click', { before: lockPrep.after, after: locked.facts });
+      else if (locked.facts.targetFiringSolution === true && locked.facts.firingSolutionSource !== 'passive') failStep('lock-click', locked.facts);
+    }
+    const afterLock = locked.facts || lockPrep.after;
     await logRefusal();
     await page.waitForTimeout(200);
     await shot(page, 'after-target-undocked');
-    const target = await measurePaused();
-    console.log('target rects', JSON.stringify(await rectsOf()));
-    await page.evaluate(() => {
-      document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
-      globalThis.BM1Probe?.freezeLoop?.();
-      globalThis.BM1Probe?.redraw?.();
-    });
+    const target = withBefore(await measurePaused(cardHigh), lockPrep.before);
+    if (!(await openBook('book-target-open'))) return;
     await logRefusal();
     await page.waitForTimeout(200);
     await shot(page, 'after-book-target');
-    const bookTarget = await measurePaused();
-    console.log('book-target rects', JSON.stringify(await rectsOf()));
-    await page.evaluate(() => {
-      const boarding = globalThis.__BM1_PROBE__?.boarding;
-      boarding?.injectHullRatio?.('shot-odyssey', 0.10);
+    const bookTarget = withBefore(await measurePaused([...briefingTop, ...cardHigh]), lockPrep.before);
+    await wheelTo(await archivePoint(), [...bookHead, ...cardHigh], 'book-target-wheel');
+    await shot(page, 'after-book-target-book');
+    const bookTargetBook = withBefore(await measurePaused([...bookHead, ...cardHigh]), lockPrep.before);
+    const hull = await page.evaluate(() => {
+      const facts = () => globalThis.__BM1_PROBE__.commodityShipment.doctrineFacts();
+      const before = facts();
+      const result = globalThis.__BM1_PROBE__?.boarding?.injectHullRatio?.('shot-odyssey', 0.10);
       globalThis.BM1Probe?.freezeLoop?.();
       globalThis.BM1Probe?.redraw?.();
+      return { result, before, after: facts() };
     });
+    console.log('low hull', JSON.stringify(hull));
+    if (!hull?.result || hull.result.ok !== true) failStep('low-hull', hull);
+    else if (!assertUnchanged(hull.before, hull.after, 'low-hull')) {
+      /* named above */
+    } else if (hull.after.boardingOutcome || hull.after.lastRefuse) {
+      failStep('low-hull', { outcome: hull.after.boardingOutcome, lastRefuse: hull.after.lastRefuse });
+    }
+    await wheelTo(await archivePoint(), [...briefingTop, ...cardLow], 'book-target-low-top');
     await page.waitForTimeout(200);
     await shot(page, 'after-book-target-low-hull');
-    const bookTargetLow = await measurePaused();
-    console.log('book-target-low rects', JSON.stringify(await rectsOf()));
+    const bookTargetLow = withBefore(await measurePaused([...briefingTop, ...cardLow]), lockPrep.before);
+    await wheelTo(await archivePoint(), [...bookHead, ...cardLow], 'book-target-low-wheel');
+    await shot(page, 'after-book-target-low-hull-book');
+    const bookTargetLowBook = withBefore(await measurePaused([...bookHead, ...cardLow]), lockPrep.before);
     await showDockMarket(page);
-    await page.evaluate(() => {
+    const dockScroll = await page.evaluate(() => {
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
       globalThis.BM1Probe?.freezeLoop?.();
       globalThis.BM1Probe?.redraw?.();
+      return {
+        panel: document.querySelector('#planet-menu .dock-panel')?.scrollTop || 0,
+        book: document.querySelector('#planet-menu .commodity-book-scroll')?.scrollTop || 0,
+      };
     });
+    if (dockScroll.panel !== 0 || dockScroll.book !== 0) failStep('dock-open-scroll', dockScroll);
+    const shopText = await page.evaluate(() => {
+      const good = document.querySelector('#planet-menu .market-good');
+      return String(good?.textContent || '').replace(/\s+/g, ' ').trim();
+    });
+    const lastBookLine = await page.evaluate(() => {
+      const lines = [...document.querySelectorAll('#planet-menu .commodity-book-scroll .commodity-shipment-line')];
+      return String(lines.at(-1)?.textContent || '').replace(/\s+/g, ' ').trim();
+    });
+    if (!shopText) failStep('dock-shop', 'no shop row');
+    if (!lastBookLine) failStep('dock-last-line', 'no book line');
+    const dockMust = [
+      { selector: '#planet-menu .commodity-shipment-title', text: 'COMMODITY BOOK' },
+      { selector: '#planet-menu [data-commodity-buy]', text: 'Buy one ton' },
+      { selector: '#planet-menu .panel-head', text: 'Cargo Market' },
+      { selector: '#planet-menu .market-good', text: shopText },
+      { selector: '#planet-menu [data-market-buy]', text: 'Buy' },
+      { selector: '#planet-menu [data-market-sell]', text: 'Sell' },
+    ];
+    const dockLast = [
+      { selector: '#planet-menu .commodity-book-scroll .commodity-shipment-line', text: lastBookLine },
+    ];
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-dock-market');
-    const dock = await measurePaused();
-    console.log('dock rects', JSON.stringify(await rectsOf()));
-    const dockPoint = await page.evaluate(() => {
-      const panel = document.querySelector('#planet-menu .dock-panel');
-      const rect = panel?.getBoundingClientRect();
-      if (!rect || rect.width < 20) return null;
-      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + 36) };
+    const dock = withBefore(await measurePaused(dockMust), lockPrep.before);
+    const bookPoint = await page.evaluate(() => {
+      const scroll = document.querySelector('#planet-menu .commodity-book-scroll');
+      const rect = scroll?.getBoundingClientRect();
+      if (!rect || rect.width < 8 || rect.height < 8) return null;
+      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
     });
-    if (!dockPoint) {
-      console.error('dock panel is not on screen');
-      process.exitCode = 1;
-    } else {
-      await page.mouse.move(dockPoint.x, dockPoint.y);
-      let dockBottomReady = false;
-      for (let step = 0; step < 40 && !dockBottomReady; step += 1) {
-        const place = await page.evaluate(() => {
-          const panel = document.querySelector('#planet-menu .dock-panel');
-          const frame = panel?.querySelector('.commodity-book-frame');
-          const buy = panel?.querySelector('[data-commodity-buy]');
-          const heading = [...(panel?.querySelectorAll('.panel-head') || [])].find((el) => /cargo market/i.test(el.textContent || ''));
-          const row = panel?.querySelector('.market-good');
-          const host = panel?.getBoundingClientRect();
-          const inside = (el) => {
-            if (!el || !host) return false;
-            const box = el.getBoundingClientRect();
-            return box.height > 8 && box.top >= host.top - 1 && box.bottom <= host.bottom + 1
-              && box.top >= -1 && box.bottom <= window.innerHeight + 1;
-          };
-          const frameBox = frame?.getBoundingClientRect();
-          const frameBottom = Boolean(frameBox && host && frameBox.bottom >= host.top + 8 && frameBox.bottom <= host.bottom + 1
-            && frameBox.bottom <= window.innerHeight + 1);
-          if (frameBottom && inside(buy) && inside(heading) && inside(row)) return 'ready';
-          const buyBox = buy?.getBoundingClientRect();
-          if (!buyBox || !host) return 'missing';
-          if (buyBox.top > host.bottom - 8) return 'below';
-          return 'above';
-        });
-        dockBottomReady = place === 'ready';
-        if (!dockBottomReady) {
-          await page.mouse.wheel(0, place === 'above' ? -140 : 160);
-          await page.waitForTimeout(40);
+    if (!bookPoint) failStep('dock-book-wheel', 'book scroller is not on screen');
+    else {
+      await page.mouse.move(bookPoint.x, bookPoint.y);
+      let ready = false;
+      let wheeled = false;
+      for (let stepN = 0; stepN < 48 && !ready; stepN += 1) {
+        const place = await page.evaluate((mustShow) => {
+          const row = globalThis.__BM1_PROBE__.commodityShipment.measureNoClip(mustShow);
+          if (row.mustShow.ok) return 'ready';
+          const host = document.querySelector('#planet-menu .commodity-book-scroll')?.getBoundingClientRect();
+          const line = [...document.querySelectorAll('#planet-menu .commodity-book-scroll .commodity-shipment-line')].at(-1);
+          const box = line?.getBoundingClientRect();
+          if (!box || !host) return 'below';
+          if (box.bottom < host.top + 4) return 'above';
+          return 'below';
+        }, dockLast);
+        if (place === 'ready' && wheeled) {
+          ready = true;
+          break;
         }
+        await page.mouse.wheel(0, place === 'above' ? -90 : 100);
+        wheeled = true;
+        await page.waitForTimeout(30);
       }
-      if (!dockBottomReady) {
-        console.error('dock bottom did not scroll into view');
-        process.exitCode = 1;
-      }
+      if (!ready) failStep('dock-book-wheel', lastBookLine);
     }
-    await shot(page, 'after-dock-market-bottom');
-    const dockBottom = await measurePaused();
-    const countsMatch = (row) => row.reachableCounts
-      && row.expectedCounts
-      && row.reachableCounts.entries === row.expectedCounts.entries
-      && row.reachableCounts.records === row.expectedCounts.records
-      && row.reachableCounts.lines === row.expectedCounts.lines;
-    const atCap = (row) => countsMatch(row) && row.reachableCounts.entries === 8 && row.reachableCounts.records === 8;
-    const bookOnScreen = (row) => row.bookHeadingVisible === true && row.firstEntryVisible === true;
-    const cardOk = (row, hull, both) => {
-      const card = row.targetCard || {};
-      const named = /odyssey/i.test(card.name || '');
-      const buttons = card.capture?.present === true && card.capture.visible === true && card.capture.disabled === false
-        && card.scuttle?.present === true && card.scuttle.visible === true && card.scuttle.disabled === false;
-      return card.shown === true && named && card.hullPct === hull && (!both || buttons);
+    await shot(page, 'after-dock-market-book');
+    const dockBook = withBefore(await measurePaused(dockLast), lockPrep.before);
+    const sumCounts = (row) => ({
+      entries: row.bookCounts.entries + row.reachableCounts.entries,
+      records: row.bookCounts.records + row.reachableCounts.records,
+      lines: row.bookCounts.lines + row.reachableCounts.lines,
+    });
+    const countsOk = (row) => {
+      const got = sumCounts(row);
+      return got.entries === row.expectedCounts.entries
+        && got.records === row.expectedCounts.records
+        && got.lines === row.expectedCounts.lines;
     };
+    const atCap = (row) => countsOk(row) && row.expectedCounts.entries === 8 && row.expectedCounts.records === 8;
     const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0
       && row.squashedControls.length === 0 && row.cutOffLines.length === 0 && row.nameCut !== true
-      && row.observerMutations === 0 && row.saveHashMatch === true && countsMatch(row);
+      && row.observerMutations === 0 && row.saveHashMatch === true && row.mustShow?.ok === true && countsOk(row);
     const states = {
-      briefing: listsOf(briefing),
       campaign: listsOf(campaign),
+      briefing: listsOf(briefing),
+      briefingBook: listsOf(briefingBook),
       worldCargo: listsOf(worldCargo),
       target: listsOf(target),
       bookTarget: listsOf(bookTarget),
+      bookTargetBook: listsOf(bookTargetBook),
       bookTargetLow: listsOf(bookTargetLow),
+      bookTargetLowBook: listsOf(bookTargetLowBook),
       dock: listsOf(dock),
-      dockBottom: listsOf(dockBottom),
+      dockBook: listsOf(dockBook),
     };
     const report = {
       viewport: dock.viewport,
+      setup: {
+        before: lockPrep.before,
+        afterPaint: lockPrep.after || null,
+        afterLock,
+        afterHull: hull?.after || null,
+        firingSolutionSource: afterLock?.firingSolutionSource || null,
+        passiveFiringSolution: lockPrep.before?.firingSolution === false && afterLock?.firingSolution === true && afterLock?.firingSolutionSource === 'passive',
+        lock: { dist: lockPrep.dist, x: lockPrep.x, y: lockPrep.y, onCanvas: lockPrep.onCanvas },
+        shopText,
+        lastBookLine,
+        briefingLine,
+      },
       clippedControls: [],
       occluders: [],
       pillOverlaps: [],
@@ -526,42 +673,23 @@ async function main() {
       cutOffLines: [],
       states,
     };
-    const measuredStates = [briefing, campaign, worldCargo, target, bookTarget, bookTargetLow, dock, dockBottom];
+    const measuredStates = [campaign, briefing, briefingBook, worldCargo, target, bookTarget, bookTargetBook, bookTargetLow, bookTargetLowBook, dock, dockBook];
     const failed = measuredStates.filter((row) => !empty(row));
-    const capped = [briefing, bookTarget, bookTargetLow, dock, dockBottom];
+    const capped = [briefing, briefingBook, bookTarget, bookTargetBook, bookTargetLow, bookTargetLowBook, dock, dockBook];
     if (!capped.every(atCap)) {
-      console.error('full-state reachable counts are not at the caps', JSON.stringify(capped.map((row) => ({
+      console.error('full-state visible+reachable counts are not at the caps', JSON.stringify(capped.map((row) => ({
         visible: row.bookCounts,
         reachable: row.reachableCounts,
         expected: row.expectedCounts,
+        mustShow: row.mustShow,
       }))));
       process.exitCode = 1;
     }
-    if (![briefing, bookTarget, bookTargetLow, dock].every(bookOnScreen)) {
-      console.error('book heading is not on screen', JSON.stringify({
-        briefing: bookOnScreen(briefing),
-        bookTarget: bookOnScreen(bookTarget),
-        bookTargetLow: bookOnScreen(bookTargetLow),
-        dock: bookOnScreen(dock),
-      }));
-      process.exitCode = 1;
-    }
-    if (!cardOk(target, 100, false) || !cardOk(bookTarget, 100, false) || !cardOk(bookTargetLow, 10, true)) {
-      console.error('target card facts failed', JSON.stringify({
-        target: target.targetCard,
-        bookTarget: bookTarget.targetCard,
-        bookTargetLow: bookTargetLow.targetCard,
-      }));
-      process.exitCode = 1;
-    }
-    if (!(dockBottom.frameBottomVisible && dockBottom.buyVisible && dockBottom.cargoHeadingVisible && dockBottom.firstMarketVisible)) {
-      console.error('dock bottom rows are not on screen', JSON.stringify({
-        frameBottomVisible: dockBottom.frameBottomVisible,
-        buyVisible: dockBottom.buyVisible,
-        cargoHeadingVisible: dockBottom.cargoHeadingVisible,
-        firstMarketVisible: dockBottom.firstMarketVisible,
-      }));
-      process.exitCode = 1;
+    for (const row of measuredStates) {
+      if (row.mustShow?.ok === false) {
+        console.error('mustShow missing', JSON.stringify(row.mustShow.missing));
+        process.exitCode = 1;
+      }
     }
     if (failed.length) {
       report.clippedControls = failed.flatMap((row) => row.clippedControls);
@@ -571,26 +699,22 @@ async function main() {
       report.cutOffLines = failed.flatMap((row) => row.cutOffLines);
     }
     fs.writeFileSync(path.join(outDir, 'noclip.json'), `${JSON.stringify(report, null, 2)}\n`);
-    console.log(JSON.stringify({
-      campaign: { bookText: campaign.bookText, panels: campaign.panels, ...listsOf(campaign) },
-      briefing: { bookText: briefing.bookText, panels: briefing.panels, ...listsOf(briefing) },
-      worldCargo: { panels: worldCargo.panels, ...listsOf(worldCargo) },
-      target: { bookText: target.bookText, headerText: target.headerText, panels: target.panels, ...listsOf(target) },
-      bookTarget: { bookText: bookTarget.bookText, headerText: bookTarget.headerText, panels: bookTarget.panels, ...listsOf(bookTarget) },
-      bookTargetLow: { bookText: bookTargetLow.bookText, headerText: bookTargetLow.headerText, panels: bookTargetLow.panels, ...listsOf(bookTargetLow) },
-      dock: { bookText: dock.bookText, headerText: dock.headerText, panels: dock.panels, ...listsOf(dock) },
-      dockBottom: { bookText: dockBottom.bookText, headerText: dockBottom.headerText, panels: dockBottom.panels, ...listsOf(dockBottom) },
-    }, null, 2));
+    const staleBottom = path.join(outDir, 'after-dock-market-bottom.png');
+    if (fs.existsSync(staleBottom)) fs.unlinkSync(staleBottom);
     const duplicate = path.join(outDir, 'after-book-panel.png');
     if (fs.existsSync(duplicate)) fs.unlinkSync(duplicate);
-    const afterNames = ['after-campaign', 'after-briefing', 'after-world-cargo', 'after-target-undocked', 'after-book-target', 'after-book-target-low-hull', 'after-dock-market', 'after-dock-market-bottom'];
-    const hashes = afterNames.map((name) => crypto.createHash('sha256').update(fs.readFileSync(path.join(outDir, `${name}.png`))).digest('hex'));
-    console.log('after hashes', Object.fromEntries(afterNames.map((name, index) => [name, hashes[index].slice(0, 12)])));
+    const afterNames = [
+      'after-campaign', 'after-briefing', 'after-briefing-book', 'after-world-cargo', 'after-target-undocked',
+      'after-book-target', 'after-book-target-book', 'after-book-target-low-hull', 'after-book-target-low-hull-book',
+      'after-dock-market', 'after-dock-market-book',
+    ];
+    const hashes = afterNames.map((name) => crypto.createHash('md5').update(fs.readFileSync(path.join(outDir, `${name}.png`))).digest('hex'));
+    console.log('after md5', Object.fromEntries(afterNames.map((name, index) => [name, hashes[index]])));
     if (new Set(hashes).size !== hashes.length) {
       console.error('after shots are not all distinct');
       process.exitCode = 1;
     }
-    if (failed.length) {
+    if (failed.length || process.exitCode) {
       console.error(JSON.stringify(report, null, 2));
       process.exitCode = 1;
     } else {

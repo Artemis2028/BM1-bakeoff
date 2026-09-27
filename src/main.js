@@ -11102,12 +11102,14 @@ function renderBriefingArchive() {
   }
   const selectScroll = selectEl.scrollTop;
   const bodyScroll = bodyEl.scrollTop;
+  const hostScroll = host.scrollTop;
   selectEl.innerHTML = selectHtml;
   bodyEl.innerHTML = bodyHtml;
   selectEl.scrollTop = selectScroll;
   bodyEl.scrollTop = bodyScroll;
   host.classList.toggle('is-book-open', state.commodityShipmentOpen === true);
   fitOpenBookBriefing();
+  host.scrollTop = hostScroll;
   if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
 }
 
@@ -11471,7 +11473,12 @@ function renderCommodityShipment() {
   }
   const html = commodityBookInnerHtml();
   const marketSlot = document.querySelector('#planet-menu .commodity-book-section');
-  if (marketSlot && state.planetMenuOpen && state.dockMenuTab === 'market') marketSlot.innerHTML = html;
+  if (marketSlot && state.planetMenuOpen && state.dockMenuTab === 'market') {
+    const keptBookScroll = marketSlot.querySelector('.commodity-book-scroll')?.scrollTop || 0;
+    marketSlot.innerHTML = html;
+    const nextScroll = marketSlot.querySelector('.commodity-book-scroll');
+    if (nextScroll && keptBookScroll > 0) nextScroll.scrollTop = keptBookScroll;
+  }
   const briefing = document.getElementById('briefing-archive');
   if (!briefing) return;
   const briefingOpen = Boolean(
@@ -11696,45 +11703,45 @@ function fitOpenBookBriefing() {
     releaseBookScroll(scroll);
     host.style.overflowY = 'auto';
   }
-  syncArchiveScrollbar(host);
-  const heading = host.querySelector('.commodity-shipment-title');
-  if (heading) {
-    const padTop = (parseFloat(getComputedStyle(host).borderTopWidth) || 0) + 6;
-    const frame = host.getBoundingClientRect();
-    const headingBox = heading.getBoundingClientRect();
-    if (headingBox.height > 1 && (headingBox.top < frame.top + padTop - 1 || headingBox.bottom > frame.bottom - 1)) {
-      host.scrollTop += headingBox.top - (frame.top + padTop);
-    }
-    syncArchiveScrollbar(host);
-  }
-  if (book) {
-    book.style.maxHeight = '';
-    book.classList.remove('is-scrolling');
+  const firstLine = host.querySelector('.briefing-line, .briefing-empty');
+  if (select && firstLine) {
+    const saved = host.scrollTop;
+    if (saved !== 0) host.scrollTop = 0;
     const hostBox = host.getBoundingClientRect();
-    const hostStyle = getComputedStyle(host);
-    const innerBottom = hostBox.bottom
-      - (parseFloat(hostStyle.borderBottomWidth) || 0)
-      - (parseFloat(hostStyle.paddingBottom) || 0);
-    const bookBox = book.getBoundingClientRect();
-    const extra = bookBox.bottom - innerBottom;
-    const fitted = Math.floor(bookBox.height - extra);
-    if (extra > 1 && fitted >= 96) {
-      book.style.maxHeight = `${fitted}px`;
-      book.style.overflow = 'hidden';
-      const inner = book.querySelector('.commodity-book-scroll');
-      if (inner) {
-        inner.style.flex = '';
-        inner.style.overflow = '';
-        inner.style.overflowY = '';
-        inner.style.height = '';
-        inner.style.maxHeight = '';
-        inner.style.minHeight = '';
-      }
+    const lineBox = firstLine.getBoundingClientRect();
+    if (lineBox.bottom > hostBox.bottom - 2) {
+      const selectBox = select.getBoundingClientRect();
+      const next = Math.max(36, Math.floor(selectBox.height - (lineBox.bottom - (hostBox.bottom - 4))));
+      const selectSaved = select.scrollTop;
+      select.style.maxHeight = `${next}px`;
+      select.style.overflowY = 'auto';
+      select.style.flexShrink = '0';
+      if (select.scrollTop !== selectSaved) select.scrollTop = selectSaved;
     }
+    if (host.scrollTop !== saved) host.scrollTop = saved;
   }
+  syncArchiveScrollbar(host);
 }
 
-function measureCommodityNoClip() {
+function commodityDoctrineFacts() {
+  const target = getSelectedCombatTarget();
+  const contact = target && !target.stationTypeId
+    ? findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(target))
+    : null;
+  const contacts = listContacts(ensureContactBook(), playerObserverKey());
+  const attempt = snapshotAttempt(ensureBoardingBook());
+  return {
+    roe: getEffectiveRoe(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
+    engagement_authorized: state.engagement_authorized === true,
+    firingSolution: contacts.some((row) => row.firingSolution === true),
+    targetFiringSolution: contact?.firingSolution === true,
+    firingSolutionSource: contact?.source || null,
+    boardingOutcome: attempt?.outcome || '',
+    lastRefuse: ensureBoardingBook().lastRefuse || null,
+  };
+}
+
+function measureCommodityNoClip(mustShow = []) {
   const shown = (el) => {
     if (!el || !el.isConnected) return false;
     const style = getComputedStyle(el);
@@ -11751,6 +11758,7 @@ function measureCommodityNoClip() {
       return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
     };
     if (pseudo('::before') || pseudo('::after')) return true;
+    if (el.offsetWidth - el.clientWidth > 1 || el.offsetHeight - el.clientHeight > 1) return true;
     const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
     const bar = frame?.querySelector(':scope > .commodity-book-bar');
     if (!bar) return false;
@@ -12083,7 +12091,8 @@ function measureCommodityNoClip() {
   };
   const innerReveals = (outer, el, rect) => clippingAncestors(el).some((node) => {
     if (node === outer || !outer.contains(node) || !canRevealLine(node, rect)) return false;
-    return !edgeCuts(outer, node.getBoundingClientRect());
+    const box = node.getBoundingClientRect();
+    return !edgeCuts(outer, box) || canRevealLine(outer, box);
   });
   const lineCut = (el, rects) => rects.some((rect) => {
     const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
@@ -12177,23 +12186,50 @@ function measureCommodityNoClip() {
       if (textTarget && breaksInsideWord(textTarget)) pushMeasure(cutOffLines, piece.text);
     }
   }
-  const viewportEdge = () => ({ top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth });
-  const boxInside = (rect, edge) => rect.width > 1 && rect.height > 1
-    && rect.top >= edge.top - 1 && rect.bottom <= edge.bottom + 1
-    && rect.left >= edge.left - 1 && rect.right <= edge.right + 1;
+  const lineHeightOf = (el) => {
+    const parsed = Number.parseFloat(getComputedStyle(el).lineHeight);
+    if (Number.isFinite(parsed) && parsed >= 8) return parsed;
+    const font = Number.parseFloat(getComputedStyle(el).fontSize);
+    return Number.isFinite(font) && font > 0 ? font : 16;
+  };
+  const clippedBox = (el) => {
+    const rect = el.getBoundingClientRect();
+    let top = Math.max(rect.top, 0);
+    let bottom = Math.min(rect.bottom, window.innerHeight);
+    let left = Math.max(rect.left, 0);
+    let right = Math.min(rect.right, window.innerWidth);
+    for (const node of clippingAncestors(el)) {
+      const edge = clientEdges(node);
+      top = Math.max(top, edge.top);
+      bottom = Math.min(bottom, edge.bottom);
+      left = Math.max(left, edge.left);
+      right = Math.min(right, edge.right);
+    }
+    return { top, bottom, left, right, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+  };
   const rowVisible = (el) => {
     if (!shown(el)) return false;
-    const rect = el.getBoundingClientRect();
-    if (!boxInside(rect, viewportEdge())) return false;
-    return clippingAncestors(el).every((node) => boxInside(rect, clientEdges(node)));
+    const box = clippedBox(el);
+    if (box.width < 2 || box.height + 0.5 < lineHeightOf(el)) return false;
+    const hit = document.elementsFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2)[0];
+    return Boolean(hit && (hit === el || el.contains(hit)));
   };
   const rowReachable = (el) => {
-    if (!shown(el)) return false;
-    if (rowVisible(el)) return true;
+    if (!shown(el) || rowVisible(el)) return false;
     const rect = el.getBoundingClientRect();
     const clippers = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
     return clippers.length > 0 && clippers.every((node) => canRevealLine(node, rect) || innerReveals(node, el, rect));
   };
+  const exactText = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+  const mustShowItems = Array.isArray(mustShow) ? mustShow : [];
+  const mustShowMissing = mustShowItems.filter((item) => {
+    const wanted = String(item?.text || '').replace(/\s+/g, ' ').trim();
+    const match = [...document.querySelectorAll(item?.selector || '')].find((el) => exactText(el) === wanted && rowVisible(el));
+    if (!match) return true;
+    if (item.enabled === true && (match.disabled || match.hasAttribute('disabled'))) return true;
+    if (item.enabled === false && !(match.disabled || match.hasAttribute('disabled'))) return true;
+    return false;
+  }).map((item) => ({ selector: item.selector, text: item.text }));
   const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
   const bookSnap = globalThis.__BM1_PROBE__?.commodityShipment?.snapshot?.() || {};
   const noticeCount = Array.isArray(bookSnap.notices) ? bookSnap.notices.length : 0;
@@ -12271,6 +12307,8 @@ function measureCommodityNoClip() {
     bookCounts,
     reachableCounts,
     expectedCounts,
+    mustShow: { ok: mustShowMissing.length === 0, missing: mustShowMissing },
+    doctrine: commodityDoctrineFacts(),
     bookHeadingVisible,
     firstEntryVisible,
     buyVisible,
@@ -18343,6 +18381,12 @@ planetMenuEl?.addEventListener('click', (e) => {
 planetMenuEl?.addEventListener('wheel', (e) => {
   const panel = planetMenuEl.querySelector('.dock-panel');
   if (!panel || panel.scrollHeight <= panel.clientHeight) return;
+  const bookScroll = e.target?.closest?.('.commodity-book-scroll');
+  if (bookScroll && panel.contains(bookScroll) && bookScroll.scrollHeight > bookScroll.clientHeight + 1) {
+    const roomDown = bookScroll.scrollTop + bookScroll.clientHeight < bookScroll.scrollHeight - 1;
+    const roomUp = bookScroll.scrollTop > 0;
+    if ((e.deltaY > 0 && roomDown) || (e.deltaY < 0 && roomUp)) return;
+  }
   e.preventDefault();
   panel.scrollTop += e.deltaY;
   if (panel.dataset?.dockTab) state.dockPanelScrollByTab[panel.dataset.dockTab] = panel.scrollTop;
@@ -25589,6 +25633,12 @@ function installBm1ProbeHarness() {
     prepareArena: probePrepareArena,
     snapshot: probeSnapshot,
     spawnShip: probeSpawnShip,
+    screenOf(id) {
+      const ship = probeFindShip(id) || probeFindStation(id);
+      if (!ship) return null;
+      const point = worldToScreen(ship);
+      return { id: ship.id, x: point.x, y: point.y };
+    },
     spawnStation: probeSpawnStation,
     catalog: createCatalogProbeApi(),
     placePlayer: probePlacePlayer,
@@ -27251,7 +27301,8 @@ function createCommodityShipmentProbeApi() {
       renderCommodityShipment();
       return true;
     },
-    measureNoClip: () => measureCommodityNoClip(),
+    measureNoClip: (mustShow) => measureCommodityNoClip(mustShow),
+    doctrineFacts: () => commodityDoctrineFacts(),
     clearCombatTarget: () => {
       state.autoTarget = false;
       state.combatTargetId = null;
@@ -31749,10 +31800,20 @@ function createBoardingProbeApi() {
     selectTarget: (id) => {
       const npc = findNpcByBoardingId(id) || probeFindShip(id);
       if (!npc) return { ok: false, reason: 'selectTarget-missing-ship' };
+      refreshContactBookNow();
+      if (!playerDetectsNpc(npc)) return { ok: false, reason: 'selectTarget-not-detected' };
       state.combatTargetId = npc.id;
       state.combatTargetType = 'ship';
       if (typeof rerenderTargetWindowNow === 'function') rerenderTargetWindowNow();
-      return { ok: true, id: npc.id, snapshot: snapshot() };
+      const contact = findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(npc));
+      return {
+        ok: true,
+        id: npc.id,
+        detected: true,
+        firingSolution: contact?.firingSolution === true,
+        source: contact?.source || null,
+        snapshot: snapshot(),
+      };
     },
   };
 }
