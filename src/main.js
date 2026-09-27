@@ -6357,18 +6357,18 @@ function tickLiveBoarding(localMs = currentLocalMs()) {
   return ticked;
 }
 
-function boardingAttemptForTarget(target) {
-  const book = ensureBoardingBook();
-  const keys = new Set();
-  if (target?.securityInstanceId) keys.add(String(target.securityInstanceId));
-  if (target?.id != null) keys.add(String(target.id));
-  if (!keys.size) return null;
-  const attempts = Object.values(book?.attempts || {});
+function attemptForTarget(book, target) {
+  const instanceId = String(target?.securityInstanceId || target?.id || '');
+  if (!instanceId) return null;
+  const matches = (attempt) => {
+    const victimId = String(attempt?.victimInstanceId || '');
+    return victimId !== '' && victimId === instanceId;
+  };
   const inFlight = book?.inFlightId ? book.attempts?.[book.inFlightId] : null;
-  if (inFlight && keys.has(String(inFlight.victimInstanceId || ''))) return inFlight;
+  if (matches(inFlight)) return inFlight;
+  const attempts = Object.values(book?.attempts || {});
   for (let index = attempts.length - 1; index >= 0; index -= 1) {
-    const attempt = attempts[index];
-    if (attempt && keys.has(String(attempt.victimInstanceId || ''))) return attempt;
+    if (matches(attempts[index])) return attempts[index];
   }
   return null;
 }
@@ -6389,7 +6389,7 @@ function renderBoardingChrome(target, isStation) {
   const reason = verdict.ok ? '' : (verdict.reason || '');
   const disabled = verdict.ok ? '' : 'disabled';
   const label = verdict.ok ? 'Board' : 'Board refused';
-  const attempt = boardingAttemptForTarget(target);
+  const attempt = attemptForTarget(ensureBoardingBook(), target);
   const attemptOutcome = attempt?.outcome || '';
   const outcome = attemptOutcome ? `Outcome: ${attemptOutcome}` : '';
   const mark = (action) => (attemptOutcome === action ? ' data-board-applies="1"' : '');
@@ -11746,7 +11746,7 @@ function commodityDoctrineFacts() {
     ? findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(target))
     : null;
   const contacts = listContacts(ensureContactBook(), playerObserverKey());
-  const attempt = snapshotAttempt(ensureBoardingBook());
+  const attempt = attemptForTarget(ensureBoardingBook(), target);
   const firingSolutions = contacts.filter((row) => row.firingSolution === true).map((row) => {
     const subject = String(row.subjectKey || '');
     const instanceId = subject.startsWith('npc:') ? subject.slice(4) : subject;
@@ -11782,14 +11782,19 @@ function measureCommodityNoClip(mustShow = []) {
   };
   const paintsScrollSign = (el) => {
     if (!el) return false;
-    const pseudo = (which) => {
+    const style = getComputedStyle(el);
+    const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+    const borderY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+    if (el.offsetWidth - el.clientWidth - borderX > 1 || el.offsetHeight - el.clientHeight - borderY > 1) return true;
+    const thumb = (which) => {
       const ps = getComputedStyle(el, which);
       if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
       if (ps.visibility === 'hidden' || ps.display === 'none') return false;
       return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
     };
-    if (pseudo('::before') || pseudo('::after')) return true;
-    if (el.offsetWidth - el.clientWidth > 1 || el.offsetHeight - el.clientHeight > 1) return true;
+    const namedThumb = (el.matches('.world-cargo.is-scrolling, .dock-panel.is-scrolling, .briefing-archive.is-scrolling, .briefing-archive-select.is-scrolling, .briefing-archive-body.is-scrolling') && thumb('::before'))
+      || (el.matches('.target-window.is-scrolling') && thumb('::after'));
+    if (namedThumb) return true;
     const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
     const bar = frame?.querySelector(':scope > .commodity-book-bar');
     if (!bar) return false;
@@ -19371,7 +19376,7 @@ function updateTargetWindow() {
     state.cargo,
     state.latinum,
     ensureBoardingBook().lastRefuse?.reason || '',
-    snapshotAttempt(ensureBoardingBook()).outcome || '',
+    attemptForTarget(ensureBoardingBook(), target)?.outcome || '',
     (state.playerFleet || []).length,
   ].join(':');
   if (!targetWindowEl.classList.contains('hidden') && targetWindowEl.dataset.renderKey === renderKey && now - lastTargetWindowRenderAt < 120) {

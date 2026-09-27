@@ -8169,14 +8169,19 @@ async function runCommodityShipment(page, results) {
     };
     const paintsScrollSign = (el) => {
       if (!el) return false;
-      const pseudo = (which) => {
+      const style = getComputedStyle(el);
+      const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+      const borderY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      if (el.offsetWidth - el.clientWidth - borderX > 1 || el.offsetHeight - el.clientHeight - borderY > 1) return true;
+      const thumb = (which) => {
         const ps = getComputedStyle(el, which);
         if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
         if (ps.visibility === 'hidden' || ps.display === 'none') return false;
         return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
       };
-      if (pseudo('::before') || pseudo('::after')) return true;
-      if (el.offsetWidth - el.clientWidth > 1 || el.offsetHeight - el.clientHeight > 1) return true;
+      const namedThumb = (el.matches('.world-cargo.is-scrolling, .dock-panel.is-scrolling, .briefing-archive.is-scrolling, .briefing-archive-select.is-scrolling, .briefing-archive-body.is-scrolling') && thumb('::before'))
+        || (el.matches('.target-window.is-scrolling') && thumb('::after'));
+      if (namedThumb) return true;
       const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
       const bar = frame?.querySelector(':scope > .commodity-book-bar');
       if (!bar) return false;
@@ -8616,9 +8621,12 @@ async function runCommodityShipment(page, results) {
     const readCard = () => {
       const notes = [...document.querySelectorAll('#target-window .target-boarding-note')]
         .map((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim());
+      const marks = [...document.querySelectorAll('#target-window [data-board-applies]')]
+        .map((el) => el.getAttribute('data-board-action') || '');
       return {
         name: String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim(),
         outcome: notes.find((text) => text.startsWith('Outcome:')) || '',
+        marked: marks.join(','),
         captureHidden: button('capture')?.hidden === true,
         scuttleHidden: button('scuttle')?.hidden === true,
         rows: offer(),
@@ -8718,12 +8726,14 @@ async function runCommodityShipment(page, results) {
   const ownOutcome = (card, action, name) => Boolean(card)
     && card.name === name
     && card.outcome === `Outcome: ${action}`
+    && card.marked === action
     && card.captureHidden === (action !== 'capture')
     && card.scuttleHidden === (action !== 'scuttle')
     && card.rows?.some((row) => row.action === action && row.shown && row.enabled);
   const openWitness = (card) => Boolean(card)
     && card.name === 'SS Witness'
     && card.outcome === ''
+    && card.marked === ''
     && card.captureHidden === false
     && card.scuttleHidden === false
     && bothClickable(card.rows);
@@ -8742,6 +8752,284 @@ async function runCommodityShipment(page, results) {
     && choice.scuttle.captured === false
     && shipKeepsOutcome(choice.scuttle, 'scuttle')
     && openWitness(choice.scuttle.witness), JSON.stringify(choice.scuttle));
+  const kept = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const boarding = globalThis.__BM1_PROBE__?.boarding;
+    const facts = () => globalThis.__BM1_PROBE__?.commodityShipment?.doctrineFacts?.() || {};
+    const restart = () => {
+      probe?.startGame?.('ferengi', { arena: { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 } });
+      probe?.freezeLoop?.();
+    };
+    const button = (action) => document.querySelector(`#target-window [data-board-action="${action}"]`);
+    const offer = () => ['capture', 'scuttle'].map((action) => {
+      const el = button(action);
+      const box = el?.getBoundingClientRect();
+      const hit = box ? document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2) : null;
+      return {
+        action,
+        shown: Boolean(el && !el.hidden && box && box.width > 8 && box.height > 8),
+        enabled: el?.disabled !== true,
+        clickable: Boolean(el && hit && (hit === el || el.contains(hit)) && !el.disabled && !el.hidden),
+      };
+    });
+    const readCard = () => {
+      const notes = [...document.querySelectorAll('#target-window .target-boarding-note')]
+        .map((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim());
+      const marks = [...document.querySelectorAll('#target-window [data-board-applies]')]
+        .map((el) => el.getAttribute('data-board-action') || '');
+      return {
+        name: String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim(),
+        outcome: notes.find((text) => text.startsWith('Outcome:')) || '',
+        marked: marks.join(','),
+        captureHidden: button('capture')?.hidden === true,
+        scuttleHidden: button('scuttle')?.hidden === true,
+        rows: offer(),
+      };
+    };
+    const arm = (id) => {
+      const spawned = probe?.spawnShip?.({ id, name: 'SS Choice', faction: 'ferengi', attitude: 'neutral' });
+      const shipId = spawned?.id || id;
+      boarding?.injectHullRatio?.(shipId, 0.10);
+      boarding?.selectTarget?.(shipId);
+      probe?.paint?.();
+      return shipId;
+    };
+    const instanceIdOf = (id) => {
+      const ship = probe?.ship?.(id);
+      return String(ship?.securityInstanceId || ship?.id || '');
+    };
+    const savedAttempts = () => {
+      probe?.saveSlot?.(1);
+      const raw = localStorage.getItem('bm2_html_save_slot_1');
+      const data = raw ? JSON.parse(raw) : {};
+      return Object.values(data?.boardingBook?.attempts || {});
+    };
+    const unmarkedOpen = (card) => Boolean(card)
+      && card.outcome === ''
+      && card.marked === ''
+      && card.captureHidden === false
+      && card.scuttleHidden === false
+      && Array.isArray(card.rows)
+      && card.rows.every((row) => row.shown && row.enabled && row.clickable);
+    restart();
+    const aId = arm('s35-keep-a');
+    const aInstance = instanceIdOf(aId);
+    const aName = String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim();
+    if (unmarkedOpen(readCard())) button('capture')?.click();
+    const aCard = readCard();
+    probe?.paint?.();
+    const bId = arm('s35-keep-b');
+    const bInstance = instanceIdOf(bId);
+    const bBefore = readCard();
+    const otherFacts = facts();
+    const owner = (probe?.snapshot?.()?.npcShips || []).find((ship) => (
+      String(ship.securityInstanceId || '') === aInstance && ship.id !== aId
+    ));
+    const ownerSelect = owner ? boarding?.selectTarget?.(owner.id) : null;
+    if (ownerSelect?.ok) probe?.paint?.();
+    const ownerFacts = ownerSelect?.ok ? facts() : null;
+    if (ownerSelect?.ok) {
+      boarding?.selectTarget?.(bId);
+      probe?.paint?.();
+    }
+    const back = readCard();
+    const scuttleFrom = ownerSelect?.ok ? back : bBefore;
+    if (unmarkedOpen(scuttleFrom)) button('scuttle')?.click();
+    const bAfter = readCard();
+    probe?.paint?.();
+    const rows = savedAttempts();
+    const blank = (() => {
+      try {
+        restart();
+        probe?.saveSlot?.(1);
+        const key = 'bm2_html_save_slot_1';
+        const saved = JSON.parse(localStorage.getItem(key));
+        saved.boardingBook.attempts['brd-blank'] = {
+          attemptId: 'brd-blank',
+          actorInstanceId: 'player',
+          outcome: 'capture',
+          captured: true,
+          scuttled: false,
+          status: 'resolved',
+          firedAtLocalMs: 1,
+          resolvedAtLocalMs: 2,
+          travelMs: 0,
+          hullRatioAtStart: 0.1,
+        };
+        saved.boardingBook.inFlightId = null;
+        saved.boardingBook.lastOutcome = 'capture';
+        saved.boardingBook.nextAttemptId = Math.max(9, Number(saved.boardingBook.nextAttemptId) || 1);
+        localStorage.setItem(key, JSON.stringify(saved));
+        probe?.loadSlot?.(1);
+        const freshId = arm('s35-blank-victim');
+        const card = readCard();
+        const doctrine = facts();
+        probe?.saveSlot?.(1);
+        const restored = JSON.parse(localStorage.getItem(key))?.boardingBook?.attempts?.['brd-blank'] || null;
+        return {
+          freshId,
+          instanceId: instanceIdOf(freshId),
+          card,
+          doctrine,
+          restoredVictim: restored ? restored.victimInstanceId : null,
+          restoredOutcome: restored?.outcome || null,
+        };
+      } catch (error) {
+        return { error: String(error?.message || error) };
+      }
+    })();
+    return {
+      aInstance,
+      aName,
+      aCard,
+      bInstance,
+      bBefore,
+      back,
+      bAfter,
+      otherFacts,
+      ownerId: owner?.id || null,
+      ownerSelect: ownerSelect ? { ok: ownerSelect.ok === true, reason: ownerSelect.reason || null } : null,
+      ownerFacts,
+      aAttempt: rows.find((row) => String(row.victimInstanceId || '') === aInstance) || null,
+      bAttempt: rows.find((row) => String(row.victimInstanceId || '') === bInstance) || null,
+      blank,
+    };
+  });
+  const unmarkedOpen = (card) => Boolean(card)
+    && card.outcome === ''
+    && card.marked === ''
+    && card.captureHidden === false
+    && card.scuttleHidden === false
+    && Array.isArray(card.rows)
+    && card.rows.every((row) => row.shown && row.enabled && row.clickable);
+  check(results, 'S35.24 scuttle-leaves-capture', unmarkedOpen(kept.bBefore)
+    && kept.aCard?.outcome === 'Outcome: capture'
+    && kept.aCard?.marked === 'capture'
+    && kept.aAttempt?.outcome === 'capture'
+    && kept.aAttempt?.captured === true
+    && kept.bAfter?.outcome === 'Outcome: scuttle'
+    && kept.bAfter?.marked === 'scuttle'
+    && kept.bAfter?.captureHidden === true
+    && kept.bAttempt?.outcome === 'scuttle'
+    && kept.bAttempt?.scuttled === true
+    && kept.aInstance !== ''
+    && kept.bInstance !== ''
+    && kept.aInstance !== kept.bInstance, JSON.stringify(kept));
+  check(results, 'S35.24 boarding-outcome-follows-target', kept.otherFacts?.boardingOutcome === ''
+    && (kept.ownerSelect?.ok !== true || kept.ownerFacts?.boardingOutcome === 'capture')
+    && kept.blank?.doctrine?.boardingOutcome === '', JSON.stringify({
+      other: kept.otherFacts,
+      owner: kept.ownerFacts,
+      ownerSelect: kept.ownerSelect,
+      blank: kept.blank?.doctrine,
+    }));
+  check(results, 'S35.24 empty-victim-stays-blank', kept.blank?.restoredVictim === ''
+    && kept.blank?.restoredOutcome === 'capture'
+    && unmarkedOpen(kept.blank?.card)
+    && kept.blank?.doctrine?.boardingOutcome === ''
+    && kept.blank?.instanceId !== '', JSON.stringify(kept.blank));
+  const decoy = await page.evaluate(async () => {
+    const source = await fetch('/src/main.js').then((res) => res.text());
+    const key = 'const paintsScrollSign = (el) => {';
+    const start = source.indexOf(key);
+    let paints = null;
+    if (start >= 0) {
+      let depth = 0;
+      const open = source.indexOf('{', start);
+      let end = open;
+      for (let i = open; i < source.length; i += 1) {
+        if (source[i] === '{') depth += 1;
+        else if (source[i] === '}') {
+          depth -= 1;
+          if (depth === 0) {
+            end = i;
+            break;
+          }
+        }
+      }
+      const arrow = source.slice(source.indexOf('(el)', start), end + 1);
+      paints = new Function(`return (${arrow});`)();
+    }
+    const css = document.createElement('style');
+    css.textContent = '#s35-decoy-scroll::before{content:"";display:block;width:8px;height:24px;background:#8cf;}';
+    document.head.appendChild(css);
+    const host = document.createElement('section');
+    host.className = 'commodity-book-section';
+    host.id = 's35-decoy-host';
+    host.style.cssText = 'position:fixed;left:16px;top:88px;width:220px;z-index:40;display:block;overflow:visible;';
+    const scroller = document.createElement('div');
+    scroller.id = 's35-decoy-scroll';
+    scroller.style.cssText = 'overflow-y:scroll;height:52px;width:180px;border:1px solid #8cf;scrollbar-width:none;position:relative;';
+    for (const name of ['Alpha Goods', 'Bravo Goods', 'Charlie Goods', 'Delta Goods']) {
+      const row = document.createElement('div');
+      row.className = 'commodity-entry';
+      row.textContent = name;
+      scroller.appendChild(row);
+    }
+    host.appendChild(scroller);
+    document.body.appendChild(host);
+    const style = getComputedStyle(scroller);
+    const scrollbarWidth = style.scrollbarWidth;
+    const borderLeft = style.borderLeftWidth;
+    const borderRight = style.borderRightWidth;
+    const pseudoWidth = getComputedStyle(scroller, '::before').width;
+    const namedBar = Boolean(host.querySelector('.commodity-book-bar'));
+    const shown = (el) => {
+      if (!el || !el.isConnected) return false;
+      const box = el.getBoundingClientRect();
+      return box.width >= 2 && box.height >= 2;
+    };
+    const edgeCuts = (node, rect) => {
+      const hostBox = node.getBoundingClientRect();
+      const nodeStyle = getComputedStyle(node);
+      const top = hostBox.top + (parseFloat(nodeStyle.borderTopWidth) || 0);
+      const bottom = hostBox.bottom - (parseFloat(nodeStyle.borderBottomWidth) || 0);
+      return rect.top < top - 1 || rect.bottom > bottom + 1;
+    };
+    const canReveal = (clipper, rect) => {
+      if (!clipper || !paints) return false;
+      const clipStyle = getComputedStyle(clipper);
+      const scrollY = /(auto|scroll)/.test(clipStyle.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+      if (!scrollY || !paints(clipper)) return false;
+      const hostBox = clipper.getBoundingClientRect();
+      const topIn = rect.top - hostBox.top + clipper.scrollTop;
+      const bottomIn = rect.bottom - hostBox.top + clipper.scrollTop;
+      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+      return true;
+    };
+    const signReach = [...scroller.querySelectorAll('.commodity-entry')].filter((el) => {
+      if (!shown(el)) return false;
+      const rect = el.getBoundingClientRect();
+      return edgeCuts(scroller, rect) && canReveal(scroller, rect);
+    }).length;
+    const others = [...document.querySelectorAll('.commodity-book-section')].filter((el) => el !== host);
+    const prior = others.map((el) => el.style.display);
+    others.forEach((el) => { el.style.display = 'none'; });
+    const lane = globalThis.__BM1_PROBE__?.commodityShipment?.measureNoClip?.() || {};
+    const laneReach = (lane.reachableCounts?.entries || 0)
+      + (lane.reachableCounts?.records || 0)
+      + (lane.reachableCounts?.lines || 0);
+    others.forEach((el, index) => { el.style.display = prior[index]; });
+    host.remove();
+    css.remove();
+    return {
+      signReach,
+      laneReach,
+      scrollbarWidth,
+      borderLeft,
+      borderRight,
+      namedBar,
+      pseudo: pseudoWidth,
+    };
+  });
+  check(results, 'S35.24 decoy-scroll-not-reachable', decoy.signReach === 0
+    && decoy.laneReach === 0
+    && decoy.scrollbarWidth === 'none'
+    && decoy.borderLeft === '1px'
+    && decoy.borderRight === '1px'
+    && decoy.namedBar === false
+    && parseFloat(decoy.pseudo) >= 6, JSON.stringify(decoy));
   const dockReach = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const p8 = globalThis.__BM1_PROBE__?.phase8;
@@ -8809,14 +9097,19 @@ async function runCommodityShipment(page, results) {
     };
     const paintsScrollSign = (el) => {
       if (!el) return false;
-      const pseudo = (which) => {
+      const style = getComputedStyle(el);
+      const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+      const borderY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      if (el.offsetWidth - el.clientWidth - borderX > 1 || el.offsetHeight - el.clientHeight - borderY > 1) return true;
+      const thumb = (which) => {
         const ps = getComputedStyle(el, which);
         if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
         if (ps.visibility === 'hidden' || ps.display === 'none') return false;
         return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
       };
-      if (pseudo('::before') || pseudo('::after')) return true;
-      if (el.offsetWidth - el.clientWidth > 1 || el.offsetHeight - el.clientHeight > 1) return true;
+      const namedThumb = (el.matches('.world-cargo.is-scrolling, .dock-panel.is-scrolling, .briefing-archive.is-scrolling, .briefing-archive-select.is-scrolling, .briefing-archive-body.is-scrolling') && thumb('::before'))
+        || (el.matches('.target-window.is-scrolling') && thumb('::after'));
+      if (namedThumb) return true;
       const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
       const bar = frame?.querySelector(':scope > .commodity-book-bar');
       if (!bar) return false;
