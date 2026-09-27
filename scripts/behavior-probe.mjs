@@ -7165,11 +7165,12 @@ async function runCommodityShipment(page, results) {
       restriction: 'open',
     });
     const before = p8.snapshot().book.markets['mkt-s35'];
-    const bought = api.buy('Grain', 3, { marketId: 'mkt-s35' });
+    const scope = { scope: 'general', systemName: 'Ferenginar', role: 'traffic' };
+    const bought = api.buy('Grain', 3, { marketId: 'mkt-s35', dominion: scope });
     const afterBuy = p8.snapshot().book.markets['mkt-s35'];
-    const sold = api.sellBack(bought.saleId, { marketId: 'mkt-s35' });
+    const sold = api.sellBack(bought.saleId, { marketId: 'mkt-s35', dominion: scope });
     const afterSell = p8.snapshot().book.markets['mkt-s35'];
-    const full = api.buy('Grain', 1, { marketId: 'mkt-s35', cargoCap: 0 });
+    const full = api.buy('Grain', 1, { marketId: 'mkt-s35', cargoCap: 0, dominion: scope });
     const afterFull = p8.snapshot().book.markets['mkt-s35'];
     const hand = api.restore({
       version: 1,
@@ -7489,7 +7490,7 @@ async function runCommodityShipment(page, results) {
     && guards.missingRegion.after?.price === guards.missingRegion.before?.price, JSON.stringify(guards.missingRegion));
   check(results, 'S35.19 unknown-region-play', guards.unknownRegion?.paid === 0 && guards.unknownRegion?.ok === false
     && guards.unknownRegion.after?.stock === guards.unknownRegion.before?.stock, JSON.stringify(guards.unknownRegion));
-  check(results, 'S35.19 dominion-restricted-play', guards.dominionWorld?.ok === true && guards.dominionWorld.paid > 0
+  check(results, 'S35.19 dominion-core-allows-dominica', guards.dominionWorld?.ok === true && guards.dominionWorld.paid > 0
     && guards.dominionWorld.dominionScope === 'dominion-core', JSON.stringify(guards.dominionWorld));
   check(results, 'S35.19 save-load-sale-id', guards.held?.ok === true && guards.rebuy?.ok === true
     && guards.rebuy.saleId !== guards.held.saleId
@@ -8170,7 +8171,7 @@ async function runCommodityShipment(page, results) {
       const squashed = [];
       const cutOff = [];
       const push = (list, value) => {
-        const line = textOf(value).slice(0, 80);
+        const line = (typeof value === 'string' ? value : textOf(value)).replace(/\s+/g, ' ').trim().slice(0, 80);
         if (line && !list.includes(line)) list.push(line);
       };
       const isControl = (el) => /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.getAttribute('role') === 'button';
@@ -8179,15 +8180,6 @@ async function runCommodityShipment(page, results) {
         if (/^(SCRIPT|STYLE|SVG|CANVAS|IMG)$/.test(el.tagName)) return false;
         if (el.children.length > 0) return false;
         return textOf(el).length > 0;
-      };
-      const nearest = (el) => {
-        let node = el.parentElement;
-        while (node && node !== document.body) {
-          const style = getComputedStyle(node);
-          if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
-          node = node.parentElement;
-        }
-        return null;
       };
       const canReveal = (clipper, rect) => {
         if (!clipper) return false;
@@ -8198,37 +8190,78 @@ async function runCommodityShipment(page, results) {
         if ((!scrollY && !scrollX) || !scrollbarShown(clipper)) return false;
         const topIn = rect.top - host.top + clipper.scrollTop;
         const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+        const leftIn = rect.left - host.left + clipper.scrollLeft;
+        const rightIn = rect.right - host.left + clipper.scrollLeft;
         if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+        if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
         if (bottomIn - topIn > clipper.clientHeight + 1) return false;
-        return scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+        if (rightIn - leftIn > clipper.clientWidth + 1) return false;
+        const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+        const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
+        return yFits && xFits;
       };
+      const clientEdges = (node) => {
+        const host = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          top: host.top + (parseFloat(style.borderTopWidth) || 0),
+          bottom: host.bottom - (parseFloat(style.borderBottomWidth) || 0),
+          left: host.left + (parseFloat(style.borderLeftWidth) || 0),
+          right: host.right - (parseFloat(style.borderRightWidth) || 0),
+        };
+      };
+      const edgeCuts = (node, rect) => {
+        const edge = clientEdges(node);
+        return rect.top < edge.top - 1 || rect.bottom > edge.bottom + 1
+          || rect.left < edge.left - 1 || rect.right > edge.right + 1;
+      };
+      const clippingAncestors = (el) => {
+        const list = [];
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          const style = getComputedStyle(node);
+          if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+          node = node.parentElement;
+        }
+        return list;
+      };
+      const rectsOf = (target) => {
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+        if (rects.length) return rects;
+        if (target.nodeType === 1) return [target.getBoundingClientRect()];
+        return [];
+      };
+      const lineCut = (el, rects) => rects.some((rect) => {
+        const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
+        if (!cutters.length) return false;
+        return cutters.some((node) => !canReveal(node, rect));
+      });
       for (const panel of panelRoots()) {
-        for (const el of [...panel.querySelectorAll('*')].filter((node) => shown(node) && !ariaHidden(node) && (isControl(node) || isTextLine(node)))) {
-          const style = getComputedStyle(el);
-          const inlineText = style.display === 'inline' || style.display === 'contents';
-          const scrollport = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2 && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
-          if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) push(squashed, el);
-          const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
-          const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
-          if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) push(squashed, el);
-          const clipper = nearest(el);
-          if (!clipper) continue;
-          const range = document.createRange();
-          range.selectNodeContents(el);
-          const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
-          const boxes = rects.length ? rects : [el.getBoundingClientRect()];
-          const host = clipper.getBoundingClientRect();
-          const cut = boxes.some((rect) => {
-            const inside = rect.top >= host.top - 1 && rect.bottom <= host.bottom + 1 && rect.left >= host.left - 1 && rect.right <= host.right + 1;
-            if (inside) return false;
-            let node = clipper;
-            while (node && node !== document.body) {
-              if (canReveal(node, rect)) return false;
-              node = node.parentElement;
-            }
-            return true;
-          });
-          if (cut) push(cutOff, el);
+        const pieces = [];
+        for (const el of panel.querySelectorAll('*')) {
+          if (!shown(el) || ariaHidden(el)) continue;
+          if (isControl(el) || isTextLine(el)) pieces.push({ el, text: textOf(el) });
+          if (isControl(el) || el.closest('button, a, [role="button"]') || el.children.length === 0) continue;
+          for (const node of el.childNodes) {
+            if (node.nodeType !== 3) continue;
+            const text = textOf(node);
+            if (text) pieces.push({ el, text, textNode: node });
+          }
+        }
+        for (const piece of pieces) {
+          const el = piece.el;
+          if (!piece.textNode) {
+            const style = getComputedStyle(el);
+            const inlineText = style.display === 'inline' || style.display === 'contents';
+            const scrollport = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2 && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+            if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) push(squashed, piece.text);
+            const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
+            const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
+            if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) push(squashed, piece.text);
+          }
+          if (lineCut(el, rectsOf(piece.textNode || el))) push(cutOff, piece.text);
         }
       }
       return {
@@ -8275,6 +8308,10 @@ async function runCommodityShipment(page, results) {
       take(tractor, 'tractor');
       const outcomeButtons = [...card.querySelectorAll('[data-board-action="capture"], [data-board-action="scuttle"]')].filter(shown);
       const applies = [...card.querySelectorAll('[data-board-applies]')].filter(shown);
+      const captureBtn = card.querySelector('[data-board-action="capture"]');
+      const scuttleBtn = card.querySelector('[data-board-action="scuttle"]');
+      take(captureBtn, 'capture');
+      take(scuttleBtn, 'scuttle');
       take(applies[0] || null, 'applies');
       const hailBox = hail?.getBoundingClientRect();
       let clickable = false;
@@ -8301,6 +8338,8 @@ async function runCommodityShipment(page, results) {
         tractor: textOf(tractor),
         applies: applies.map((el) => el.dataset.boardAction),
         outcomeButtons: outcomeButtons.map((el) => el.dataset.boardAction),
+        captureDisabled: captureBtn?.disabled === true,
+        scuttleDisabled: scuttleBtn?.disabled === true,
         toggle: textOf(archive?.querySelector('[data-commodity-book-toggle]')),
         archiveScrolls: Boolean(archive && archive.scrollHeight > archive.clientHeight + 1),
         archiveBar: Boolean(archive && scrollbarShown(archive)),
@@ -8321,12 +8360,18 @@ async function runCommodityShipment(page, results) {
       const card = document.getElementById('target-window');
       const notes = [...(card?.querySelectorAll('.target-boarding-note') || [])].map(textOf);
       const marked = [...(card?.querySelectorAll('[data-board-applies]') || [])].filter(shown).map((el) => el.dataset.boardAction);
+      const captureBtn = card?.querySelector('[data-board-action="capture"]');
+      const scuttleBtn = card?.querySelector('[data-board-action="scuttle"]');
       return {
         ratio,
         tractorIsBoard: snap.tractorIsBoard === true,
         eligible: snap.hull?.eligible === true,
         tractor: notes.find((line) => /^Tractor hold is not a capture/i.test(line)) || '',
         marked,
+        captureShown: shown(captureBtn),
+        scuttleShown: shown(scuttleBtn),
+        captureDisabled: captureBtn?.disabled === true,
+        scuttleDisabled: scuttleBtn?.disabled === true,
       };
     });
     api?.clearCombatTarget?.();
@@ -8374,37 +8419,51 @@ async function runCommodityShipment(page, results) {
       return part && part.missing !== true && part.inside === true && part.full === true;
     });
   const walkClear = (walk) => walk && walk.squashed.length === 0 && walk.cutOff.length === 0;
+  const bothOutcome = (row) => row
+    && row.outcomeButtons.includes('capture')
+    && row.outcomeButtons.includes('scuttle')
+    && row.applies.length === 0
+    && ['capture', 'scuttle'].every((name) => {
+      const part = row.parts.find((item) => item.name === name);
+      return part && part.missing !== true && part.inside === true && part.full === true;
+    });
   check(results, 'S35.23 core-above-hull', hullCoreOk(hullCard.high)
     && /Hull above 10%/.test(hullCard.high.doctrine)
     && /^Tractor hold is not a capture/i.test(hullCard.high.tractor)
-    && hullCard.high.applies.length === 0
+    && bothOutcome(hullCard.high)
+    && hullCard.high.captureDisabled === true
+    && hullCard.high.scuttleDisabled === true
     && /open/i.test(hullCard.high.toggle)
     && (hullCard.high.archiveScrolls === false || (hullCard.high.archiveBar === true && hullCard.high.archiveScrollbar !== 'none')), JSON.stringify(hullCard.high));
   check(results, 'S35.23 core-low-hull', hullCoreOk(hullCard.low)
     && /Boarding available/.test(hullCard.low.doctrine)
     && /^Tractor hold is not a capture/i.test(hullCard.low.tractor)
-    && hullCard.low.outcomeButtons.length === 1
-    && hullCard.low.applies.length === 1
-    && hullCard.low.outcomeButtons[0] === hullCard.low.applies[0]
-    && hullCard.low.parts.find((part) => part.name === 'applies')?.inside === true
+    && bothOutcome(hullCard.low)
+    && hullCard.low.captureDisabled === false
+    && hullCard.low.scuttleDisabled === false
     && /open/i.test(hullCard.low.toggle), JSON.stringify(hullCard.low));
   check(results, 'S35.23 states-differ', hullCard.high.head === hullCard.low.head
     && hullCard.high.className === hullCard.low.className
     && hullCard.high.hailText === hullCard.low.hailText
     && hullCard.high.tractor === hullCard.low.tractor
     && hullCard.high.doctrine !== hullCard.low.doctrine
-    && hullCard.high.applies.join(',') !== hullCard.low.applies.join(',')
+    && bothOutcome(hullCard.low)
+    && hullCard.high.captureDisabled === true
+    && hullCard.high.scuttleDisabled === true
+    && hullCard.low.captureDisabled === false
+    && hullCard.low.scuttleDisabled === false
     && hullCard.high.left === hullCard.low.left
     && hullCard.high.right === hullCard.low.right, JSON.stringify({
-      high: { doctrine: hullCard.high.doctrine, applies: hullCard.high.applies, rect: [hullCard.high.left, hullCard.high.top, hullCard.high.right, hullCard.high.bottom] },
+      high: { doctrine: hullCard.high.doctrine, applies: hullCard.high.applies, disabled: [hullCard.high.captureDisabled, hullCard.high.scuttleDisabled], rect: [hullCard.high.left, hullCard.high.top, hullCard.high.right, hullCard.high.bottom] },
       low: { doctrine: hullCard.low.doctrine, applies: hullCard.low.applies, outcome: hullCard.low.outcomeButtons, rect: [hullCard.low.left, hullCard.low.top, hullCard.low.right, hullCard.low.bottom] },
     }));
   check(results, 'S35.23 tractor-stable', Array.isArray(hullCard.samples)
     && hullCard.samples.length === 6
     && hullCard.samples.every((row) => row.tractorIsBoard === false && row.tractor === hullCard.samples[0].tractor && /^Tractor hold is not a capture/i.test(row.tractor))
     && hullCard.samples.every((row) => row.eligible === (row.ratio <= 0.10))
-    && hullCard.samples.every((row) => row.marked.length <= 1)
-    && hullCard.samples.every((row) => (row.ratio <= 0.10) === (row.marked.length === 1))
+    && hullCard.samples.every((row) => row.marked.length === 0)
+    && hullCard.samples.every((row) => row.captureShown === true && row.scuttleShown === true)
+    && hullCard.samples.every((row) => row.captureDisabled === (row.ratio > 0.10) && row.scuttleDisabled === (row.ratio > 0.10))
     && hullCard.roe.join(',') === 'return-fire,defend', JSON.stringify({ samples: hullCard.samples, roe: hullCard.roe }));
   check(results, 'S35.23 panels-above', walkClear(hullCard.highWalk)
     && hullCard.highWalk.panels.length > 0, JSON.stringify(hullCard.highWalk));
@@ -8462,6 +8521,576 @@ async function runCommodityShipment(page, results) {
       title: fit.title,
       parked: fit.parked,
     }));
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const choice = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const boarding = globalThis.__BM1_PROBE__?.boarding;
+    const restart = () => {
+      probe?.startGame?.('ferengi', { arena: { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 } });
+      probe?.freezeLoop?.();
+    };
+    const arm = (id, ratio) => {
+      const spawned = probe?.spawnShip?.({ id, name: 'SS Choice', faction: 'ferengi', attitude: 'neutral' });
+      const shipId = spawned?.id || id;
+      boarding?.injectHullRatio?.(shipId, ratio);
+      boarding?.selectTarget?.(shipId);
+      probe?.paint?.();
+      return shipId;
+    };
+    const button = (action) => document.querySelector(`#target-window [data-board-action="${action}"]`);
+    const offer = () => ['capture', 'scuttle'].map((action) => {
+      const el = button(action);
+      const box = el?.getBoundingClientRect();
+      const hit = box ? document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2) : null;
+      return {
+        action,
+        shown: Boolean(el && !el.hidden && box && box.width > 8 && box.height > 8),
+        enabled: el?.disabled !== true,
+        clickable: Boolean(el && hit && (hit === el || el.contains(hit)) && !el.disabled && !el.hidden),
+      };
+    });
+    const poke = (action) => {
+      const el = button(action);
+      const before = boarding?.snapshot?.() || {};
+      const refuseBefore = JSON.stringify(boarding?.lastRefuseBoard?.() || null);
+      el?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      el?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      probe?.paint?.();
+      const after = boarding?.snapshot?.() || {};
+      return {
+        disabled: el?.disabled === true,
+        refuseSame: JSON.stringify(boarding?.lastRefuseBoard?.() || null) === refuseBefore,
+        attemptSame: JSON.stringify(after.attempt || null) === JSON.stringify(before.attempt || null),
+        logSame: after.log === before.log,
+        outcome: after.attempt?.outcome || null,
+      };
+    };
+    restart();
+    arm('s35-inert', 1);
+    const highOffer = offer();
+    const inertCapture = poke('capture');
+    const inertScuttle = poke('scuttle');
+    restart();
+    arm('s35-capture', 0.10);
+    const beforeCapture = offer();
+    const captureEl = button('capture');
+    if (beforeCapture.every((row) => row.clickable)) captureEl?.click();
+    const captureWitness = probe?.spawnShip?.({ id: 's35-capture-witness', name: 'SS Witness', faction: 'ferengi', attitude: 'neutral' });
+    boarding?.injectHullRatio?.(captureWitness?.id || 's35-capture-witness', 0.10);
+    boarding?.selectTarget?.(captureWitness?.id || 's35-capture-witness');
+    probe?.paint?.();
+    const captureSnap = boarding?.snapshot?.() || {};
+    const afterCapture = {
+      captureHidden: button('capture')?.hidden === true,
+      scuttleHidden: button('scuttle')?.hidden === true,
+    };
+    restart();
+    arm('s35-scuttle', 0.10);
+    const beforeScuttle = offer();
+    const scuttleEl = button('scuttle');
+    if (beforeScuttle.every((row) => row.clickable)) scuttleEl?.click();
+    const scuttleWitness = probe?.spawnShip?.({ id: 's35-scuttle-witness', name: 'SS Witness', faction: 'ferengi', attitude: 'neutral' });
+    boarding?.injectHullRatio?.(scuttleWitness?.id || 's35-scuttle-witness', 0.10);
+    boarding?.selectTarget?.(scuttleWitness?.id || 's35-scuttle-witness');
+    probe?.paint?.();
+    const scuttleSnap = boarding?.snapshot?.() || {};
+    const afterScuttle = {
+      captureHidden: button('capture')?.hidden === true,
+      scuttleHidden: button('scuttle')?.hidden === true,
+    };
+    return {
+      roe: globalThis.__BM1_PROBE__?.briefingArchive?.snapshot?.()?.roeModes || [],
+      tractorIsBoard: boarding?.snapshot?.()?.tractorIsBoard === true,
+      highOffer,
+      inertCapture,
+      inertScuttle,
+      beforeCapture,
+      capture: {
+        outcome: captureSnap.attempt?.outcome || null,
+        captured: captureSnap.attempt?.captured === true,
+        scuttled: captureSnap.attempt?.scuttled === true,
+        ...afterCapture,
+      },
+      beforeScuttle,
+      scuttle: {
+        outcome: scuttleSnap.attempt?.outcome || null,
+        captured: scuttleSnap.attempt?.captured === true,
+        scuttled: scuttleSnap.attempt?.scuttled === true,
+        ...afterScuttle,
+      },
+    };
+  });
+  const bothClickable = (rows) => Array.isArray(rows)
+    && rows.some((row) => row.action === 'capture' && row.shown && row.enabled && row.clickable)
+    && rows.some((row) => row.action === 'scuttle' && row.shown && row.enabled && row.clickable);
+  check(results, 'S35.24 high-hull-outcome-inert', choice.highOffer.every((row) => row.shown && row.enabled === false)
+    && choice.inertCapture.disabled === true
+    && choice.inertScuttle.disabled === true
+    && choice.inertCapture.refuseSame === true
+    && choice.inertScuttle.refuseSame === true
+    && choice.inertCapture.attemptSame === true
+    && choice.inertScuttle.attemptSame === true
+    && choice.inertCapture.logSame === true
+    && choice.inertScuttle.logSame === true
+    && choice.inertCapture.outcome == null
+    && choice.inertScuttle.outcome == null
+    && choice.tractorIsBoard === false
+    && choice.roe.join(',') === 'return-fire,defend', JSON.stringify(choice));
+  check(results, 'S35.24 low-hull-both-controls', bothClickable(choice.beforeCapture) && bothClickable(choice.beforeScuttle), JSON.stringify({
+    beforeCapture: choice.beforeCapture,
+    beforeScuttle: choice.beforeScuttle,
+  }));
+  check(results, 'S35.24 capture-records-capture', bothClickable(choice.beforeCapture)
+    && choice.capture.outcome === 'capture'
+    && choice.capture.captured === true
+    && choice.capture.scuttled === false
+    && choice.capture.scuttleHidden === true
+    && choice.capture.captureHidden === false, JSON.stringify(choice.capture));
+  check(results, 'S35.24 scuttle-records-scuttle', bothClickable(choice.beforeScuttle)
+    && choice.scuttle.outcome === 'scuttle'
+    && choice.scuttle.scuttled === true
+    && choice.scuttle.captured === false
+    && choice.scuttle.captureHidden === true
+    && choice.scuttle.scuttleHidden === false, JSON.stringify(choice.scuttle));
+  const dockReach = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    api?.emptyHold?.();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    p8.injectMarket({
+      marketId: 'mkt-dock-reach',
+      good: 'Dock Reach Grain',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    for (const name of ['Dock Pad A', 'Dock Pad B', 'Dock Pad C']) {
+      p8.injectMarket({
+        marketId: `mkt-${name.toLowerCase().replace(/\s+/g, '-')}`,
+        good: name,
+        stock: 4,
+        demand: 4,
+        stockCap: 8,
+        demandCap: 8,
+        floor: 0,
+        price: 10,
+        systemIndex: here,
+        restriction: 'open',
+      });
+    }
+    const seeded = api.playBuy('Dock Reach Grain');
+    for (const name of ['Dock Pad A', 'Dock Pad B', 'Dock Pad C']) api.playBuy(name);
+    api.restore(api.save());
+    const cargo = globalThis.__BM1_PROBE__?.worldCargo;
+    const enrolled = [];
+    for (let n = 0; n < 4; n += 1) {
+      enrolled.push(cargo?.enroll?.({
+        id: `dock-tall-${n}`,
+        good: `Dock Tall ${n}`,
+        tons: 1,
+        legalPayout: 4,
+        targetName: 'Near',
+        mode: 'open',
+      })?.ok === true);
+    }
+    api.select?.('Dock Reach Grain');
+    probe?.paint?.();
+    const menu = document.getElementById('planet-menu');
+    const panel = menu?.querySelector('.dock-panel');
+    const book = menu?.querySelector('.commodity-book-section');
+    const buy = menu?.querySelector('[data-commodity-buy]');
+    const heading = [...(menu?.querySelectorAll('.panel-head') || [])].find((el) => /cargo market/i.test(el.textContent));
+    const shown = (el) => {
+      if (!el || el.hidden) return false;
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 2 && rect.height > 2;
+    };
+    const paintsScrollSign = (el) => {
+      if (!el) return false;
+      const pseudo = (which) => {
+        const ps = getComputedStyle(el, which);
+        if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
+        if (ps.visibility === 'hidden' || ps.display === 'none') return false;
+        return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
+      };
+      if (pseudo('::before') || pseudo('::after')) return true;
+      const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
+      const bar = frame?.querySelector(':scope > .commodity-book-bar');
+      if (!bar) return false;
+      const rect = bar.getBoundingClientRect();
+      return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+    };
+    const scrollbarShown = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (style.scrollbarWidth === 'none') return false;
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 1;
+      if (!scrollY && !scrollX) return false;
+      return paintsScrollSign(el);
+    };
+    const canReveal = (clipper, rect) => {
+      if (!clipper) return false;
+      const style = getComputedStyle(clipper);
+      const host = clipper.getBoundingClientRect();
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+      if ((!scrollY && !scrollX) || !scrollbarShown(clipper)) return false;
+      const topIn = rect.top - host.top + clipper.scrollTop;
+      const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+      return scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+    };
+    const edgeCuts = (node, rect) => {
+      const host = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      const top = host.top + (parseFloat(style.borderTopWidth) || 0);
+      const bottom = host.bottom - (parseFloat(style.borderBottomWidth) || 0);
+      const left = host.left + (parseFloat(style.borderLeftWidth) || 0);
+      const right = host.right - (parseFloat(style.borderRightWidth) || 0);
+      return rect.top < top - 1 || rect.bottom > bottom + 1 || rect.left < left - 1 || rect.right > right + 1;
+    };
+    const unreachable = (el) => {
+      if (!el) return true;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+      const boxes = rects.length ? rects : [el.getBoundingClientRect()];
+      return boxes.some((rect) => {
+        const cutters = [];
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          const style = getComputedStyle(node);
+          if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`) && edgeCuts(node, rect)) cutters.push(node);
+          node = node.parentElement;
+        }
+        return cutters.length > 0 && cutters.some((node) => !canReveal(node, rect));
+      });
+    };
+    const inside = (el, host) => {
+      if (!el || !host) return false;
+      const box = el.getBoundingClientRect();
+      const frame = host.getBoundingClientRect();
+      return box.height > 8 && box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1
+        && box.left >= frame.left - 1 && box.right <= frame.right + 1;
+    };
+    const lastLine = panel ? [...panel.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && String(el.textContent || '').trim()).at(-1) : null;
+    const grain = [...(panel?.querySelectorAll('.market-good') || [])].find((el) => /dock reach grain/i.test(el.textContent));
+    const grainText = grain ? [...grain.childNodes].some((node) => node.nodeType === 3 && /dock reach grain/i.test(node.textContent)) : false;
+    const clip = api?.measureNoClip?.() || {};
+    const stock = () => p8.snapshot().book.markets['mkt-dock-reach']?.stock;
+    const roundBox = (el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {
+        l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom),
+        w: Math.round(r.width), h: Math.round(r.height),
+      };
+    };
+    const liveRects = { menu: roundBox(menu), panel: roundBox(panel), book: roundBox(book), buy: roundBox(buy), heading: roundBox(heading) };
+    const bookInside = inside(book, menu);
+    const buyInside = inside(buy, menu);
+    const headingInside = inside(heading, menu);
+    const buyCut = unreachable(buy);
+    const headingCut = unreachable(heading);
+    const lastCut = unreachable(lastLine);
+    const stockBeforeBook = stock();
+    const buyInView = inside(buy, panel);
+    if (buyInView) buy.click();
+    probe?.paint?.();
+    const stockAfterBook = stock();
+    const livePanel = document.querySelector('#planet-menu .dock-panel');
+    const shopOffer = [...(livePanel?.querySelectorAll('.market-offer') || [])].find((el) => /dock reach grain/i.test(el.textContent));
+    const shopBuy = shopOffer?.querySelector('[data-market-buy]');
+    const host = livePanel?.getBoundingClientRect();
+    const shopBox = shopBuy?.getBoundingClientRect();
+    if (livePanel && shopBox && host && shopBox.top > host.bottom - 1) {
+      livePanel.scrollTop += shopBox.top - host.top - 8;
+    }
+    const shopInView = inside(shopBuy, livePanel);
+    const stockBeforeShop = stock();
+    if (shopInView) shopBuy.click();
+    probe?.paint?.();
+    const stockAfterShop = stock();
+    return {
+      seeded: seeded?.ok === true,
+      enrolled,
+      buyCut,
+      headingCut,
+      lastCut,
+      last: String(lastLine?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      bookInside,
+      buyInside,
+      headingInside,
+      grainText,
+      cutOff: clip.cutOffLines || [],
+      squashed: clip.squashedControls || [],
+      buyInView,
+      shopInView,
+      bookBought: stockBeforeBook != null && stockAfterBook === stockBeforeBook - 1,
+      shopBought: stockBeforeShop != null && stockAfterShop === stockBeforeShop - 1,
+      rects: liveRects,
+      stockBeforeBook,
+      stockAfterBook,
+      stockBeforeShop,
+      stockAfterShop,
+    };
+  });
+  check(results, 'S35.24 dock-book-reachable', dockReach.seeded === true
+    && dockReach.buyCut === false
+    && dockReach.headingCut === false
+    && dockReach.lastCut === false
+    && dockReach.bookInside === true
+    && dockReach.buyInside === true
+    && dockReach.headingInside === true
+    && dockReach.grainText === true
+    && dockReach.cutOff.length === 0
+    && dockReach.squashed.length === 0
+    && dockReach.buyInView === true
+    && dockReach.bookBought === true
+    && dockReach.shopInView === true
+    && dockReach.shopBought === true, JSON.stringify(dockReach));
+  const hookScope = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    api?.emptyHold?.();
+    p8.injectMarket({
+      marketId: 'mkt-hook-scope',
+      good: 'Hook Scope Grain',
+      stock: 4,
+      demand: 4,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const previous = api.setWorldName(' ');
+    const stockBefore = p8.snapshot().book.markets['mkt-hook-scope']?.stock;
+    const bought = api.buy('Hook Scope Grain', 1, { marketId: 'mkt-hook-scope' });
+    const sold = api.sellBack('missing-sale', { marketId: 'mkt-hook-scope' });
+    const stockAfter = p8.snapshot().book.markets['mkt-hook-scope']?.stock;
+    api.setWorldName(previous);
+    return {
+      buyOk: bought?.ok === true,
+      buyReason: bought?.reason || null,
+      sellReason: sold?.reason || null,
+      stockSame: stockBefore === stockAfter,
+    };
+  });
+  check(results, 'S35.24 hook-scope-refuses', hookScope.buyOk === false
+    && hookScope.buyReason === 'missing-scope'
+    && hookScope.sellReason === 'missing-scope'
+    && hookScope.stockSame === true, JSON.stringify(hookScope));
+  const dominionRule = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    api?.emptyHold?.();
+    p8.injectMarket({
+      marketId: 'mkt-dominion-rule',
+      good: 'Dominion Rule Grain',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const atDominica = api.buy('Dominion Rule Grain', 1, {
+      marketId: 'mkt-dominion-rule',
+      dominion: { scope: 'dominion-core', systemName: 'Dominica', region: 'dominion-core', role: 'traffic' },
+    });
+    const away = api.buy('Dominion Rule Grain', 1, {
+      marketId: 'mkt-dominion-rule',
+      dominion: { scope: 'dominion-core', systemName: 'Ferenginar', region: 'primary-space', role: 'traffic' },
+    });
+    const uncovered = api.buy('Dominion Rule Grain', 1, {
+      marketId: 'mkt-dominion-rule',
+      dominion: { scope: 'dominion-all', systemName: 'Ferenginar', region: 'primary-space', role: 'traffic' },
+    });
+    return {
+      homeOk: atDominica?.ok === true && atDominica.paid > 0,
+      homeReason: atDominica?.reason || null,
+      awayOk: away?.ok === true,
+      awayReason: away?.reason || null,
+      awayPaid: away?.paid || 0,
+      uncoveredReason: uncovered?.reason || null,
+    };
+  });
+  check(results, 'S35.19 dominion-core-refuses-elsewhere', dominionRule.homeOk === true
+    && dominionRule.awayOk === false
+    && dominionRule.awayReason === 'region-refused'
+    && dominionRule.awayPaid === 0
+    && dominionRule.uncoveredReason === 'region-refused', JSON.stringify(dominionRule));
+  const contrabandRestore = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const probe = globalThis.BM1Probe;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    if (typeof p8.loadGoodsPack === 'function') {
+      p8.loadGoodsPack({ goods: { 'Pack Spice': { contraband: true, stockCap: 8, demandCap: 8, floor: 0 } } });
+    }
+    p8.injectMarket({
+      marketId: 'mkt-code-spice', good: 'Contraband Spice', stock: 4, demand: 4, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open', contraband: true,
+    });
+    p8.injectMarket({
+      marketId: 'mkt-pack-spice', good: 'Pack Spice', stock: 4, demand: 4, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open', contraband: true,
+    });
+    p8.injectMarket({
+      marketId: 'mkt-save-only', good: 'Save Only Grain', stock: 4, demand: 4, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open',
+    });
+    probe.saveSlot(3);
+    const key = 'bm2_html_save_slot_3';
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    const goods = saved?.marketBook?.goods || {};
+    if (goods['Contraband Spice']) goods['Contraband Spice'].contraband = false;
+    if (goods['Pack Spice']) goods['Pack Spice'].contraband = false;
+    if (goods['Save Only Grain']) goods['Save Only Grain'].contraband = true;
+    localStorage.setItem(key, JSON.stringify(saved));
+    probe.loadSlot(3);
+    const book = p8.snapshot().book;
+    const codeGood = book.goods?.['Contraband Spice']?.contraband === true && book.markets?.['mkt-code-spice']?.contraband === true;
+    const packGood = book.goods?.['Pack Spice']?.contraband === true && book.markets?.['mkt-pack-spice']?.contraband === true;
+    const saveOnly = book.goods?.['Save Only Grain']?.contraband === true && book.markets?.['mkt-save-only']?.contraband === true;
+    api.emptyHold();
+    const restoredLots = api.restore({
+      version: 1,
+      nextSaleId: 2,
+      lots: {
+        'lot:code': { lotId: 'lot:code', good: 'Contraband Spice', source: 'book-bought', contraband: false, saleId: 1, seq: 1 },
+        'lot:save': { lotId: 'lot:save', good: 'Save Only Grain', source: 'book-bought', contraband: true, saleId: null, seq: 2 },
+      },
+      sales: {},
+    });
+    if (typeof p8.loadGoodsPack === 'function') p8.loadGoodsPack(null);
+    return {
+      codeGood,
+      packGood,
+      saveOnly,
+      lotCode: restoredLots?.lots?.['lot:code']?.contraband === true,
+      lotSave: restoredLots?.lots?.['lot:save']?.contraband === true,
+    };
+  });
+  check(results, 'S35.25 code-good-contraband-sticks', contrabandRestore.codeGood === true, JSON.stringify(contrabandRestore));
+  check(results, 'S35.25 pack-good-contraband-sticks', contrabandRestore.packGood === true, JSON.stringify(contrabandRestore));
+  check(results, 'S35.25 save-only-contraband-true', contrabandRestore.saveOnly === true, JSON.stringify(contrabandRestore));
+  check(results, 'S35.25 lot-contraband-sticks', contrabandRestore.lotCode === true && contrabandRestore.lotSave === true, JSON.stringify(contrabandRestore));
+  const heldLot = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    api.restore(undefined);
+    api.emptyHold();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const scope = { scope: 'general', systemName: 'Ferenginar', role: 'traffic' };
+    p8.injectMarket({
+      marketId: 'mkt-held-lot', good: 'Contraband Spice', stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open', contraband: true,
+    });
+    const bought = api.buy('Contraband Spice', 1, { marketId: 'mkt-held-lot', dominion: scope, contraband: true });
+    const contracts = [];
+    for (let n = 0; n < 8; n += 1) contracts.push({ id: `held-c-${n}`, goods: 'Grain', tons: 1, targetName: 'Friend' });
+    api.index?.();
+    const book = api.snapshot();
+    const beforeLots = Object.keys(book.lots || {});
+    const wc = globalThis.__BM1_PROBE__.worldCargo;
+    for (const contract of contracts) {
+      wc?.enroll?.({
+        id: contract.id, mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', targetIndex: here, legalPayout: 1,
+      });
+    }
+    api.index?.();
+    const after = api.snapshot();
+    const lot = after.lots?.[bought.lotId];
+    const sold = api.sellBack(bought.saleId, { marketId: 'mkt-held-lot', dominion: scope });
+    return {
+      bought: bought?.ok === true,
+      lotId: bought?.lotId || null,
+      beforeLots,
+      lotKept: Boolean(lot),
+      contraband: sold?.contraband === true,
+      reason: sold?.reason || null,
+      paid: sold?.paid || 0,
+    };
+  });
+  check(results, 'S35.25 held-lot-row-kept', heldLot.bought === true && heldLot.lotKept === true && heldLot.contraband === true, JSON.stringify(heldLot));
+  const shipmentCap = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const wc = globalThis.__BM1_PROBE__.worldCargo;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    api.restore(undefined);
+    for (let n = 0; n < 8; n += 1) {
+      wc?.enroll?.({ id: `cap-c-${n}`, mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', targetIndex: here, legalPayout: 1 });
+    }
+    api.index?.();
+    const full = api.snapshot();
+    wc?.enroll?.({ id: 'cap-c-extra', mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', targetIndex: here, legalPayout: 1 });
+    api.index?.();
+    const after = api.snapshot();
+    return {
+      fullCount: (full.shipmentIds || []).length,
+      extraIndexed: (after.shipmentIds || []).includes('cap-c-extra'),
+      count: (after.shipmentIds || []).length,
+      notice: after.lastNotice || '',
+      log: after.log || globalThis.BM1Probe?.snapshot?.().log || '',
+    };
+  });
+  check(results, 'S35.7 shipment-hard-cap', shipmentCap.fullCount === 8
+    && shipmentCap.extraIndexed === false
+    && shipmentCap.count === 8
+    && (/not indexed/i.test(shipmentCap.notice) || /not indexed/i.test(shipmentCap.log)), JSON.stringify(shipmentCap));
+  const cardHide = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    for (let n = 0; n < 14; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
+    const archive = document.getElementById('briefing-archive');
+    const natural = archive.getBoundingClientRect().height;
+    const spawned = probe?.spawnShip?.({ id: 's35-hide-card', name: 'SS Hide', faction: 'ferengi', attitude: 'neutral' });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-hide-card');
+    probe?.paint?.();
+    const squeezed = archive.getBoundingClientRect().height;
+    api.clearCombatTarget();
+    const card = document.getElementById('target-window');
+    const restored = archive.getBoundingClientRect().height;
+    return {
+      natural: Math.round(natural),
+      squeezed: Math.round(squeezed),
+      restored: Math.round(restored),
+      shrunk: squeezed < natural - 8,
+      sameFrame: Math.abs(restored - natural) < 3,
+      hidden: card.classList.contains('hidden'),
+      height: card.style.height,
+      overflowY: card.style.overflowY,
+      left: card.style.left,
+      width: card.style.width,
+    };
+  });
+  check(results, 'S35.25 hide-restores-archive', cardHide.shrunk === true && cardHide.sameFrame === true
+    && cardHide.hidden === true && cardHide.height === '' && cardHide.overflowY === ''
+    && cardHide.left === '' && cardHide.width === '', JSON.stringify(cardHide));
 }
 
 async function runHeaderStrip(page, results) {

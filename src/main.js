@@ -468,6 +468,7 @@ import {
   injectIndependentRestrictedMarket,
   injectMarket,
   injectWartimePorts,
+  loadGoodsPack,
   lastRefuseKind,
   listHoldings,
   listMarkets,
@@ -5887,12 +5888,15 @@ function ensureCommodityShipmentBook() {
 }
 
 function refreshCommodityShipment() {
+  const before = ensureCommodityShipmentBook().lastNotice || '';
   state.commodityShipmentBook = indexCommodityShipment(ensureCommodityShipmentBook(), {
     pods: state.cargoArray,
     openContracts: getOpenContracts(),
     worldCargoBook: ensureWorldCargoBook(),
     strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
   });
+  const notice = state.commodityShipmentBook?.lastNotice || '';
+  if (notice && notice !== before) setLog(notice);
   return state.commodityShipmentBook;
 }
 
@@ -6371,10 +6375,8 @@ function renderBoardingChrome(target, isStation) {
   const attempt = snapshotAttempt(ensureBoardingBook());
   const attemptOutcome = attempt?.outcome || '';
   const outcome = attemptOutcome ? `Outcome: ${attemptOutcome}` : '';
-  const lowHull = verdict.ok === true;
-  const applies = lowHull ? (attemptOutcome === 'scuttle' ? 'scuttle' : 'capture') : '';
-  const mark = (action) => (applies === action ? ' data-board-applies="1"' : '');
-  const outcomeHidden = (action) => (lowHull && applies !== action ? ' hidden' : '');
+  const mark = (action) => (attemptOutcome === action ? ' data-board-applies="1"' : '');
+  const outcomeHidden = (action) => (attemptOutcome && attemptOutcome !== action ? ' hidden' : '');
   return `<div class="target-boarding" data-boarding-chrome="1">
     <div class="target-boarding-row">
       <button type="button" data-board-action="board" ${disabled} title="${escapeHtml(verdict.sayable || '')}">${label}</button>
@@ -11248,9 +11250,26 @@ function clearTargetWindowPlacement(host) {
   host.style.left = '';
   host.style.top = '';
   host.style.width = '';
+  host.style.height = '';
   host.style.maxHeight = '';
   host.style.right = '';
   host.style.bottom = '';
+  host.style.overflow = '';
+  host.style.overflowY = '';
+}
+
+function dismissTargetWindow() {
+  if (!targetWindowEl) return;
+  targetWindowEl.classList.add('hidden');
+  targetWindowEl.innerHTML = '';
+  targetWindowEl.dataset.renderKey = '';
+  targetWindowEl.classList.remove('is-scrolling');
+  clearTargetWindowPlacement(targetWindowEl);
+  const archive = document.getElementById('briefing-archive');
+  if (archive) {
+    resetArchiveBox(archive);
+    syncArchiveScrollbar(archive);
+  }
 }
 
 function measureTargetChrome(host) {
@@ -11295,7 +11314,7 @@ function syncArchiveScrollbar(host) {
   const overflows = host.scrollHeight > host.clientHeight + 1;
   host.classList.toggle('is-scrolling', overflows);
   if (overflows) host.style.overflowY = 'auto';
-  else if (host.style.overflowY === 'auto' || host.style.overflowY === 'scroll') host.style.overflowY = '';
+  else host.style.overflowY = '';
   host.querySelectorAll(':scope > .briefing-archive-select, :scope > .briefing-archive-body').forEach((pane) => {
     const style = getComputedStyle(pane);
     const canScroll = /(auto|scroll)/.test(style.overflowY);
@@ -11641,7 +11660,7 @@ function fitOpenBookBriefing() {
   if (book) {
     book.style.flex = '1 1 0px';
     book.style.minHeight = '0px';
-    book.style.overflow = 'hidden';
+    book.style.overflow = 'visible';
     resetBookScroll(book.querySelector('.commodity-book-scroll'));
   }
   host.style.overflowY = 'hidden';
@@ -11672,6 +11691,7 @@ function fitOpenBookBriefing() {
     host.style.overflowY = 'auto';
   }
   syncArchiveScrollbar(host);
+  if (host.classList.contains('is-scrolling')) host.scrollTop = 0;
 }
 
 function measureCommodityNoClip() {
@@ -11968,15 +11988,6 @@ function measureCommodityNoClip() {
     if (el.children.length > 0) return false;
     return String(el.textContent || '').trim().length > 0;
   };
-  const nearestMeasureClipper = (el) => {
-    let node = el.parentElement;
-    while (node && node !== document.body && node !== document.documentElement) {
-      const style = getComputedStyle(node);
-      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
-      node = node.parentElement;
-    }
-    return null;
-  };
   const canRevealLine = (clipper, rect) => {
     if (!clipper || !rect) return false;
     const style = getComputedStyle(clipper);
@@ -11997,57 +12008,70 @@ function measureCommodityNoClip() {
     const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
     return yFits && xFits;
   };
-  const visibleClientBox = (el) => {
-    const rect = el.getBoundingClientRect();
-    let top = rect.top;
-    let bottom = rect.bottom;
-    let left = rect.left;
-    let right = rect.right;
+  const clientEdges = (node) => {
+    const host = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    return {
+      top: host.top + (parseFloat(style.borderTopWidth) || 0),
+      bottom: host.bottom - (parseFloat(style.borderBottomWidth) || 0),
+      left: host.left + (parseFloat(style.borderLeftWidth) || 0),
+      right: host.right - (parseFloat(style.borderRightWidth) || 0),
+    };
+  };
+  const edgeCuts = (node, rect) => {
+    const edge = clientEdges(node);
+    return rect.top < edge.top - 1 || rect.bottom > edge.bottom + 1
+      || rect.left < edge.left - 1 || rect.right > edge.right + 1;
+  };
+  const clippingAncestors = (el) => {
+    const list = [];
     let node = el.parentElement;
     while (node && node !== document.body && node !== document.documentElement) {
       const style = getComputedStyle(node);
-      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) {
-        const host = node.getBoundingClientRect();
-        top = Math.max(top, host.top);
-        bottom = Math.min(bottom, host.bottom);
-        left = Math.max(left, host.left);
-        right = Math.min(right, host.right);
-      }
+      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
       node = node.parentElement;
     }
-    return { top, bottom, left, right };
+    return list;
   };
+  const rectsOf = (target) => {
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+    if (rects.length) return rects;
+    if (target.nodeType === 1) return [target.getBoundingClientRect()];
+    return [];
+  };
+  const lineCut = (el, rects) => rects.some((rect) => {
+    const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
+    if (!cutters.length) return false;
+    return cutters.some((node) => !canRevealLine(node, rect));
+  });
   for (const panel of panels) {
-    const pieces = [...panel.querySelectorAll('*')].filter((el) => shown(el) && !ariaHidden(el) && (isControl(el) || isTextLine(el)));
-    for (const el of pieces) {
-      const style = getComputedStyle(el);
-      const inlineText = style.display === 'inline' || style.display === 'contents';
-      const scrollport = /(auto|scroll)/.test(style.overflowY)
-        && el.scrollHeight > el.clientHeight + 2
-        && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
-      if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) pushMeasure(squashedControls, el.textContent);
-      const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
-      const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
-      if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) pushMeasure(squashedControls, el.textContent);
-      const clipper = nearestMeasureClipper(el);
-      if (!clipper) continue;
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
-      const boxes = rects.length ? rects : [el.getBoundingClientRect()];
-      const cut = boxes.some((rect) => {
-        const vis = visibleClientBox(clipper);
-        const inside = rect.top >= vis.top - 1 && rect.bottom <= vis.bottom + 1
-          && rect.left >= vis.left - 1 && rect.right <= vis.right + 1;
-        if (inside) return false;
-        let node = clipper;
-        while (node && node !== document.body && node !== document.documentElement) {
-          if (canRevealLine(node, rect)) return false;
-          node = node.parentElement;
-        }
-        return true;
-      });
-      if (cut) pushMeasure(cutOffLines, el.textContent);
+    const pieces = [];
+    for (const el of panel.querySelectorAll('*')) {
+      if (!shown(el) || ariaHidden(el)) continue;
+      if (isControl(el) || isTextLine(el)) pieces.push({ el, text: el.textContent });
+      if (isControl(el) || el.closest('button, a, [role="button"]') || el.children.length === 0) continue;
+      for (const node of el.childNodes) {
+        if (node.nodeType !== 3) continue;
+        const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text) pieces.push({ el, text, textNode: node });
+      }
+    }
+    for (const piece of pieces) {
+      const el = piece.el;
+      if (!piece.textNode) {
+        const style = getComputedStyle(el);
+        const inlineText = style.display === 'inline' || style.display === 'contents';
+        const scrollport = /(auto|scroll)/.test(style.overflowY)
+          && el.scrollHeight > el.clientHeight + 2
+          && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+        if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) pushMeasure(squashedControls, piece.text);
+        const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
+        const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
+        if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) pushMeasure(squashedControls, piece.text);
+      }
+      if (lineCut(el, rectsOf(piece.textNode || el))) pushMeasure(cutOffLines, piece.text);
     }
   }
   const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
@@ -14695,6 +14719,8 @@ function renderPlanetMenu() {
   ${dockTabsMarkup}
   <div class="dock-panel" tabindex="0" data-dock-tab="${escapeHtml(state.dockMenuTab)}">${panels[state.dockMenuTab] || panels.services}</div>`;
   const activeDockPanel = planetMenuEl.querySelector('.dock-panel');
+  const dockBookScroll = activeDockPanel?.querySelector('.commodity-book-scroll');
+  if (dockBookScroll) dockBookScroll.style.maxHeight = '72px';
   if (activeDockPanel) {
     const dockOverflows = activeDockPanel.scrollHeight > activeDockPanel.clientHeight + 1;
     activeDockPanel.classList.toggle('is-scrolling', dockOverflows);
@@ -17224,6 +17250,7 @@ function handleTargetWindowAction(e, fromPointer = false) {
   if (board) {
     e.preventDefault();
     e.stopPropagation();
+    if (board.disabled || board.hasAttribute('disabled')) return true;
     const npc = getSelectedNpcTarget();
     const action = board.dataset.boardAction;
     if (action === 'board') issuePlayerBoardingOrder(npc);
@@ -19051,18 +19078,12 @@ function renderShipHailPanel(npc, distance) {
 function updateTargetWindow() {
   if (!targetWindowEl) return;
   if (!state.gameStarted || state.gameOver || state.warp.active || isWormholeTransitActive()) {
-    targetWindowEl.classList.add('hidden');
-    targetWindowEl.innerHTML = '';
-    targetWindowEl.dataset.renderKey = '';
-    clearTargetWindowPlacement(targetWindowEl);
+    dismissTargetWindow();
     return;
   }
   const target = getSelectedCombatTarget();
   if (!target || !playerDetectsTarget(target, state.combatTargetType)) {
-    targetWindowEl.classList.add('hidden');
-    targetWindowEl.innerHTML = '';
-    targetWindowEl.dataset.renderKey = '';
-    clearTargetWindowPlacement(targetWindowEl);
+    dismissTargetWindow();
     return;
   }
   ensureCombatTargetStats(target);
@@ -27055,6 +27076,7 @@ function createCommodityShipmentProbeApi() {
       renderCommodityShipment();
       return true;
     },
+    worldTradeScope: () => dominionTradeContextForMarket(),
     index: () => commodityShipmentSnapshot(refreshCommodityShipment(), {
       podDigest: JSON.stringify(state.cargoArray),
       cargoCap: state.cargoCap,
@@ -27098,7 +27120,7 @@ function createCommodityShipmentProbeApi() {
         credits: extras.credits ?? state.latinum,
         tons,
         strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
-        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: 'general' },
+        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: null },
         contraband: extras.contraband === true,
         config: COMMODITY_SHIPMENT_CONFIG,
       });
@@ -27117,7 +27139,7 @@ function createCommodityShipmentProbeApi() {
         market,
         marketBook: ensureMarketBook(),
         pods: state.cargoArray,
-        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: 'general' },
+        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: null },
         config: COMMODITY_SHIPMENT_CONFIG,
       });
       if (result.paid) state.latinum += result.paid;
@@ -28824,6 +28846,7 @@ function createPhase8ProbeApi() {
   };
   return {
     snapshot,
+    loadGoodsPack: (pack) => loadGoodsPack(pack),
     injectMarket: (opts = {}) => {
       const missing = failIfMissing(injectMarket, 'injectMarket');
       if (missing) return missing;

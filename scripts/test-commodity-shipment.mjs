@@ -19,6 +19,7 @@ import {
   evaluateDockService,
   goodSpec,
   injectMarket,
+  loadGoodsPack,
   restoreMarketBook,
   serializeMarketBook,
   jumpMustNotReprintInfinity,
@@ -398,12 +399,30 @@ for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap + 2; i += 1) {
 }
 const opens = restoreCommodityShipmentBook(serializeCommodityShipmentBook(openOnly));
 assert('S35.7 never-drop-open', Object.keys(opens.shipments).length === COMMODITY_SHIPMENT_CONFIG.rowCap + 2);
+const indexedOpen = emptyCommodityShipmentBook();
+const openContracts = [];
+for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap; i += 1) {
+  openContracts.push({ id: `live-${i}`, goods: 'Grain', tons: 1, targetName: 'Friend' });
+}
+indexCommodityShipment(indexedOpen, { pods: emptyPods(), openContracts, worldCargoBook: emptyWorldCargoBook() });
+openContracts.push({ id: 'live-extra', goods: 'Grain', tons: 1, targetName: 'Friend' });
+const refusedIndex = indexCommodityShipment(indexedOpen, { pods: emptyPods(), openContracts, worldCargoBook: emptyWorldCargoBook() });
+assert('S35.7 shipment-hard-cap', Object.keys(indexedOpen.shipments).length === COMMODITY_SHIPMENT_CONFIG.rowCap
+  && !indexedOpen.shipments['live-extra']
+  && /not indexed/i.test(refusedIndex.lastNotice || ''));
+const manySales = { version: 1, nextSaleId: 60, sales: {} };
+for (let i = 1; i <= 50; i += 1) {
+  manySales.sales[String(i)] = { saleId: i, lotId: `lot:${i}`, good: 'Grain', tons: 1, soldByBook: true, seq: i };
+}
+const trimmedSales = restoreCommodityShipmentBook(manySales);
+assert('S35.7 sales-capped-without-pods', Object.keys(trimmedSales.sales).length === COMMODITY_SHIPMENT_CONFIG.rowCap
+  && trimmedSales.nextSaleId === 60);
 
 const legacyIssued = { version: 1, nextSaleId: 6, sales: {}, consumedSaleIds: { 4: true } };
 const kept = restoreCommodityShipmentBook(legacyIssued);
 const rewound = restoreCommodityShipmentBook({ ...legacyIssued, nextSaleId: 1 });
 assert('S35.7 nextSaleId-round-trip', kept.nextSaleId === 6 && serializeCommodityShipmentBook(kept).consumedSaleIds == null);
-assert('S35.7 nextSaleId-never-lowers', rewound.nextSaleId === 5 && !rewound.sales['4']);
+assert('S35.7 consumed-ids-ignored', rewound.nextSaleId === 1 && !rewound.sales['4']);
 
 const contacts = [{ id: 'c' }];
 const incidents = ['inc-1'];
@@ -1166,6 +1185,52 @@ function buyOpen(good) {
   const back = again.markets[minted.market.marketId];
   assert('S35.21 pre79-region-absent', back && !Object.prototype.hasOwnProperty.call(back, 'availabilityRegion'));
   assert('S35.21 tampered-contraband-ignored', back.contraband === false);
+  const codeMinted = freshMarket({ good: 'Contraband Spice', contraband: true, price: 10, stock: 4, demand: 4 });
+  const codeSaved = serializeMarketBook(codeMinted.book);
+  codeSaved.goods['Contraband Spice'].contraband = false;
+  const codeBack = restoreMarketBook(codeSaved);
+  assert('S35.25 code-good-sticks', codeBack.goods['Contraband Spice'].contraband === true
+    && codeBack.markets[codeMinted.market.marketId].contraband === true);
+  loadGoodsPack({ goods: { 'Pack Spice': { contraband: true, stockCap: 8, demandCap: 8, floor: 0 } } });
+  const packMinted = freshMarket({ good: 'Pack Spice', marketId: 'mkt-pack', contraband: true, price: 10, stock: 4, demand: 4 });
+  const packSaved = serializeMarketBook(packMinted.book);
+  packSaved.goods['Pack Spice'].contraband = false;
+  const packBack = restoreMarketBook(packSaved);
+  assert('S35.25 pack-good-sticks', packBack.goods['Pack Spice'].contraband === true
+    && packBack.markets['mkt-pack'].contraband === true);
+  loadGoodsPack(null);
+  const onlySaved = freshMarket({ good: 'Save Only Grain', marketId: 'mkt-only', price: 10, stock: 4, demand: 4 });
+  const onlyCopy = serializeMarketBook(onlySaved.book);
+  onlyCopy.goods['Save Only Grain'].contraband = true;
+  const onlyBack = restoreMarketBook(onlyCopy);
+  assert('S35.25 save-only-true', onlyBack.goods['Save Only Grain'].contraband === true
+    && onlyBack.markets['mkt-only'].contraband === true);
+  const lotPods = emptyPods();
+  lotPods[0] = { tons: 1, item: 'Contraband Spice', destination: undefined, payout: 0, bookLotId: 'lot:1', bookSaleId: 1 };
+  const lotBook = restoreCommodityShipmentBook({
+    version: 1,
+    nextSaleId: 2,
+    lots: { 'lot:1': { lotId: 'lot:1', good: 'Contraband Spice', source: 'book-bought', contraband: false, saleId: 1, seq: 1 } },
+    sales: { 1: { saleId: 1, lotId: 'lot:1', good: 'Contraband Spice', tons: 1, soldByBook: true, seq: 2 } },
+  }, { pods: lotPods });
+  assert('S35.25 lot-false-sticks', lotBook.lots['lot:1'].contraband === true);
+  const heldPods = emptyPods();
+  const heldMarket = freshMarket({ good: 'Contraband Spice', marketId: 'mkt-held', contraband: true, price: 10, stock: 6, demand: 6 });
+  const heldBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: heldMarket.market, marketBook: heldMarket.book, pods: heldPods, cargoCap: 20, credits: 500, tons: 1,
+  });
+  const heldContracts = [];
+  for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap; i += 1) {
+    heldContracts.push({ id: `held-${i}`, goods: 'Grain', tons: 1, targetName: 'Friend' });
+  }
+  indexCommodityShipment(heldBuy.book, { pods: heldPods, openContracts: heldContracts, worldCargoBook: emptyWorldCargoBook() });
+  const heldSold = sellBackBookLot(heldBuy.book, {
+    saleId: heldBuy.saleId, market: heldMarket.market, marketBook: heldMarket.book, pods: heldPods,
+  });
+  assert('S35.25 held-lot-kept', heldBuy.ok === true
+    && heldBuy.book.lots[heldBuy.lotId]?.contraband === true
+    && heldSold.contraband === true
+    && heldSold.ok === true);
   const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
     market: restored.markets[minted.market.marketId],
     marketBook: restored,
@@ -1239,10 +1304,17 @@ assert('S35.18 missing-scope', (() => {
     consumedSaleIds: { 4: true },
     sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 } },
   }, { pods });
-  const sold = sellBackBookLot(revived, { saleId: 4, market: freshMarket().market, pods });
   const packed = serializeCommodityShipmentBook(revived);
-  assert('S35.18 restore-no-resurrect', !revived.sales['4'] && sold.paid === 0 && revived.nextSaleId === 6
+  assert('S35.18 consumed-map-ignored', Boolean(revived.sales['4']) && revived.nextSaleId === 6
     && revived.consumedSaleIds == null && packed.consumedSaleIds == null);
+  const absent = restoreCommodityShipmentBook({
+    version: 1,
+    nextSaleId: 6,
+    consumedSaleIds: { 4: true },
+    sales: {},
+  }, { pods });
+  const absentPay = sellBackBookLot(absent, { saleId: 4, market: freshMarket().market, pods });
+  assert('S35.18 restore-no-resurrect', !absent.sales['4'] && absentPay.paid === 0 && absent.nextSaleId === 6);
 }
 
 {

@@ -88,6 +88,44 @@ export const PER_TON_SETTLE_DEFAULTS = Object.freeze({
   priceCap: 36,
 });
 
+/** Contraband marks fixed in this file. A save cannot clear a true. */
+export const CODE_GOOD_CONTRABAND = Object.freeze({
+  'Contraband Spice': true,
+});
+
+let goodsPack = null;
+
+export function loadGoodsPack(pack) {
+  if (!pack || typeof pack !== 'object' || !pack.goods || typeof pack.goods !== 'object') {
+    goodsPack = null;
+    return false;
+  }
+  goodsPack = pack;
+  return true;
+}
+
+export function definedGoodContraband(name) {
+  const key = String(name || '').trim();
+  let defined = false;
+  let marked = false;
+  if (Object.prototype.hasOwnProperty.call(CODE_GOOD_CONTRABAND, key)) {
+    defined = true;
+    if (CODE_GOOD_CONTRABAND[key] === true) marked = true;
+  }
+  const packGoods = goodsPack?.goods;
+  if (packGoods && Object.prototype.hasOwnProperty.call(packGoods, key)) {
+    defined = true;
+    if (packGoods[key]?.contraband === true) marked = true;
+  }
+  return { defined, marked };
+}
+
+/** Code or pack true sticks. A saved true may tighten a good. A saved false never clears a mark. */
+export function restoreGoodContraband(name, saved) {
+  if (definedGoodContraband(name).marked) return true;
+  return saved === true;
+}
+
 const KIND_SET = new Set(RESTRICTION_KINDS);
 const DOCK_SET = new Set(DOCK_KINDS);
 const LANE_SET = new Set(OBLIGATION_LANES);
@@ -242,13 +280,29 @@ function sanitizeHolding(raw) {
   };
 }
 
+function restoreGoods(rawGoods) {
+  const source = rawGoods && typeof rawGoods === 'object' ? rawGoods : {};
+  const goods = {};
+  for (const [key, row] of Object.entries(source)) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      goods[key] = row;
+      continue;
+    }
+    goods[key] = {
+      ...row,
+      contraband: restoreGoodContraband(key, row.contraband === true),
+    };
+  }
+  return goods;
+}
+
 export function restoreMarketBook(saved, injected = null) {
   const magnitudes = magnitudesOf(injected);
   const raw = saved && typeof saved === 'object' ? saved : {};
   const book = createMarketBook({
     nextMarketId: raw.nextMarketId,
     nextHoldingId: raw.nextHoldingId,
-    goods: raw.goods,
+    goods: restoreGoods(raw.goods),
     writeTokens: raw.writeTokens,
     tripTokens: raw.tripTokens,
     licenses: raw.licenses,

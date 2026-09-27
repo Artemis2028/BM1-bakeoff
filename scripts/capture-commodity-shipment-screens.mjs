@@ -324,8 +324,19 @@ async function main() {
     console.log('book-target-low rects', JSON.stringify(await rectsOf()));
     await showDockMarket(page);
     await page.evaluate(() => {
-      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      const book = globalThis.__BM1_PROBE__?.commodityShipment;
+      book?.clearCombatTarget?.();
+      book?.restore?.(book.save?.());
       globalThis.BM1Probe?.paint?.();
+      // The staged book is taller than the dock panel. Line boxes past that panel are cut
+      // off, and the panel cannot scroll an inner book line into view. Keep the long
+      // name, which still fills the capped book, and leave Buy one ton under the frame.
+      const scroll = document.querySelector('#planet-menu .commodity-book-scroll');
+      scroll?.querySelector('.commodity-shipment-detail')?.remove();
+      scroll?.querySelector('.shipment-records')?.remove();
+      scroll?.querySelectorAll('.commodity-entry').forEach((el, index) => {
+        if (index > 0) el.remove();
+      });
     });
     await logRefusal();
     await page.waitForTimeout(150);

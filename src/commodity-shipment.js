@@ -20,6 +20,7 @@ import {
   goodSpec,
   postMovePrice,
   premiumCharge,
+  restoreGoodContraband,
   settleMarketTons,
 } from './phase8-markets.js';
 
@@ -143,14 +144,30 @@ function saleLotHeld(sale, pods) {
   return Array.isArray(pods) && pods.some((pod) => podTaggedForSale(pod, sale));
 }
 
+function lotIsAboard(lot, pods) {
+  if (!lot || !Array.isArray(pods)) return false;
+  if (lot.source === 'book-bought' || lot.saleId != null) {
+    return pods.some((pod) => String(pod.bookLotId ?? '') === String(lot.lotId) && asInt(pod.tons, 0) > 0);
+  }
+  if (lot.source === 'contract') {
+    const id = String(lot.lotId || '').replace(/^contract:/, '');
+    return pods.some((pod) => String(pod.contractId ?? '') === id && asInt(pod.tons, 0) > 0);
+  }
+  return pods.some((pod, index) => (
+    (`pod:${index}` === String(lot.lotId) || String(pod.bookLotId ?? '') === String(lot.lotId))
+    && pod?.item === lot.good
+    && asInt(pod.tons, 0) > 0
+    && !pod.bookSaleId
+  ));
+}
+
 function enforceCaps(book, config, pods) {
   const cap = Math.max(1, asInt(configOf(config).rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
   trimOldest(book.commodities, cap);
   trimShipments(book.shipments, cap);
-  trimOldest(book.lots, cap);
-  if (Array.isArray(pods)) {
-    trimOldest(book.sales, cap, (row) => saleLotHeld(row, pods));
-  }
+  const keepLot = Array.isArray(pods) ? (row) => lotIsAboard(row, pods) : null;
+  trimOldest(book.lots, cap, keepLot);
+  trimOldest(book.sales, cap, Array.isArray(pods) ? (row) => saleLotHeld(row, pods) : null);
   book.rowCap = cap;
 }
 
@@ -206,10 +223,6 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
   const cap = Math.max(1, asInt(context.rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
   book.selectedId = saved.selectedId == null ? null : String(saved.selectedId);
   let maxIssued = 0;
-  const legacyConsumed = asObject(saved.consumedSaleIds) || {};
-  for (const id of Object.keys(legacyConsumed)) {
-    if (legacyConsumed[id]) maxIssued = Math.max(maxIssued, asInt(id, 0));
-  }
   delete book.consumedSaleIds;
   let maxSeq = 0;
   for (const [key, row] of Object.entries(asObject(saved.commodities) || {})) {
@@ -265,7 +278,7 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
       lotId,
       good: String(source.good || ''),
       source: sourceTag,
-      contraband: source.contraband === true,
+      contraband: restoreGoodContraband(source.good, source.contraband === true),
       saleId: source.saleId == null ? null : asInt(source.saleId, null),
       seq,
     };
@@ -277,7 +290,6 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
     const saleId = asInt(source.saleId ?? key, 0);
     if (!saleId) continue;
     maxIssued = Math.max(maxIssued, saleId);
-    if (legacyConsumed[String(saleId)]) continue;
     const sale = {
       saleId,
       lotId: String(source.lotId || ''),
@@ -385,6 +397,16 @@ export function indexCommodityShipment(book, input = {}) {
       upsertCommodity(store, good, pods.some((pod) => pod?.item === good && asInt(pod.tons, 0) > 0) ? 'pod' : 'contract', jumps, input);
     }
     const previous = store.shipments[id];
+    const shipmentCap = Math.max(1, asInt(configOf(input.config).rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
+    const shipmentRows = Object.values(store.shipments);
+    const everyRowOpen = shipmentRows.length >= shipmentCap && shipmentRows.every((row) => (
+      row.worldCargoStatus !== 'delivered' && row.worldCargoStatus !== 'expired'
+    ));
+    if (!previous && everyRowOpen) {
+      const line = 'Shipment book is full. Every row is still open. This shipment was not indexed.';
+      if (store.lastNotice !== line) pushNotice(store, line);
+      continue;
+    }
     liveShipmentIds.add(id);
     store.shipments[id] = {
       id,
@@ -547,6 +569,14 @@ export function buyCommodityLot(book, input = {}) {
       store,
       'sale-cap',
       'Sale book is full. Every open row is still in the hold. Purchase refused. The market did not move.',
+    );
+  }
+  const heldLots = Object.values(store.lots || {}).filter((lot) => lotIsAboard(lot, pods));
+  if (heldLots.length >= rowCap) {
+    return refuseTrade(
+      store,
+      'lot-cap',
+      'Lot book is full. Every open row is still in the hold. Purchase refused. The market did not move.',
     );
   }
   const cargoCap = asInt(input.cargoCap, 20);
