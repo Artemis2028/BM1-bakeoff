@@ -6,36 +6,50 @@
   "clippedControls": [],
   "occluders": [],
   "pillOverlaps": [],
+  "squashedControls": [],
+  "cutOffLines": [],
   "states": {
     "briefing": {
       "clippedControls": [],
       "occluders": [],
-      "pillOverlaps": []
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": []
     },
     "campaign": {
       "clippedControls": [],
       "occluders": [],
-      "pillOverlaps": []
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": []
     },
     "worldCargo": {
       "clippedControls": [],
       "occluders": [],
-      "pillOverlaps": []
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": []
     },
     "target": {
       "clippedControls": [],
       "occluders": [],
-      "pillOverlaps": []
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": []
     },
     "bookTarget": {
       "clippedControls": [],
       "occluders": [],
-      "pillOverlaps": []
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": []
     },
     "dock": {
       "clippedControls": [],
       "occluders": [],
-      "pillOverlaps": []
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": []
     }
   }
 }

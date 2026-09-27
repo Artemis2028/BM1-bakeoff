@@ -185,6 +185,8 @@ async function main() {
       clippedControls: row.clippedControls,
       occluders: row.occluders,
       pillOverlaps: row.pillOverlaps,
+      squashedControls: row.squashedControls,
+      cutOffLines: row.cutOffLines,
     });
     const logRefusal = () => page.evaluate(() => {
       const api = globalThis.__BM1_PROBE__?.commodityShipment;
@@ -299,6 +301,10 @@ async function main() {
     const target = await readNoClip();
     console.log('target rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
+      const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
+      for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
+      const filed = briefing?.produce?.({ strategicJumps: 2 });
+      if (filed?.id) briefing?.select?.(filed.id);
       document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
       globalThis.BM1Probe?.paint?.();
     });
@@ -319,7 +325,8 @@ async function main() {
     console.log('dock rects', JSON.stringify(await rectsOf()));
     const restoredReason = await replayCloakRefusal();
     console.log('restored drop', restoredReason);
-    const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0 && row.nameCut !== true;
+    const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0
+      && row.squashedControls.length === 0 && row.cutOffLines.length === 0 && row.nameCut !== true;
     const states = {
       briefing: listsOf(briefing),
       campaign: listsOf(campaign),
@@ -333,6 +340,8 @@ async function main() {
       clippedControls: [],
       occluders: [],
       pillOverlaps: [],
+      squashedControls: [],
+      cutOffLines: [],
       states,
     };
     const failed = [briefing, campaign, worldCargo, target, bookTarget, dock].filter((row) => !empty(row));
@@ -340,6 +349,8 @@ async function main() {
       report.clippedControls = failed.flatMap((row) => row.clippedControls);
       report.occluders = failed.flatMap((row) => row.occluders);
       report.pillOverlaps = failed.flatMap((row) => row.pillOverlaps);
+      report.squashedControls = failed.flatMap((row) => row.squashedControls);
+      report.cutOffLines = failed.flatMap((row) => row.cutOffLines);
     }
     fs.writeFileSync(path.join(outDir, 'noclip.json'), `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify({

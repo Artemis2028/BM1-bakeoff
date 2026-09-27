@@ -19,6 +19,8 @@ import {
   evaluateDockService,
   goodSpec,
   injectMarket,
+  restoreMarketBook,
+  serializeMarketBook,
   jumpMustNotReprintInfinity,
   settleMarketTons,
 } from '../src/phase8-markets.js';
@@ -1146,7 +1148,34 @@ function buyOpen(good) {
   const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
     market: contra.market, marketBook: contra.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
   });
-  assert('S35.17 contraband-from-market', bought.ok === true && bought.book.lots[bought.lotId].contraband === true);
+  assert('S35.17 contraband-from-market', bought.ok === true && bought.book.lots[bought.lotId].contraband === true
+    && contra.book.goods['Contraband Spice'].contraband === true
+    && contra.market.contraband === true
+    && !Object.prototype.hasOwnProperty.call(serializeMarketBook(contra.book).markets[contra.market.marketId], 'availabilityRegion'));
+}
+
+{
+  const minted = freshMarket({ good: 'Pre79 Grain', price: 10, stock: 6, demand: 6 });
+  const saved = serializeMarketBook(minted.book);
+  for (const row of Object.values(saved.markets)) delete row.availabilityRegion;
+  const tampered = saved.markets[minted.market.marketId];
+  tampered.contraband = true;
+  saved.goods[tampered.good].contraband = false;
+  const restored = restoreMarketBook(saved);
+  const again = serializeMarketBook(restored);
+  const back = again.markets[minted.market.marketId];
+  assert('S35.21 pre79-region-absent', back && !Object.prototype.hasOwnProperty.call(back, 'availabilityRegion'));
+  assert('S35.21 tampered-contraband-ignored', back.contraband === false);
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: restored.markets[minted.market.marketId],
+    marketBook: restored,
+    pods: emptyPods(),
+    cargoCap: 20,
+    credits: 500,
+    tons: 1,
+    dominion: { scope: 'general', systemName: 'Ferenginar', role: 'traffic' },
+  });
+  assert('S35.21 pre79-buy', bought.ok === true && bought.paid > 0, JSON.stringify(bought));
 }
 
 assert('S35.18 missing-scope', (() => {

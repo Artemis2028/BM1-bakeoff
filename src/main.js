@@ -11122,15 +11122,13 @@ function resolveWorldTradeScope(planet) {
   return null;
 }
 
-function dominionTradeContextForMarket(market) {
+function dominionTradeContextForMarket() {
   const planet = state.planets?.[state.currentPlanet] || null;
   const spawn = currentCatalogSpawnContext('traffic');
   const worldScope = resolveWorldTradeScope(planet);
-  const declared = String(market?.availabilityRegion || '').trim().toLowerCase();
-  const scope = worldScope == null ? null : (declared || worldScope);
   return {
-    availabilityRegion: scope,
-    scope,
+    availabilityRegion: worldScope,
+    scope: worldScope,
     worldRegionMissing: worldScope == null,
     systemName: spawn.systemName,
     region: spawn.region,
@@ -11252,6 +11250,11 @@ function clearTargetWindowPlacement(host) {
 function placeTargetWindow(host) {
   if (!host || host.classList.contains('hidden')) {
     clearTargetWindowPlacement(host);
+    return;
+  }
+  const archiveOpen = document.getElementById('briefing-archive')?.classList.contains('is-book-open');
+  if (archiveOpen && host.style.left && host.style.top) {
+    fitOpenBookBriefing();
     return;
   }
   const gap = 12;
@@ -11468,59 +11471,180 @@ function renderCommodityShipment() {
   if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
 }
 
+function resetArchiveBox(host) {
+  if (!host) return;
+  host.style.height = '';
+  host.style.maxHeight = '';
+  host.style.top = '';
+  host.style.left = '';
+  host.style.right = '';
+  host.style.width = '';
+  host.style.bottom = '';
+  host.style.overflowY = '';
+}
+
+function moveArchiveToFallback(host, targetRect, floor) {
+  const gap = 12;
+  const obstacles = [targetRect];
+  for (const id of ['phase10-readout', 'world-cargo', 'bottom-dock', 'minimap-panel', 'planet-menu', 'top-left-panel']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const style = getComputedStyle(el);
+    if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) continue;
+    obstacles.push(rect);
+  }
+  const hits = (rect) => obstacles.some((ob) => (
+    rect.left < ob.right - 0.5 && rect.right > ob.left + 0.5
+    && rect.top < ob.bottom - 0.5 && rect.bottom > ob.top + 0.5
+  ));
+  const candidates = [
+    { left: 18, top: 78, width: 380, height: Math.min(320, floor - 78) },
+    { left: 18, top: 490, width: 400, height: floor - 490 },
+    { left: 430, top: 78, width: 360, height: Math.min(280, floor - 78) },
+  ];
+  for (const candidate of candidates) {
+    if (candidate.height < 120) continue;
+    const rect = {
+      left: candidate.left,
+      top: candidate.top,
+      right: candidate.left + candidate.width,
+      bottom: candidate.top + candidate.height,
+    };
+    if (rect.bottom > floor + 1 || hits(rect)) continue;
+    host.style.top = `${candidate.top}px`;
+    host.style.left = `${candidate.left}px`;
+    host.style.right = 'auto';
+    host.style.width = `${candidate.width}px`;
+    host.style.height = `${candidate.height}px`;
+    host.style.maxHeight = `${candidate.height}px`;
+    return true;
+  }
+  return false;
+}
+
+function yieldArchiveBox(host) {
+  const savedScroll = host.scrollTop;
+  resetArchiveBox(host);
+  const dockClear = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bm1-dock-clear')) || 88;
+  const gap = 12;
+  const floor = window.innerHeight - dockClear - gap;
+  const natural = host.getBoundingClientRect();
+  let bottomLimit = floor;
+  const target = document.getElementById('target-window');
+  const targetStyle = target ? getComputedStyle(target) : null;
+  const targetLive = Boolean(
+    target
+    && !target.classList.contains('hidden')
+    && targetStyle
+    && targetStyle.display !== 'none'
+    && targetStyle.visibility !== 'hidden'
+    && target.getBoundingClientRect().width > 40
+  );
+  if (targetLive) {
+    const tr = target.getBoundingClientRect();
+    const xOverlap = natural.left < tr.right - 0.5 && natural.right > tr.left + 0.5;
+    if (xOverlap && tr.top >= natural.top + 88) {
+      bottomLimit = Math.min(bottomLimit, tr.top - gap);
+    } else if (xOverlap && tr.bottom > natural.top + 8 && tr.top < natural.top + 88) {
+      if (moveArchiveToFallback(host, tr, floor)) {
+        host.scrollTop = savedScroll;
+        return;
+      }
+    }
+  }
+  const height = Math.max(88, Math.floor(bottomLimit - natural.top));
+  host.style.height = `${height}px`;
+  host.style.maxHeight = `${height}px`;
+  host.scrollTop = savedScroll;
+}
+
 function fitOpenBookBriefing() {
   const host = document.getElementById('briefing-archive');
   const select = host?.querySelector('.briefing-archive-select');
   const body = host?.querySelector('.briefing-archive-body');
-  if (!host?.classList.contains('is-book-open')) {
+  const clearBriefing = () => {
     if (select) {
       select.style.maxHeight = '';
       select.style.overflowY = '';
+      select.style.flexShrink = '';
     }
     if (body) {
       body.style.maxHeight = '';
       body.style.overflowY = '';
       body.style.scrollSnapType = '';
       body.classList.remove('is-scrolled');
+      body.style.flexShrink = '';
+    }
+  };
+  if (!host?.classList.contains('is-book-open')) {
+    clearBriefing();
+    resetArchiveBox(host);
+    const book = host?.querySelector(':scope > .commodity-book-section');
+    if (book) {
+      book.style.flex = '';
+      book.style.minHeight = '';
+      book.style.overflow = '';
     }
     return;
   }
-  if (!select || !body) return;
-  select.style.maxHeight = '';
-  select.style.overflowY = '';
-  body.style.maxHeight = '';
-  body.style.overflowY = '';
-  const hostStyle = getComputedStyle(host);
-  const innerBottom = host.getBoundingClientRect().bottom - (parseFloat(hostStyle.paddingBottom) || 0);
-  const gap = parseFloat(hostStyle.rowGap || hostStyle.gap) || 0;
-  const bookReserve = 168;
-  const selectTop = select.getBoundingClientRect().top;
-  const selectBudget = Math.max(72, innerBottom - selectTop - bookReserve - gap * 2 - 18 * 2);
-  if (select.scrollHeight > selectBudget + 1) {
-    const edge = select.getBoundingClientRect().top;
-    let fitted = 0;
-    for (const el of select.querySelectorAll('button, b')) {
-      const bottom = el.getBoundingClientRect().bottom - edge;
-      if (bottom <= selectBudget) fitted = bottom;
-    }
-    if (fitted < 28) {
-      const first = select.querySelector('button');
-      fitted = first ? Math.ceil(first.getBoundingClientRect().bottom - edge) : 36;
-    }
-    select.style.maxHeight = `${Math.ceil(fitted)}px`;
-    select.style.overflowY = 'scroll';
+  clearBriefing();
+  if (select) select.style.flexShrink = '0';
+  if (body) body.style.flexShrink = '0';
+  yieldArchiveBox(host);
+  const book = host.querySelector(':scope > .commodity-book-section');
+  const releaseBookScroll = (scroll) => {
+    if (!scroll) return;
+    scroll.style.flex = '0 0 auto';
+    scroll.style.overflow = 'visible';
+    scroll.style.height = 'auto';
+    scroll.style.maxHeight = 'none';
+    scroll.style.minHeight = '0px';
+    scroll.style.width = '100%';
+    scroll.style.maxWidth = '100%';
+    scroll.style.minWidth = '0px';
+  };
+  const resetBookScroll = (scroll) => {
+    if (!scroll) return;
+    scroll.style.flex = '';
+    scroll.style.overflow = '';
+    scroll.style.height = '';
+    scroll.style.maxHeight = '';
+    scroll.style.minHeight = '';
+  };
+  if (book) {
+    book.style.flex = '1 1 0px';
+    book.style.minHeight = '0px';
+    book.style.overflow = 'hidden';
+    resetBookScroll(book.querySelector('.commodity-book-scroll'));
   }
-  const bodyTop = body.getBoundingClientRect().top;
-  const bodyBudget = innerBottom - bodyTop - bookReserve - gap;
-  const line = 18;
-  if (bodyBudget > line * 2 && body.scrollHeight > bodyBudget + 1) {
-    body.classList.add('is-scrolled');
-    body.style.overflowY = 'scroll';
-    body.style.scrollSnapType = 'y mandatory';
-    const snapped = Math.max(line * 2, Math.floor(bodyBudget / line) * line);
-    body.style.maxHeight = `${snapped}px`;
-  } else {
-    body.classList.remove('is-scrolled');
+  host.style.overflowY = 'hidden';
+  const hostRect = host.getBoundingClientRect();
+  const briefingBottom = Math.max(
+    select?.getBoundingClientRect().bottom || hostRect.top,
+    body?.getBoundingClientRect().bottom || hostRect.top,
+  );
+  const scroll = book?.querySelector('.commodity-book-scroll');
+  const buy = host.querySelector('[data-commodity-buy]');
+  const buyBox = buy?.getBoundingClientRect();
+  const briefingCut = briefingBottom > hostRect.bottom + 1;
+  const buyCut = Boolean(buyBox && (
+    buyBox.height < 20
+    || buyBox.bottom > hostRect.bottom + 1
+    || buyBox.top < hostRect.top - 1
+  ));
+  const scrollCrushed = Boolean(scroll && scroll.clientHeight < 18 && scroll.scrollHeight > scroll.clientHeight + 4);
+  if (briefingCut || buyCut || scrollCrushed) {
+    if (book) {
+      book.style.flex = '0 0 auto';
+      book.style.minHeight = '0px';
+      book.style.minWidth = '0px';
+      book.style.maxWidth = '100%';
+      book.style.overflow = 'visible';
+    }
+    releaseBookScroll(scroll);
+    host.style.overflowY = 'auto';
   }
 }
 
@@ -11693,16 +11817,47 @@ function measureCommodityNoClip() {
     };
     const briefingLines = [...archive.querySelectorAll('.briefing-line, .briefing-jump, .briefing-empty, .briefing-omitted')].filter(shown);
     for (const pill of pills) {
-      const pillBox = boxOfEl(pill);
+      const pillBox = clippedBox(pill);
+      if (pillBox.height < 4 || pillBox.width < 4) continue;
       const pillText = String(pill.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40);
       for (const line of briefingLines) {
-        if (!overlapBoxes(pillBox, boxOfEl(line))) continue;
+        const lineBox = clippedBox(line);
+        if (lineBox.height < 4 || lineBox.width < 4) continue;
+        if (!overlapBoxes(pillBox, lineBox)) continue;
         const label = `${pillText} ~ ${String(line.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40)}`;
         if (!pillOverlaps.includes(label)) pillOverlaps.push(label);
       }
     }
     const bookSlot = archive.querySelector(':scope > .commodity-book-section');
     const bookBox = bookSlot && shown(bookSlot) ? boxOfEl(bookSlot) : null;
+    const nearestClipper = (el) => {
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+    const canBringIntoView = (clipper, rect) => {
+      if (!clipper || !rect) return false;
+      const style = getComputedStyle(clipper);
+      const host = clipper.getBoundingClientRect();
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+      if (!scrollY && !scrollX) return false;
+      const topIn = rect.top - host.top + clipper.scrollTop;
+      const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+      const leftIn = rect.left - host.left + clipper.scrollLeft;
+      const rightIn = rect.right - host.left + clipper.scrollLeft;
+      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+      if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
+      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+      if (rightIn - leftIn > clipper.clientWidth + 1) return false;
+      const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+      const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
+      return yFits && xFits;
+    };
     const watched = [
       ...pills,
       ...briefingLines,
@@ -11711,7 +11866,16 @@ function measureCommodityNoClip() {
     for (const el of watched) {
       if (inScrollingBook(el)) continue;
       const { full, visible } = visibleHeight(el);
-      if (full >= 8 && visible > 1 && visible < full - 1) pushClip(el.textContent);
+      const rect = el.getBoundingClientRect();
+      const revealable = (() => {
+        let node = el.parentElement;
+        while (node && node !== document.body && node !== document.documentElement) {
+          if (canBringIntoView(node, rect)) return true;
+          node = node.parentElement;
+        }
+        return false;
+      })();
+      if (full >= 8 && visible > 1 && visible < full - 1 && !revealable) pushClip(el.textContent);
       if (bookBox && briefingLines.includes(el) && overlapBoxes(clippedBox(el), bookBox)) pushClip(el.textContent);
     }
     const buy = archive.querySelector('[data-commodity-buy]');
@@ -11722,8 +11886,107 @@ function measureCommodityNoClip() {
       const inside = buyBox.top >= archiveBox.top - 1 && buyBox.bottom <= archiveBox.bottom + 1
         && buyBox.left >= archiveBox.left - 1 && buyBox.right <= archiveBox.right + 1
         && full >= 16 && visible >= full - 1;
-      if (!inside) pushClip(buy.textContent);
+      const revealable = (() => {
+        let node = buy.parentElement;
+        while (node && node !== document.body && node !== document.documentElement) {
+          if (canBringIntoView(node, buyBox)) return true;
+          node = node.parentElement;
+        }
+        return false;
+      })();
+      if (!inside && !revealable) pushClip(buy.textContent);
     }
+  }
+  const squashedControls = [];
+  const cutOffLines = [];
+  const pushMeasure = (list, text) => {
+    const line = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (line && !list.includes(line)) list.push(line);
+  };
+  const nearestMeasureClipper = (el) => {
+    let node = el.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
+      node = node.parentElement;
+    }
+    return null;
+  };
+  const canRevealLine = (clipper, rect) => {
+    if (!clipper || !rect) return false;
+    const style = getComputedStyle(clipper);
+    const host = clipper.getBoundingClientRect();
+    const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+    const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+    if (!scrollY && !scrollX) return false;
+    const topIn = rect.top - host.top + clipper.scrollTop;
+    const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+    const leftIn = rect.left - host.left + clipper.scrollLeft;
+    const rightIn = rect.right - host.left + clipper.scrollLeft;
+    if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+    if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
+    if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+    if (rightIn - leftIn > clipper.clientWidth + 1) return false;
+    const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+    const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
+    return yFits && xFits;
+  };
+  for (const control of [...document.querySelectorAll(controlSelector)].filter((el) => shown(el))) {
+    const style = getComputedStyle(control);
+    const scrollport = /(auto|scroll)/.test(style.overflowY)
+      && control.scrollHeight > control.clientHeight + 2
+      && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(control.tagName);
+    if (!scrollport && control.scrollHeight > control.clientHeight + 2) pushMeasure(squashedControls, control.textContent);
+  }
+  for (const pill of document.querySelectorAll('.briefing-archive-select button')) {
+    if (!shown(pill)) continue;
+    const lineHeight = Number.parseFloat(getComputedStyle(pill).lineHeight);
+    if (Number.isFinite(lineHeight) && pill.getBoundingClientRect().height + 0.5 < lineHeight) {
+      pushMeasure(squashedControls, pill.textContent);
+    }
+  }
+  const visibleClientBox = (el) => {
+    const rect = el.getBoundingClientRect();
+    let top = rect.top;
+    let bottom = rect.bottom;
+    let left = rect.left;
+    let right = rect.right;
+    let node = el.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) {
+        const host = node.getBoundingClientRect();
+        top = Math.max(top, host.top);
+        bottom = Math.min(bottom, host.bottom);
+        left = Math.max(left, host.left);
+        right = Math.min(right, host.right);
+      }
+      node = node.parentElement;
+    }
+    return { top, bottom, left, right };
+  };
+  const lineSelector = '.briefing-line, .briefing-jump, .briefing-empty, .briefing-omitted, .commodity-shipment-line, .commodity-entry, .shipment-record';
+  for (const line of document.querySelectorAll(lineSelector)) {
+    if (!shown(line)) continue;
+    const clipper = nearestMeasureClipper(line);
+    if (!clipper) continue;
+    const range = document.createRange();
+    range.selectNodeContents(line);
+    const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+    const boxes = rects.length ? rects : [line.getBoundingClientRect()];
+    const cut = boxes.some((rect) => {
+      const vis = visibleClientBox(clipper);
+      const inside = rect.top >= vis.top - 1 && rect.bottom <= vis.bottom + 1
+        && rect.left >= vis.left - 1 && rect.right <= vis.right + 1;
+      if (inside) return false;
+      let node = clipper;
+      while (node && node !== document.body && node !== document.documentElement) {
+        if (canRevealLine(node, rect)) return false;
+        node = node.parentElement;
+      }
+      return true;
+    });
+    if (cut) pushMeasure(cutOffLines, line.textContent);
   }
   const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
   const nameCut = bookSection
@@ -11737,6 +12000,8 @@ function measureCommodityNoClip() {
     clippedControls,
     occluders,
     pillOverlaps,
+    squashedControls,
+    cutOffLines,
     nameCut,
     panels: panels.map(labelOf),
     bookPresent: Boolean(document.getElementById('commodity-shipment')),
@@ -28515,7 +28780,6 @@ function createPhase8ProbeApi() {
         marketId: opts.marketId,
         premiumMultiplier: opts.premiumMultiplier,
         contraband: opts.contraband === true,
-        availabilityRegion: opts.availabilityRegion,
       });
       if (!injected.ok) return injected;
       return { ok: true, market: injected.market, snapshot: snapshot() };

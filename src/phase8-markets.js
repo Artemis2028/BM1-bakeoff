@@ -166,7 +166,11 @@ export function emptyMarketBook() {
 }
 
 export function serializeMarketBook(book) {
-  return clone(book && book.version === MARKET_BOOK_VERSION ? book : createMarketBook(book || {}));
+  const cloned = clone(book && book.version === MARKET_BOOK_VERSION ? book : createMarketBook(book || {}));
+  for (const row of Object.values(cloned?.markets || {})) {
+    if (row && typeof row === 'object') delete row.availabilityRegion;
+  }
+  return cloned;
 }
 
 function sanitizeRestriction(value) {
@@ -206,8 +210,7 @@ function sanitizeMarket(raw, goodsSpec, magnitudes) {
     premiumMultiplier: Math.max(1, asInt(raw.premiumMultiplier, magnitudes.premiumMultiplier)),
     sellerWillDeal: raw.sellerWillDeal !== false,
     wartimeGood: raw.wartimeGood === true,
-    contraband: raw.contraband === true,
-    availabilityRegion: normalizeKey(raw.availabilityRegion) || null,
+    contraband: spec.contraband === true,
     lastWrite: raw.lastWrite && typeof raw.lastWrite === 'object' ? raw.lastWrite : null,
     saturated: raw.saturated === true,
   };
@@ -312,6 +315,7 @@ export function goodSpec(book, good, injected = null) {
     stockCap: asInt(spec.stockCap, magnitudes.stockCap),
     demandCap: asInt(spec.demandCap, magnitudes.demandCap),
     floor: asInt(spec.floor, magnitudes.floor),
+    contraband: spec.contraband === true,
   };
 }
 
@@ -367,6 +371,7 @@ export function injectMarket(book, input = {}, injected = null) {
   if (input.stockCap != null) spec.stockCap = asInt(input.stockCap, spec.stockCap);
   if (input.demandCap != null) spec.demandCap = asInt(input.demandCap, spec.demandCap);
   if (input.floor != null) spec.floor = asInt(input.floor, spec.floor);
+  if (input.contraband === true) spec.contraband = true;
   store.goods[good] = spec;
   const marketId = normalizeKey(input.marketId) || takeMarketId(store);
   const existing = store.markets[marketId];
@@ -387,8 +392,6 @@ export function injectMarket(book, input = {}, injected = null) {
     premiumMultiplier: input.premiumMultiplier,
     sellerWillDeal: input.sellerWillDeal,
     wartimeGood: input.wartimeGood,
-    contraband: input.contraband === true,
-    availabilityRegion: input.availabilityRegion,
   }, store.goods, magnitudes);
   if (!market) return { ok: false, reason: 'invalid-market' };
   if (existing && input.remint === false) {
