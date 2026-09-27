@@ -1315,6 +1315,23 @@ assert('S35.18 missing-scope', (() => {
   }, { pods });
   const absentPay = sellBackBookLot(absent, { saleId: 4, market: freshMarket().market, pods });
   assert('S35.18 restore-no-resurrect', !absent.sales['4'] && absentPay.paid === 0 && absent.nextSaleId === 6);
+  const listed = restoreCommodityShipmentBook({
+    version: 1,
+    nextSaleId: 6,
+    consumedSaleIds: { 4: true },
+    sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Grain', tons: 1, soldByBook: true, seq: 1 } },
+  });
+  const listedBefore = Boolean(listed.sales['4']);
+  const listedPay = sellBackBookLot(listed, withTradeScope({
+    saleId: 4,
+    market: freshMarket({ price: 10, stock: 4, demand: 4 }).market,
+    pods: [],
+  }));
+  assert('S35.18 consumed-sale-still-listed-pays-zero', listedBefore === true
+    && listed.consumedSaleIds == null
+    && listedPay.paid === 0
+    && listedPay.reason === 'missing-pod',
+  JSON.stringify({ present: listedBefore, paid: listedPay.paid, reason: listedPay.reason }));
 }
 
 {

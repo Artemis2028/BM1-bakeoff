@@ -11422,10 +11422,13 @@ function commodityBookInnerHtml() {
   const entries = Object.values(book.commodities || {});
   const shipments = Object.values(book.shipments || {});
   const entriesHtml = entries.length
-    ? entries.map((entry) => `<div class="commodity-entry" data-commodity-select="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</div>`).join('')
+    ? entries.map((entry) => `<div class="commodity-entry" data-commodity-select="${escapeHtml(entry.name)}" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</div>`).join('')
     : '<div class="commodity-entry">No commodity has been carried or contracted yet.</div>';
   const shipmentHtml = shipments.length
-    ? shipments.map((row) => `<div class="shipment-record" data-commodity-select="${escapeHtml(row.id)}">${escapeHtml(row.good)} · ${escapeHtml(row.tons)}t · ${escapeHtml(row.targetName || 'destination')} · ${escapeHtml(row.worldCargoStatus || 'indexed')}${row.lastAttemptReason ? ` · ${escapeHtml(row.lastAttemptReason)}` : ''}</div>`).join('')
+    ? shipments.map((row) => {
+      const label = `${row.good} · ${row.tons}t · ${row.targetName || 'destination'} · ${row.worldCargoStatus || 'indexed'}${row.lastAttemptReason ? ` · ${row.lastAttemptReason}` : ''}`;
+      return `<div class="shipment-record" data-commodity-select="${escapeHtml(row.id)}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+    }).join('')
     : '<div class="shipment-record">No shipment is indexed.</div>';
   const selected = book.selectedId;
   const selectedShipment = selected ? book.shipments?.[selected] : null;
@@ -12046,6 +12049,56 @@ function measureCommodityNoClip() {
     if (!cutters.length) return false;
     return cutters.some((node) => !canRevealLine(node, rect));
   });
+  const spillsPast = (panel, target, rect) => {
+    let top = rect.top;
+    let bottom = rect.bottom;
+    let left = rect.left;
+    let right = rect.right;
+    let node = target.nodeType === 1 ? target.parentElement : target.parentElement;
+    while (node && node !== panel && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) {
+        const box = node.getBoundingClientRect();
+        top = Math.max(top, box.top);
+        bottom = Math.min(bottom, box.bottom);
+        left = Math.max(left, box.left);
+        right = Math.min(right, box.right);
+      }
+      node = node.parentElement;
+    }
+    if (bottom - top < 1 || right - left < 1) return false;
+    const frame = panel.getBoundingClientRect();
+    const panelStyle = getComputedStyle(panel);
+    const clipsY = /(hidden|clip|auto|scroll)/.test(panelStyle.overflowY);
+    const clipsX = /(hidden|clip|auto|scroll)/.test(panelStyle.overflowX);
+    const spillsY = !clipsY && (top < frame.top - 1 || bottom > frame.bottom + 1);
+    const spillsX = !clipsX && (left < frame.left - 1 || right > frame.right + 1);
+    return spillsY || spillsX;
+  };
+  const breaksInsideWord = (textNode) => {
+    const text = String(textNode?.textContent || '');
+    if (!/\S/.test(text)) return false;
+    const host = textNode.parentElement;
+    const hostStyle = host ? getComputedStyle(host) : null;
+    if (hostStyle && (hostStyle.wordBreak === 'break-all' || hostStyle.overflowWrap === 'anywhere')) return false;
+    const hostWidth = host?.clientWidth || 0;
+    const re = /[^\s-]+/g;
+    let match = re.exec(text);
+    while (match) {
+      const range = document.createRange();
+      range.setStart(textNode, match.index);
+      range.setEnd(textNode, match.index + match[0].length);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+      const tops = [];
+      for (const rect of rects) {
+        if (!tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top);
+      }
+      if (tops.length > 1) return true;
+      if (hostWidth > 0 && rects.some((rect) => rect.width > hostWidth + 1)) return true;
+      match = re.exec(text);
+    }
+    return false;
+  };
   for (const panel of panels) {
     const pieces = [];
     for (const el of panel.querySelectorAll('*')) {
@@ -12071,10 +12124,31 @@ function measureCommodityNoClip() {
         const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
         if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) pushMeasure(squashedControls, piece.text);
       }
-      if (lineCut(el, rectsOf(piece.textNode || el))) pushMeasure(cutOffLines, piece.text);
+      const measured = rectsOf(piece.textNode || el);
+      if (lineCut(el, measured)) pushMeasure(cutOffLines, piece.text);
+      if (measured.some((rect) => spillsPast(panel, piece.textNode || el, rect))) pushMeasure(cutOffLines, piece.text);
+      const bookColumn = el.closest('.commodity-entry, .shipment-record, .commodity-shipment-line, .commodity-shipment-title');
+      if (bookColumn) {
+        const bookStyle = getComputedStyle(bookColumn);
+        if (bookStyle.wordBreak === 'break-all' || bookStyle.overflowWrap === 'anywhere') pushMeasure(cutOffLines, piece.text);
+      }
+      const textTarget = piece.textNode || [...el.childNodes].find((node) => node.nodeType === 3 && String(node.textContent || '').trim());
+      if (textTarget && breaksInsideWord(textTarget)) pushMeasure(cutOffLines, piece.text);
     }
   }
   const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
+  const bookSnap = globalThis.__BM1_PROBE__?.commodityShipment?.snapshot?.() || {};
+  const noticeCount = Array.isArray(bookSnap.notices) ? bookSnap.notices.length : 0;
+  const bookCounts = {
+    entries: bookSection ? bookSection.querySelectorAll('.commodity-entry').length : 0,
+    records: bookSection ? bookSection.querySelectorAll('.shipment-record').length : 0,
+    lines: bookSection ? bookSection.querySelectorAll('.commodity-shipment-line').length : 0,
+  };
+  const expectedCounts = bookSection ? {
+    entries: Array.isArray(bookSnap.commodityNames) ? bookSnap.commodityNames.length : 0,
+    records: Array.isArray(bookSnap.shipmentIds) ? bookSnap.shipmentIds.length : 0,
+    lines: 2 + noticeCount,
+  } : { entries: 0, records: 0, lines: 0 };
   const nameCut = bookSection
     ? [...bookSection.querySelectorAll('.commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail')].some((el) => {
       const style = getComputedStyle(el);
@@ -12089,6 +12163,8 @@ function measureCommodityNoClip() {
     squashedControls,
     cutOffLines,
     nameCut,
+    bookCounts,
+    expectedCounts,
     panels: panels.map(labelOf),
     bookPresent: Boolean(document.getElementById('commodity-shipment')),
     bookHidden: !bookSection || !shown(bookSection),
@@ -12137,6 +12213,7 @@ function renderWorldCargo() {
   }
   contractsEl.innerHTML = contractsHtml;
   outcomeEl.innerHTML = outcomeHtml;
+  host.classList.toggle('is-scrolling', host.scrollHeight > host.clientHeight + 1);
 }
 
 function renderPhase10Readout() {
@@ -14719,8 +14796,6 @@ function renderPlanetMenu() {
   ${dockTabsMarkup}
   <div class="dock-panel" tabindex="0" data-dock-tab="${escapeHtml(state.dockMenuTab)}">${panels[state.dockMenuTab] || panels.services}</div>`;
   const activeDockPanel = planetMenuEl.querySelector('.dock-panel');
-  const dockBookScroll = activeDockPanel?.querySelector('.commodity-book-scroll');
-  if (dockBookScroll) dockBookScroll.style.maxHeight = '72px';
   if (activeDockPanel) {
     const dockOverflows = activeDockPanel.scrollHeight > activeDockPanel.clientHeight + 1;
     activeDockPanel.classList.toggle('is-scrolling', dockOverflows);

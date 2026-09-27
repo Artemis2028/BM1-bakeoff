@@ -14,49 +14,133 @@
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     },
     "campaign": {
       "clippedControls": [],
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "expectedCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     },
     "worldCargo": {
       "clippedControls": [],
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "expectedCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     },
     "target": {
       "clippedControls": [],
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "expectedCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     },
     "bookTarget": {
       "clippedControls": [],
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     },
     "bookTargetLow": {
       "clippedControls": [],
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     },
     "dock": {
       "clippedControls": [],
       "occluders": [],
       "pillOverlaps": [],
       "squashedControls": [],
-      "cutOffLines": []
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
     }
   }
 }

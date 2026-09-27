@@ -8656,29 +8656,29 @@ async function runCommodityShipment(page, results) {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const p8 = globalThis.__BM1_PROBE__?.phase8;
     const probe = globalThis.BM1Probe;
-    probe?.worldCargo?.placeAtWorld?.();
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
     probe?.tryDockPlanet?.();
     document.querySelector('[data-dock-tab="market"]')?.click();
     api?.emptyHold?.();
     const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
-    p8.injectMarket({
-      marketId: 'mkt-dock-reach',
-      good: 'Dock Reach Grain',
-      stock: 6,
-      demand: 6,
-      stockCap: 8,
-      demandCap: 8,
-      floor: 0,
-      price: 10,
-      systemIndex: here,
-      restriction: 'open',
-    });
-    for (const name of ['Dock Pad A', 'Dock Pad B', 'Dock Pad C']) {
+    const goods = [
+      "Xiang's Brand Vodka",
+      'Feminine Products',
+      'Isolinear Chips',
+      'Medical Supplies',
+      'Dinner Napkins',
+      'Historic Books',
+      'Beetlesnuff',
+      'Old Paintings',
+    ];
+    const buys = [];
+    for (const good of goods) {
+      const marketId = `mkt-cap-${good.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
       p8.injectMarket({
-        marketId: `mkt-${name.toLowerCase().replace(/\s+/g, '-')}`,
-        good: name,
-        stock: 4,
-        demand: 4,
+        marketId,
+        good,
+        stock: 8,
+        demand: 6,
         stockCap: 8,
         demandCap: 8,
         floor: 0,
@@ -8686,24 +8686,25 @@ async function runCommodityShipment(page, results) {
         systemIndex: here,
         restriction: 'open',
       });
+      const before = p8.snapshot().book.markets[marketId]?.stock;
+      const bought = api.playBuy(good);
+      const after = p8.snapshot().book.markets[marketId]?.stock;
+      buys.push(bought?.ok === true && (bought?.paid || 0) > 0 && before != null && after === before - 1 && (bought?.podTons || 0) > 0);
     }
-    const seeded = api.playBuy('Dock Reach Grain');
-    for (const name of ['Dock Pad A', 'Dock Pad B', 'Dock Pad C']) api.playBuy(name);
-    api.restore(api.save());
     const cargo = globalThis.__BM1_PROBE__?.worldCargo;
-    const enrolled = [];
-    for (let n = 0; n < 4; n += 1) {
-      enrolled.push(cargo?.enroll?.({
-        id: `dock-tall-${n}`,
-        good: `Dock Tall ${n}`,
-        tons: 1,
-        legalPayout: 4,
-        targetName: 'Near',
-        mode: 'open',
-      })?.ok === true);
-    }
-    api.select?.('Dock Reach Grain');
-    probe?.paint?.();
+    const enrolled = goods.map((good, n) => cargo?.enroll?.({
+      id: `cap-ship-${n}`,
+      good,
+      tons: 1,
+      legalPayout: 4,
+      targetName: 'Near',
+      mode: 'open',
+    })?.ok === true);
+    api.index?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const seeded = buys.every(Boolean) && enrolled.every(Boolean);
     const menu = document.getElementById('planet-menu');
     const panel = menu?.querySelector('.dock-panel');
     const book = menu?.querySelector('.commodity-book-section');
@@ -8779,18 +8780,35 @@ async function runCommodityShipment(page, results) {
         return cutters.length > 0 && cutters.some((node) => !canReveal(node, rect));
       });
     };
-    const inside = (el, host) => {
+    const frameInside = (el, host) => {
       if (!el || !host) return false;
       const box = el.getBoundingClientRect();
       const frame = host.getBoundingClientRect();
       return box.height > 8 && box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1
         && box.left >= frame.left - 1 && box.right <= frame.right + 1;
     };
+    const scrollInto = (host, el) => {
+      if (!host || !el) return;
+      const box = el.getBoundingClientRect();
+      const frame = host.getBoundingClientRect();
+      if (box.top < frame.top + 1 || box.bottom > frame.bottom - 1) {
+        host.scrollTop += box.top - frame.top - 8;
+      }
+    };
     const lastLine = panel ? [...panel.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && String(el.textContent || '').trim()).at(-1) : null;
-    const grain = [...(panel?.querySelectorAll('.market-good') || [])].find((el) => /dock reach grain/i.test(el.textContent));
-    const grainText = grain ? [...grain.childNodes].some((node) => node.nodeType === 3 && /dock reach grain/i.test(node.textContent)) : false;
+    const grain = [...(panel?.querySelectorAll('.market-good') || [])].find((el) => /xiang's brand vodka/i.test(el.textContent));
+    const grainText = grain ? [...grain.childNodes].some((node) => node.nodeType === 3 && /xiang/i.test(node.textContent)) : false;
+    const bookLines = book
+      ? [...book.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && String(el.textContent || '').trim())
+      : [];
+    const bookCounts = {
+      entries: book?.querySelectorAll('.commodity-entry').length || 0,
+      records: book?.querySelectorAll('.shipment-record').length || 0,
+    };
+    const expectedEntries = (api.snapshot?.().commodityNames || []).length;
+    const expectedRecords = (api.snapshot?.().shipmentIds || []).length;
     const clip = api?.measureNoClip?.() || {};
-    const stock = () => p8.snapshot().book.markets['mkt-dock-reach']?.stock;
+    const stock = () => p8.snapshot().book.markets['mkt-cap-xiang-s-brand-vodka']?.stock;
     const roundBox = (el) => {
       if (!el) return null;
       const r = el.getBoundingClientRect();
@@ -8800,33 +8818,52 @@ async function runCommodityShipment(page, results) {
       };
     };
     const liveRects = { menu: roundBox(menu), panel: roundBox(panel), book: roundBox(book), buy: roundBox(buy), heading: roundBox(heading) };
-    const bookInside = inside(book, menu);
-    const buyInside = inside(buy, menu);
-    const headingInside = inside(heading, menu);
+    const bookInside = bookLines.length > 0 && bookLines.every((el) => !unreachable(el));
+    const buyInside = Boolean(buy) && !unreachable(buy);
+    const headingInside = Boolean(heading) && !unreachable(heading);
     const buyCut = unreachable(buy);
     const headingCut = unreachable(heading);
     const lastCut = unreachable(lastLine);
+    const panelOverflows = Boolean(panel && panel.scrollHeight > panel.clientHeight + 1);
+    const panelBar = scrollbarShown(panel);
+    const grainInFrame = frameInside(grain, panel);
+    const grainOk = panelOverflows ? panelBar === true : grainInFrame === true && !unreachable(grain);
+    const fullCutOff = (clip.cutOffLines || []).length;
+    const saleId = Object.keys(api.snapshot?.().sales || {})[0];
+    api.playSell?.(saleId);
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const liveBuy = document.querySelector('#planet-menu [data-commodity-buy]');
+    const livePanelForBuy = document.querySelector('#planet-menu .dock-panel');
     const stockBeforeBook = stock();
-    const buyInView = inside(buy, panel);
-    if (buyInView) buy.click();
-    probe?.paint?.();
+    scrollInto(livePanelForBuy, liveBuy);
+    const buyInView = frameInside(liveBuy, livePanelForBuy);
+    if (buyInView) liveBuy.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
     const stockAfterBook = stock();
     const livePanel = document.querySelector('#planet-menu .dock-panel');
-    const shopOffer = [...(livePanel?.querySelectorAll('.market-offer') || [])].find((el) => /dock reach grain/i.test(el.textContent));
+    const shopOffer = [...(livePanel?.querySelectorAll('.market-offer') || [])].find((el) => /xiang's brand vodka/i.test(el.textContent));
     const shopBuy = shopOffer?.querySelector('[data-market-buy]');
     const host = livePanel?.getBoundingClientRect();
     const shopBox = shopBuy?.getBoundingClientRect();
-    if (livePanel && shopBox && host && shopBox.top > host.bottom - 1) {
+    if (livePanel && shopBox && host && (shopBox.top < host.top + 1 || shopBox.bottom > host.bottom - 1)) {
       livePanel.scrollTop += shopBox.top - host.top - 8;
     }
-    const shopInView = inside(shopBuy, livePanel);
+    const shopInView = frameInside(shopBuy, livePanel);
     const stockBeforeShop = stock();
     if (shopInView) shopBuy.click();
-    probe?.paint?.();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
     const stockAfterShop = stock();
     return {
-      seeded: seeded?.ok === true,
+      seeded,
       enrolled,
+      entries: bookCounts.entries,
+      records: bookCounts.records,
+      expectedEntries,
+      expectedRecords,
+      fullCutOff,
       buyCut,
       headingCut,
       lastCut,
@@ -8839,6 +8876,10 @@ async function runCommodityShipment(page, results) {
       squashed: clip.squashedControls || [],
       buyInView,
       shopInView,
+      panelOverflows,
+      panelBar,
+      grainInFrame,
+      grainOk,
       bookBought: stockBeforeBook != null && stockAfterBook === stockBeforeBook - 1,
       shopBought: stockBeforeShop != null && stockAfterShop === stockBeforeShop - 1,
       rects: liveRects,
@@ -8849,6 +8890,10 @@ async function runCommodityShipment(page, results) {
     };
   });
   check(results, 'S35.24 dock-book-reachable', dockReach.seeded === true
+    && dockReach.entries === 8
+    && dockReach.records === 8
+    && dockReach.expectedEntries === 8
+    && dockReach.expectedRecords === 8
     && dockReach.buyCut === false
     && dockReach.headingCut === false
     && dockReach.lastCut === false
@@ -8856,12 +8901,38 @@ async function runCommodityShipment(page, results) {
     && dockReach.buyInside === true
     && dockReach.headingInside === true
     && dockReach.grainText === true
+    && dockReach.fullCutOff === 0
     && dockReach.cutOff.length === 0
     && dockReach.squashed.length === 0
     && dockReach.buyInView === true
     && dockReach.bookBought === true
     && dockReach.shopInView === true
-    && dockReach.shopBought === true, JSON.stringify(dockReach));
+    && dockReach.shopBought === true
+    && dockReach.grainOk === true
+    && (dockReach.panelOverflows ? dockReach.panelBar === true : dockReach.grainInFrame === true), JSON.stringify(dockReach));
+  const listedSale = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    api.emptyHold();
+    const before = api.snapshot().latinum;
+    const restored = api.restore({
+      version: 1,
+      nextSaleId: 6,
+      consumedSaleIds: { 4: true },
+      sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Legacy Listed Grain', tons: 1, soldByBook: true, seq: 1 } },
+    });
+    const sold = api.sellBack(4, {
+      dominion: { scope: 'general', systemName: 'Ferenginar', role: 'traffic' },
+    });
+    return {
+      paid: sold?.paid ?? null,
+      reason: sold?.reason || null,
+      latinumSame: before === api.snapshot().latinum,
+      restoredSale: Boolean(restored?.sales?.['4']),
+    };
+  });
+  check(results, 'S35.18 consumed-sale-still-listed-pays-zero', listedSale.paid === 0
+    && listedSale.latinumSame === true
+    && (listedSale.reason === 'missing-pod' || listedSale.reason === 'sale-consumed'), JSON.stringify(listedSale));
   const hookScope = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const p8 = globalThis.__BM1_PROBE__?.phase8;

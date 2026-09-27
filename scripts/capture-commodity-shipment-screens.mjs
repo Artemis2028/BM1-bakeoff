@@ -154,39 +154,134 @@ async function main() {
       return;
     }
 
-    const staged = await page.evaluate(() => {
+    const filled = await page.evaluate(() => {
       const api = globalThis.__BM1_PROBE__?.commodityShipment;
-      if (!api) return { missing: true };
-      return api.stageScreenshots();
-    });
-    if (staged?.missing) throw new Error('commodityShipment probe missing');
-    const replayCloakRefusal = () => page.evaluate(() => {
-      const wc = globalThis.__BM1_PROBE__?.worldCargo;
-      const book = globalThis.__BM1_PROBE__?.commodityShipment;
-      wc?.undock?.();
-      wc?.placeAtWorld?.();
-      wc?.setCloak?.(true);
-      const dropped = wc?.drop?.({ contractId: 'shot-long' });
-      wc?.setCloak?.(false);
-      book?.index?.();
-      book?.open?.();
-      return dropped?.reason || null;
-    });
-    const cloakReason = await replayCloakRefusal();
-    await page.evaluate(() => {
+      const p8 = globalThis.__BM1_PROBE__?.phase8;
+      const probe = globalThis.BM1Probe;
+      if (!api || !p8) return { missing: true };
+      probe?.freezeLoop?.();
+      globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+      probe?.tryDockPlanet?.();
+      document.querySelector('[data-dock-tab="market"]')?.click();
+      api.emptyHold?.();
+      const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+      const goods = [
+        "Xiang's Brand Vodka",
+        'Feminine Products',
+        'Isolinear Chips',
+        'Medical Supplies',
+        'Dinner Napkins',
+        'Historic Books',
+        'Beetlesnuff',
+        'Old Paintings',
+      ];
+      const buys = [];
+      for (const good of goods) {
+        const marketId = `mkt-cap-${good.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        p8.injectMarket({
+          marketId,
+          good,
+          stock: 8,
+          demand: 6,
+          stockCap: 8,
+          demandCap: 8,
+          floor: 0,
+          price: 10,
+          systemIndex: here,
+          restriction: 'open',
+        });
+        const before = p8.snapshot().book.markets[marketId]?.stock;
+        const bought = api.playBuy(good);
+        const after = p8.snapshot().book.markets[marketId]?.stock;
+        buys.push({
+          good,
+          ok: bought?.ok === true,
+          paid: bought?.paid || 0,
+          stockDown: before != null && after === before - 1,
+          pod: (bought?.podTons || 0) > 0,
+        });
+      }
+      const refused = api.playBuy(goods[0]);
+      const cargo = globalThis.__BM1_PROBE__?.worldCargo;
+      const enrolled = [];
+      for (let n = 0; n < goods.length; n += 1) {
+        enrolled.push(cargo?.enroll?.({
+          id: `cap-ship-${n}`,
+          good: goods[n],
+          tons: 1,
+          legalPayout: 4,
+          targetName: 'Near',
+          mode: 'open',
+        })?.ok === true);
+      }
+      api.index?.();
       const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
+      for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
       const filed = briefing?.produce?.({ strategicJumps: 2 });
       if (filed?.id) briefing?.select?.(filed.id);
-      globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
+      api.close?.();
+      probe?.redraw?.();
+      const snap = api.snapshot();
+      return {
+        buys,
+        refusedReason: refused?.reason || null,
+        enrolled,
+        entries: (snap.commodityNames || []).length,
+        records: (snap.shipmentIds || []).length,
+        sales: Object.keys(snap.sales || {}).length,
+      };
     });
-    console.log('staged drop', staged?.dropReason, 'replay', cloakReason);
-    const readNoClip = () => page.evaluate(() => globalThis.__BM1_PROBE__.commodityShipment.measureNoClip());
+    if (filled?.missing) throw new Error('commodityShipment probe missing');
+    const buyFailed = (filled.buys || []).filter((row) => !row.ok || !row.paid || !row.stockDown || !row.pod);
+    if (buyFailed.length || filled.refusedReason !== 'sale-cap' || filled.entries !== 8 || filled.records !== 8 || filled.sales !== 8 || (filled.enrolled || []).some((ok) => !ok)) {
+      console.error('capped book was not filled by real trades', JSON.stringify(filled));
+      process.exitCode = 1;
+    }
+    console.log('capped book', JSON.stringify(filled));
+    const measurePaused = () => page.evaluate(() => {
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
+      const hashOf = () => {
+        const api = globalThis.__BM1_PROBE__?.commodityShipment;
+        const phase8 = globalThis.__BM1_PROBE__?.phase8?.snapshot?.() || {};
+        const markets = Object.values(phase8.book?.markets || {}).map((row) => [row.marketId, row.stock, row.price, row.demand]);
+        const body = JSON.stringify({
+          book: api?.save?.() || {},
+          markets,
+          latinum: api?.snapshot?.()?.latinum ?? null,
+          pods: api?.snapshot?.()?.podDigest ?? null,
+        });
+        let hash = 2166136261;
+        for (let i = 0; i < body.length; i += 1) {
+          hash ^= body.charCodeAt(i);
+          hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(16);
+      };
+      const saveHash = hashOf();
+      const mutations = [];
+      const observer = new MutationObserver((records) => {
+        for (const record of records) mutations.push(record.type);
+      });
+      for (const id of ['briefing-archive', 'world-cargo', 'planet-menu', 'target-window', 'phase10-readout', 'bottom-dock']) {
+        const root = document.getElementById(id);
+        if (root) observer.observe(root, { subtree: true, childList: true, attributes: true, characterData: true });
+      }
+      const measured = globalThis.__BM1_PROBE__.commodityShipment.measureNoClip();
+      observer.disconnect();
+      const saveHashAfter = hashOf();
+      return { ...measured, observerMutations: mutations.length, saveHash, saveHashAfter, saveHashMatch: saveHash === saveHashAfter };
+    });
     const listsOf = (row) => ({
       clippedControls: row.clippedControls,
       occluders: row.occluders,
       pillOverlaps: row.pillOverlaps,
       squashedControls: row.squashedControls,
       cutOffLines: row.cutOffLines,
+      bookCounts: row.bookCounts,
+      expectedCounts: row.expectedCounts,
+      observerMutations: row.observerMutations,
+      saveHashMatch: row.saveHashMatch,
     });
     const logRefusal = () => page.evaluate(() => {
       const api = globalThis.__BM1_PROBE__?.commodityShipment;
@@ -227,7 +322,7 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-campaign');
-    const campaign = await readNoClip();
+    const campaign = await measurePaused();
     await page.evaluate(() => {
       document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
       globalThis.BM1Probe?.paint?.();
@@ -235,7 +330,7 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-briefing');
-    const briefing = await readNoClip();
+    const briefing = await measurePaused();
     const briefingFit = await page.evaluate(() => {
       const archive = document.getElementById('briefing-archive');
       const box = (el) => {
@@ -281,15 +376,11 @@ async function main() {
     });
     await page.waitForTimeout(150);
     await shot(page, 'after-world-cargo');
-    const worldCargo = await readNoClip();
+    const worldCargo = await measurePaused();
     await showCampaignAndCargo(page);
     await page.evaluate(() => {
-      const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
       globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
-      for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
-      const filed = briefing?.produce?.({ strategicJumps: 2 });
-      if (filed?.id) briefing?.select?.(filed.id);
       const spawned = globalThis.BM1Probe?.spawnShip?.({
         id: 'shot-odyssey',
         name: 'SS Odyssey',
@@ -302,7 +393,7 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(200);
     await shot(page, 'after-target-undocked');
-    const target = await readNoClip();
+    const target = await measurePaused();
     console.log('target rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
       document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
@@ -311,7 +402,7 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(200);
     await shot(page, 'after-book-target');
-    const bookTarget = await readNoClip();
+    const bookTarget = await measurePaused();
     console.log('book-target rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
       const boarding = globalThis.__BM1_PROBE__?.boarding;
@@ -320,33 +411,27 @@ async function main() {
     });
     await page.waitForTimeout(200);
     await shot(page, 'after-book-target-low-hull');
-    const bookTargetLow = await readNoClip();
+    const bookTargetLow = await measurePaused();
     console.log('book-target-low rects', JSON.stringify(await rectsOf()));
     await showDockMarket(page);
     await page.evaluate(() => {
-      const book = globalThis.__BM1_PROBE__?.commodityShipment;
-      book?.clearCombatTarget?.();
-      book?.restore?.(book.save?.());
+      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
       globalThis.BM1Probe?.paint?.();
-      // The staged book is taller than the dock panel. Line boxes past that panel are cut
-      // off, and the panel cannot scroll an inner book line into view. Keep the long
-      // name, which still fills the capped book, and leave Buy one ton under the frame.
-      const scroll = document.querySelector('#planet-menu .commodity-book-scroll');
-      scroll?.querySelector('.commodity-shipment-detail')?.remove();
-      scroll?.querySelector('.shipment-records')?.remove();
-      scroll?.querySelectorAll('.commodity-entry').forEach((el, index) => {
-        if (index > 0) el.remove();
-      });
     });
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-dock-market');
-    const dock = await readNoClip();
+    const dock = await measurePaused();
     console.log('dock rects', JSON.stringify(await rectsOf()));
-    const restoredReason = await replayCloakRefusal();
-    console.log('restored drop', restoredReason);
+    const countsMatch = (row) => row.bookCounts
+      && row.expectedCounts
+      && row.bookCounts.entries === row.expectedCounts.entries
+      && row.bookCounts.records === row.expectedCounts.records
+      && row.bookCounts.lines === row.expectedCounts.lines;
+    const atCap = (row) => countsMatch(row) && row.bookCounts.entries === 8 && row.bookCounts.records === 8;
     const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0
-      && row.squashedControls.length === 0 && row.cutOffLines.length === 0 && row.nameCut !== true;
+      && row.squashedControls.length === 0 && row.cutOffLines.length === 0 && row.nameCut !== true
+      && row.observerMutations === 0 && row.saveHashMatch === true && countsMatch(row);
     const states = {
       briefing: listsOf(briefing),
       campaign: listsOf(campaign),
@@ -366,6 +451,14 @@ async function main() {
       states,
     };
     const failed = [briefing, campaign, worldCargo, target, bookTarget, bookTargetLow, dock].filter((row) => !empty(row));
+    if (![bookTarget, bookTargetLow, dock].every(atCap)) {
+      console.error('full-state counts are not at the caps', JSON.stringify({
+        bookTarget: bookTarget.bookCounts,
+        bookTargetLow: bookTargetLow.bookCounts,
+        dock: dock.bookCounts,
+      }));
+      process.exitCode = 1;
+    }
     if (failed.length) {
       report.clippedControls = failed.flatMap((row) => row.clippedControls);
       report.occluders = failed.flatMap((row) => row.occluders);
