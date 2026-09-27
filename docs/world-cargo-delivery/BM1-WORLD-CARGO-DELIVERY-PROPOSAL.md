@@ -1,5 +1,7 @@
 # BM1 world cargo delivery
 
+**Later status (26 September 2026 — cross-link only, brief text below unchanged):** S34 engine **merged** [PR #75](https://github.com/Artemis2028/BM1-bakeoff/pull/75) @ `1b579e5`. `WORLD_CARGO_LOCKED_FROM_REMASTERED` stays false. Header polish #76 @ `7e8a27f` and #77 @ `bc00a86` do not reopen this lane. The commodity and shipment book is a separate brief under `docs/commodity-shipment/` and does not relax world-body completion, `cloak-not-legal`, mode-trust restore, or `completionToken` → `delivered`. **No Referee Pass claimed.** See `docs/BAKEOFF-STATUS.md`.
+
 **Status:** proposal for **world-center freight completion** and **covert drops that are not customs clearance**; no engine changes made by this document.  
 **Repository:** `Artemis2028/BM1-bakeoff`  
 **Planning baseline:** `0534015eea9ca67f185d7cd143031bc294294865` on `main` (25 September 2026), after S33 `briefingArchive` engine [PR #73](https://github.com/Artemis2028/BM1-bakeoff/pull/73). Brief #72 stays at `37bca25`.  
