@@ -313,6 +313,15 @@ async function main() {
     await shot(page, 'after-book-target');
     const bookTarget = await readNoClip();
     console.log('book-target rects', JSON.stringify(await rectsOf()));
+    await page.evaluate(() => {
+      const boarding = globalThis.__BM1_PROBE__?.boarding;
+      boarding?.injectHullRatio?.('shot-odyssey', 0.10);
+      globalThis.BM1Probe?.paint?.();
+    });
+    await page.waitForTimeout(200);
+    await shot(page, 'after-book-target-low-hull');
+    const bookTargetLow = await readNoClip();
+    console.log('book-target-low rects', JSON.stringify(await rectsOf()));
     await showDockMarket(page);
     await page.evaluate(() => {
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
@@ -333,6 +342,7 @@ async function main() {
       worldCargo: listsOf(worldCargo),
       target: listsOf(target),
       bookTarget: listsOf(bookTarget),
+      bookTargetLow: listsOf(bookTargetLow),
       dock: listsOf(dock),
     };
     const report = {
@@ -344,7 +354,7 @@ async function main() {
       cutOffLines: [],
       states,
     };
-    const failed = [briefing, campaign, worldCargo, target, bookTarget, dock].filter((row) => !empty(row));
+    const failed = [briefing, campaign, worldCargo, target, bookTarget, bookTargetLow, dock].filter((row) => !empty(row));
     if (failed.length) {
       report.clippedControls = failed.flatMap((row) => row.clippedControls);
       report.occluders = failed.flatMap((row) => row.occluders);
@@ -359,11 +369,12 @@ async function main() {
       worldCargo: { panels: worldCargo.panels, ...listsOf(worldCargo) },
       target: { bookText: target.bookText, headerText: target.headerText, panels: target.panels, ...listsOf(target) },
       bookTarget: { bookText: bookTarget.bookText, headerText: bookTarget.headerText, panels: bookTarget.panels, ...listsOf(bookTarget) },
+      bookTargetLow: { bookText: bookTargetLow.bookText, headerText: bookTargetLow.headerText, panels: bookTargetLow.panels, ...listsOf(bookTargetLow) },
       dock: { bookText: dock.bookText, headerText: dock.headerText, panels: dock.panels, ...listsOf(dock) },
     }, null, 2));
     const duplicate = path.join(outDir, 'after-book-panel.png');
     if (fs.existsSync(duplicate)) fs.unlinkSync(duplicate);
-    const afterNames = ['after-campaign', 'after-briefing', 'after-world-cargo', 'after-target-undocked', 'after-book-target', 'after-dock-market'];
+    const afterNames = ['after-campaign', 'after-briefing', 'after-world-cargo', 'after-target-undocked', 'after-book-target', 'after-book-target-low-hull', 'after-dock-market'];
     const hashes = afterNames.map((name) => crypto.createHash('sha256').update(fs.readFileSync(path.join(outDir, `${name}.png`))).digest('hex'));
     console.log('after hashes', Object.fromEntries(afterNames.map((name, index) => [name, hashes[index].slice(0, 12)])));
     if (new Set(hashes).size !== hashes.length) {

@@ -7914,6 +7914,7 @@ async function runCommodityShipment(page, results) {
       'after-world-cargo.png',
       'after-target-undocked.png',
       'after-book-target.png',
+      'after-book-target-low-hull.png',
       'after-dock-market.png',
       'after-book-panel.png',
     ];
@@ -8084,6 +8085,336 @@ async function runCommodityShipment(page, results) {
       shown: cardFit.shown,
       clip: cardFit.clip,
     }));
+  const hullCard = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const boarding = globalThis.__BM1_PROBE__.boarding;
+    const probe = globalThis.BM1Probe;
+    const textOf = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.paint?.();
+    const spawned = probe?.spawnShip?.({
+      id: 's35-hull-core',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    const id = spawned?.id || 's35-hull-core';
+    boarding?.selectTarget?.(id);
+    probe?.paint?.();
+    const shown = (el) => {
+      if (!el || !el.isConnected) return false;
+      const style = getComputedStyle(el);
+      if (el.hidden || el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width >= 2 && rect.height >= 2;
+    };
+    const ariaHidden = (el) => {
+      let node = el;
+      while (node && node.nodeType === 1) {
+        if (node.getAttribute('aria-hidden') === 'true') return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
+    const paintsScrollSign = (el) => {
+      if (!el) return false;
+      const pseudo = (which) => {
+        const ps = getComputedStyle(el, which);
+        if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
+        if (ps.visibility === 'hidden' || ps.display === 'none') return false;
+        return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
+      };
+      if (pseudo('::before') || pseudo('::after')) return true;
+      const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
+      const bar = frame?.querySelector(':scope > .commodity-book-bar');
+      if (!bar) return false;
+      const rect = bar.getBoundingClientRect();
+      return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+    };
+    const scrollbarShown = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (style.scrollbarWidth === 'none') return false;
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 1;
+      if (!scrollY && !scrollX) return false;
+      return paintsScrollSign(el);
+    };
+    const panelRoots = () => [...document.querySelectorAll('body *')].filter((el) => {
+      const style = getComputedStyle(el);
+      if (style.position !== 'fixed' && style.position !== 'absolute') return false;
+      if (!shown(el) || el.id === 'game') return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 40 || rect.height < 24) return false;
+      let node = el.parentElement;
+      while (node && node !== document.body) {
+        const parentStyle = getComputedStyle(node);
+        const positioned = parentStyle.position === 'fixed' || parentStyle.position === 'absolute';
+        if (positioned && shown(node) && node.id !== 'game') {
+          const box = node.getBoundingClientRect();
+          if (box.width >= 40 && box.height >= 24) return false;
+        }
+        node = node.parentElement;
+      }
+      return true;
+    });
+    const panelWalk = () => {
+      const squashed = [];
+      const cutOff = [];
+      const push = (list, value) => {
+        const line = textOf(value).slice(0, 80);
+        if (line && !list.includes(line)) list.push(line);
+      };
+      const isControl = (el) => /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.getAttribute('role') === 'button';
+      const isTextLine = (el) => {
+        if (isControl(el) || el.closest('button, a, [role="button"]')) return false;
+        if (/^(SCRIPT|STYLE|SVG|CANVAS|IMG)$/.test(el.tagName)) return false;
+        if (el.children.length > 0) return false;
+        return textOf(el).length > 0;
+      };
+      const nearest = (el) => {
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          const style = getComputedStyle(node);
+          if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
+          node = node.parentElement;
+        }
+        return null;
+      };
+      const canReveal = (clipper, rect) => {
+        if (!clipper) return false;
+        const style = getComputedStyle(clipper);
+        const host = clipper.getBoundingClientRect();
+        const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+        const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+        if ((!scrollY && !scrollX) || !scrollbarShown(clipper)) return false;
+        const topIn = rect.top - host.top + clipper.scrollTop;
+        const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+        if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+        if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+        return scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+      };
+      for (const panel of panelRoots()) {
+        for (const el of [...panel.querySelectorAll('*')].filter((node) => shown(node) && !ariaHidden(node) && (isControl(node) || isTextLine(node)))) {
+          const style = getComputedStyle(el);
+          const inlineText = style.display === 'inline' || style.display === 'contents';
+          const scrollport = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2 && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+          if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) push(squashed, el);
+          const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
+          const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
+          if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) push(squashed, el);
+          const clipper = nearest(el);
+          if (!clipper) continue;
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+          const boxes = rects.length ? rects : [el.getBoundingClientRect()];
+          const host = clipper.getBoundingClientRect();
+          const cut = boxes.some((rect) => {
+            const inside = rect.top >= host.top - 1 && rect.bottom <= host.bottom + 1 && rect.left >= host.left - 1 && rect.right <= host.right + 1;
+            if (inside) return false;
+            let node = clipper;
+            while (node && node !== document.body) {
+              if (canReveal(node, rect)) return false;
+              node = node.parentElement;
+            }
+            return true;
+          });
+          if (cut) push(cutOff, el);
+        }
+      }
+      return {
+        squashed,
+        cutOff,
+        panels: panelRoots().map((el) => el.id || el.getAttribute('aria-label') || String(el.className || '').split(/\s+/)[0] || 'panel'),
+      };
+    };
+    const readCard = (card) => {
+      const style = getComputedStyle(card);
+      const rect = card.getBoundingClientRect();
+      const inner = {
+        top: rect.top + (parseFloat(style.borderTopWidth) || 0),
+        bottom: rect.bottom - (parseFloat(style.borderBottomWidth) || 0),
+        left: rect.left + (parseFloat(style.borderLeftWidth) || 0),
+        right: rect.right - (parseFloat(style.borderRightWidth) || 0),
+      };
+      const parts = [];
+      const take = (el, name) => {
+        if (!el || !shown(el)) {
+          parts.push({ name, missing: true, inside: false, full: false });
+          return;
+        }
+        const box = el.getBoundingClientRect();
+        parts.push({
+          name,
+          text: textOf(el).slice(0, 72),
+          inside: box.top >= inner.top - 1 && box.bottom <= inner.bottom + 1 && box.left >= inner.left - 1 && box.right <= inner.right + 1,
+          full: el.scrollHeight <= el.clientHeight + 2 && box.height + 1 >= Math.min(el.clientHeight, 8),
+        });
+      };
+      take(card.querySelector('.target-window-head'), 'head');
+      take(card.querySelector('.target-meta'), 'meta');
+      take(card.querySelector('.target-class'), 'class');
+      const meters = [...card.querySelectorAll('.target-meter')];
+      take(meters[0], 'shield');
+      take(meters[1], 'hull');
+      const hail = [...card.querySelectorAll('.target-hail button')].find((el) => /hail ship/i.test(el.textContent)) || null;
+      take(hail, 'hail');
+      const notes = [...card.querySelectorAll('.target-boarding-note')].filter(shown);
+      const tractor = notes.find((el) => /^Tractor hold is not a capture/i.test(textOf(el))) || null;
+      const doctrine = notes.find((el) => el !== tractor) || null;
+      take(doctrine, 'doctrine');
+      take(tractor, 'tractor');
+      const outcomeButtons = [...card.querySelectorAll('[data-board-action="capture"], [data-board-action="scuttle"]')].filter(shown);
+      const applies = [...card.querySelectorAll('[data-board-applies]')].filter(shown);
+      take(applies[0] || null, 'applies');
+      const hailBox = hail?.getBoundingClientRect();
+      let clickable = false;
+      if (hail && hailBox) {
+        const hit = document.elementFromPoint((hailBox.left + hailBox.right) / 2, (hailBox.top + hailBox.bottom) / 2);
+        clickable = Boolean(hit && (hit === hail || hail.contains(hit)) && !hail.disabled);
+      }
+      const archive = document.getElementById('briefing-archive');
+      const archiveStyle = archive ? getComputedStyle(archive) : null;
+      const borderX = archiveStyle ? (parseFloat(archiveStyle.borderLeftWidth) || 0) + (parseFloat(archiveStyle.borderRightWidth) || 0) : 0;
+      return {
+        scrollTop: card.scrollTop,
+        height: Math.round(rect.height),
+        top: Math.round(rect.top),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        parts,
+        clickable,
+        hailText: textOf(hail),
+        head: textOf(card.querySelector('.target-window-head')),
+        className: textOf(card.querySelector('.target-class')),
+        doctrine: textOf(doctrine),
+        tractor: textOf(tractor),
+        applies: applies.map((el) => el.dataset.boardAction),
+        outcomeButtons: outcomeButtons.map((el) => el.dataset.boardAction),
+        toggle: textOf(archive?.querySelector('[data-commodity-book-toggle]')),
+        archiveScrolls: Boolean(archive && archive.scrollHeight > archive.clientHeight + 1),
+        archiveBar: Boolean(archive && scrollbarShown(archive)),
+        archiveGutter: archive ? Math.round(archive.offsetWidth - archive.clientWidth - borderX) : 0,
+        archiveScrollbar: archiveStyle?.scrollbarWidth || '',
+      };
+    };
+    const high = readCard(document.getElementById('target-window'));
+    const highWalk = panelWalk();
+    boarding?.injectHullRatio?.(id, 0.10);
+    probe?.paint?.();
+    const low = readCard(document.getElementById('target-window'));
+    const lowWalk = panelWalk();
+    const samples = [1, 0.5, 0.11, 0.1, 0.09, 0.01].map((ratio) => {
+      boarding?.injectHullRatio?.(id, ratio);
+      probe?.paint?.();
+      const snap = boarding?.snapshot?.() || {};
+      const card = document.getElementById('target-window');
+      const notes = [...(card?.querySelectorAll('.target-boarding-note') || [])].map(textOf);
+      const marked = [...(card?.querySelectorAll('[data-board-applies]') || [])].filter(shown).map((el) => el.dataset.boardAction);
+      return {
+        ratio,
+        tractorIsBoard: snap.tractorIsBoard === true,
+        eligible: snap.hull?.eligible === true,
+        tractor: notes.find((line) => /^Tractor hold is not a capture/i.test(line)) || '',
+        marked,
+      };
+    });
+    api?.clearCombatTarget?.();
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    api?.log?.('No empty cargo pod. Purchase refused. The market did not move.');
+    api?.open?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    probe?.paint?.();
+    const dockWalk = panelWalk();
+    const dockClip = api?.measureNoClip?.() || {};
+    const dockPanel = document.querySelector('#planet-menu .dock-panel');
+    const lastLine = dockPanel ? [...dockPanel.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && textOf(el)).at(-1) : null;
+    const lastBox = lastLine?.getBoundingClientRect();
+    const dockBox = dockPanel?.getBoundingClientRect();
+    const lastInside = Boolean(lastBox && dockBox && lastBox.top >= dockBox.top - 1 && lastBox.bottom <= dockBox.bottom + 1);
+    const dockScrolls = Boolean(dockPanel && dockPanel.scrollHeight > dockPanel.clientHeight + 1);
+    const dockBar = Boolean(dockPanel && scrollbarShown(dockPanel));
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    probe?.worldCargo?.undock?.();
+    probe?.paint?.();
+    return {
+      high,
+      low,
+      highWalk,
+      lowWalk,
+      dockWalk,
+      samples,
+      roe: briefing?.snapshot?.()?.roeModes || [],
+      dock: {
+        cutOff: dockClip.cutOffLines || [],
+        squashed: dockClip.squashedControls || [],
+        panels: dockClip.panels || [],
+        last: textOf(lastLine),
+        lastInside,
+        scrolls: dockScrolls,
+        bar: dockBar,
+      },
+    };
+  });
+  const hullCoreOk = (row) => row && row.scrollTop === 0 && row.clickable === true && /hail ship/i.test(row.hailText)
+    && ['head', 'meta', 'class', 'shield', 'hull', 'hail', 'doctrine', 'tractor'].every((name) => {
+      const part = row.parts.find((item) => item.name === name);
+      return part && part.missing !== true && part.inside === true && part.full === true;
+    });
+  const walkClear = (walk) => walk && walk.squashed.length === 0 && walk.cutOff.length === 0;
+  check(results, 'S35.23 core-above-hull', hullCoreOk(hullCard.high)
+    && /Hull above 10%/.test(hullCard.high.doctrine)
+    && /^Tractor hold is not a capture/i.test(hullCard.high.tractor)
+    && hullCard.high.applies.length === 0
+    && /open/i.test(hullCard.high.toggle)
+    && (hullCard.high.archiveScrolls === false || (hullCard.high.archiveBar === true && hullCard.high.archiveScrollbar !== 'none')), JSON.stringify(hullCard.high));
+  check(results, 'S35.23 core-low-hull', hullCoreOk(hullCard.low)
+    && /Boarding available/.test(hullCard.low.doctrine)
+    && /^Tractor hold is not a capture/i.test(hullCard.low.tractor)
+    && hullCard.low.outcomeButtons.length === 1
+    && hullCard.low.applies.length === 1
+    && hullCard.low.outcomeButtons[0] === hullCard.low.applies[0]
+    && hullCard.low.parts.find((part) => part.name === 'applies')?.inside === true
+    && /open/i.test(hullCard.low.toggle), JSON.stringify(hullCard.low));
+  check(results, 'S35.23 states-differ', hullCard.high.head === hullCard.low.head
+    && hullCard.high.className === hullCard.low.className
+    && hullCard.high.hailText === hullCard.low.hailText
+    && hullCard.high.tractor === hullCard.low.tractor
+    && hullCard.high.doctrine !== hullCard.low.doctrine
+    && hullCard.high.applies.join(',') !== hullCard.low.applies.join(',')
+    && hullCard.high.left === hullCard.low.left
+    && hullCard.high.right === hullCard.low.right, JSON.stringify({
+      high: { doctrine: hullCard.high.doctrine, applies: hullCard.high.applies, rect: [hullCard.high.left, hullCard.high.top, hullCard.high.right, hullCard.high.bottom] },
+      low: { doctrine: hullCard.low.doctrine, applies: hullCard.low.applies, outcome: hullCard.low.outcomeButtons, rect: [hullCard.low.left, hullCard.low.top, hullCard.low.right, hullCard.low.bottom] },
+    }));
+  check(results, 'S35.23 tractor-stable', Array.isArray(hullCard.samples)
+    && hullCard.samples.length === 6
+    && hullCard.samples.every((row) => row.tractorIsBoard === false && row.tractor === hullCard.samples[0].tractor && /^Tractor hold is not a capture/i.test(row.tractor))
+    && hullCard.samples.every((row) => row.eligible === (row.ratio <= 0.10))
+    && hullCard.samples.every((row) => row.marked.length <= 1)
+    && hullCard.samples.every((row) => (row.ratio <= 0.10) === (row.marked.length === 1))
+    && hullCard.roe.join(',') === 'return-fire,defend', JSON.stringify({ samples: hullCard.samples, roe: hullCard.roe }));
+  check(results, 'S35.23 panels-above', walkClear(hullCard.highWalk)
+    && hullCard.highWalk.panels.length > 0, JSON.stringify(hullCard.highWalk));
+  check(results, 'S35.23 panels-low', walkClear(hullCard.lowWalk)
+    && hullCard.lowWalk.panels.length > 0, JSON.stringify(hullCard.lowWalk));
+  check(results, 'S35.23 dock-market-line', walkClear(hullCard.dockWalk)
+    && hullCard.dock.cutOff.length === 0
+    && hullCard.dock.squashed.length === 0
+    && (hullCard.dock.lastInside === true || (hullCard.dock.scrolls === true && hullCard.dock.bar === true))
+    && !hullCard.dock.cutOff.some((line) => /purchase refused|cargo market/i.test(line)), JSON.stringify(hullCard.dock));
   const fit = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const measure = () => api.measureNoClip();

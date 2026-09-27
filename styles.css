@@ -1853,7 +1853,7 @@ body.ui-theme-cardassian .target-meter-track {
   scrollbar-gutter: stable;
   scrollbar-width: auto;
 }
-.dock-panel::before {
+.dock-panel.is-scrolling::before {
   content: "";
   position: sticky;
   top: 8px;
