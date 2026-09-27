@@ -11098,6 +11098,9 @@ function renderBriefingArchive() {
   bodyEl.innerHTML = bodyHtml;
   selectEl.scrollTop = selectScroll;
   bodyEl.scrollTop = bodyScroll;
+  host.classList.toggle('is-book-open', state.commodityShipmentOpen === true);
+  fitOpenBookBriefing();
+  if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
 }
 
 function currentBookMarket(good) {
@@ -11412,9 +11415,15 @@ function commodityBookInnerHtml() {
     ? `<button type="button" data-commodity-buy="${escapeHtml(buyName)}">Buy one ton</button>`
     : '';
   return `<div class="commodity-shipment-title">COMMODITY BOOK</div>
-    <div class="commodity-entries">${entriesHtml}</div>
-    <div class="shipment-records">${shipmentHtml}</div>
-    <div class="commodity-shipment-detail"><p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}${buyButton}${sellButton}</div>`;
+    <div class="commodity-book-frame">
+      <div class="commodity-book-scroll">
+        <div class="commodity-entries">${entriesHtml}</div>
+        <div class="shipment-records">${shipmentHtml}</div>
+        <div class="commodity-shipment-detail"><p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}</div>
+      </div>
+      <div class="commodity-book-bar" aria-hidden="true"></div>
+    </div>
+    <div class="commodity-book-actions">${buyButton}${sellButton}</div>`;
 }
 
 function renderCommodityShipment() {
@@ -11441,8 +11450,11 @@ function renderCommodityShipment() {
     && !state.planetMenuOpen
     && !briefing.classList.contains('hidden')
   );
+  briefing.classList.toggle('is-book-open', briefingOpen);
   if (!briefingOpen) {
     briefing.querySelector(':scope > .commodity-book-section')?.remove();
+    fitOpenBookBriefing();
+    if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
     return;
   }
   let slot = briefing.querySelector(':scope > .commodity-book-section');
@@ -11452,6 +11464,64 @@ function renderCommodityShipment() {
     briefing.appendChild(slot);
   }
   slot.innerHTML = html;
+  fitOpenBookBriefing();
+  if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
+}
+
+function fitOpenBookBriefing() {
+  const host = document.getElementById('briefing-archive');
+  const select = host?.querySelector('.briefing-archive-select');
+  const body = host?.querySelector('.briefing-archive-body');
+  if (!host?.classList.contains('is-book-open')) {
+    if (select) {
+      select.style.maxHeight = '';
+      select.style.overflowY = '';
+    }
+    if (body) {
+      body.style.maxHeight = '';
+      body.style.overflowY = '';
+      body.style.scrollSnapType = '';
+      body.classList.remove('is-scrolled');
+    }
+    return;
+  }
+  if (!select || !body) return;
+  select.style.maxHeight = '';
+  select.style.overflowY = '';
+  body.style.maxHeight = '';
+  body.style.overflowY = '';
+  const hostStyle = getComputedStyle(host);
+  const innerBottom = host.getBoundingClientRect().bottom - (parseFloat(hostStyle.paddingBottom) || 0);
+  const gap = parseFloat(hostStyle.rowGap || hostStyle.gap) || 0;
+  const bookReserve = 168;
+  const selectTop = select.getBoundingClientRect().top;
+  const selectBudget = Math.max(72, innerBottom - selectTop - bookReserve - gap * 2 - 18 * 2);
+  if (select.scrollHeight > selectBudget + 1) {
+    const edge = select.getBoundingClientRect().top;
+    let fitted = 0;
+    for (const el of select.querySelectorAll('button, b')) {
+      const bottom = el.getBoundingClientRect().bottom - edge;
+      if (bottom <= selectBudget) fitted = bottom;
+    }
+    if (fitted < 28) {
+      const first = select.querySelector('button');
+      fitted = first ? Math.ceil(first.getBoundingClientRect().bottom - edge) : 36;
+    }
+    select.style.maxHeight = `${Math.ceil(fitted)}px`;
+    select.style.overflowY = 'scroll';
+  }
+  const bodyTop = body.getBoundingClientRect().top;
+  const bodyBudget = innerBottom - bodyTop - bookReserve - gap;
+  const line = 18;
+  if (bodyBudget > line * 2 && body.scrollHeight > bodyBudget + 1) {
+    body.classList.add('is-scrolled');
+    body.style.overflowY = 'scroll';
+    body.style.scrollSnapType = 'y mandatory';
+    const snapped = Math.max(line * 2, Math.floor(bodyBudget / line) * line);
+    body.style.maxHeight = `${snapped}px`;
+  } else {
+    body.classList.remove('is-scrolled');
+  }
 }
 
 function measureCommodityNoClip() {
@@ -11556,6 +11626,103 @@ function measureCommodityNoClip() {
           break;
         }
       }
+    }
+  }
+  const archive = document.getElementById('briefing-archive');
+  if (archive && shown(archive)) {
+    const overlapBoxes = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    const boxOfEl = (el) => {
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const pushClip = (text) => {
+      const line = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      if (line && !clippedControls.includes(line)) clippedControls.push(line);
+    };
+    const scrollsWithBar = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (!/(auto|scroll)/.test(style.overflowY)) return false;
+      if (el.scrollHeight <= el.clientHeight + 1) return false;
+      if (el.offsetWidth - el.clientWidth > 1) return true;
+      const bar = el.parentElement?.querySelector(':scope > .commodity-book-bar');
+      if (!bar) return false;
+      const rect = bar.getBoundingClientRect();
+      return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+    };
+    const inScrollingBook = (el) => {
+      const scroller = el.closest('.commodity-book-scroll');
+      return Boolean(scroller && archive.contains(scroller) && scrollsWithBar(scroller));
+    };
+    const visibleHeight = (el) => {
+      const full = el.getBoundingClientRect();
+      let top = full.top;
+      let bottom = full.bottom;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflow}${style.overflowY}`)) {
+          const host = node.getBoundingClientRect();
+          top = Math.max(top, host.top);
+          bottom = Math.min(bottom, host.bottom);
+        }
+        node = node.parentElement;
+      }
+      return { full: full.height, visible: Math.max(0, bottom - top) };
+    };
+    const pills = [...archive.querySelectorAll('.briefing-archive-select button')].filter(shown);
+    const clippedBox = (el) => {
+      const full = el.getBoundingClientRect();
+      let top = full.top;
+      let bottom = full.bottom;
+      let left = full.left;
+      let right = full.right;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowX}${style.overflowY}`)) {
+          const host = node.getBoundingClientRect();
+          top = Math.max(top, host.top);
+          bottom = Math.min(bottom, host.bottom);
+          left = Math.max(left, host.left);
+          right = Math.min(right, host.right);
+        }
+        node = node.parentElement;
+      }
+      return { left, right, top, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+    };
+    const briefingLines = [...archive.querySelectorAll('.briefing-line, .briefing-jump, .briefing-empty, .briefing-omitted')].filter(shown);
+    for (const pill of pills) {
+      const pillBox = boxOfEl(pill);
+      const pillText = String(pill.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      for (const line of briefingLines) {
+        if (!overlapBoxes(pillBox, boxOfEl(line))) continue;
+        const label = `${pillText} ~ ${String(line.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40)}`;
+        if (!pillOverlaps.includes(label)) pillOverlaps.push(label);
+      }
+    }
+    const bookSlot = archive.querySelector(':scope > .commodity-book-section');
+    const bookBox = bookSlot && shown(bookSlot) ? boxOfEl(bookSlot) : null;
+    const watched = [
+      ...pills,
+      ...briefingLines,
+      ...[...archive.querySelectorAll('.commodity-book-actions button, [data-commodity-buy], [data-commodity-sell]')].filter(shown),
+    ];
+    for (const el of watched) {
+      if (inScrollingBook(el)) continue;
+      const { full, visible } = visibleHeight(el);
+      if (full >= 8 && visible > 1 && visible < full - 1) pushClip(el.textContent);
+      if (bookBox && briefingLines.includes(el) && overlapBoxes(clippedBox(el), bookBox)) pushClip(el.textContent);
+    }
+    const buy = archive.querySelector('[data-commodity-buy]');
+    if (buy && shown(buy) && !inScrollingBook(buy)) {
+      const { full, visible } = visibleHeight(buy);
+      const archiveBox = boxOfEl(archive);
+      const buyBox = boxOfEl(buy);
+      const inside = buyBox.top >= archiveBox.top - 1 && buyBox.bottom <= archiveBox.bottom + 1
+        && buyBox.left >= archiveBox.left - 1 && buyBox.right <= archiveBox.right + 1
+        && full >= 16 && visible >= full - 1;
+      if (!inside) pushClip(buy.textContent);
     }
   }
   const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;

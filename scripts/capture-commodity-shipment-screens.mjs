@@ -9,6 +9,7 @@
  */
 import http from 'node:http';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -232,8 +233,37 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-briefing');
-    await shot(page, 'after-book-panel');
     const briefing = await readNoClip();
+    const briefingFit = await page.evaluate(() => {
+      const archive = document.getElementById('briefing-archive');
+      const box = (el) => {
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        return {
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          height: Math.round(rect.height),
+          text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+        };
+      };
+      const scroll = archive?.querySelector('.commodity-book-scroll');
+      return {
+        pill: box(archive?.querySelector('[data-briefing-select]')),
+        jump: box(archive?.querySelector('.briefing-jump')),
+        body: box(archive?.querySelector('.briefing-archive-body')),
+        buy: box(archive?.querySelector('[data-commodity-buy]')),
+        book: box(archive?.querySelector(':scope > .commodity-book-section')),
+        scroll: scroll ? {
+          client: scroll.clientHeight,
+          scroll: scroll.scrollHeight,
+          bar: scroll.offsetWidth - scroll.clientWidth,
+        } : null,
+        lines: [...(archive?.querySelectorAll('.briefing-line') || [])].map((el) => box(el)),
+      };
+    });
+    console.log('briefing fit', JSON.stringify(briefingFit));
     console.log('briefing rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
       const book = globalThis.__BM1_PROBE__?.commodityShipment;
@@ -268,6 +298,15 @@ async function main() {
     await shot(page, 'after-target-undocked');
     const target = await readNoClip();
     console.log('target rects', JSON.stringify(await rectsOf()));
+    await page.evaluate(() => {
+      document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+      globalThis.BM1Probe?.paint?.();
+    });
+    await logRefusal();
+    await page.waitForTimeout(200);
+    await shot(page, 'after-book-target');
+    const bookTarget = await readNoClip();
+    console.log('book-target rects', JSON.stringify(await rectsOf()));
     await showDockMarket(page);
     await page.evaluate(() => {
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
@@ -286,6 +325,7 @@ async function main() {
       campaign: listsOf(campaign),
       worldCargo: listsOf(worldCargo),
       target: listsOf(target),
+      bookTarget: listsOf(bookTarget),
       dock: listsOf(dock),
     };
     const report = {
@@ -295,7 +335,7 @@ async function main() {
       pillOverlaps: [],
       states,
     };
-    const failed = [briefing, campaign, worldCargo, target, dock].filter((row) => !empty(row));
+    const failed = [briefing, campaign, worldCargo, target, bookTarget, dock].filter((row) => !empty(row));
     if (failed.length) {
       report.clippedControls = failed.flatMap((row) => row.clippedControls);
       report.occluders = failed.flatMap((row) => row.occluders);
@@ -307,8 +347,18 @@ async function main() {
       briefing: { bookText: briefing.bookText, panels: briefing.panels, ...listsOf(briefing) },
       worldCargo: { panels: worldCargo.panels, ...listsOf(worldCargo) },
       target: { bookText: target.bookText, headerText: target.headerText, panels: target.panels, ...listsOf(target) },
+      bookTarget: { bookText: bookTarget.bookText, headerText: bookTarget.headerText, panels: bookTarget.panels, ...listsOf(bookTarget) },
       dock: { bookText: dock.bookText, headerText: dock.headerText, panels: dock.panels, ...listsOf(dock) },
     }, null, 2));
+    const duplicate = path.join(outDir, 'after-book-panel.png');
+    if (fs.existsSync(duplicate)) fs.unlinkSync(duplicate);
+    const afterNames = ['after-campaign', 'after-briefing', 'after-world-cargo', 'after-target-undocked', 'after-book-target', 'after-dock-market'];
+    const hashes = afterNames.map((name) => crypto.createHash('sha256').update(fs.readFileSync(path.join(outDir, `${name}.png`))).digest('hex'));
+    console.log('after hashes', Object.fromEntries(afterNames.map((name, index) => [name, hashes[index].slice(0, 12)])));
+    if (new Set(hashes).size !== hashes.length) {
+      console.error('after shots are not all distinct');
+      process.exitCode = 1;
+    }
     if (failed.length) {
       console.error(JSON.stringify(report, null, 2));
       process.exitCode = 1;

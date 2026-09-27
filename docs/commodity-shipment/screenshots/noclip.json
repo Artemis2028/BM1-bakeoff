@@ -27,6 +27,11 @@
       "occluders": [],
       "pillOverlaps": []
     },
+    "bookTarget": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": []
+    },
     "dock": {
       "clippedControls": [],
       "occluders": [],

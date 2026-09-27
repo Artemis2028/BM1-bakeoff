@@ -949,11 +949,97 @@ body.ui-theme-cardassian .planet-menu::before {
   /* Parked host. The visible book is .commodity-book-section inside the dock market panel. */
   display: none;
 }
-.briefing-archive > .commodity-book-section {
+.briefing-archive.is-book-open {
+  height: calc(100vh - 78px - var(--bm1-dock-clear) - 16px);
+}
+.briefing-archive.is-book-open .briefing-archive-select {
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+}
+.briefing-archive.is-book-open .briefing-archive-body {
+  flex: 0 0 auto;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
+.briefing-archive.is-book-open .briefing-line,
+.briefing-archive.is-book-open .briefing-jump,
+.briefing-archive.is-book-open .briefing-omitted,
+.briefing-archive.is-book-open .briefing-empty {
+  margin: 0;
+  line-height: 18px;
+  scroll-snap-align: start;
+}
+.briefing-archive.is-book-open > .commodity-book-section {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  overflow: hidden;
+}
+.commodity-book-frame {
+  min-width: 0;
+  min-height: 0;
+}
+.commodity-book-scroll {
+  min-width: 0;
+}
+.commodity-book-bar { display: none; }
+.commodity-book-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.commodity-book-actions:empty { display: none; }
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-frame {
   flex: 1 1 auto;
-  min-height: 120px;
-  max-height: 46%;
-  overflow: auto;
+  min-height: 0;
+  display: flex;
+  gap: 6px;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lcars-amber) #05070e;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-bar {
+  display: block;
+  flex: 0 0 10px;
+  align-self: stretch;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center top 8px / 8px 42% no-repeat,
+    #141820;
+}
+.briefing-archive.is-book-open .briefing-archive-body {
+  line-height: 18px;
+}
+.briefing-archive.is-book-open .briefing-archive-body.is-scrolled {
+  padding-right: 12px;
+  background:
+    linear-gradient(#141820, #141820) right center / 10px 100% no-repeat,
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) right 1px top 8px / 8px 42% no-repeat;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll::-webkit-scrollbar,
+.briefing-archive.is-book-open .briefing-archive-select::-webkit-scrollbar,
+.briefing-archive.is-book-open .briefing-archive-body::-webkit-scrollbar {
+  width: 10px;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll::-webkit-scrollbar-thumb,
+.briefing-archive.is-book-open .briefing-archive-select::-webkit-scrollbar-thumb,
+.briefing-archive.is-book-open .briefing-archive-body::-webkit-scrollbar-thumb {
+  background: var(--lcars-amber);
+  border-radius: 6px;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll::-webkit-scrollbar-track,
+.briefing-archive.is-book-open .briefing-archive-select::-webkit-scrollbar-track,
+.briefing-archive.is-book-open .briefing-archive-body::-webkit-scrollbar-track {
+  background: #05070e;
 }
 .commodity-book-section {
   display: flex;
@@ -1080,6 +1166,19 @@ body.ui-theme-cardassian .planet-menu::before {
 .briefing-archive.is-briefing .briefing-archive-select { max-height: 108px; }
 .briefing-archive.is-archive .briefing-archive-select { flex: 1 1 auto; max-height: 62%; }
 .briefing-archive-body { flex: 1 1 auto; min-height: 72px; }
+.briefing-archive.is-book-open .briefing-archive-select,
+.briefing-archive.is-book-open.is-briefing .briefing-archive-select,
+.briefing-archive.is-book-open.is-archive .briefing-archive-select {
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+}
+.briefing-archive.is-book-open .briefing-archive-body {
+  flex: 0 0 auto;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
 .briefing-archive-toolbar,
 .briefing-folder {
   display: flex;

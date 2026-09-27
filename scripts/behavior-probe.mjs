@@ -7442,7 +7442,6 @@ async function runCommodityShipment(page, results) {
     for (let n = 0; n < 6; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
     const select = document.querySelector('#briefing-archive .briefing-archive-select');
     const body = document.querySelector('#briefing-archive .briefing-archive-body');
-    if (select) select.style.maxHeight = '36px';
     if (select) select.scrollTop = 48;
     const scrollBefore = select ? select.scrollTop : null;
     const lineBefore = body?.querySelector('.briefing-line')?.textContent || '';
@@ -7513,6 +7512,121 @@ async function runCommodityShipment(page, results) {
       open: guards.openClip && { clipped: guards.openClip.clippedControls, occluders: guards.openClip.occluders, pills: guards.openClip.pillOverlaps },
       closed: guards.closedClip && { clipped: guards.closedClip.clippedControls, occluders: guards.closedClip.occluders },
     }));
+  const uncrushed = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    globalThis.BM1Probe?.paint?.();
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    globalThis.BM1Probe?.paint?.();
+    const archive = document.getElementById('briefing-archive');
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    const rectOf = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const pill = archive?.querySelector('[data-briefing-select]');
+    const jump = archive?.querySelector('.briefing-jump');
+    const body = archive?.querySelector('.briefing-archive-body');
+    const book = archive?.querySelector(':scope > .commodity-book-section');
+    const buy = archive?.querySelector('[data-commodity-buy]');
+    const lines = [...(archive?.querySelectorAll('.briefing-line') || [])];
+    const pillBox = rectOf(pill);
+    const jumpBox = rectOf(jump);
+    const bodyBox = rectOf(body);
+    const bookBox = rectOf(book);
+    const archiveBox = rectOf(archive);
+    const buyBox = rectOf(buy);
+    const sliced = lines.some((line) => {
+      const range = document.createRange();
+      range.selectNodeContents(line);
+      const hostBottom = Math.min(bodyBox?.bottom ?? 0, archiveBox?.bottom ?? 0, bookBox?.top ?? Infinity);
+      const hostTop = bodyBox?.top ?? 0;
+      return [...range.getClientRects()].some((rect) => {
+        if (rect.height < 2) return false;
+        const visible = Math.min(rect.bottom, hostBottom) - Math.max(rect.top, hostTop);
+        return visible > 1 && visible < rect.height - 1;
+      });
+    });
+    const buyInside = Boolean(buyBox && archiveBox && buyBox.height >= 20
+      && buyBox.top >= archiveBox.top - 1 && buyBox.bottom <= archiveBox.bottom + 1
+      && buyBox.left >= archiveBox.left - 1 && buyBox.right <= archiveBox.right + 1);
+    const scroll = book?.querySelector('.commodity-book-scroll');
+    const scrollStyle = scroll ? getComputedStyle(scroll) : null;
+    const bar = book?.querySelector('.commodity-book-bar');
+    const barBox = bar?.getBoundingClientRect();
+    const bookScrolls = Boolean(scroll && scrollStyle && /(auto|scroll)/.test(scrollStyle.overflowY)
+      && scroll.scrollHeight > scroll.clientHeight + 1
+      && barBox && barBox.width >= 8 && barBox.height >= 24
+      && getComputedStyle(bar).display !== 'none');
+    const clip = api.measureNoClip();
+    const buttonInToolbar = Boolean(archive?.querySelector('.briefing-archive-toolbar [data-commodity-book-toggle]'));
+    const buttonInTopLeft = Boolean(document.querySelector('#top-left-menu [data-commodity-book-toggle]'));
+    const spawned = globalThis.BM1Probe?.spawnShip?.({
+      id: 's35-book-target',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-book-target');
+    globalThis.BM1Probe?.paint?.();
+    const target = document.getElementById('target-window');
+    const targetBox = rectOf(target);
+    const archiveOpen = rectOf(archive);
+    const bookOpen = rectOf(archive?.querySelector(':scope > .commodity-book-section'));
+    const targetClear = Boolean(targetBox && targetBox.width > 40 && targetBox.height > 40 && archiveOpen
+      && !overlap(targetBox, archiveOpen) && (!bookOpen || !overlap(targetBox, bookOpen)));
+    const targetClip = api.measureNoClip();
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    globalThis.BM1Probe?.paint?.();
+    return {
+      pillHeight: pillBox?.height || 0,
+      pillText: String(pill?.textContent || ''),
+      jumpText: String(jump?.textContent || ''),
+      jumpOverlapsPill: overlap(pillBox, jumpBox),
+      lineCount: lines.length,
+      sliced,
+      buyInside,
+      buyText: String(buy?.textContent || ''),
+      bookScrolls,
+      emptyBriefing: /no briefing has been filed/i.test(body?.textContent || ''),
+      buttonInToolbar,
+      buttonInTopLeft,
+      clip: clip && { clippedControls: clip.clippedControls, occluders: clip.occluders, pillOverlaps: clip.pillOverlaps },
+      targetClear,
+      targetClip: targetClip && { clippedControls: targetClip.clippedControls, occluders: targetClip.occluders, pillOverlaps: targetClip.pillOverlaps },
+      targetBox,
+      archiveBox: archiveOpen,
+    };
+  });
+  check(results, 'S35.20 briefing-book-open', uncrushed.buttonInToolbar === true && uncrushed.buttonInTopLeft === false
+    && uncrushed.emptyBriefing === false && uncrushed.lineCount > 0
+    && uncrushed.pillHeight >= 24 && uncrushed.jumpOverlapsPill === false && uncrushed.sliced === false
+    && uncrushed.buyInside === true && /buy one ton/i.test(uncrushed.buyText)
+    && uncrushed.bookScrolls === true
+    && clipEmpty(uncrushed.clip), JSON.stringify({
+      pillHeight: uncrushed.pillHeight,
+      pillText: uncrushed.pillText,
+      jumpText: uncrushed.jumpText,
+      jumpOverlapsPill: uncrushed.jumpOverlapsPill,
+      sliced: uncrushed.sliced,
+      buyInside: uncrushed.buyInside,
+      buyText: uncrushed.buyText,
+      bookScrolls: uncrushed.bookScrolls,
+      clip: uncrushed.clip,
+    }));
+  check(results, 'S35.20 book-target-clear', uncrushed.targetClear === true && clipEmpty(uncrushed.targetClip), JSON.stringify({
+    targetClear: uncrushed.targetClear,
+    targetBox: uncrushed.targetBox,
+    archiveBox: uncrushed.archiveBox,
+    clip: uncrushed.targetClip,
+  }));
   const fit = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const measure = () => api.measureNoClip();
