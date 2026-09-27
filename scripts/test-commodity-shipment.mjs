@@ -137,6 +137,8 @@ assert('S35.9 locks-stay-false', [
   COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED,
 ].every((flag) => flag === false));
 assert('S35.8 host', srcHtml.includes('id="commodity-shipment"')
+  && srcHtml.includes('commodity-shipment-title')
+  && srcHtml.includes('COMMODITY BOOK')
   && srcHtml.includes('commodity-entries')
   && srcHtml.includes('shipment-records')
   && srcHtml.includes('commodity-shipment-detail'));

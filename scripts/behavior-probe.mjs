@@ -7209,6 +7209,61 @@ async function runCommodityShipment(page, results) {
   check(results, 'S35.2 hold-full', s35.fullPaid === 0 && s35.fullReason === 'hold-full' && s35.stockAfterFull === s35.stockAfterSell && s35.priceAfterFull === s35.priceAfterSell, JSON.stringify(s35));
   check(results, 'S35.7 no-mint', s35.handPods === true && s35.handLatinum === 0, JSON.stringify(s35));
   check(results, 'S35.6 no-third-roe', Array.isArray(s35.roeModes) && s35.roeModes.join(',') === 'return-fire,defend' && s35.offersProtectAll !== true && s35.tractor === false, JSON.stringify(s35));
+  const fit = await page.evaluate(() => {
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    const boxOf = (el) => {
+      if (!el) return null;
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden' || rect.width < 2 || rect.height < 2) return null;
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api?.clearCombatTarget?.();
+    api?.open?.();
+    globalThis.BM1Probe?.paint?.();
+    const bookEl = document.getElementById('commodity-shipment');
+    const briefingEl = document.getElementById('briefing-archive');
+    const book = boxOf(bookEl);
+    const briefing = boxOf(briefingEl);
+    // CSS box committed at 3914dac: top 78, left 430, width 300. That box covers
+    // #briefing-archive (amber panel, top 78, right 332, width 400).
+    const legacy = { left: 430, top: 78, right: 730, bottom: 409 };
+    const panels = [
+      ['briefing archive', briefingEl],
+      ['campaign panel', document.getElementById('phase10-readout')],
+      ['world cargo', document.getElementById('world-cargo')],
+      ['bottom dock', document.getElementById('bottom-dock')],
+      ['planet menu', document.getElementById('planet-menu')],
+      ['target window', document.getElementById('target-window')],
+      ['interstellar map', document.getElementById('interstellar-map-frame')],
+      ['header strip', document.querySelector('.top-strip')],
+    ];
+    const bookOverlaps = panels
+      .map(([name, el]) => (overlap(book, boxOf(el)) ? name : null))
+      .filter(Boolean);
+    const title = String(bookEl?.querySelector('.commodity-shipment-title')?.textContent || '').trim();
+    const entry = bookEl?.querySelector('.commodity-entry');
+    const entryStyle = entry ? getComputedStyle(entry) : null;
+    const bookStyle = bookEl ? getComputedStyle(bookEl) : null;
+    return {
+      book,
+      briefing,
+      legacyOverlapsBriefing: overlap(legacy, briefing),
+      bookOverlaps,
+      title,
+      opaque: bookStyle?.backgroundColor === 'rgb(5, 7, 14)',
+      entrySeparated: Boolean(entryStyle) && entryStyle.borderTopWidth !== '0px' && entryStyle.whiteSpace !== 'nowrap',
+      briefingVisible: Boolean(briefing),
+    };
+  });
+  check(results, 'S35.8 book-clears-panels', fit.briefingVisible === true
+    && fit.legacyOverlapsBriefing === true
+    && fit.bookOverlaps.length === 0
+    && fit.title === 'COMMODITY BOOK'
+    && fit.opaque === true
+    && fit.entrySeparated === true, JSON.stringify(fit));
 }
 
 async function runHeaderStrip(page, results) {

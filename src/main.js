@@ -11150,6 +11150,123 @@ function sellBackFromCommodityBook(saleId) {
   updateStats();
 }
 
+function placeCommodityShipmentHost(host) {
+  const gap = 12;
+  const minWidth = 260;
+  const preferredWidth = 320;
+  const minHeight = 168;
+  const viewportW = window.innerWidth;
+  const viewportH = window.innerHeight;
+  const dockClear = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bm1-dock-clear')) || 88;
+  const floor = viewportH - dockClear - gap;
+  const boxOf = (el) => {
+    if (!el || el === host) return null;
+    const style = getComputedStyle(el);
+    if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return null;
+    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+  };
+  const obstacleIds = [
+    'phase10-readout',
+    'world-cargo',
+    'bottom-dock',
+    'briefing-archive',
+    'planet-menu',
+    'target-window',
+    'interstellar-map-frame',
+    'minimap-panel',
+    'top-left-panel',
+  ];
+  const obstacles = obstacleIds.map((id) => boxOf(document.getElementById(id))).filter(Boolean);
+  const header = boxOf(document.querySelector('.top-strip'));
+  if (header) obstacles.push(header);
+  const ceiling = Math.max(62, (header?.bottom || 50) + gap);
+  const hits = (rect) => obstacles.some((ob) => (
+    rect.left < ob.right - 0.5
+    && rect.right > ob.left + 0.5
+    && rect.top < ob.bottom - 0.5
+    && rect.bottom > ob.top + 0.5
+  ));
+  const within = (rect) => (
+    rect.left >= 8
+    && rect.top >= ceiling - 0.5
+    && rect.right <= viewportW - 8
+    && rect.bottom <= floor + 0.5
+    && rect.right - rect.left >= minWidth
+    && rect.bottom - rect.top >= minHeight
+    && !hits(rect)
+  );
+  const briefing = boxOf(document.getElementById('briefing-archive'));
+  const planet = boxOf(document.getElementById('planet-menu'));
+  const cargo = boxOf(document.getElementById('world-cargo'));
+  const campaign = boxOf(document.getElementById('phase10-readout'));
+  const target = boxOf(document.getElementById('target-window'));
+  const dock = boxOf(document.getElementById('bottom-dock'));
+  const leftOfColumn = Math.max(
+    18,
+    cargo ? cargo.right + gap : 18,
+    campaign ? campaign.right + gap : 18,
+    target ? target.right + gap : 18,
+  );
+  const rightEdge = Math.min(viewportW - 8, planet ? planet.left - gap : viewportW - 8);
+  const bottomEdge = Math.min(floor, dock ? dock.top - gap : floor);
+  const candidates = [];
+  if (briefing) {
+    const top = Math.max(ceiling, briefing.bottom + gap);
+    candidates.push({
+      left: leftOfColumn,
+      top,
+      width: Math.min(preferredWidth, rightEdge - leftOfColumn),
+      height: bottomEdge - top,
+    });
+    if (!planet) {
+      const left = briefing.right + gap;
+      candidates.push({
+        left,
+        top: ceiling,
+        width: Math.min(preferredWidth, (viewportW - 8) - left),
+        height: bottomEdge - ceiling,
+      });
+    }
+  }
+  candidates.push({
+    left: leftOfColumn,
+    top: ceiling,
+    width: Math.min(preferredWidth, rightEdge - leftOfColumn),
+    height: bottomEdge - ceiling,
+  });
+  let chosen = null;
+  for (const candidate of candidates) {
+    const rect = {
+      left: candidate.left,
+      top: candidate.top,
+      right: candidate.left + candidate.width,
+      bottom: candidate.top + candidate.height,
+    };
+    if (within(rect)) {
+      chosen = rect;
+      break;
+    }
+  }
+  if (!chosen) {
+    const width = Math.min(preferredWidth, Math.max(minWidth, rightEdge - leftOfColumn));
+    const top = briefing ? Math.max(ceiling, briefing.bottom + gap) : ceiling;
+    chosen = {
+      left: leftOfColumn,
+      top,
+      right: leftOfColumn + width,
+      bottom: Math.min(bottomEdge, top + minHeight),
+    };
+  }
+  host.style.left = `${Math.round(chosen.left)}px`;
+  host.style.top = `${Math.round(chosen.top)}px`;
+  host.style.width = `${Math.round(chosen.right - chosen.left)}px`;
+  host.style.maxHeight = `${Math.round(chosen.bottom - chosen.top)}px`;
+  host.style.right = 'auto';
+  host.style.bottom = 'auto';
+}
+
 function renderCommodityShipment() {
   const host = document.getElementById('commodity-shipment');
   if (!host) return;
@@ -11188,6 +11305,7 @@ function renderCommodityShipment() {
   entriesEl.innerHTML = entriesHtml;
   shipmentEl.innerHTML = shipmentHtml;
   detailEl.innerHTML = `<p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}${buyButton}${sellButton}`;
+  placeCommodityShipmentHost(host);
 }
 
 function renderWorldCargo() {
@@ -26093,6 +26211,13 @@ function createCommodityShipmentProbeApi() {
       state.commodityShipmentOpen = true;
       renderCommodityShipment();
       return true;
+    },
+    clearCombatTarget: () => {
+      state.autoTarget = false;
+      state.combatTargetId = null;
+      state.combatTargetType = 'ship';
+      if (typeof rerenderTargetWindowNow === 'function') rerenderTargetWindowNow();
+      return state.combatTargetId == null;
     },
     close: () => {
       state.commodityShipmentOpen = false;

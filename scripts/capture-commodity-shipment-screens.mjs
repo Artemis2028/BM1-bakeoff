@@ -94,16 +94,21 @@ function measureNoClip() {
         }
       }
     }
-    const campaign = boxOf(document.getElementById('phase10-readout'));
-    const cargo = boxOf(document.getElementById('world-cargo'));
-    const dock = boxOf(document.getElementById('bottom-dock'));
-    const book = boxOf(document.getElementById('commodity-shipment'));
-    const surfaces = [
-      campaign && !campaign.hidden ? { name: 'campaign panel', box: campaign } : null,
-      cargo && !cargo.hidden ? { name: 'world cargo', box: cargo } : null,
-      dock && !dock.hidden ? { name: 'bottom dock', box: dock } : null,
-      book && !book.hidden ? { name: 'commodity book', box: book } : null,
-    ].filter(Boolean);
+    const named = [
+      ['campaign panel', document.getElementById('phase10-readout')],
+      ['world cargo', document.getElementById('world-cargo')],
+      ['bottom dock', document.getElementById('bottom-dock')],
+      ['briefing archive', document.getElementById('briefing-archive')],
+      ['planet menu', document.getElementById('planet-menu')],
+      ['target window', document.getElementById('target-window')],
+      ['interstellar map', document.getElementById('interstellar-map-frame')],
+      ['header strip', document.querySelector('.top-strip')],
+      ['commodity book', document.getElementById('commodity-shipment')],
+    ];
+    const surfaces = named.map(([name, el]) => {
+      const box = boxOf(el);
+      return box && !box.hidden ? { name, box } : null;
+    }).filter(Boolean);
     const occluders = [];
     for (let i = 0; i < surfaces.length; i += 1) {
       for (let j = i + 1; j < surfaces.length; j += 1) {
@@ -131,7 +136,7 @@ function measureNoClip() {
     for (const host of hosts) {
       if (host.classList.contains('hidden')) continue;
       const hostRect = host.getBoundingClientRect();
-      const nodes = [...host.querySelectorAll('button, .commodity-entry, .shipment-record, .commodity-shipment-detail, .commodity-entries, .shipment-records')];
+      const nodes = [...host.querySelectorAll('button, .commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail, .commodity-entries, .shipment-records')];
       for (const el of nodes) {
         const style = getComputedStyle(el);
         if (style.display === 'none' || style.visibility === 'hidden') continue;
@@ -146,7 +151,7 @@ function measureNoClip() {
       }
     }
     const bookHost = document.getElementById('commodity-shipment');
-    const nameCut = bookHost ? [...bookHost.querySelectorAll('.commodity-entry, .shipment-record, .commodity-shipment-detail')].some((el) => {
+    const nameCut = bookHost ? [...bookHost.querySelectorAll('.commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail')].some((el) => {
       const style = getComputedStyle(el);
       return style.textOverflow === 'ellipsis' || (style.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1);
     }) : false;
@@ -162,6 +167,13 @@ function measureNoClip() {
       campaignText: String(document.getElementById('phase10-readout')?.innerText || '').slice(0, 400),
       worldCargoText: String(document.getElementById('world-cargo')?.innerText || '').slice(0, 400),
       dockHidden: document.getElementById('bottom-dock')?.classList.contains('hidden') === true,
+      surfaces: surfaces.map((row) => ({
+        name: row.name,
+        left: Math.round(row.box.left),
+        right: Math.round(row.box.right),
+        top: Math.round(row.box.top),
+        bottom: Math.round(row.box.bottom),
+      })),
     };
   };
 }
@@ -294,13 +306,14 @@ async function main() {
     const restoredReason = await replayCloakRefusal();
     console.log('restored drop', restoredReason);
     await page.evaluate(() => {
+      const api = globalThis.__BM1_PROBE__?.commodityShipment;
       document.getElementById('planet-menu')?.classList.add('hidden');
       document.getElementById('phase10-readout')?.classList.remove('hidden');
       document.getElementById('world-cargo')?.classList.remove('hidden');
       document.getElementById('bottom-dock')?.classList.remove('hidden');
-      globalThis.__BM1_PROBE__?.commodityShipment?.open?.();
+      api?.clearCombatTarget?.();
+      api?.open?.();
       globalThis.BM1Probe?.paint?.();
-      const api = globalThis.__BM1_PROBE__?.commodityShipment;
       const snap = api?.snapshot?.() || {};
       const line = (snap.notices || []).find((row) => /purchase refused|paid 0|at the floor|empty cargo pod/i.test(row))
         || snap.lastNotice
@@ -326,6 +339,7 @@ async function main() {
       bookText: measured.bookText,
       campaignText: measured.campaignText,
       worldCargoText: measured.worldCargoText,
+      surfaces: measured.surfaces,
     }, null, 2));
     if (report.clippedControls.length || report.occluders.length || report.pillOverlaps.length || report.nameCut) {
       console.error(JSON.stringify(report, null, 2));
