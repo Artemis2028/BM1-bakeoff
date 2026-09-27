@@ -8613,39 +8613,58 @@ async function runCommodityShipment(page, results) {
         outcome: after.attempt?.outcome || null,
       };
     };
+    const readCard = () => {
+      const notes = [...document.querySelectorAll('#target-window .target-boarding-note')]
+        .map((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim());
+      return {
+        name: String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim(),
+        outcome: notes.find((text) => text.startsWith('Outcome:')) || '',
+        captureHidden: button('capture')?.hidden === true,
+        scuttleHidden: button('scuttle')?.hidden === true,
+        rows: offer(),
+      };
+    };
+    const takeThenWitness = (id, action) => {
+      const shipId = arm(id, 0.10);
+      const before = offer();
+      const shipName = String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim();
+      const el = button(action);
+      if (before.every((row) => row.clickable)) el?.click();
+      const ship = readCard();
+      const witness = probe?.spawnShip?.({ id: `${id}-witness`, name: 'SS Witness', faction: 'ferengi', attitude: 'neutral' });
+      const witnessId = witness?.id || `${id}-witness`;
+      boarding?.injectHullRatio?.(witnessId, 0.10);
+      boarding?.selectTarget?.(witnessId);
+      probe?.paint?.();
+      const witnessCard = readCard();
+      const again = boarding?.selectTarget?.(shipId);
+      if (again?.ok) probe?.paint?.();
+      const againCard = again?.ok ? readCard() : null;
+      const againShows = againCard?.name === shipName;
+      return {
+        shipId,
+        shipName,
+        before,
+        ship,
+        witness: witnessCard,
+        againOk: againShows,
+        again: againShows ? againCard : null,
+        snap: boarding?.snapshot?.() || {},
+      };
+    };
     restart();
     arm('s35-inert', 1);
     const highOffer = offer();
     const inertCapture = poke('capture');
     const inertScuttle = poke('scuttle');
     restart();
-    arm('s35-capture', 0.10);
-    const beforeCapture = offer();
-    const captureEl = button('capture');
-    if (beforeCapture.every((row) => row.clickable)) captureEl?.click();
-    const captureWitness = probe?.spawnShip?.({ id: 's35-capture-witness', name: 'SS Witness', faction: 'ferengi', attitude: 'neutral' });
-    boarding?.injectHullRatio?.(captureWitness?.id || 's35-capture-witness', 0.10);
-    boarding?.selectTarget?.(captureWitness?.id || 's35-capture-witness');
-    probe?.paint?.();
-    const captureSnap = boarding?.snapshot?.() || {};
-    const afterCapture = {
-      captureHidden: button('capture')?.hidden === true,
-      scuttleHidden: button('scuttle')?.hidden === true,
-    };
+    const captured = takeThenWitness('s35-capture', 'capture');
+    const captureSnap = captured.snap;
+    const beforeCapture = captured.before;
     restart();
-    arm('s35-scuttle', 0.10);
-    const beforeScuttle = offer();
-    const scuttleEl = button('scuttle');
-    if (beforeScuttle.every((row) => row.clickable)) scuttleEl?.click();
-    const scuttleWitness = probe?.spawnShip?.({ id: 's35-scuttle-witness', name: 'SS Witness', faction: 'ferengi', attitude: 'neutral' });
-    boarding?.injectHullRatio?.(scuttleWitness?.id || 's35-scuttle-witness', 0.10);
-    boarding?.selectTarget?.(scuttleWitness?.id || 's35-scuttle-witness');
-    probe?.paint?.();
-    const scuttleSnap = boarding?.snapshot?.() || {};
-    const afterScuttle = {
-      captureHidden: button('capture')?.hidden === true,
-      scuttleHidden: button('scuttle')?.hidden === true,
-    };
+    const scuttled = takeThenWitness('s35-scuttle', 'scuttle');
+    const scuttleSnap = scuttled.snap;
+    const beforeScuttle = scuttled.before;
     return {
       roe: globalThis.__BM1_PROBE__?.briefingArchive?.snapshot?.()?.roeModes || [],
       tractorIsBoard: boarding?.snapshot?.()?.tractorIsBoard === true,
@@ -8657,14 +8676,22 @@ async function runCommodityShipment(page, results) {
         outcome: captureSnap.attempt?.outcome || null,
         captured: captureSnap.attempt?.captured === true,
         scuttled: captureSnap.attempt?.scuttled === true,
-        ...afterCapture,
+        shipName: captured.shipName,
+        ship: captured.ship,
+        witness: captured.witness,
+        againOk: captured.againOk,
+        again: captured.again,
       },
       beforeScuttle,
       scuttle: {
         outcome: scuttleSnap.attempt?.outcome || null,
         captured: scuttleSnap.attempt?.captured === true,
         scuttled: scuttleSnap.attempt?.scuttled === true,
-        ...afterScuttle,
+        shipName: scuttled.shipName,
+        ship: scuttled.ship,
+        witness: scuttled.witness,
+        againOk: scuttled.againOk,
+        again: scuttled.again,
       },
     };
   });
@@ -8688,18 +8715,33 @@ async function runCommodityShipment(page, results) {
     beforeCapture: choice.beforeCapture,
     beforeScuttle: choice.beforeScuttle,
   }));
+  const ownOutcome = (card, action, name) => Boolean(card)
+    && card.name === name
+    && card.outcome === `Outcome: ${action}`
+    && card.captureHidden === (action !== 'capture')
+    && card.scuttleHidden === (action !== 'scuttle')
+    && card.rows?.some((row) => row.action === action && row.shown && row.enabled);
+  const openWitness = (card) => Boolean(card)
+    && card.name === 'SS Witness'
+    && card.outcome === ''
+    && card.captureHidden === false
+    && card.scuttleHidden === false
+    && bothClickable(card.rows);
+  const shipKeepsOutcome = (row, action) => ownOutcome(row.ship, action, row.shipName)
+    && row.shipName !== 'SS Witness'
+    && (!row.againOk || ownOutcome(row.again, action, row.shipName));
   check(results, 'S35.24 capture-records-capture', bothClickable(choice.beforeCapture)
     && choice.capture.outcome === 'capture'
     && choice.capture.captured === true
     && choice.capture.scuttled === false
-    && choice.capture.scuttleHidden === true
-    && choice.capture.captureHidden === false, JSON.stringify(choice.capture));
+    && shipKeepsOutcome(choice.capture, 'capture')
+    && openWitness(choice.capture.witness), JSON.stringify(choice.capture));
   check(results, 'S35.24 scuttle-records-scuttle', bothClickable(choice.beforeScuttle)
     && choice.scuttle.outcome === 'scuttle'
     && choice.scuttle.scuttled === true
     && choice.scuttle.captured === false
-    && choice.scuttle.captureHidden === true
-    && choice.scuttle.scuttleHidden === false, JSON.stringify(choice.scuttle));
+    && shipKeepsOutcome(choice.scuttle, 'scuttle')
+    && openWitness(choice.scuttle.witness), JSON.stringify(choice.scuttle));
   const dockReach = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const p8 = globalThis.__BM1_PROBE__?.phase8;

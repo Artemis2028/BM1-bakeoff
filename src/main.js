@@ -6280,6 +6280,7 @@ function applyBoardingOutcome(attemptId, outcome, extras = {}) {
     xpBook: ensureAwayTeamXpBook(),
   });
   if (!done.ok) return done;
+  if (getSelectedNpcTarget()) rerenderTargetWindowNow();
   return finishLiveBoarding(done, extras);
 }
 
@@ -6356,6 +6357,22 @@ function tickLiveBoarding(localMs = currentLocalMs()) {
   return ticked;
 }
 
+function boardingAttemptForTarget(target) {
+  const book = ensureBoardingBook();
+  const keys = new Set();
+  if (target?.securityInstanceId) keys.add(String(target.securityInstanceId));
+  if (target?.id != null) keys.add(String(target.id));
+  if (!keys.size) return null;
+  const attempts = Object.values(book?.attempts || {});
+  const inFlight = book?.inFlightId ? book.attempts?.[book.inFlightId] : null;
+  if (inFlight && keys.has(String(inFlight.victimInstanceId || ''))) return inFlight;
+  for (let index = attempts.length - 1; index >= 0; index -= 1) {
+    const attempt = attempts[index];
+    if (attempt && keys.has(String(attempt.victimInstanceId || ''))) return attempt;
+  }
+  return null;
+}
+
 function renderBoardingChrome(target, isStation) {
   const xpLine = awayTeamXpChromeLine(ensureAwayTeamXpBook());
   const owned = (state.playerFleet || []).filter((row) => !row.destroyed);
@@ -6372,7 +6389,7 @@ function renderBoardingChrome(target, isStation) {
   const reason = verdict.ok ? '' : (verdict.reason || '');
   const disabled = verdict.ok ? '' : 'disabled';
   const label = verdict.ok ? 'Board' : 'Board refused';
-  const attempt = snapshotAttempt(ensureBoardingBook());
+  const attempt = boardingAttemptForTarget(target);
   const attemptOutcome = attempt?.outcome || '';
   const outcome = attemptOutcome ? `Outcome: ${attemptOutcome}` : '';
   const mark = (action) => (attemptOutcome === action ? ' data-board-applies="1"' : '');
@@ -11730,10 +11747,24 @@ function commodityDoctrineFacts() {
     : null;
   const contacts = listContacts(ensureContactBook(), playerObserverKey());
   const attempt = snapshotAttempt(ensureBoardingBook());
+  const firingSolutions = contacts.filter((row) => row.firingSolution === true).map((row) => {
+    const subject = String(row.subjectKey || '');
+    const instanceId = subject.startsWith('npc:') ? subject.slice(4) : subject;
+    const npc = (state.npcShips || []).find((ship) => (
+      String(ship.securityInstanceId || '') === instanceId
+      || String(ship.id) === instanceId
+      || subjectKeyOfNpc(ship) === subject
+    ));
+    return {
+      id: npc?.id || subject || row.contactId,
+      source: row.source || null,
+    };
+  }).sort((a, b) => String(a.id).localeCompare(String(b.id)) || String(a.source || '').localeCompare(String(b.source || '')));
   return {
     roe: getEffectiveRoe(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
     engagement_authorized: state.engagement_authorized === true,
-    firingSolution: contacts.some((row) => row.firingSolution === true),
+    firingSolution: firingSolutions.length > 0,
+    firingSolutions,
     targetFiringSolution: contact?.firingSolution === true,
     firingSolutionSource: contact?.source || null,
     boardingOutcome: attempt?.outcome || '',
@@ -11945,8 +11976,6 @@ function measureCommodityNoClip(mustShow = []) {
         if (!pillOverlaps.includes(label)) pillOverlaps.push(label);
       }
     }
-    const bookSlot = archive.querySelector(':scope > .commodity-book-section');
-    const bookBox = bookSlot && shown(bookSlot) ? boxOfEl(bookSlot) : null;
     const nearestClipper = (el) => {
       let node = el.parentElement;
       while (node && node !== document.body && node !== document.documentElement) {
@@ -11976,26 +12005,6 @@ function measureCommodityNoClip(mustShow = []) {
       const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
       return yFits && xFits;
     };
-    const watched = [
-      ...pills,
-      ...briefingLines,
-      ...[...archive.querySelectorAll('.commodity-book-actions button, [data-commodity-buy], [data-commodity-sell]')].filter(shown),
-    ];
-    for (const el of watched) {
-      if (inScrollingBook(el)) continue;
-      const { full, visible } = visibleHeight(el);
-      const rect = el.getBoundingClientRect();
-      const revealable = (() => {
-        let node = el.parentElement;
-        while (node && node !== document.body && node !== document.documentElement) {
-          if (canBringIntoView(node, rect)) return true;
-          node = node.parentElement;
-        }
-        return false;
-      })();
-      if (full >= 8 && visible > 1 && visible < full - 1 && !revealable) pushClip(el.textContent);
-      if (bookBox && briefingLines.includes(el) && overlapBoxes(clippedBox(el), bookBox)) pushClip(el.textContent);
-    }
     const buy = archive.querySelector('[data-commodity-buy]');
     if (buy && shown(buy) && !inScrollingBook(buy)) {
       const { full, visible } = visibleHeight(buy);
@@ -27511,99 +27520,6 @@ function createCommodityShipmentProbeApi() {
         identitySame: tradeWitness() === witness,
         docked: state.docked === true,
         slot,
-      };
-    },
-    stageScreenshots: () => {
-      const longGood = 'Pharmaceutical Grade Medical Supplies And Emergency Ration Packs';
-      const longWorld = 'Ferenginar Outer Commerce Reach';
-      state.commodityShipmentBook = emptyCommodityShipmentBook();
-      state.cargoArray = Array.from({ length: 10 }, () => ({ tons: 0, item: 'Nothing', destination: undefined, payout: 0 }));
-      state.cargoArray[0].tons = 1;
-      state.cargoArray[0].item = longGood;
-      state.cargoArray[0].destination = longWorld;
-      state.cargoArray[0].contractId = 'shot-long';
-      state.cargoArray[0].payout = 0;
-      enrollWorldCargoContract(ensureWorldCargoBook(), {
-        id: 'shot-long',
-        mode: 'open',
-        good: longGood,
-        tons: 1,
-        targetName: longWorld,
-        targetIndex: state.currentPlanet,
-        legalPayout: 12,
-      });
-      placePlayerAtWorldBody();
-      const marker = getFlightPlanetMarker();
-      state.ship.x = marker.x;
-      state.ship.y = marker.y;
-      state.docked = false;
-      state.dockedPlanetIndex = null;
-      state.dockedStationId = null;
-      setPlayerCloak(true, performance.now(), true);
-      const dropped = dropWorldCargo(ensureWorldCargoBook(), worldCargoContext({ contractId: 'shot-long' }));
-      setPlayerCloak(false, performance.now(), true);
-      const market = injectMarket(ensureMarketBook(), {
-        marketId: 'mkt-shot-book',
-        good: 'Grain',
-        stock: 6,
-        demand: 6,
-        stockCap: 8,
-        demandCap: 8,
-        floor: 0,
-        price: 8,
-        systemIndex: state.currentPlanet,
-        locationName: longWorld,
-        restriction: 'open',
-      }).market;
-      recalcCargoFromPods();
-      const shotScope = { scope: 'general', systemName: state.planets[state.currentPlanet]?.name || '' };
-      const bought = buyCommodityLot(ensureCommodityShipmentBook(), {
-        market,
-        marketBook: ensureMarketBook(),
-        pods: state.cargoArray,
-        cargoCap: state.cargoCap,
-        credits: state.latinum,
-        tons: 1,
-        dominion: shotScope,
-        config: COMMODITY_SHIPMENT_CONFIG,
-      });
-      if (bought.paid) state.latinum -= bought.paid;
-      const sold = sellBackBookLot(ensureCommodityShipmentBook(), {
-        saleId: bought.saleId,
-        market,
-        marketBook: ensureMarketBook(),
-        pods: state.cargoArray,
-        dominion: shotScope,
-        config: COMMODITY_SHIPMENT_CONFIG,
-      });
-      if (sold.paid) state.latinum += sold.paid;
-      for (const pod of state.cargoArray) {
-        if (!pod.tons || pod.item === 'Nothing') {
-          pod.tons = 1;
-          pod.item = 'Staple Crate';
-          pod.destination = undefined;
-          pod.payout = 0;
-        }
-      }
-      recalcCargoFromPods();
-      const refused = buyCommodityLot(ensureCommodityShipmentBook(), {
-        market,
-        marketBook: ensureMarketBook(),
-        pods: state.cargoArray,
-        cargoCap: state.cargoCap,
-        credits: state.latinum,
-        tons: 1,
-        dominion: shotScope,
-        config: COMMODITY_SHIPMENT_CONFIG,
-      });
-      setLog(refused.logLine || 'Hold is full. Purchase refused. The market did not move.');
-      refreshCommodityShipment();
-      state.commodityShipmentOpen = true;
-      renderCommodityShipment();
-      renderWorldCargo();
-      return {
-        ...commodityShipmentSnapshot(ensureCommodityShipmentBook()),
-        dropReason: dropped?.reason || null,
       };
     },
   };

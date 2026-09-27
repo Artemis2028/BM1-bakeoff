@@ -316,17 +316,34 @@ async function main() {
       console.error(`setup step failed: ${step}`, typeof detail === 'string' ? detail : JSON.stringify(detail));
       process.exitCode = 1;
     };
-    const sameThree = (before, after) => before
-      && after
-      && before.roe === after.roe
-      && before.engagement_authorized === after.engagement_authorized
-      && before.firingSolution === after.firingSolution
-      && before.targetFiringSolution === after.targetFiringSolution;
-    const assertUnchanged = (before, after, step) => {
-      if (sameThree(before, after)) return true;
-      failStep(step, { changed: ['roe', 'firingSolution', 'engagement_authorized'], before, after });
+    const solutionKey = (row) => `${row?.id || ''}\t${row?.source || ''}`;
+    const sameSolutions = (left, right) => {
+      const a = [...(left || [])].map(solutionKey).sort();
+      const b = [...(right || [])].map(solutionKey).sort();
+      return a.length === b.length && a.every((key, index) => key === b[index]);
+    };
+    const doctrineDrift = (actual, expected) => {
+      const names = [];
+      if (!actual || actual.roe !== expected.roe) names.push('roe');
+      if (!actual || actual.engagement_authorized !== expected.engagement_authorized) names.push('engagement_authorized');
+      if (!actual || !sameSolutions(actual.firingSolutions, expected.firingSolutions)) names.push('firingSolutions');
+      return names;
+    };
+    const assertDoctrine = (step, actual, expected) => {
+      const drift = doctrineDrift(actual, expected);
+      if (!drift.length) return true;
+      failStep(step, { drift, actual, expected });
       return false;
     };
+    const addedSolutions = (before, after) => {
+      const seen = new Set((before?.firingSolutions || []).map(solutionKey));
+      return (after?.firingSolutions || []).filter((row) => !seen.has(solutionKey(row)));
+    };
+    const assertUnchanged = (before, after, step) => assertDoctrine(step, after, {
+      roe: before?.roe,
+      engagement_authorized: before?.engagement_authorized,
+      firingSolutions: before?.firingSolutions || [],
+    });
     const withBefore = (row, before) => ({ ...row, doctrineBefore: before });
     const briefingLine = await page.evaluate(() => {
       const el = document.querySelector('#briefing-archive .briefing-line');
@@ -448,8 +465,24 @@ async function main() {
         speed: 0,
       });
       if (!spawned?.id) return { ok: false, step: 'spawn', before };
-      const playerX = spawned.x - 240;
-      const playerY = spawned.y;
+      const origin = { x: spawned.x - 240, y: spawned.y };
+      const obstacles = [
+        origin,
+        ...(probe.snapshot?.().npcShips || [])
+          .filter((row) => row && !row.destroyed && row.id !== spawned.id)
+          .map((row) => ({ x: Number(row.x) || 0, y: Number(row.y) || 0 })),
+      ];
+      let clearSky = null;
+      for (let x = origin.x - 2800; x <= origin.x + 2800 && !clearSky; x += 400) {
+        for (let y = origin.y - 2800; y <= origin.y + 2800; y += 400) {
+          const clear = obstacles.every((row) => Math.hypot(row.x - x, row.y - y) > 2000);
+          if (clear) clearSky = { x, y };
+        }
+      }
+      if (!clearSky) return { ok: false, step: 'sensor-paint', before, reason: 'no-clear-sky' };
+      probe.placePlayer(clearSky.x, clearSky.y);
+      const playerX = clearSky.x;
+      const playerY = clearSky.y;
       const canvas = document.getElementById('game');
       const rect = canvas.getBoundingClientRect();
       const offsets = [];
@@ -494,10 +527,29 @@ async function main() {
       return { ok: false, step: 'lock-sky', before, last };
     });
     console.log('target lock prep', JSON.stringify(lockPrep));
+    const newFiringSolutions = lockPrep.ok ? addedSolutions(lockPrep.before, lockPrep.after) : [];
+    const paintedSolutions = [{ id: 'shot-odyssey', source: 'passive' }];
     if (!lockPrep.ok) {
       failStep(lockPrep.step || 'lock-sky', lockPrep);
-    } else if (lockPrep.before.roe !== lockPrep.after.roe || lockPrep.after.engagement_authorized !== false) {
-      failStep('sensor-paint', lockPrep);
+    } else if (lockPrep.before.roe !== lockPrep.after.roe) {
+      failStep('sensor-paint', { drift: ['roe'], before: lockPrep.before, after: lockPrep.after });
+    } else if (lockPrep.after.engagement_authorized !== false) {
+      failStep('sensor-paint', { drift: ['engagement_authorized'], before: lockPrep.before, after: lockPrep.after });
+    } else if (!newFiringSolutions.length || newFiringSolutions.some((row) => row.id !== 'shot-odyssey' || row.source !== 'passive')) {
+      failStep('sensor-paint', {
+        drift: ['firingSolutions'],
+        newFiringSolutions,
+        before: lockPrep.before?.firingSolutions || [],
+        after: lockPrep.after?.firingSolutions || [],
+      });
+    } else if (!sameSolutions(lockPrep.after?.firingSolutions, paintedSolutions)) {
+      failStep('sensor-paint', {
+        drift: ['firingSolutions'],
+        newFiringSolutions,
+        before: lockPrep.before?.firingSolutions || [],
+        after: lockPrep.after?.firingSolutions || [],
+        expected: paintedSolutions,
+      });
     }
     let locked = { hidden: true, facts: lockPrep.after, text: '' };
     if (lockPrep.ok) {
@@ -515,9 +567,17 @@ async function main() {
       });
       console.log('target lock click', JSON.stringify(locked));
       if (locked.hidden || !/odyssey/i.test(locked.text || '')) failStep('lock-click', locked);
-      else if (locked.facts.roe !== lockPrep.before.roe || locked.facts.engagement_authorized !== false) failStep('lock-click', locked.facts);
-      else if (locked.facts.firingSolution !== lockPrep.after.firingSolution) failStep('lock-click', { before: lockPrep.after, after: locked.facts });
-      else if (locked.facts.targetFiringSolution === true && locked.facts.firingSolutionSource !== 'passive') failStep('lock-click', locked.facts);
+      else if (!assertDoctrine('lock-click', locked.facts, {
+        roe: lockPrep.before.roe,
+        engagement_authorized: false,
+        firingSolutions: paintedSolutions,
+      })) {
+        /* drift names are logged by assertDoctrine */
+      } else if (locked.facts.firingSolution !== lockPrep.after.firingSolution) {
+        failStep('lock-click', { drift: ['firingSolution'], before: lockPrep.after, after: locked.facts });
+      } else if (locked.facts.targetFiringSolution === true && locked.facts.firingSolutionSource !== 'passive') {
+        failStep('lock-click', { drift: ['firingSolutionSource'], facts: locked.facts });
+      }
     }
     const afterLock = locked.facts || lockPrep.after;
     await logRefusal();
@@ -660,6 +720,9 @@ async function main() {
         afterLock,
         afterHull: hull?.after || null,
         firingSolutionSource: afterLock?.firingSolutionSource || null,
+        firingSolutionsBefore: lockPrep.before?.firingSolutions || [],
+        firingSolutionsAfterPaint: lockPrep.after?.firingSolutions || [],
+        newFiringSolutions,
         passiveFiringSolution: lockPrep.before?.firingSolution === false && afterLock?.firingSolution === true && afterLock?.firingSolutionSource === 'passive',
         lock: { dist: lockPrep.dist, x: lockPrep.x, y: lockPrep.y, onCanvas: lockPrep.onCanvas },
         shopText,
@@ -673,6 +736,46 @@ async function main() {
       cutOffLines: [],
       states,
     };
+    const quietDoctrine = {
+      roe: initialDoctrine.roe,
+      engagement_authorized: false,
+      firingSolutions: [],
+    };
+    const paintedDoctrine = {
+      roe: initialDoctrine.roe,
+      engagement_authorized: false,
+      firingSolutions: paintedSolutions,
+    };
+    const doctrineExpectations = {
+      campaign: quietDoctrine,
+      briefing: quietDoctrine,
+      briefingBook: quietDoctrine,
+      worldCargo: quietDoctrine,
+      target: paintedDoctrine,
+      bookTarget: paintedDoctrine,
+      bookTargetBook: paintedDoctrine,
+      bookTargetLow: paintedDoctrine,
+      bookTargetLowBook: paintedDoctrine,
+      dock: paintedDoctrine,
+      dockBook: paintedDoctrine,
+    };
+    const doctrineChecks = {};
+    for (const [name, expected] of Object.entries(doctrineExpectations)) {
+      const drift = doctrineDrift(states[name]?.doctrine, expected);
+      doctrineChecks[name] = drift.length ? { ok: false, drift, actual: states[name]?.doctrine, expected } : { ok: true };
+      if (drift.length) assertDoctrine(name, states[name]?.doctrine, expected);
+    }
+    report.setup.doctrineChecks = doctrineChecks;
+    console.log('doctrine checks', JSON.stringify(doctrineChecks));
+    if (report.setup.passiveFiringSolution !== true) {
+      console.error('passiveFiringSolution', JSON.stringify({
+        before: lockPrep.before?.firingSolution ?? null,
+        after: afterLock?.firingSolution ?? null,
+        source: afterLock?.firingSolutionSource ?? null,
+        newFiringSolutions,
+      }));
+      process.exitCode = 1;
+    }
     const measuredStates = [campaign, briefing, briefingBook, worldCargo, target, bookTarget, bookTargetBook, bookTargetLow, bookTargetLowBook, dock, dockBook];
     const failed = measuredStates.filter((row) => !empty(row));
     const capped = [briefing, briefingBook, bookTarget, bookTargetBook, bookTargetLow, bookTargetLowBook, dock, dockBook];

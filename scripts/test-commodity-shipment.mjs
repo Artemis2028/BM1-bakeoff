@@ -78,15 +78,19 @@ function assert(id, condition, detail = '') {
 
 function withTradeScope(input = {}) {
   if (input && Object.prototype.hasOwnProperty.call(input, 'dominion')) return input;
-  return { ...input, dominion: { scope: 'general' } };
+  return { ok: false, allowed: false, refused: true, paid: 0, reason: 'missing-scope' };
 }
 
 function buyCommodityLot(book, input = {}) {
-  return buyCommodityLotRaw(book, withTradeScope(input));
+  const scoped = withTradeScope(input);
+  if (!Object.prototype.hasOwnProperty.call(input || {}, 'dominion')) return scoped;
+  return buyCommodityLotRaw(book, scoped);
 }
 
 function sellBackBookLot(book, input = {}) {
-  return sellBackBookLotRaw(book, withTradeScope(input));
+  const scoped = withTradeScope(input);
+  if (!Object.prototype.hasOwnProperty.call(input || {}, 'dominion')) return scoped;
+  return sellBackBookLotRaw(book, scoped);
 }
 
 function emptyPods() {
@@ -211,7 +215,7 @@ const fullPods = emptyPods();
 fillPods(fullPods);
 const fullMarket = freshMarket();
 const beforeFull = JSON.parse(JSON.stringify(fullMarket.market));
-const refused = buyCommodityLot(emptyCommodityShipmentBook(), {
+const refused = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: fullMarket.market,
   marketBook: fullMarket.book,
   pods: fullPods,
@@ -231,7 +235,7 @@ assert('S35.2 one-hold', indexedContract.shipments['c-1'].id === 'c-1'
 const untagged = emptyPods();
 untagged[0] = { tons: 1, item: 'Medical Supplies', destination: undefined, payout: 0 };
 const ownSlot = freshMarket({ stock: 4, price: 8 });
-const boughtSlot = buyCommodityLot(emptyCommodityShipmentBook(), {
+const boughtSlot = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: ownSlot.market,
   marketBook: ownSlot.book,
   pods: untagged,
@@ -434,7 +438,7 @@ const flashCopy = JSON.stringify(flash);
 const briefingCopy = JSON.stringify(briefing);
 const tradeMarket = freshMarket({ price: 12, stock: 5, demand: 6 });
 const tradePods = emptyPods();
-const tradeBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+const tradeBuy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: tradeMarket.market,
   marketBook: tradeMarket.book,
   pods: tradePods,
@@ -454,7 +458,7 @@ assert('S35.10 not-a-report', tradeBuy.logBand == null
 const loose = emptyPods();
 loose[0] = { tons: 2, item: 'Medical Supplies', destination: undefined, payout: 0 };
 const tractor = noteTractorLoosePod(emptyCommodityShipmentBook(), loose[0]);
-const tractorSell = sellBackBookLot(tractor.book, {
+const tractorSell = sellBackBookLot(tractor.book, { dominion: { scope: 'general' },
   saleId: 1,
   market: freshMarket().market,
   pods: loose,
@@ -465,7 +469,7 @@ const contrabandBook = indexCommodityShipment(emptyCommodityShipmentBook(), {
   openContracts: [{ id: 'con-1', goods: 'Spice', tons: 1, contraband: true, targetName: 'Friend' }],
   worldCargoBook: emptyWorldCargoBook(),
 });
-sellBackBookLot(contrabandBook, { saleId: 'forged', market: freshMarket({ good: 'Spice' }).market, pods: emptyPods(), spoof: true, friendly: true });
+sellBackBookLot(contrabandBook, { dominion: { scope: 'general' }, saleId: 'forged', market: freshMarket({ good: 'Spice' }).market, pods: emptyPods(), spoof: true, friendly: true });
 assert('S35.11 provenance', tractor.tractorIsBoarding === false
   && tractor.salesAdded === false
   && tractorSell.paid === 0
@@ -475,7 +479,7 @@ assert('S35.11 provenance', tractor.tractorIsBoarding === false
 
 const tagged = emptyPods();
 const seeded = freshMarket({ price: 9, stock: 5, demand: 5 });
-const realBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+const realBuy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: seeded.market,
   marketBook: seeded.book,
   pods: tagged,
@@ -483,13 +487,13 @@ const realBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
   credits: 500,
   tons: 2,
 });
-const second = sellBackBookLot(realBuy.book, { saleId: realBuy.saleId, market: seeded.market, marketBook: seeded.book, pods: tagged });
-const third = sellBackBookLot(realBuy.book, { saleId: realBuy.saleId, market: seeded.market, marketBook: seeded.book, pods: tagged });
+const second = sellBackBookLot(realBuy.book, { dominion: { scope: 'general' }, saleId: realBuy.saleId, market: seeded.market, marketBook: seeded.book, pods: tagged });
+const third = sellBackBookLot(realBuy.book, { dominion: { scope: 'general' }, saleId: realBuy.saleId, market: seeded.market, marketBook: seeded.book, pods: tagged });
 assert('S35.11 consume-sale', realBuy.ok && second.ok && second.paid > 0 && third.paid === 0 && third.reason === 'sale-consumed');
 
 const gonePods = emptyPods();
 const goneMarket = freshMarket({ price: 9, stock: 5, demand: 5 });
-const goneBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+const goneBuy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: goneMarket.market,
   marketBook: goneMarket.book,
   pods: gonePods,
@@ -500,7 +504,7 @@ const goneBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
 gonePods[gonePods.findIndex((pod) => pod.bookSaleId === goneBuy.saleId)].tons = 0;
 gonePods.find((pod) => pod.bookSaleId === goneBuy.saleId).item = 'Nothing';
 delete gonePods.find((pod) => pod.item === 'Nothing' && pod.bookSaleId)?.bookSaleId;
-const missing = sellBackBookLot(goneBuy.book, { saleId: goneBuy.saleId, market: goneMarket.market, pods: gonePods });
+const missing = sellBackBookLot(goneBuy.book, { dominion: { scope: 'general' }, saleId: goneBuy.saleId, market: goneMarket.market, pods: gonePods });
 assert('S35.11 missing-pod-pays-0', missing.paid === 0 && !goneBuy.book.sales[String(goneBuy.saleId)]);
 
 const forged = restoreCommodityShipmentBook({
@@ -508,7 +512,7 @@ const forged = restoreCommodityShipmentBook({
   nextSaleId: 8,
   sales: { 7: { saleId: 7, lotId: 'lot:7', good: 'Medical Supplies', tons: 3, soldByBook: true, seq: 1 } },
 }, { pods: emptyPods() });
-const forgedPay = sellBackBookLot(forged, { saleId: 7, market: freshMarket().market, pods: emptyPods() });
+const forgedPay = sellBackBookLot(forged, { dominion: { scope: 'general' }, saleId: 7, market: freshMarket().market, pods: emptyPods() });
 assert('S35.11 forged-pays-0', forgedPay.paid === 0 && !forged.sales['7']);
 
 const coreRefused = dominionTradeAllowed({
@@ -553,7 +557,7 @@ indexCommodityShipment(emptyCommodityShipmentBook(), { pods: finitePods, openCon
 assert('S35.14 index-still', finite.market.stock === beforeFinite.stock && finite.market.price === beforeFinite.price && finite.market.demand === beforeFinite.demand);
 const n = 3;
 const expectedBuy = [11, 12, 13];
-const lump = buyCommodityLot(emptyCommodityShipmentBook(), {
+const lump = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: finite.market,
   marketBook: finite.book,
   pods: finitePods,
@@ -574,7 +578,7 @@ assert('S35.14 shop-same-step', shopOne.ok && shopOne.paid === 11 && shopMirror.
 const tooMany = freshMarket({ price: 10, stock: 2, demand: 6, floor: 0 });
 const tooManyBefore = { ...tooMany.market };
 const tooManyPods = emptyPods();
-const overBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+const overBuy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: tooMany.market,
   marketBook: tooMany.book,
   pods: tooManyPods,
@@ -588,7 +592,7 @@ assert('S35.14 buy-past-floor', overBuy.paid === 0 && overBuy.ok === false
   && tooManyPods.every((pod) => !pod.tons));
 
 const sellBook = lump.book;
-const sellPaid = sellBackBookLot(sellBook, {
+const sellPaid = sellBackBookLot(sellBook, { dominion: { scope: 'general' },
   saleId: lump.saleId,
   market: finite.market,
   marketBook: finite.book,
@@ -608,7 +612,7 @@ const floorBook = emptyCommodityShipmentBook();
 floorBook.sales['1'] = { saleId: 1, lotId: 'lot:1', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 };
 floorBook.lots['lot:1'] = { lotId: 'lot:1', good: 'Medical Supplies', source: 'book-bought', contraband: false, saleId: 1, seq: 1 };
 floorBook.nextSaleId = 2;
-const floorSell = sellBackBookLot(floorBook, { saleId: 1, market: floorMarket.market, marketBook: floorMarket.book, pods: floorPods });
+const floorSell = sellBackBookLot(floorBook, { dominion: { scope: 'general' }, saleId: 1, market: floorMarket.market, marketBook: floorMarket.book, pods: floorPods });
 assert('S35.14 sell-at-demand-floor', floorSell.paid === 0
   && floorMarket.market.stock === floorBefore.stock
   && floorMarket.market.demand === floorBefore.demand
@@ -635,7 +639,7 @@ roundTrip('S35.15 split-then-lump', () => {
   const ledger = emptyCommodityShipmentBook();
   const saleIds = [];
   for (let i = 0; i < 3; i += 1) {
-    const bought = buyCommodityLot(ledger, {
+    const bought = buyCommodityLot(ledger, { dominion: { scope: 'general' },
       market, marketBook: book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
     });
     net -= bought.paid;
@@ -658,7 +662,7 @@ roundTrip('S35.15 split-then-lump', () => {
   pod.tons = tons;
   pod.bookSaleId = first;
   ledger.sales[String(first)].tons = tons;
-  const sold = sellBackBookLot(ledger, { saleId: first, market, marketBook: book, pods: hold });
+  const sold = sellBackBookLot(ledger, { dominion: { scope: 'general' }, saleId: first, market, marketBook: book, pods: hold });
   net += sold.paid;
   return { net, priceReturned: market.price === start, price: market.price, start, paid: sold.paid };
 });
@@ -667,7 +671,7 @@ roundTrip('S35.15 lump-then-split', () => {
   const { book, market } = freshMarket({ price: 12, stock: 8, demand: 8, stockCap: 8, demandCap: 8, floor: 0 });
   const hold = emptyPods();
   const start = market.price;
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market, marketBook: book, pods: hold, cargoCap: 40, credits: 5000, tons: 3,
   });
   let net = -bought.paid;
@@ -678,7 +682,7 @@ roundTrip('S35.15 lump-then-split', () => {
     bought.book.sales[oneId] = { ...sale, saleId: oneId, tons: 1, lotId: sale.lotId };
     pod.bookSaleId = oneId;
     pod.tons = 3 - i;
-    const sold = sellBackBookLot(bought.book, { saleId: oneId, market, marketBook: book, pods: hold });
+    const sold = sellBackBookLot(bought.book, { dominion: { scope: 'general' }, saleId: oneId, market, marketBook: book, pods: hold });
     net += sold.paid;
     delete bought.book.sales[String(bought.saleId)];
   }
@@ -689,7 +693,7 @@ roundTrip('S35.15 book-then-shop', () => {
   const { book, market } = freshMarket({ price: 12, stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0 });
   const hold = emptyPods();
   const start = market.price;
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market, marketBook: book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
   });
   const sold = applyShopSell(book, { marketId: market.marketId, credits: 5000 });
@@ -706,7 +710,7 @@ roundTrip('S35.15 shop-then-book', () => {
   ledger.lots['lot:9'] = { lotId: 'lot:9', good: 'Medical Supplies', source: 'book-bought', contraband: false, saleId: 9, seq: 1 };
   const start = market.price;
   const bought = applyShopBuy(book, { marketId: market.marketId, credits: 5000 });
-  const sold = sellBackBookLot(ledger, { saleId: 9, market, marketBook: book, pods: hold });
+  const sold = sellBackBookLot(ledger, { dominion: { scope: 'general' }, saleId: 9, market, marketBook: book, pods: hold });
   return { net: -bought.paid + sold.paid, priceReturned: market.price === start, price: market.price, start, bought: bought.paid, sold: sold.paid };
 });
 
@@ -718,12 +722,12 @@ roundTrip('S35.15 shop-then-book', () => {
   for (let trip = 0; trip < market.stockCap + 1; trip += 1) {
     const before = latinum;
     const hold = emptyPods();
-    const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+    const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
       market, marketBook: book, pods: hold, cargoCap: 20, credits: latinum, tons: 1,
     });
     latinum -= bought.paid || 0;
     if (bought.ok) {
-      const sold = sellBackBookLot(bought.book, { saleId: bought.saleId, market, marketBook: book, pods: hold });
+      const sold = sellBackBookLot(bought.book, { dominion: { scope: 'general' }, saleId: bought.saleId, market, marketBook: book, pods: hold });
       latinum += sold.paid || 0;
     }
     worst = Math.max(worst, latinum - before);
@@ -735,11 +739,11 @@ roundTrip('S35.15 shop-then-book', () => {
   const worldA = freshMarket({ marketId: 'mkt-a', price: 10, stock: 4, demand: 6, stockCap: 8, demandCap: 8, floor: 0 });
   const worldB = freshMarket({ marketId: 'mkt-b', price: 14, stock: 4, demand: 6, stockCap: 8, demandCap: 8, floor: 0 });
   const hold = emptyPods();
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: worldA.market, marketBook: worldA.book, pods: hold, cargoCap: 20, credits: 500, tons: 1,
   });
   const stockAAfterBuy = worldA.market.stock;
-  sellBackBookLot(bought.book, { saleId: bought.saleId, market: worldB.market, marketBook: worldB.book, pods: hold });
+  sellBackBookLot(bought.book, { dominion: { scope: 'general' }, saleId: bought.saleId, market: worldB.market, marketBook: worldB.book, pods: hold });
   const jump = jumpMustNotReprintInfinity(worldA.book, { markets: [{ marketId: 'mkt-a', stock: 4, good: 'Medical Supplies' }] });
   const repair = evaluateDockService({ lost: false, supply: { met: false } }, 'repair', { baseCost: 4 });
   assert('S35.15 two-world', worldA.market.stock === stockAAfterBuy
@@ -767,7 +771,7 @@ for (const pod of slotPods) {
 }
 const slotMarket = freshMarket({ price: 10, stock: 4, demand: 4 });
 const slotBefore = { stock: slotMarket.market.stock, price: slotMarket.market.price, demand: slotMarket.market.demand };
-const noSlot = buyCommodityLot(emptyCommodityShipmentBook(), {
+const noSlot = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: slotMarket.market,
   marketBook: slotMarket.book,
   pods: slotPods,
@@ -785,7 +789,7 @@ assert('S35.16 hold-full-log', visibleRefusal(refused) && /hold is full/i.test(r
 
 const floorBuyMarket = freshMarket({ price: 8, stock: 0, demand: 4, floor: 0 });
 const floorBuyBefore = { stock: 0, price: floorBuyMarket.market.price, demand: floorBuyMarket.market.demand };
-const floorBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+const floorBuy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
   market: floorBuyMarket.market,
   marketBook: floorBuyMarket.book,
   pods: emptyPods(),
@@ -830,7 +834,7 @@ const nameBook = emptyCommodityShipmentBook();
 nameBook.nextSaleId = 4;
 nameBook.sales['3'] = { saleId: 3, lotId: 'lot:3', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 };
 nameBook.lots['lot:3'] = { lotId: 'lot:3', good: 'Medical Supplies', source: 'book-bought', contraband: true, saleId: 3, seq: 1 };
-const namePay = sellBackBookLot(nameBook, { saleId: 3, market: freshMarket().market, pods: nameOnly, spoof: true, friendly: true });
+const namePay = sellBackBookLot(nameBook, { dominion: { scope: 'general' }, saleId: 3, market: freshMarket().market, pods: nameOnly, spoof: true, friendly: true });
 assert('S35.16 name-only-pays-0', namePay.paid === 0
   && visibleRefusal(namePay)
   && nameOnly[0].tons === 1
@@ -839,13 +843,13 @@ assert('S35.16 name-only-pays-0', namePay.paid === 0
 
 const forgedRow = emptyCommodityShipmentBook();
 forgedRow.sales['9'] = { saleId: 9, lotId: 'lot:9', good: 'Spice', tons: 2, soldByBook: false, seq: 1 };
-const forgedRowPay = sellBackBookLot(forgedRow, { saleId: 9, market: freshMarket({ good: 'Spice' }).market, pods: emptyPods() });
+const forgedRowPay = sellBackBookLot(forgedRow, { dominion: { scope: 'general' }, saleId: 9, market: freshMarket({ good: 'Spice' }).market, pods: emptyPods() });
 assert('S35.16 forged-row-log', forgedRowPay.paid === 0 && visibleRefusal(forgedRowPay) && /paid 0/i.test(forgedRowPay.logLine));
 
 const banditPods = emptyPods();
 const banditMarket = freshMarket({ price: 11, stock: 5, demand: 5 });
 const bandit = emptyCommodityShipmentBook();
-const banditBuy = buyCommodityLot(bandit, {
+const banditBuy = buyCommodityLot(bandit, { dominion: { scope: 'general' },
   market: banditMarket.market,
   marketBook: banditMarket.book,
   pods: banditPods,
@@ -855,7 +859,7 @@ const banditBuy = buyCommodityLot(bandit, {
   contraband: true,
 });
 const banditLot = bandit.lots[banditBuy.lotId];
-const banditSell = sellBackBookLot(bandit, {
+const banditSell = sellBackBookLot(bandit, { dominion: { scope: 'general' },
   saleId: banditBuy.saleId,
   market: banditMarket.market,
   marketBook: banditMarket.book,
@@ -863,7 +867,7 @@ const banditSell = sellBackBookLot(bandit, {
   spoof: true,
   friendly: true,
 });
-const banditRebuy = buyCommodityLot(bandit, {
+const banditRebuy = buyCommodityLot(bandit, { dominion: { scope: 'general' },
   market: banditMarket.market,
   marketBook: banditMarket.book,
   pods: banditPods,
@@ -901,7 +905,7 @@ function mixedOverCap(direction) {
       const ledger = emptyCommodityShipmentBook();
       const hold = emptyPods();
       const before = net;
-      const bought = buyCommodityLot(ledger, {
+      const bought = buyCommodityLot(ledger, { dominion: { scope: 'general' },
         market, marketBook: book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
       });
       const sold = applyShopSell(book, { marketId: market.marketId, credits: 9000 });
@@ -933,7 +937,7 @@ function mixedOverCap(direction) {
     for (let i = 0; i < tons; i += 1) {
       const before = net;
       const bought = applyShopBuy(book, { marketId: market.marketId, credits: 9000 });
-      const sold = sellBackBookLot(ledger, {
+      const sold = sellBackBookLot(ledger, { dominion: { scope: 'general' },
         saleId: i + 1, market, marketBook: book, pods: hold,
       });
       net += -(bought.paid || 0) + (sold.paid || 0);
@@ -967,7 +971,7 @@ const identityContactCopy = JSON.stringify(identityContacts);
 const identityMarket = freshMarket({ price: 12, stock: 5, demand: 5 });
 const identityPods = emptyPods();
 const identityBook = emptyCommodityShipmentBook();
-const identityBuy = buyCommodityLot(identityBook, {
+const identityBuy = buyCommodityLot(identityBook, { dominion: { scope: 'general' },
   market: identityMarket.market,
   marketBook: identityMarket.book,
   pods: identityPods,
@@ -976,7 +980,7 @@ const identityBuy = buyCommodityLot(identityBook, {
   tons: 1,
 });
 const identityShop = applyShopSell(identityMarket.book, { marketId: identityMarket.market.marketId, credits: 500 });
-const identitySell = sellBackBookLot(identityBook, {
+const identitySell = sellBackBookLot(identityBook, { dominion: { scope: 'general' },
   saleId: identityBuy.saleId,
   market: identityMarket.market,
   marketBook: identityMarket.book,
@@ -1007,7 +1011,7 @@ function rowSnapshot(market) {
 function buyOpen(good) {
   const minted = freshMarket({ good, price: 10, stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0, restriction: 'open' });
   const pods = emptyPods();
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: minted.market,
     marketBook: minted.book,
     pods,
@@ -1022,7 +1026,7 @@ function buyOpen(good) {
   const embargo = freshMarket({ good: 'Embargo Leaf', restriction: 'embargo', price: 10, stock: 6, demand: 6 });
   const before = rowSnapshot(embargo.market);
   const pods = emptyPods();
-  const buy = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const buy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: embargo.market, marketBook: embargo.book, pods, cargoCap: 20, credits: 500, tons: 1,
   });
   assert('S35.17 embargo-book-buy', buy.paid === 0 && buy.ok === false
@@ -1032,7 +1036,7 @@ function buyOpen(good) {
   const held = buyOpen('Embargo Resale');
   held.market.restriction = 'embargo';
   const sellBefore = rowSnapshot(held.market);
-  const sold = sellBackBookLot(held.bought.book, {
+  const sold = sellBackBookLot(held.bought.book, { dominion: { scope: 'general' },
     saleId: held.bought.saleId, market: held.market, marketBook: held.book, pods: held.pods,
   });
   assert('S35.17 embargo-book-sell', held.bought.ok && sold.paid === 0 && sold.ok !== true
@@ -1047,21 +1051,21 @@ function buyOpen(good) {
     good: 'License Ore', restriction: 'license', licenseId: 'warp-license', price: 10, stock: 6, demand: 6,
   });
   const before = rowSnapshot(license.market);
-  const buy = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const buy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: license.market, marketBook: license.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
   });
   assert('S35.17 license-book-buy', buy.paid === 0 && buy.ok === false
     && /license/i.test(buy.logLine) && license.market.price === before.price && license.market.stock === before.stock
     && buy.logBand == null && !String(buy.logLine).startsWith('FLASH'));
   license.book.licenses['warp-license'] = true;
-  const allowed = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const allowed = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: license.market, marketBook: license.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
   });
   assert('S35.17 license-held-buys', allowed.ok === true && allowed.paid === 11 && license.market.price === 11);
   const held = buyOpen('License Resale');
   held.market.restriction = 'license';
   held.market.licenseId = 'warp-license';
-  const sold = sellBackBookLot(held.bought.book, {
+  const sold = sellBackBookLot(held.bought.book, { dominion: { scope: 'general' },
     saleId: held.bought.saleId, market: held.market, marketBook: held.book, pods: held.pods,
   });
   assert('S35.17 license-book-sell', sold.paid === 0 && Boolean(held.bought.book.sales[String(held.bought.saleId)])
@@ -1073,7 +1077,7 @@ function buyOpen(good) {
     good: 'Seller Ale', restriction: 'seller_rule', sellerWillDeal: false, price: 10, stock: 6, demand: 6,
   });
   const before = rowSnapshot(seller.market);
-  const buy = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const buy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: seller.market, marketBook: seller.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
   });
   assert('S35.17 seller-book-buy', buy.paid === 0 && buy.ok === false
@@ -1083,7 +1087,7 @@ function buyOpen(good) {
   held.market.restriction = 'seller_rule';
   held.market.sellerWillDeal = false;
   const sellBefore = rowSnapshot(held.market);
-  const sold = sellBackBookLot(held.bought.book, {
+  const sold = sellBackBookLot(held.bought.book, { dominion: { scope: 'general' },
     saleId: held.bought.saleId, market: held.market, marketBook: held.book, pods: held.pods,
   });
   assert('S35.17 seller-book-sell', sold.paid === 0 && held.market.price === sellBefore.price
@@ -1110,19 +1114,19 @@ function buyOpen(good) {
     restriction: 'premium', premiumMultiplier: 3,
   });
   const hold = emptyPods();
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: book.market, marketBook: book.book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
   });
   assert('S35.17 premium-book-buy', bought.ok && bought.paid === 33 && bought.prices.join(',') === '33'
     && book.market.price === 11
     && /Bought 1 ton of /.test(bought.logLine) && !/1 tons/.test(bought.logLine)
     && /Black-market premium/.test(bought.logLine));
-  const sold = sellBackBookLot(bought.book, {
+  const sold = sellBackBookLot(bought.book, { dominion: { scope: 'general' },
     saleId: bought.saleId, market: book.market, marketBook: book.book, pods: hold,
   });
   assert('S35.17 premium-book-sell', sold.ok && sold.paid === 30 && book.market.price === 10
     && /Sold 1 ton of /.test(sold.logLine) && !/1 tons/.test(sold.logLine));
-  const plural = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const plural = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: book.market, marketBook: book.book, pods: emptyPods(), cargoCap: 20, credits: 5000, tons: 3,
   });
   assert('S35.17 plural-tons', plural.ok && /Bought 3 tons of /.test(plural.logLine)
@@ -1136,7 +1140,7 @@ function buyOpen(good) {
   });
   const hold = emptyPods();
   const start = mix.market.price;
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: mix.market, marketBook: mix.book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
   });
   const sold = applyShopSell(mix.book, { marketId: mix.market.marketId, credits: 5000 });
@@ -1150,12 +1154,12 @@ function buyOpen(good) {
     restriction: 'premium', premiumMultiplier: 3,
   });
   const hold = emptyPods();
-  const setup = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const setup = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: mix.market, marketBook: mix.book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
   });
   const start = mix.market.price;
   const shop = applyShopBuy(mix.book, { marketId: mix.market.marketId, credits: 5000 });
-  const sold = sellBackBookLot(setup.book, {
+  const sold = sellBackBookLot(setup.book, { dominion: { scope: 'general' },
     saleId: setup.saleId, market: mix.market, marketBook: mix.book, pods: hold,
   });
   assert('S35.15 premium-shop-then-book', shop.paid === 36 && sold.paid === 33
@@ -1164,7 +1168,7 @@ function buyOpen(good) {
 
 {
   const contra = freshMarket({ good: 'Contraband Spice', contraband: true, price: 10, stock: 4, demand: 4 });
-  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: contra.market, marketBook: contra.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
   });
   assert('S35.17 contraband-from-market', bought.ok === true && bought.book.lots[bought.lotId].contraband === true
@@ -1216,7 +1220,7 @@ function buyOpen(good) {
   assert('S35.25 lot-false-sticks', lotBook.lots['lot:1'].contraband === true);
   const heldPods = emptyPods();
   const heldMarket = freshMarket({ good: 'Contraband Spice', marketId: 'mkt-held', contraband: true, price: 10, stock: 6, demand: 6 });
-  const heldBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+  const heldBuy = buyCommodityLot(emptyCommodityShipmentBook(), { dominion: { scope: 'general' },
     market: heldMarket.market, marketBook: heldMarket.book, pods: heldPods, cargoCap: 20, credits: 500, tons: 1,
   });
   const heldContracts = [];
@@ -1224,7 +1228,7 @@ function buyOpen(good) {
     heldContracts.push({ id: `held-${i}`, goods: 'Grain', tons: 1, targetName: 'Friend' });
   }
   indexCommodityShipment(heldBuy.book, { pods: heldPods, openContracts: heldContracts, worldCargoBook: emptyWorldCargoBook() });
-  const heldSold = sellBackBookLot(heldBuy.book, {
+  const heldSold = sellBackBookLot(heldBuy.book, { dominion: { scope: 'general' },
     saleId: heldBuy.saleId, market: heldMarket.market, marketBook: heldMarket.book, pods: heldPods,
   });
   assert('S35.25 held-lot-kept', heldBuy.ok === true
@@ -1262,17 +1266,23 @@ assert('S35.18 missing-scope', (() => {
     && minted.market.stock === before.stock && minted.market.price === before.price
     && !String(buy.logLine).startsWith('FLASH');
 })());
+assert('S35.18 scope-not-filled', (() => {
+  const refused = withTradeScope({ tons: 1 });
+  return refused.reason === 'missing-scope'
+    && refused.ok === false
+    && !Object.prototype.hasOwnProperty.call(refused, 'dominion');
+})());
 
 {
   const minted = freshMarket({ price: 4, stock: 30, demand: 30, stockCap: 40, demandCap: 40, floor: 0 });
   const hold = emptyPods();
   const ledger = emptyCommodityShipmentBook();
-  const buyOne = () => buyCommodityLot(ledger, {
+  const buyOne = () => buyCommodityLot(ledger, { dominion: { scope: 'general' },
     market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
   });
   const sellOne = () => {
     const saleId = Object.keys(ledger.sales || {})[0];
-    return sellBackBookLot(ledger, { saleId, market: minted.market, marketBook: minted.book, pods: hold });
+    return sellBackBookLot(ledger, { dominion: { scope: 'general' }, saleId, market: minted.market, marketBook: minted.book, pods: hold });
   };
   for (let n = 0; n < 12; n += 1) {
     const held = Object.keys(ledger.sales || {}).length >= COMMODITY_SHIPMENT_CONFIG.rowCap;
@@ -1280,7 +1290,7 @@ assert('S35.18 missing-scope', (() => {
     buyOne();
   }
   const mid = JSON.stringify(serializeCommodityShipmentBook(ledger)).length;
-  const early = sellBackBookLot(ledger, { saleId: 1, market: minted.market, marketBook: minted.book, pods: hold });
+  const early = sellBackBookLot(ledger, { dominion: { scope: 'general' }, saleId: 1, market: minted.market, marketBook: minted.book, pods: hold });
   for (let n = 0; n < 12; n += 1) {
     const held = Object.keys(ledger.sales || {}).length >= COMMODITY_SHIPMENT_CONFIG.rowCap;
     if (held || !hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
@@ -1313,7 +1323,7 @@ assert('S35.18 missing-scope', (() => {
     consumedSaleIds: { 4: true },
     sales: {},
   }, { pods });
-  const absentPay = sellBackBookLot(absent, { saleId: 4, market: freshMarket().market, pods });
+  const absentPay = sellBackBookLot(absent, { dominion: { scope: 'general' }, saleId: 4, market: freshMarket().market, pods });
   assert('S35.18 restore-no-resurrect', !absent.sales['4'] && absentPay.paid === 0 && absent.nextSaleId === 6);
   const listed = restoreCommodityShipmentBook({
     version: 1,
@@ -1322,7 +1332,7 @@ assert('S35.18 missing-scope', (() => {
     sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Grain', tons: 1, soldByBook: true, seq: 1 } },
   });
   const listedBefore = Boolean(listed.sales['4']);
-  const listedPay = sellBackBookLot(listed, withTradeScope({
+  const listedPay = sellBackBookLot(listed, withTradeScope({ dominion: { scope: 'general' },
     saleId: 4,
     market: freshMarket({ price: 10, stock: 4, demand: 4 }).market,
     pods: [],
@@ -1348,20 +1358,20 @@ assert('S35.18 missing-scope', (() => {
   const ledger = emptyCommodityShipmentBook();
   const ids = [];
   for (let n = 0; n < COMMODITY_SHIPMENT_CONFIG.rowCap; n += 1) {
-    const bought = buyCommodityLot(ledger, {
+    const bought = buyCommodityLot(ledger, { dominion: { scope: 'general' },
       market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
     });
     ids.push(bought.saleId);
   }
   const heldBefore = Object.keys(ledger.sales).length;
   const capped = { stock: minted.market.stock, price: minted.market.price, demand: minted.market.demand };
-  const ninth = buyCommodityLot(ledger, {
+  const ninth = buyCommodityLot(ledger, { dominion: { scope: 'general' },
     market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
   });
   const ninthStill = minted.market.stock === capped.stock && minted.market.price === capped.price && minted.market.demand === capped.demand;
-  const sold = sellBackBookLot(ledger, { saleId: ids[0], market: minted.market, marketBook: minted.book, pods: hold });
-  const soldAgain = sellBackBookLot(ledger, { saleId: ids[0], market: minted.market, marketBook: minted.book, pods: hold });
-  const next = buyCommodityLot(ledger, {
+  const sold = sellBackBookLot(ledger, { dominion: { scope: 'general' }, saleId: ids[0], market: minted.market, marketBook: minted.book, pods: hold });
+  const soldAgain = sellBackBookLot(ledger, { dominion: { scope: 'general' }, saleId: ids[0], market: minted.market, marketBook: minted.book, pods: hold });
+  const next = buyCommodityLot(ledger, { dominion: { scope: 'general' },
     market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
   });
   assert('S35.19 held-sale-cap', heldBefore === COMMODITY_SHIPMENT_CONFIG.rowCap

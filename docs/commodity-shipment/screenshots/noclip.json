@@ -8,6 +8,7 @@
       "roe": "defend",
       "engagement_authorized": false,
       "firingSolution": false,
+      "firingSolutions": [],
       "targetFiringSolution": false,
       "firingSolutionSource": null,
       "boardingOutcome": "",
@@ -17,6 +18,12 @@
       "roe": "defend",
       "engagement_authorized": false,
       "firingSolution": true,
+      "firingSolutions": [
+        {
+          "id": "shot-odyssey",
+          "source": "passive"
+        }
+      ],
       "targetFiringSolution": false,
       "firingSolutionSource": null,
       "boardingOutcome": "",
@@ -26,6 +33,12 @@
       "roe": "defend",
       "engagement_authorized": false,
       "firingSolution": true,
+      "firingSolutions": [
+        {
+          "id": "shot-odyssey",
+          "source": "passive"
+        }
+      ],
       "targetFiringSolution": true,
       "firingSolutionSource": "passive",
       "boardingOutcome": "",
@@ -35,12 +48,31 @@
       "roe": "defend",
       "engagement_authorized": false,
       "firingSolution": true,
+      "firingSolutions": [
+        {
+          "id": "shot-odyssey",
+          "source": "passive"
+        }
+      ],
       "targetFiringSolution": true,
       "firingSolutionSource": "passive",
       "boardingOutcome": "",
       "lastRefuse": null
     },
     "firingSolutionSource": "passive",
+    "firingSolutionsBefore": [],
+    "firingSolutionsAfterPaint": [
+      {
+        "id": "shot-odyssey",
+        "source": "passive"
+      }
+    ],
+    "newFiringSolutions": [
+      {
+        "id": "shot-odyssey",
+        "source": "passive"
+      }
+    ],
     "passiveFiringSolution": true,
     "lock": {
       "dist": 104,
@@ -50,7 +82,42 @@
     },
     "shopText": "Xiang's Brand Vodka",
     "lastBookLine": "Bought 1 ton of Medical Supplies for 11 latinum.",
-    "briefingLine": "Arrival: Ferenginar. Jump 2."
+    "briefingLine": "Arrival: Ferenginar. Jump 2.",
+    "doctrineChecks": {
+      "campaign": {
+        "ok": true
+      },
+      "briefing": {
+        "ok": true
+      },
+      "briefingBook": {
+        "ok": true
+      },
+      "worldCargo": {
+        "ok": true
+      },
+      "target": {
+        "ok": true
+      },
+      "bookTarget": {
+        "ok": true
+      },
+      "bookTargetBook": {
+        "ok": true
+      },
+      "bookTargetLow": {
+        "ok": true
+      },
+      "bookTargetLowBook": {
+        "ok": true
+      },
+      "dock": {
+        "ok": true
+      },
+      "dockBook": {
+        "ok": true
+      }
+    }
   },
   "clippedControls": [],
   "occluders": [],
@@ -87,6 +154,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -96,6 +164,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -149,6 +218,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -158,6 +228,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -211,6 +282,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -220,6 +292,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -273,6 +346,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -282,6 +356,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -335,6 +410,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": true,
         "firingSolutionSource": "passive",
         "boardingOutcome": "",
@@ -344,6 +425,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -397,6 +479,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": true,
         "firingSolutionSource": "passive",
         "boardingOutcome": "",
@@ -406,6 +494,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -459,6 +548,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": true,
         "firingSolutionSource": "passive",
         "boardingOutcome": "",
@@ -468,6 +563,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -521,6 +617,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": true,
         "firingSolutionSource": "passive",
         "boardingOutcome": "",
@@ -530,6 +632,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -583,6 +686,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": true,
         "firingSolutionSource": "passive",
         "boardingOutcome": "",
@@ -592,6 +701,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -645,6 +755,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -654,6 +770,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -707,6 +824,12 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
@@ -716,6 +839,7 @@
         "roe": "defend",
         "engagement_authorized": false,
         "firingSolution": false,
+        "firingSolutions": [],
         "targetFiringSolution": false,
         "firingSolutionSource": null,
         "boardingOutcome": "",
