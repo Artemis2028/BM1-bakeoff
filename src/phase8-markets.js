@@ -590,6 +590,20 @@ export function mapServiceRefusalToKind(message) {
   };
 }
 
+function withRefusalLine(result, sayable) {
+  const line = String(sayable || result?.sayable || 'Trade refused. The market did not move.');
+  return {
+    ...result,
+    ok: false,
+    allowed: false,
+    paid: 0,
+    standingDelta: 0,
+    sayable: line,
+    logLine: line,
+    logBand: null,
+  };
+}
+
 function dealResult({ allowed, kind, sayable, price, market, extras = {} }) {
   const result = {
     allowed: allowed === true,
@@ -981,36 +995,36 @@ export function applyShopBuy(book, input = {}, injected = null) {
   const store = book || createMarketBook();
   const market = findMarket(store, input);
   const deal = evaluateCargoDeal(store, input, injected);
-  if (!deal.allowed) return { ok: false, ...deal, standingDelta: 0, paid: 0 };
+  if (!deal.allowed) return withRefusalLine({ ...deal, standingDelta: 0, paid: 0 }, deal.sayable);
   const spec = goodSpec(store, market?.good, injected);
   if (!market || market.stock - 1 < spec.floor) {
-    const empty = dealResult({
+    const empty = withRefusalLine(dealResult({
       allowed: false,
       kind: market?.restriction || 'seller_rule',
-      sayable: `No ${market?.good || 'cargo'} stock at ${market?.locationName || 'this port'}.`,
+      sayable: 'Buy refused. Stock is at the floor. The market did not move.',
       price: deal.price,
       market,
-    });
+    }), 'Buy refused. Stock is at the floor. The market did not move.');
     store.lastRefuse = empty;
-    return { ok: false, ...empty, standingDelta: 0, paid: 0 };
+    return empty;
   }
   const quote = postMovePrice(market, 'buy', injected);
   const credits = asInt(input.credits, quote);
   if (credits < quote) {
-    return {
-      ok: false,
-      allowed: false,
+    return withRefusalLine({
       kind: deal.kind,
       reason: 'funds',
-      sayable: `Need ${quote} latinum for ${market.good}. A higher standing is not money.`,
       price: quote,
-      paid: 0,
-      standingDelta: 0,
-    };
+      market,
+    }, `Need ${quote} latinum for ${market.good}. A higher standing is not money.`);
   }
   const step = settleMarketTon(market, 'buy', spec, injected);
   if (!step.ok) {
-    return { ok: false, allowed: false, reason: step.reason, price: market.price, paid: 0, standingDelta: 0, market };
+    return withRefusalLine({
+      reason: step.reason,
+      price: market.price,
+      market,
+    }, 'Buy refused. Stock is at the floor. The market did not move.');
   }
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'buy' });
   return {
@@ -1033,13 +1047,13 @@ export function applyShopSell(book, input = {}, injected = null) {
   const store = book || createMarketBook();
   const market = findMarket(store, input);
   if (!market) {
-    return { ok: false, allowed: false, reason: 'missing-market', standingDelta: 0, paid: 0 };
+    return withRefusalLine({ reason: 'missing-market' }, 'No market for this good. Sell refused. The market did not move.');
   }
   const deal = evaluateCargoDeal(store, { ...input, marketId: market.marketId }, injected);
   if (!deal.allowed && deal.kind !== 'premium' && deal.kind !== 'open' && deal.kind !== 'license') {
-    return { ok: false, ...deal, standingDelta: 0, paid: 0 };
+    return withRefusalLine({ ...deal, standingDelta: 0, paid: 0 }, deal.sayable);
   }
-  if (!deal.allowed) return { ok: false, ...deal, standingDelta: 0, paid: 0 };
+  if (!deal.allowed) return withRefusalLine({ ...deal, standingDelta: 0, paid: 0 }, deal.sayable);
   const spec = goodSpec(store, market.good, injected);
   const before = { stock: market.stock, demand: market.demand, price: market.price };
   const step = settleMarketTon(market, 'sell', spec, injected);
@@ -1047,21 +1061,19 @@ export function applyShopSell(book, input = {}, injected = null) {
     market.stock = before.stock;
     market.demand = before.demand;
     market.price = before.price;
-    return {
-      ok: false,
-      allowed: false,
+    const line = step.reason === 'demand-floor'
+      ? 'Sell at the demand floor paid 0. The market did not move.'
+      : step.reason === 'stock-cap'
+        ? 'Sell refused. Stock would pass the cap. The market did not move.'
+        : 'Sell refused. The market did not move.';
+    return withRefusalLine({
       kind: deal.kind,
       reason: step.reason,
       price: 0,
-      paid: 0,
       stock: market.stock,
       demand: market.demand,
-      standingDelta: 0,
-      sayable: step.reason === 'demand-floor'
-        ? `No demand for ${market.good} at ${market.locationName || 'this port'}.`
-        : `No room for ${market.good} stock at ${market.locationName || 'this port'}.`,
       market,
-    };
+    }, line);
   }
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'sell' });
   return {

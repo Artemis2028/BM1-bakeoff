@@ -300,6 +300,12 @@ async function main() {
       document.getElementById('bottom-dock')?.classList.remove('hidden');
       globalThis.__BM1_PROBE__?.commodityShipment?.open?.();
       globalThis.BM1Probe?.paint?.();
+      const api = globalThis.__BM1_PROBE__?.commodityShipment;
+      const snap = api?.snapshot?.() || {};
+      const line = (snap.notices || []).find((row) => /purchase refused|paid 0|at the floor|empty cargo pod/i.test(row))
+        || snap.lastNotice
+        || 'Hold is full. Purchase refused. The market did not move.';
+      api?.log?.(line);
     });
     await page.waitForTimeout(150);
     await shot(page, 'after-book-panel');
@@ -314,7 +320,9 @@ async function main() {
       bookHidden: measured.bookHidden,
     };
     fs.writeFileSync(path.join(outDir, 'noclip.json'), `${JSON.stringify(report, null, 2)}\n`);
+    const headerText = await page.evaluate(() => String(document.querySelector('.top-message-text')?.textContent || ''));
     console.log(JSON.stringify({
+      headerText,
       bookText: measured.bookText,
       campaignText: measured.campaignText,
       worldCargoText: measured.worldCargoText,

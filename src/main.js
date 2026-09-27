@@ -15775,7 +15775,7 @@ function buyMarketGood(slot = 0) {
       priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
     });
     if (!bought.allowed) {
-      setLog(bought.sayable || `Cannot buy ${offer.goods} here.`);
+      setLog(bought.logLine || bought.sayable || `Cannot buy ${offer.goods} here.`);
       updateStats();
       return bought;
     }
@@ -15844,7 +15844,7 @@ function sellMarketGood(slot = 0) {
     });
     if (!sale.allowed) {
       addCargoToPods(market.good, 1, undefined, 0);
-      setLog(sale.sayable || `Local seller will not buy ${market.good}.`);
+      setLog(sale.logLine || sale.sayable || `Local seller will not buy ${market.good}.`);
       updateStats();
       return sale;
     }
@@ -26083,6 +26083,11 @@ function createCommodityShipmentProbeApi() {
   const standingNow = () => JSON.parse(JSON.stringify(state.factionStanding || {}));
   return {
     lock: () => COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === true,
+    log: (line) => {
+      const text = String(line || '').trim();
+      if (text) setLog(text);
+      return state.log || '';
+    },
     config: () => ({ ...COMMODITY_SHIPMENT_CONFIG }),
     open: () => {
       state.commodityShipmentOpen = true;
@@ -26233,7 +26238,7 @@ function createCommodityShipmentProbeApi() {
         }
       }
       recalcCargoFromPods();
-      buyCommodityLot(ensureCommodityShipmentBook(), {
+      const refused = buyCommodityLot(ensureCommodityShipmentBook(), {
         market,
         marketBook: ensureMarketBook(),
         pods: state.cargoArray,
@@ -26242,6 +26247,7 @@ function createCommodityShipmentProbeApi() {
         tons: 1,
         config: COMMODITY_SHIPMENT_CONFIG,
       });
+      setLog(refused.logLine || 'Hold is full. Purchase refused. The market did not move.');
       refreshCommodityShipment();
       state.commodityShipmentOpen = true;
       renderCommodityShipment();

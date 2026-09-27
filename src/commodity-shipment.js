@@ -448,7 +448,8 @@ export function dominionTradeAllowed(context = {}) {
 }
 
 function refuseTrade(book, reason, notice) {
-  pushNotice(book, notice || reason);
+  const line = String(notice || reason || 'Trade refused. The market did not move.');
+  pushNotice(book, line);
   return {
     ok: false,
     paid: 0,
@@ -456,6 +457,7 @@ function refuseTrade(book, reason, notice) {
     book,
     latinumDelta: 0,
     logBand: null,
+    logLine: line,
     cultureFire: false,
     firingSolution: false,
     engagement_authorized: false,
@@ -472,16 +474,19 @@ export function buyCommodityLot(book, input = {}) {
   const tons = Math.max(1, asInt(input.tons, 1));
   const pods = Array.isArray(input.pods) ? input.pods : [];
   const cargoCap = asInt(input.cargoCap, 20);
-  if (!findEmptySlot(pods) || cargoUsed(pods) + tons > cargoCap) {
+  if (cargoUsed(pods) + tons > cargoCap) {
     return refuseTrade(store, 'hold-full', 'Hold is full. Purchase refused. The market did not move.');
+  }
+  if (!findEmptySlot(pods)) {
+    return refuseTrade(store, 'no-pod-slot', 'No empty cargo pod. Purchase refused. The market did not move.');
   }
   const spec = input.spec || goodSpec(input.marketBook, market.good, null);
   const inject = settleInject(input.config);
   const quote = settleMarketTons({ ...market }, 'buy', tons, spec, inject);
   if (!quote.ok) {
     return refuseTrade(store, quote.reason, quote.reason === 'stock-floor'
-      ? 'Buy refused. Stock is at the floor.'
-      : 'Buy refused.');
+      ? 'Buy refused. Stock is at the floor. The market did not move.'
+      : 'Buy refused. The market did not move.');
   }
   if (asInt(input.credits, quote.paid) < quote.paid) {
     return refuseTrade(store, 'funds', 'Not enough latinum. The market did not move.');
@@ -499,7 +504,7 @@ export function buyCommodityLot(book, input = {}) {
     market.stock = before.stock;
     market.demand = before.demand;
     market.price = before.price;
-    return refuseTrade(store, 'hold-full', 'Hold is full. Purchase refused. The market did not move.');
+    return refuseTrade(store, 'no-pod-slot', 'No empty cargo pod. Purchase refused. The market did not move.');
   }
   const saleId = issueSaleId(store);
   const lotId = `lot:${saleId}`;
@@ -562,7 +567,7 @@ export function sellBackBookLot(book, input = {}) {
   if (!sale || sale.soldByBook !== true) {
     if (key) rememberConsumed(store, key);
     delete store.sales[key];
-    return refuseTrade(store, 'not-book-bought', 'Sell-back refused. Only a book-bought lot pays.');
+    return refuseTrade(store, 'not-book-bought', 'Sell-back paid 0. That sale row is not a book-bought lot.');
   }
   const pods = Array.isArray(input.pods) ? input.pods : [];
   const pod = pods.find((row) => podTaggedForSale(row, sale));
@@ -583,7 +588,9 @@ export function sellBackBookLot(book, input = {}) {
     market.price = before.price;
     const notice = settled.reason === 'demand-floor'
       ? 'Sell at the demand floor paid 0. The market did not move.'
-      : 'Sell refused. The market did not move.';
+      : settled.reason === 'stock-cap'
+        ? 'Sell refused. Stock would pass the cap. The market did not move.'
+        : 'Sell refused. The market did not move.';
     return refuseTrade(store, settled.reason, notice);
   }
   pod.tons = asInt(pod.tons, 0) - asInt(sale.tons, 0);

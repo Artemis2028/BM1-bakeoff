@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { ROE_MODES, offersProtectAll } from '../src/phase2-security.js';
+import { ROE_MODES, areAlertsActive, offersProtectAll } from '../src/phase2-security.js';
 import { tractorIsBoarding } from '../src/phase9-ew.js';
 import { regionAllows } from '../bm-ships/catalog.mjs';
 import {
@@ -715,6 +715,250 @@ roundTrip('S35.15 shop-then-book', () => {
     && repair.refuse === true
     && repair.price !== 0);
 }
+
+function visibleRefusal(result) {
+  return Boolean(result
+    && result.paid === 0
+    && result.ok !== true
+    && result.logBand == null
+    && typeof result.logLine === 'string'
+    && result.logLine.length > 8
+    && !result.logLine.startsWith('FLASH'));
+}
+
+const slotPods = emptyPods();
+for (const pod of slotPods) {
+  pod.tons = 1;
+  pod.item = 'Staple Crate';
+}
+const slotMarket = freshMarket({ price: 10, stock: 4, demand: 4 });
+const slotBefore = { stock: slotMarket.market.stock, price: slotMarket.market.price, demand: slotMarket.market.demand };
+const noSlot = buyCommodityLot(emptyCommodityShipmentBook(), {
+  market: slotMarket.market,
+  marketBook: slotMarket.book,
+  pods: slotPods,
+  cargoCap: 40,
+  credits: 500,
+  tons: 1,
+});
+assert('S35.16 no-pod-slot-log', noSlot.reason === 'no-pod-slot'
+  && visibleRefusal(noSlot)
+  && /empty cargo pod/i.test(noSlot.logLine)
+  && slotMarket.market.stock === slotBefore.stock
+  && slotMarket.market.price === slotBefore.price);
+
+assert('S35.16 hold-full-log', visibleRefusal(refused) && /hold is full/i.test(refused.logLine));
+
+const floorBuyMarket = freshMarket({ price: 8, stock: 0, demand: 4, floor: 0 });
+const floorBuyBefore = { stock: 0, price: floorBuyMarket.market.price, demand: floorBuyMarket.market.demand };
+const floorBuy = buyCommodityLot(emptyCommodityShipmentBook(), {
+  market: floorBuyMarket.market,
+  marketBook: floorBuyMarket.book,
+  pods: emptyPods(),
+  cargoCap: 20,
+  credits: 500,
+  tons: 1,
+});
+const shopFloorBuy = applyShopBuy(floorBuyMarket.book, { marketId: floorBuyMarket.market.marketId, credits: 500 });
+assert('S35.16 stock-floor-log', visibleRefusal(floorBuy)
+  && /stock is at the floor/i.test(floorBuy.logLine)
+  && shopFloorBuy.paid === 0
+  && shopFloorBuy.logBand == null
+  && /stock is at the floor/i.test(shopFloorBuy.logLine)
+  && floorBuyMarket.market.stock === floorBuyBefore.stock
+  && floorBuyMarket.market.price === floorBuyBefore.price);
+
+const demandMarket = freshMarket({ price: 8, stock: 2, demand: 0, floor: 0, stockCap: 8 });
+const shopDemand = applyShopSell(demandMarket.book, { marketId: demandMarket.market.marketId, credits: 500 });
+assert('S35.16 demand-floor-log', shopDemand.paid === 0
+  && shopDemand.logBand == null
+  && /demand floor paid 0/i.test(shopDemand.logLine)
+  && demandMarket.market.demand === 0
+  && demandMarket.market.stock === 2
+  && demandMarket.market.price === 8);
+
+const capMarket = freshMarket({ price: 8, stock: 8, demand: 4, floor: 0, stockCap: 8 });
+const shopCap = applyShopSell(capMarket.book, { marketId: capMarket.market.marketId, credits: 500 });
+assert('S35.16 stock-cap-log', shopCap.paid === 0
+  && shopCap.logBand == null
+  && /stock would pass the cap/i.test(shopCap.logLine)
+  && capMarket.market.stock === 8
+  && capMarket.market.price === 8);
+
+assert('S35.16 missing-and-forged-log', visibleRefusal(missing)
+  && /not aboard/i.test(missing.logLine)
+  && visibleRefusal(forgedPay)
+  && forgedPay.paid === 0);
+
+const nameOnly = emptyPods();
+nameOnly[0] = { tons: 1, item: 'Medical Supplies', destination: undefined, payout: 0 };
+const nameBook = emptyCommodityShipmentBook();
+nameBook.nextSaleId = 4;
+nameBook.sales['3'] = { saleId: 3, lotId: 'lot:3', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 };
+nameBook.lots['lot:3'] = { lotId: 'lot:3', good: 'Medical Supplies', source: 'book-bought', contraband: true, saleId: 3, seq: 1 };
+const namePay = sellBackBookLot(nameBook, { saleId: 3, market: freshMarket().market, pods: nameOnly, spoof: true, friendly: true });
+assert('S35.16 name-only-pays-0', namePay.paid === 0
+  && visibleRefusal(namePay)
+  && nameOnly[0].tons === 1
+  && !nameOnly[0].bookSaleId
+  && nameBook.lots['lot:3'].contraband === true);
+
+const forgedRow = emptyCommodityShipmentBook();
+forgedRow.sales['9'] = { saleId: 9, lotId: 'lot:9', good: 'Spice', tons: 2, soldByBook: false, seq: 1 };
+const forgedRowPay = sellBackBookLot(forgedRow, { saleId: 9, market: freshMarket({ good: 'Spice' }).market, pods: emptyPods() });
+assert('S35.16 forged-row-log', forgedRowPay.paid === 0 && visibleRefusal(forgedRowPay) && /paid 0/i.test(forgedRowPay.logLine));
+
+const banditPods = emptyPods();
+const banditMarket = freshMarket({ price: 11, stock: 5, demand: 5 });
+const bandit = emptyCommodityShipmentBook();
+const banditBuy = buyCommodityLot(bandit, {
+  market: banditMarket.market,
+  marketBook: banditMarket.book,
+  pods: banditPods,
+  cargoCap: 20,
+  credits: 500,
+  tons: 1,
+  contraband: true,
+});
+const banditLot = bandit.lots[banditBuy.lotId];
+const banditSell = sellBackBookLot(bandit, {
+  saleId: banditBuy.saleId,
+  market: banditMarket.market,
+  marketBook: banditMarket.book,
+  pods: banditPods,
+  spoof: true,
+  friendly: true,
+});
+const banditRebuy = buyCommodityLot(bandit, {
+  market: banditMarket.market,
+  marketBook: banditMarket.book,
+  pods: banditPods,
+  cargoCap: 20,
+  credits: 500,
+  tons: 1,
+  contraband: true,
+  spoof: true,
+  friendly: true,
+});
+assert('S35.16 contraband-survives', banditBuy.ok
+  && banditLot.contraband === true
+  && banditSell.contraband === true
+  && bandit.lots[banditBuy.lotId].contraband === true
+  && bandit.lots[banditRebuy.lotId].contraband === true
+  && banditSell.logBand == null
+  && banditRebuy.logBand == null);
+
+function mixedOverCap(direction) {
+  const stockCap = PHASE8_MAGNITUDES.stockCap;
+  const tons = stockCap + 1;
+  const { book, market } = freshMarket({
+    price: 12,
+    stock: stockCap,
+    demand: tons + 4,
+    stockCap,
+    demandCap: tons + 8,
+    floor: 0,
+  });
+  const start = market.price;
+  let net = 0;
+  let worst = 0;
+  if (direction === 'book-shop') {
+    const ledger = emptyCommodityShipmentBook();
+    const hold = emptyPods();
+    for (let i = 0; i < tons; i += 1) {
+      const before = net;
+      const bought = buyCommodityLot(ledger, {
+        market, marketBook: book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
+      });
+      const sold = applyShopSell(book, { marketId: market.marketId, credits: 9000 });
+      net += -(bought.paid || 0) + (sold.paid || 0);
+      worst = Math.max(worst, net - before);
+      if (!bought.ok || !sold.ok) return { net, worst, priceReturned: false, price: market.price, start, failed: bought.reason || sold.reason };
+    }
+  } else {
+    const ledger = emptyCommodityShipmentBook();
+    const hold = emptyPods();
+    for (let i = 0; i < tons; i += 1) {
+      const saleId = i + 1;
+      hold[i] = {
+        tons: 1,
+        item: 'Medical Supplies',
+        destination: undefined,
+        payout: 0,
+        bookLotId: `lot:${saleId}`,
+        bookSaleId: saleId,
+      };
+      ledger.sales[String(saleId)] = {
+        saleId, lotId: `lot:${saleId}`, good: 'Medical Supplies', tons: 1, soldByBook: true, seq: i + 1,
+      };
+      ledger.lots[`lot:${saleId}`] = {
+        lotId: `lot:${saleId}`, good: 'Medical Supplies', source: 'book-bought', contraband: false, saleId, seq: i + 1,
+      };
+    }
+    ledger.nextSaleId = tons + 1;
+    for (let i = 0; i < tons; i += 1) {
+      const before = net;
+      const bought = applyShopBuy(book, { marketId: market.marketId, credits: 9000 });
+      const sold = sellBackBookLot(ledger, {
+        saleId: i + 1, market, marketBook: book, pods: hold,
+      });
+      net += -(bought.paid || 0) + (sold.paid || 0);
+      worst = Math.max(worst, net - before);
+      if (!bought.ok || !sold.ok) return { net, worst, priceReturned: false, price: market.price, start, failed: bought.reason || sold.reason };
+    }
+  }
+  return { net, worst, priceReturned: market.price === start, price: market.price, start, tons };
+}
+
+const bookShopOver = mixedOverCap('book-shop');
+const shopBookOver = mixedOverCap('shop-book');
+assert('S35.16 book-then-shop-over-cap', bookShopOver.net <= 0
+  && bookShopOver.worst <= 0
+  && bookShopOver.priceReturned === true
+  && bookShopOver.tons > PHASE8_MAGNITUDES.stockCap, JSON.stringify(bookShopOver));
+assert('S35.16 shop-then-book-over-cap', shopBookOver.net <= 0
+  && shopBookOver.worst <= 0
+  && shopBookOver.priceReturned === true
+  && shopBookOver.tons > PHASE8_MAGNITUDES.stockCap, JSON.stringify(shopBookOver));
+
+const identityStanding = { ferengi: 4, terran: 1 };
+const identityStandingCopy = JSON.stringify(identityStanding);
+const identityPolicy = { alerts: 'incidents', empireDefault: { alerts: 'incidents' } };
+const identityAlerts = areAlertsActive(identityPolicy);
+const identityRoe = ROE_MODES.join(',');
+const identityFlash = ['FLASH patrol lost contact'];
+const identityFlashCopy = identityFlash.slice();
+const identityContacts = [{ id: 'c1', name: 'Quark' }];
+const identityContactCopy = JSON.stringify(identityContacts);
+const identityMarket = freshMarket({ price: 12, stock: 5, demand: 5 });
+const identityPods = emptyPods();
+const identityBook = emptyCommodityShipmentBook();
+const identityBuy = buyCommodityLot(identityBook, {
+  market: identityMarket.market,
+  marketBook: identityMarket.book,
+  pods: identityPods,
+  cargoCap: 20,
+  credits: 500,
+  tons: 1,
+});
+const identityShop = applyShopSell(identityMarket.book, { marketId: identityMarket.market.marketId, credits: 500 });
+const identitySell = sellBackBookLot(identityBook, {
+  saleId: identityBuy.saleId,
+  market: identityMarket.market,
+  marketBook: identityMarket.book,
+  pods: identityPods,
+});
+assert('S35.16 identity-unchanged', JSON.stringify(identityStanding) === identityStandingCopy
+  && areAlertsActive(identityPolicy) === identityAlerts
+  && ROE_MODES.join(',') === identityRoe
+  && offersProtectAll() === false
+  && identityFlash.join('|') === identityFlashCopy.join('|')
+  && JSON.stringify(identityContacts) === identityContactCopy
+  && identityBuy.logBand == null
+  && identityShop.logBand == null
+  && (identitySell.logBand == null || identitySell.paid === 0)
+  && !String(identityBuy.logLine || '').startsWith('FLASH')
+  && !String(identityShop.logLine || '').startsWith('FLASH'));
 
 assert('S35.14 direct-n-tons', (() => {
   const { market } = freshMarket({ price: 10, stock: 6, demand: 6, stockCap: 8, floor: 0 });
