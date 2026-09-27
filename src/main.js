@@ -11072,7 +11072,7 @@ function renderBriefingArchive() {
   const hasWider = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'wider_dominion');
   const hasObjectives = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'objectives');
   const selectHtml = `<div class="briefing-archive-toolbar">
-      <button type="button" data-commodity-book-toggle class="${state.commodityShipmentOpen ? 'active' : ''}">Book</button>
+      <button type="button" data-commodity-book-toggle class="${state.commodityShipmentOpen ? 'active' : ''}">${state.commodityShipmentOpen ? 'Book open' : 'Book'}</button>
       <button type="button" data-briefing-view="briefing" class="${view === 'briefing' ? 'active' : ''}">Briefing</button>
       <button type="button" data-briefing-view="archive" class="${view === 'archive' ? 'active' : ''}">Archive</button>
       <button type="button" data-briefing-campaign="" class="${campaign === '' ? 'active' : ''}">All</button>
@@ -11247,148 +11247,149 @@ function clearTargetWindowPlacement(host) {
   host.style.bottom = '';
 }
 
-function placeTargetWindow(host) {
-  if (!host || host.classList.contains('hidden')) {
+function measureTargetChrome(host) {
+  const saved = {
+    maxHeight: host.style.maxHeight,
+    height: host.style.height,
+    overflow: host.style.overflow,
+    overflowY: host.style.overflowY,
+  };
+  host.style.maxHeight = 'none';
+  host.style.height = 'auto';
+  host.style.overflow = 'visible';
+  host.style.overflowY = 'visible';
+  const rect = host.getBoundingClientRect();
+  const cs = getComputedStyle(host);
+  const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+  const borderY = (parseFloat(cs.borderTopWidth) || 0) + borderBottom;
+  let coreBottom = rect.top;
+  host.querySelectorAll('.target-window-head, .target-meta, .target-class, .target-meter, .target-hail').forEach((el) => {
+    const box = el.getBoundingClientRect();
+    if (box.width > 1 && box.height > 1) coreBottom = Math.max(coreBottom, box.bottom);
+  });
+  const core = Math.ceil((coreBottom - rect.top) + borderBottom);
+  const full = Math.ceil(host.scrollHeight + borderY);
+  host.style.maxHeight = saved.maxHeight;
+  host.style.height = saved.height;
+  host.style.overflow = saved.overflow;
+  host.style.overflowY = saved.overflowY;
+  return { core: Math.max(180, core), full: Math.max(core, full) };
+}
+
+function shownPanel(el) {
+  if (!el || el.classList.contains('hidden')) return false;
+  const style = getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 2 && rect.height > 2;
+}
+
+function syncArchiveScrollbar(host) {
+  if (!host) return;
+  const overflows = host.scrollHeight > host.clientHeight + 1;
+  host.classList.toggle('is-scrolling', overflows);
+  if (overflows) host.style.overflowY = 'auto';
+  else if (host.style.overflowY === 'auto' || host.style.overflowY === 'scroll') host.style.overflowY = '';
+  host.querySelectorAll(':scope > .briefing-archive-select, :scope > .briefing-archive-body').forEach((pane) => {
+    const style = getComputedStyle(pane);
+    const canScroll = /(auto|scroll)/.test(style.overflowY);
+    pane.classList.toggle('is-scrolling', canScroll && pane.scrollHeight > pane.clientHeight + 1);
+  });
+}
+
+function layoutTargetClearance(host) {
+  if (!host || host.classList.contains('hidden') || !host.querySelector('.target-window-head')) {
     clearTargetWindowPlacement(host);
-    return;
-  }
-  const archiveOpen = document.getElementById('briefing-archive')?.classList.contains('is-book-open');
-  if (archiveOpen && host.style.left && host.style.top) {
-    fitOpenBookBriefing();
+    host?.classList.remove('is-scrolling');
     return;
   }
   const gap = 12;
-  const minWidth = 260;
-  const preferredWidth = 320;
-  const minHeight = 120;
-  const viewportW = window.innerWidth;
-  const viewportH = window.innerHeight;
   const dockClear = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bm1-dock-clear')) || 88;
-  const floor = viewportH - dockClear - gap;
-  const boxOf = (el) => {
-    if (!el || el === host) return null;
-    const style = getComputedStyle(el);
-    if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return null;
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) return null;
-    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-  };
-  const obstacleIds = [
-    'phase10-readout',
-    'world-cargo',
-    'bottom-dock',
-    'briefing-archive',
-    'planet-menu',
-    'interstellar-map-frame',
-    'minimap-panel',
-    'top-left-panel',
-  ];
-  const obstacles = obstacleIds.map((id) => boxOf(document.getElementById(id))).filter(Boolean);
-  const header = boxOf(document.querySelector('.top-strip'));
-  if (header) obstacles.push(header);
-  const ceiling = Math.max(62, (header?.bottom || 50) + gap);
-  const hits = (rect) => obstacles.some((ob) => (
-    rect.left < ob.right - 0.5
-    && rect.right > ob.left + 0.5
-    && rect.top < ob.bottom - 0.5
-    && rect.bottom > ob.top + 0.5
-  ));
-  const within = (rect) => (
-    rect.left >= 8
-    && rect.top >= ceiling - 0.5
-    && rect.right <= viewportW - 8
-    && rect.bottom <= floor + 0.5
-    && rect.right - rect.left >= minWidth
-    && rect.bottom - rect.top >= minHeight
-    && !hits(rect)
-  );
-  const briefing = boxOf(document.getElementById('briefing-archive'));
-  const planet = boxOf(document.getElementById('planet-menu'));
-  const cargo = boxOf(document.getElementById('world-cargo'));
-  const campaign = boxOf(document.getElementById('phase10-readout'));
-  const dock = boxOf(document.getElementById('bottom-dock'));
-  const leftOfColumn = Math.max(
-    18,
-    cargo ? cargo.right + gap : 18,
-    campaign ? campaign.right + gap : 18,
-  );
-  const rightEdge = Math.min(viewportW - 8, planet ? planet.left - gap : viewportW - 8);
-  const bottomEdge = Math.min(floor, dock ? dock.top - gap : floor);
-  const candidates = [];
-  if (briefing) {
-    const top = Math.max(ceiling, briefing.bottom + gap);
-    candidates.push({
-      left: leftOfColumn,
-      top,
-      width: Math.min(preferredWidth, rightEdge - leftOfColumn),
-      height: bottomEdge - top,
-    });
-    if (!planet) {
-      const left = briefing.right + gap;
-      candidates.push({
-        left,
-        top: ceiling,
-        width: Math.min(preferredWidth, (viewportW - 8) - left),
-        height: bottomEdge - ceiling,
-      });
-    }
+  const floor = window.innerHeight - dockClear - gap;
+  const header = document.querySelector('.top-strip');
+  const headerBottom = header && shownPanel(header) ? header.getBoundingClientRect().bottom : 50;
+  const ceiling = Math.max(62, headerBottom + gap);
+  const locked = Boolean(host.style.left && host.style.width);
+  let width = locked ? Math.max(260, parseFloat(host.style.width) || 320) : 320;
+  let left = locked ? (parseFloat(host.style.left) || 18) : 18;
+  if (!locked) {
+    const cargo = document.getElementById('world-cargo');
+    const campaign = document.getElementById('phase10-readout');
+    if (shownPanel(cargo)) left = Math.max(left, cargo.getBoundingClientRect().right + gap);
+    if (shownPanel(campaign)) left = Math.max(left, campaign.getBoundingClientRect().right + gap);
   }
-  candidates.push({
-    left: leftOfColumn,
-    top: ceiling,
-    width: Math.min(preferredWidth, rightEdge - leftOfColumn),
-    height: bottomEdge - ceiling,
-  });
-  let chosen = null;
-  for (const candidate of candidates) {
-    const rect = {
-      left: candidate.left,
-      top: candidate.top,
-      right: candidate.left + candidate.width,
-      bottom: candidate.top + candidate.height,
-    };
-    if (within(rect)) {
-      chosen = rect;
-      break;
-    }
+  const planet = document.getElementById('planet-menu');
+  if (shownPanel(planet)) {
+    const room = planet.getBoundingClientRect().left - gap - left;
+    if (room < width) width = Math.max(260, room);
   }
-  if (!chosen) {
-    const widths = [preferredWidth, minWidth];
-    const heights = [220, minHeight];
-    const lefts = [18, leftOfColumn, briefing ? briefing.right + gap : leftOfColumn];
-    const tops = [ceiling, cargo ? cargo.bottom + gap : ceiling, campaign ? campaign.bottom + gap : ceiling];
-    for (const width of widths) {
-      for (const height of heights) {
-        for (const left of lefts) {
-          for (const top of tops) {
-            const rect = {
-              left,
-              top,
-              right: left + width,
-              bottom: top + height,
-            };
-            if (within(rect)) {
-              chosen = rect;
-              break;
-            }
-          }
-          if (chosen) break;
-        }
-        if (chosen) break;
-      }
-      if (chosen) break;
-    }
-  }
-  if (!chosen) {
-    clearTargetWindowPlacement(host);
-    return;
-  }
-  host.style.left = `${Math.round(chosen.left)}px`;
-  host.style.top = `${Math.round(chosen.top)}px`;
-  host.style.width = `${Math.round(chosen.right - chosen.left)}px`;
-  host.style.maxHeight = `${Math.round(chosen.bottom - chosen.top)}px`;
+  host.style.left = `${Math.round(left)}px`;
+  host.style.width = `${Math.round(width)}px`;
   host.style.right = 'auto';
   host.style.bottom = 'auto';
+  host.style.maxHeight = 'none';
+  host.style.height = 'auto';
+  host.style.overflowY = 'visible';
+  const need = measureTargetChrome(host);
+  const maxCard = Math.max(need.core, floor - ceiling);
+  const cardHeight = Math.min(need.full + 2, maxCard);
+  let top = Math.max(ceiling, floor - cardHeight);
+  const archive = document.getElementById('briefing-archive');
+  if (shownPanel(archive)) {
+    const savedTop = archive.style.top;
+    resetArchiveBox(archive);
+    if (savedTop) archive.style.top = savedTop;
+    const natural = archive.getBoundingClientRect();
+    const cardRight = left + width;
+    const xOverlap = natural.left < cardRight - 0.5 && natural.right > left + 0.5;
+    if (xOverlap) {
+      const spaceBelow = floor - (natural.bottom + gap);
+      if (spaceBelow + 1 < cardHeight) {
+        const archiveBottom = Math.max(natural.top + 88, floor - gap - cardHeight);
+        const height = Math.floor(archiveBottom - natural.top);
+        const cardRect = { left, top: floor - cardHeight, right: cardRight, bottom: floor };
+        if (height >= 120) {
+          archive.style.height = `${height}px`;
+          archive.style.maxHeight = `${height}px`;
+          top = archiveBottom + gap;
+        } else if (moveArchiveToFallback(archive, cardRect, floor)) {
+          top = floor - cardHeight;
+        } else {
+          archive.style.height = `${Math.max(88, height)}px`;
+          archive.style.maxHeight = archive.style.height;
+          top = floor - cardHeight;
+        }
+      } else {
+        top = Math.max(ceiling, natural.bottom + gap);
+        if (top + cardHeight > floor + 0.5) top = floor - cardHeight;
+      }
+    }
+    syncArchiveScrollbar(archive);
+  }
+  host.style.left = `${Math.round(left)}px`;
+  host.style.top = `${Math.round(top)}px`;
+  host.style.width = `${Math.round(width)}px`;
+  host.style.maxHeight = `${Math.ceil(cardHeight)}px`;
+  host.style.height = need.full <= cardHeight + 1 ? 'auto' : `${Math.ceil(cardHeight)}px`;
+  host.style.right = 'auto';
+  host.style.bottom = 'auto';
+  const clipped = need.full > cardHeight + 1;
+  host.style.overflowY = clipped ? 'auto' : 'hidden';
+  host.classList.toggle('is-scrolling', clipped);
+}
+
+function placeTargetWindow(host) {
+  if (!host || host.classList.contains('hidden')) {
+    clearTargetWindowPlacement(host);
+    host?.classList.remove('is-scrolling');
+    const archive = document.getElementById('briefing-archive');
+    if (archive) {
+      resetArchiveBox(archive);
+      syncArchiveScrollbar(archive);
+    }
+    return;
+  }
+  fitOpenBookBriefing();
 }
 
 function commodityBookInnerHtml() {
@@ -11578,21 +11579,39 @@ function fitOpenBookBriefing() {
       body.style.flexShrink = '';
     }
   };
+  const card = document.getElementById('target-window');
+  const cardLive = Boolean(card && !card.classList.contains('hidden') && card.querySelector('.target-window-head'));
   if (!host?.classList.contains('is-book-open')) {
     clearBriefing();
-    resetArchiveBox(host);
+    if (cardLive) {
+      layoutTargetClearance(card);
+      if (host.style.height) {
+        if (select) {
+          select.style.flexShrink = '0';
+          select.style.maxHeight = 'none';
+          select.style.overflow = 'visible';
+        }
+        if (body) {
+          body.style.flexShrink = '0';
+          body.style.maxHeight = 'none';
+          body.style.overflow = 'visible';
+        }
+      }
+    } else resetArchiveBox(host);
     const book = host?.querySelector(':scope > .commodity-book-section');
     if (book) {
       book.style.flex = '';
       book.style.minHeight = '';
       book.style.overflow = '';
     }
+    syncArchiveScrollbar(host);
     return;
   }
   clearBriefing();
   if (select) select.style.flexShrink = '0';
   if (body) body.style.flexShrink = '0';
-  yieldArchiveBox(host);
+  if (cardLive) layoutTargetClearance(card);
+  else resetArchiveBox(host);
   const book = host.querySelector(':scope > .commodity-book-section');
   const releaseBookScroll = (scroll) => {
     if (!scroll) return;
@@ -11646,6 +11665,7 @@ function fitOpenBookBriefing() {
     releaseBookScroll(scroll);
     host.style.overflowY = 'auto';
   }
+  syncArchiveScrollbar(host);
 }
 
 function measureCommodityNoClip() {
@@ -11655,6 +11675,20 @@ function measureCommodityNoClip() {
     if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
     const rect = el.getBoundingClientRect();
     return rect.width >= 2 && rect.height >= 2;
+  };
+  const scrollbarShown = (el) => {
+    if (!el) return false;
+    const style = getComputedStyle(el);
+    if (style.scrollbarWidth === 'none') return false;
+    const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+    const gutter = el.offsetWidth - el.clientWidth - borderX;
+    if (gutter > 1 && /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1) return true;
+    const bar = el.classList.contains('commodity-book-scroll')
+      ? el.parentElement?.querySelector(':scope > .commodity-book-bar')
+      : null;
+    if (!bar) return false;
+    const rect = bar.getBoundingClientRect();
+    return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
   };
   const playfield = (el) => el?.id === 'game' || el?.id === 'interstellar-map-canvas';
   const panelRoot = (el) => {
@@ -11710,8 +11744,9 @@ function measureCommodityNoClip() {
     '.world-cargo-line', '.world-cargo-outcome-line',
     '.briefing-line', '.briefing-empty', '.briefing-jump',
     '.p10-line', '.p10-meta',
-    '.target-window-head', '.target-meta', '.target-class',
-    '.panel-head', 'h2',
+    '.target-window-head', '.target-meta', '.target-class', '.target-meter-head',
+    '.target-hail-note', '.target-hail-text', '.target-boarding-note',
+    '.panel-head', 'h2', '#planet-menu .meta',
     '.top-strip > *',
   ].join(', ');
   const occluders = [];
@@ -11846,6 +11881,7 @@ function measureCommodityNoClip() {
       const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
       const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
       if (!scrollY && !scrollX) return false;
+      if ((scrollY || scrollX) && !scrollbarShown(clipper)) return false;
       const topIn = rect.top - host.top + clipper.scrollTop;
       const bottomIn = rect.bottom - host.top + clipper.scrollTop;
       const leftIn = rect.left - host.left + clipper.scrollLeft;
@@ -11919,6 +11955,7 @@ function measureCommodityNoClip() {
     const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
     const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
     if (!scrollY && !scrollX) return false;
+    if ((scrollY || scrollX) && !scrollbarShown(clipper)) return false;
     const topIn = rect.top - host.top + clipper.scrollTop;
     const bottomIn = rect.bottom - host.top + clipper.scrollTop;
     const leftIn = rect.left - host.left + clipper.scrollLeft;
@@ -11965,7 +12002,17 @@ function measureCommodityNoClip() {
     }
     return { top, bottom, left, right };
   };
-  const lineSelector = '.briefing-line, .briefing-jump, .briefing-empty, .briefing-omitted, .commodity-shipment-line, .commodity-entry, .shipment-record';
+  const lineSelector = [
+    '.briefing-line', '.briefing-jump', '.briefing-empty', '.briefing-omitted',
+    '.commodity-shipment-line', '.commodity-entry', '.shipment-record', '.commodity-shipment-title',
+    '#target-window .target-window-head', '#target-window .target-meta', '#target-window .target-class',
+    '#target-window .target-meter-head', '#target-window .target-hail button',
+    '#target-window .target-hail-note', '#target-window .target-boarding-note',
+    '#target-window .target-boarding button',
+    '#planet-menu h2', '#planet-menu .meta', '#planet-menu .commodity-shipment-line',
+    '#planet-menu .commodity-shipment-title', '#planet-menu .commodity-entry',
+    '#planet-menu .dock-panel button',
+  ].join(', ');
   for (const line of document.querySelectorAll(lineSelector)) {
     if (!shown(line)) continue;
     const clipper = nearestMeasureClipper(line);

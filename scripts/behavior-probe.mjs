@@ -7600,8 +7600,19 @@ async function runCommodityShipment(page, results) {
     const targetBox = rectOf(target);
     const archiveOpen = rectOf(archive);
     const bookOpen = rectOf(archive?.querySelector(':scope > .commodity-book-section'));
+    const visibleBox = (box, host) => {
+      if (!box || !host) return box;
+      return {
+        left: Math.max(box.left, host.left),
+        right: Math.min(box.right, host.right),
+        top: Math.max(box.top, host.top),
+        bottom: Math.min(box.bottom, host.bottom),
+      };
+    };
+    const bookVisible = visibleBox(bookOpen, archiveOpen);
+    const bookPaints = Boolean(bookVisible && bookVisible.right - bookVisible.left > 4 && bookVisible.bottom - bookVisible.top > 4);
     const targetClear = Boolean(targetBox && targetBox.width > 40 && targetBox.height > 40 && archiveOpen
-      && !overlap(targetBox, archiveOpen) && (!bookOpen || !overlap(targetBox, bookOpen)));
+      && !overlap(targetBox, archiveOpen) && (!bookPaints || !overlap(targetBox, bookVisible)));
     const targetClip = api.measureNoClip();
     api?.clearCombatTarget?.();
     api?.close?.();
@@ -7921,6 +7932,158 @@ async function runCommodityShipment(page, results) {
     files: Object.keys(shotHashes),
     dupes: shotDupes,
   }));
+  const cardFit = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-planet-action="close"]')?.click();
+    for (let n = 0; n < 18; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    const spawned = probe?.spawnShip?.({
+      id: 's35-card-core',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-card-core');
+    probe?.paint?.();
+    const coreOf = (card) => {
+      const style = getComputedStyle(card);
+      const rect = card.getBoundingClientRect();
+      const borderTop = parseFloat(style.borderTopWidth) || 0;
+      const borderBottom = parseFloat(style.borderBottomWidth) || 0;
+      const borderLeft = parseFloat(style.borderLeftWidth) || 0;
+      const borderRight = parseFloat(style.borderRightWidth) || 0;
+      const inner = {
+        top: rect.top + borderTop,
+        bottom: rect.bottom - borderBottom,
+        left: rect.left + borderLeft,
+        right: rect.right - borderRight,
+      };
+      const parts = [];
+      const take = (el, name) => {
+        if (!el) {
+          parts.push({ name, missing: true, inside: false, full: false });
+          return;
+        }
+        const box = el.getBoundingClientRect();
+        parts.push({
+          name,
+          text: String(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48),
+          inside: box.height >= 8
+            && box.top >= inner.top - 1 && box.bottom <= inner.bottom + 1
+            && box.left >= inner.left - 1 && box.right <= inner.right + 1,
+          full: el.scrollHeight <= el.clientHeight + 2 && box.height + 1 >= el.clientHeight,
+          rendered: Math.round(box.height),
+          client: el.clientHeight,
+          natural: el.scrollHeight,
+        });
+      };
+      take(card.querySelector('.target-window-head'), 'head');
+      take(card.querySelector('.target-meta'), 'meta');
+      take(card.querySelector('.target-class'), 'class');
+      const meters = [...card.querySelectorAll('.target-meter')];
+      take(meters[0], 'shield');
+      take(meters[1], 'hull');
+      const hail = [...card.querySelectorAll('.target-hail button')].find((el) => /hail ship/i.test(el.textContent)) || null;
+      take(hail, 'hail');
+      const hailBox = hail?.getBoundingClientRect();
+      let clickable = false;
+      if (hail && hailBox && hailBox.height >= 8) {
+        const hit = document.elementFromPoint((hailBox.left + hailBox.right) / 2, (hailBox.top + hailBox.bottom) / 2);
+        clickable = Boolean(hit && (hit === hail || hail.contains(hit)) && !hail.disabled);
+      }
+      return {
+        scrollTop: card.scrollTop,
+        height: Math.round(rect.height),
+        top: Math.round(rect.top),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        parts,
+        clickable,
+        hailText: hail?.textContent || '',
+      };
+    };
+    const archiveBar = (archive) => {
+      const style = getComputedStyle(archive);
+      const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+      const gutter = archive.offsetWidth - archive.clientWidth - borderX;
+      const scrolls = archive.scrollHeight > archive.clientHeight + 1;
+      return {
+        scrolls,
+        gutter: Math.round(gutter),
+        scrollbarWidth: style.scrollbarWidth,
+        overflowY: style.overflowY,
+        visible: scrolls && gutter > 1 && style.scrollbarWidth !== 'none',
+      };
+    };
+    const bookShown = (archive) => {
+      const host = archive.getBoundingClientRect();
+      const inView = (el) => {
+        if (!el) return false;
+        const box = el.getBoundingClientRect();
+        return box.height >= 8 && box.top >= host.top - 1 && box.bottom <= host.bottom + 1
+          && box.left >= host.left - 1 && box.right <= host.right + 1;
+      };
+      const toggle = archive.querySelector('[data-commodity-book-toggle]');
+      const title = archive.querySelector('.commodity-shipment-title');
+      return {
+        toggle: Boolean(toggle && inView(toggle) && toggle.classList.contains('active') && /open/i.test(toggle.textContent)),
+        title: Boolean(title && inView(title) && /commodity book/i.test(title.textContent)),
+        toggleText: toggle?.textContent || '',
+      };
+    };
+    const closedCard = document.getElementById('target-window');
+    const closed = coreOf(closedCard);
+    const closedArchive = document.getElementById('briefing-archive');
+    const closedBar = archiveBar(closedArchive);
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.paint?.();
+    const openCard = document.getElementById('target-window');
+    const open = coreOf(openCard);
+    const archive = document.getElementById('briefing-archive');
+    const openBar = archiveBar(archive);
+    const shown = bookShown(archive);
+    const clip = api.measureNoClip();
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    probe?.paint?.();
+    return { closed, open, closedBar, openBar, shown, clip: {
+      squashedControls: clip?.squashedControls,
+      cutOffLines: clip?.cutOffLines,
+      clippedControls: clip?.clippedControls,
+      occluders: clip?.occluders,
+      pillOverlaps: clip?.pillOverlaps,
+    } };
+  });
+  const coreOk = (row) => row && row.scrollTop === 0 && row.clickable === true && /hail ship/i.test(row.hailText)
+    && row.parts.length >= 6 && row.parts.every((part) => part.inside === true && part.full === true && part.missing !== true);
+  check(results, 'S35.22 target-core-closed', coreOk(cardFit.closed) && cardFit.closedBar?.visible === true, JSON.stringify({
+    closed: cardFit.closed,
+    bar: cardFit.closedBar,
+  }));
+  check(results, 'S35.22 target-core-open', coreOk(cardFit.open) && cardFit.openBar?.visible === true
+    && (cardFit.shown?.toggle === true || cardFit.shown?.title === true)
+    && clipEmpty({
+      clippedControls: cardFit.clip?.clippedControls,
+      occluders: cardFit.clip?.occluders,
+      pillOverlaps: cardFit.clip?.pillOverlaps,
+      squashedControls: cardFit.clip?.squashedControls,
+      cutOffLines: cardFit.clip?.cutOffLines,
+    }), JSON.stringify({
+      open: cardFit.open,
+      bar: cardFit.openBar,
+      shown: cardFit.shown,
+      clip: cardFit.clip,
+    }));
   const fit = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const measure = () => api.measureNoClip();

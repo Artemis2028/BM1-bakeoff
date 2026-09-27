@@ -284,8 +284,12 @@ async function main() {
     const worldCargo = await readNoClip();
     await showCampaignAndCargo(page);
     await page.evaluate(() => {
+      const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
       globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
+      const filed = briefing?.produce?.({ strategicJumps: 2 });
+      if (filed?.id) briefing?.select?.(filed.id);
       const spawned = globalThis.BM1Probe?.spawnShip?.({
         id: 'shot-odyssey',
         name: 'SS Odyssey',
@@ -301,10 +305,6 @@ async function main() {
     const target = await readNoClip();
     console.log('target rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
-      const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
-      for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
-      const filed = briefing?.produce?.({ strategicJumps: 2 });
-      if (filed?.id) briefing?.select?.(filed.id);
       document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
       globalThis.BM1Probe?.paint?.();
     });
