@@ -876,9 +876,9 @@ function mixedOverCap(direction) {
   let net = 0;
   let worst = 0;
   if (direction === 'book-shop') {
-    const ledger = emptyCommodityShipmentBook();
-    const hold = emptyPods();
     for (let i = 0; i < tons; i += 1) {
+      const ledger = emptyCommodityShipmentBook();
+      const hold = emptyPods();
       const before = net;
       const bought = buyCommodityLot(ledger, {
         market, marketBook: book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
@@ -1181,13 +1181,15 @@ assert('S35.18 missing-scope', (() => {
     return sellBackBookLot(ledger, { saleId, market: minted.market, marketBook: minted.book, pods: hold });
   };
   for (let n = 0; n < 12; n += 1) {
-    if (!hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
+    const held = Object.keys(ledger.sales || {}).length >= COMMODITY_SHIPMENT_CONFIG.rowCap;
+    if (held || !hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
     buyOne();
   }
   const mid = JSON.stringify(serializeCommodityShipmentBook(ledger)).length;
   const early = sellBackBookLot(ledger, { saleId: 1, market: minted.market, marketBook: minted.book, pods: hold });
   for (let n = 0; n < 12; n += 1) {
-    if (!hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
+    const held = Object.keys(ledger.sales || {}).length >= COMMODITY_SHIPMENT_CONFIG.rowCap;
+    if (held || !hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
     buyOne();
   }
   const packed = serializeCommodityShipmentBook(ledger);
@@ -1213,6 +1215,65 @@ assert('S35.18 missing-scope', (() => {
   assert('S35.18 restore-no-resurrect', !revived.sales['4'] && sold.paid === 0 && revived.nextSaleId === 6
     && revived.consumedSaleIds == null && packed.consumedSaleIds == null);
 }
+
+{
+  const pods = emptyPods();
+  pods[0] = { tons: 1, item: 'Grain', destination: undefined, payout: 0, bookLotId: 'lot:9', bookSaleId: 9 };
+  const revived = restoreCommodityShipmentBook({ version: 1, nextSaleId: 1, sales: {} }, { pods });
+  assert('S35.19 pod-sale-id', revived.nextSaleId === 10 && !revived.sales['9']
+    && serializeCommodityShipmentBook(revived).consumedSaleIds == null);
+}
+
+{
+  const minted = freshMarket({ price: 4, stock: 30, demand: 30, stockCap: 40, demandCap: 40, floor: 0 });
+  const hold = emptyPods();
+  const ledger = emptyCommodityShipmentBook();
+  const ids = [];
+  for (let n = 0; n < COMMODITY_SHIPMENT_CONFIG.rowCap; n += 1) {
+    const bought = buyCommodityLot(ledger, {
+      market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
+    });
+    ids.push(bought.saleId);
+  }
+  const heldBefore = Object.keys(ledger.sales).length;
+  const capped = { stock: minted.market.stock, price: minted.market.price, demand: minted.market.demand };
+  const ninth = buyCommodityLot(ledger, {
+    market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
+  });
+  const ninthStill = minted.market.stock === capped.stock && minted.market.price === capped.price && minted.market.demand === capped.demand;
+  const sold = sellBackBookLot(ledger, { saleId: ids[0], market: minted.market, marketBook: minted.book, pods: hold });
+  const soldAgain = sellBackBookLot(ledger, { saleId: ids[0], market: minted.market, marketBook: minted.book, pods: hold });
+  const next = buyCommodityLot(ledger, {
+    market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
+  });
+  assert('S35.19 held-sale-cap', heldBefore === COMMODITY_SHIPMENT_CONFIG.rowCap
+    && ninth.paid === 0 && ninth.reason === 'sale-cap' && ninthStill
+    && ids.slice(1).every((id) => ledger.sales[String(id)])
+    && !ledger.sales[String(ids[0])]
+    && sold.paid > 0 && soldAgain.paid === 0
+    && next.ok === true && !ids.includes(next.saleId)
+    && next.saleId !== ids[0]
+    && !String(ninth.logLine).startsWith('FLASH'), JSON.stringify({
+      ninth, sold: sold.paid, again: soldAgain.paid, next: next.saleId, ids, capped, now: { stock: minted.market.stock, price: minted.market.price },
+    }));
+}
+
+assert('S35.19 missing-region', (() => {
+  const minted = freshMarket({ price: 8, stock: 6, demand: 6 });
+  const before = { stock: minted.market.stock, price: minted.market.price };
+  const buy = buyCommodityLotRaw(emptyCommodityShipmentBook(), {
+    market: minted.market,
+    marketBook: minted.book,
+    pods: emptyPods(),
+    cargoCap: 20,
+    credits: 500,
+    tons: 1,
+    dominion: { worldRegionMissing: true },
+  });
+  return buy.paid === 0 && buy.reason === 'missing-region'
+    && minted.market.stock === before.stock && minted.market.price === before.price
+    && /no known region/i.test(buy.logLine || '');
+})());
 
 if (failed) {
   console.error(failures.join('\n'));

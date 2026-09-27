@@ -139,12 +139,18 @@ function trimShipments(shipments, cap) {
   }
 }
 
-function enforceCaps(book, config) {
+function saleLotHeld(sale, pods) {
+  return Array.isArray(pods) && pods.some((pod) => podTaggedForSale(pod, sale));
+}
+
+function enforceCaps(book, config, pods) {
   const cap = Math.max(1, asInt(configOf(config).rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
   trimOldest(book.commodities, cap);
   trimShipments(book.shipments, cap);
   trimOldest(book.lots, cap);
-  trimOldest(book.sales, cap);
+  if (Array.isArray(pods)) {
+    trimOldest(book.sales, cap, (row) => saleLotHeld(row, pods));
+  }
   book.rowCap = cap;
 }
 
@@ -284,11 +290,15 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
     if (pods && !pods.some((pod) => podTaggedForSale(pod, sale))) continue;
     book.sales[String(saleId)] = sale;
   }
+  let maxPodSale = 0;
+  for (const pod of pods || []) {
+    maxPodSale = Math.max(maxPodSale, asInt(pod?.bookSaleId, 0));
+  }
   const savedNext = Math.max(1, asInt(saved.nextSaleId, 1));
-  book.nextSaleId = Math.max(savedNext, maxIssued + 1);
+  book.nextSaleId = Math.max(savedNext, maxIssued + 1, maxPodSale + 1);
   book.nextSeq = Math.max(asInt(saved.nextSeq, 1), maxSeq + 1, book.nextSeq);
   book.lockedFromRemastered = false;
-  enforceCaps(book, { rowCap: cap });
+  enforceCaps(book, { rowCap: cap }, pods);
   book.notices = [];
   book.lastNotice = '';
   return stripPayable(book) && book;
@@ -416,8 +426,14 @@ export function indexCommodityShipment(book, input = {}) {
   for (const name of Object.keys(store.commodities)) {
     if (!seenNames.has(name)) delete store.commodities[name];
   }
-  enforceCaps(store, input.config);
+  enforceCaps(store, input.config, pods);
   return store;
+}
+
+function tradeRefusalNotice(reason) {
+  if (reason === 'missing-scope') return 'Trade refused. This market has no dominion scope. The market did not move.';
+  if (reason === 'missing-region') return 'Trade refused. This world has no known region. The market did not move.';
+  return 'Dominion trade is closed at this world.';
 }
 
 export function dominionTradeAllowed(context = {}) {
@@ -426,7 +442,7 @@ export function dominionTradeAllowed(context = {}) {
     return {
       allowed: false,
       refused: true,
-      reason: 'missing-scope',
+      reason: context?.worldRegionMissing === true ? 'missing-region' : 'missing-scope',
       roeModesUnchanged: true,
       offersProtectAll: false,
       engagement_authorized: false,
@@ -514,10 +530,7 @@ export function buyCommodityLot(book, input = {}) {
   store.lockedFromRemastered = false;
   const access = dominionTradeAllowed(input.dominion || {});
   if (access.refused) {
-    const notice = access.reason === 'missing-scope'
-      ? 'Trade refused. This market has no dominion scope. The market did not move.'
-      : 'Dominion trade is closed at this world.';
-    return refuseTrade(store, access.reason || 'region-refused', notice);
+    return refuseTrade(store, access.reason || 'region-refused', tradeRefusalNotice(access.reason));
   }
   const market = input.market;
   if (!market) return refuseTrade(store, 'missing-market', 'No market for this good.');
@@ -527,6 +540,15 @@ export function buyCommodityLot(book, input = {}) {
   if (!deal.allowed) return refuseTrade(store, deal.kind || 'refused', deal.sayable);
   const tons = Math.max(1, asInt(input.tons, 1));
   const pods = Array.isArray(input.pods) ? input.pods : [];
+  const rowCap = Math.max(1, asInt(configOf(input.config).rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
+  const heldSales = Object.values(store.sales || {}).filter((sale) => saleLotHeld(sale, pods));
+  if (heldSales.length >= rowCap) {
+    return refuseTrade(
+      store,
+      'sale-cap',
+      'Sale book is full. Every open row is still in the hold. Purchase refused. The market did not move.',
+    );
+  }
   const cargoCap = asInt(input.cargoCap, 20);
   if (cargoUsed(pods) + tons > cargoCap) {
     return refuseTrade(store, 'hold-full', 'Hold is full. Purchase refused. The market did not move.');
@@ -588,7 +610,7 @@ export function buyCommodityLot(book, input = {}) {
   upsertCommodity(store, market.good, 'pod', input.strategicJumps);
   const line = tradeLine('Bought', tons, market.good, settled.paid, deal);
   pushNotice(store, line);
-  enforceCaps(store, input.config);
+  enforceCaps(store, input.config, pods);
   return {
     ok: true,
     paid: settled.paid,
@@ -612,10 +634,7 @@ export function sellBackBookLot(book, input = {}) {
   store.lockedFromRemastered = false;
   const access = dominionTradeAllowed(input.dominion || {});
   if (access.refused) {
-    const notice = access.reason === 'missing-scope'
-      ? 'Trade refused. This market has no dominion scope. The market did not move.'
-      : 'Dominion trade is closed at this world.';
-    return refuseTrade(store, access.reason || 'region-refused', notice);
+    return refuseTrade(store, access.reason || 'region-refused', tradeRefusalNotice(access.reason));
   }
   const saleId = input.saleId;
   const key = String(saleId ?? '');

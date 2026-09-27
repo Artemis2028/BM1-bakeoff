@@ -172,6 +172,12 @@ async function main() {
       return dropped?.reason || null;
     });
     const cloakReason = await replayCloakRefusal();
+    await page.evaluate(() => {
+      const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
+      const filed = briefing?.produce?.({ strategicJumps: 2 });
+      if (filed?.id) briefing?.select?.(filed.id);
+      globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
+    });
     console.log('staged drop', staged?.dropReason, 'replay', cloakReason);
     const readNoClip = () => page.evaluate(() => globalThis.__BM1_PROBE__.commodityShipment.measureNoClip());
     const listsOf = (row) => ({

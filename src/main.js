@@ -11092,8 +11092,12 @@ function renderBriefingArchive() {
     selectEl = host.querySelector('.briefing-archive-select');
     bodyEl = host.querySelector('.briefing-archive-body');
   }
+  const selectScroll = selectEl.scrollTop;
+  const bodyScroll = bodyEl.scrollTop;
   selectEl.innerHTML = selectHtml;
   bodyEl.innerHTML = bodyHtml;
+  selectEl.scrollTop = selectScroll;
+  bodyEl.scrollTop = bodyScroll;
 }
 
 function currentBookMarket(good) {
@@ -11105,17 +11109,30 @@ function currentBookMarket(good) {
   });
 }
 
+function resolveWorldTradeScope(planet) {
+  if (!planet || !String(planet.name || '').trim()) return null;
+  const name = String(planet.name).trim().toLowerCase();
+  if (name === 'dominica') return 'dominion-core';
+  const route = getConventionalRouteRegion(planet);
+  if (route === 'primary-space') return 'general';
+  if (route) return route;
+  return null;
+}
+
 function dominionTradeContextForMarket(market) {
-  const planetName = state.planets[state.currentPlanet]?.name || '';
-  const declared = market?.availabilityRegion || null;
-  const scope = declared || 'general';
+  const planet = state.planets?.[state.currentPlanet] || null;
+  const spawn = currentCatalogSpawnContext('traffic');
+  const worldScope = resolveWorldTradeScope(planet);
+  const declared = String(market?.availabilityRegion || '').trim().toLowerCase();
+  const scope = worldScope == null ? null : (declared || worldScope);
   return {
     availabilityRegion: scope,
     scope,
-    systemName: planetName,
-    region: String(planetName).trim().toLowerCase() === 'dominica' ? 'dominion-core' : '',
-    role: 'traffic',
-    authorizedDeployment: resolveAuthorizedDeployment(ensureDominionBook(), 'fleetAttack') === true,
+    worldRegionMissing: worldScope == null,
+    systemName: spawn.systemName,
+    region: spawn.region,
+    role: spawn.role || 'traffic',
+    authorizedDeployment: spawn.authorizedDeployment === true,
   };
 }
 
@@ -11196,10 +11213,11 @@ function sellBackFromCommodityBook(saleId) {
   const serviceBlock = refuseBookService();
   if (serviceBlock) return serviceBlock;
   const book = ensureCommodityShipmentBook();
-  const sale = book.sales?.[String(saleId)] || Object.values(book.sales || {})[0];
-  const market = sale ? currentBookMarket(sale.good) : null;
+  const requested = saleId == null || saleId === '' ? '' : String(saleId);
+  const sale = requested ? book.sales?.[requested] : Object.values(book.sales || {})[0];
+  const market = sale ? currentBookMarket(sale.good) : currentBookMarket(Object.values(book.sales || {})[0]?.good);
   const result = sellBackBookLot(book, {
-    saleId: sale?.saleId ?? saleId,
+    saleId: sale?.saleId ?? (requested || saleId),
     market,
     marketBook: ensureMarketBook(),
     pods: state.cargoArray,
@@ -26560,6 +26578,7 @@ function createCommodityShipmentProbeApi() {
       standing: standingNow(),
       saveSlotCount: SAVE_SLOT_COUNT,
     }),
+    save: () => serializeCommodityShipmentBook(ensureCommodityShipmentBook()),
     select: (id) => {
       selectCommodityShipment(ensureCommodityShipmentBook(), id);
       renderCommodityShipment();
@@ -26647,7 +26666,15 @@ function createCommodityShipmentProbeApi() {
         identitySame: tradeWitness() === witness,
         docked: state.docked === true,
         systemName: state.planets[state.currentPlanet]?.name || '',
+        dominionScope: dominionTradeContextForMarket(market).scope,
       };
+    },
+    setWorldName: (name) => {
+      const planet = state.planets?.[state.currentPlanet];
+      if (!planet) return null;
+      const previous = planet.name;
+      planet.name = name;
+      return previous;
     },
     playSell: (saleId) => {
       const book = ensureCommodityShipmentBook();

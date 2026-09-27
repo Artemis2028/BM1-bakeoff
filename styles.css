@@ -949,6 +949,12 @@ body.ui-theme-cardassian .planet-menu::before {
   /* Parked host. The visible book is .commodity-book-section inside the dock market panel. */
   display: none;
 }
+.briefing-archive > .commodity-book-section {
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 46%;
+  overflow: auto;
+}
 .commodity-book-section {
   display: flex;
   flex-direction: column;

@@ -7391,6 +7391,128 @@ async function runCommodityShipment(page, results) {
   check(results, 'S35.18 book-button', lane.bookButton === true && lane.bookOpened === true && lane.bookClosed === true, JSON.stringify({
     button: lane.bookButton, opened: lane.bookOpened, closed: lane.bookClosed,
   }));
+  const guards = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    globalThis.BM1Probe?.worldCargo?.placeAtWorld?.();
+    globalThis.BM1Probe?.tryDockPlanet?.();
+    api.restore(undefined);
+    api.emptyHold();
+    const mint = (marketId, good, extra = {}) => p8.injectMarket({
+      marketId, good, stock: 20, demand: 20, stockCap: 40, demandCap: 40, floor: 0, price: 6,
+      systemIndex: here, restriction: 'open', ...extra,
+    });
+    mint('mkt-ordinary', 'Ordinary Grain');
+    const ordinary = api.playBuy('Ordinary Grain');
+    const home = api.setWorldName('');
+    mint('mkt-missing-region', 'Missing Region Grain');
+    const missingRegion = api.playBuy('Missing Region Grain');
+    api.setWorldName('Vortara');
+    mint('mkt-unknown-region', 'Unknown Region Grain');
+    const unknownRegion = api.playBuy('Unknown Region Grain');
+    api.setWorldName(home);
+    mint('mkt-dominion-world', 'Dominion Restricted', { availabilityRegion: 'dominion-core' });
+    const dominionWorld = api.playBuy('Dominion Restricted');
+    api.restore(undefined);
+    api.emptyHold();
+    mint('mkt-save-grain', 'Save Grain');
+    const held = api.playBuy('Save Grain');
+    const saved = api.save();
+    api.restore(saved);
+    const rebuy = api.playBuy('Save Grain');
+    const soldOnce = api.playSell(held.saleId);
+    const soldTwice = api.playSell(held.saleId);
+    api.restore(undefined);
+    api.emptyHold();
+    mint('mkt-cap-grain', 'Cap Grain', { stock: 30, demand: 30 });
+    const ids = [];
+    for (let n = 0; n < 8; n += 1) ids.push(api.playBuy('Cap Grain').saleId);
+    const beforeNinth = p8.snapshot().book.markets['mkt-cap-grain'];
+    const ninth = api.playBuy('Cap Grain');
+    const afterNinth = p8.snapshot().book.markets['mkt-cap-grain'];
+    const capSell = api.playSell(ids[0]);
+    const capSellAgain = api.playSell(ids[0]);
+    const capNext = api.playBuy('Cap Grain');
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api.close?.();
+    api.clearCombatTarget?.();
+    globalThis.BM1Probe?.paint?.();
+    for (let n = 0; n < 6; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
+    const select = document.querySelector('#briefing-archive .briefing-archive-select');
+    const body = document.querySelector('#briefing-archive .briefing-archive-body');
+    if (select) select.style.maxHeight = '36px';
+    if (select) select.scrollTop = 48;
+    const scrollBefore = select ? select.scrollTop : null;
+    const lineBefore = body?.querySelector('.briefing-line')?.textContent || '';
+    const filterCount = select ? select.querySelectorAll('[data-briefing-view], [data-briefing-campaign]').length : 0;
+    const button = document.querySelector('#briefing-archive .briefing-archive-toolbar [data-commodity-book-toggle]');
+    button?.click();
+    const book = document.querySelector('#briefing-archive > .commodity-book-section');
+    const line = body?.querySelector('.briefing-line');
+    const lineBox = line ? line.getBoundingClientRect() : null;
+    const bookBox = book ? book.getBoundingClientRect() : null;
+    const scrollAfter = select ? select.scrollTop : null;
+    const openClip = api.measureNoClip();
+    document.querySelector('#briefing-archive .briefing-archive-toolbar [data-commodity-book-toggle]')?.click();
+    const closedClip = api.measureNoClip();
+    api.close?.();
+    return {
+      ordinary, missingRegion, unknownRegion, dominionWorld,
+      held, rebuy, soldOnce, soldTwice,
+      ids, ninth, beforeNinth, afterNinth, capSell, capSellAgain, capNext,
+      home,
+      buttonInToolbar: Boolean(button),
+      buttonInTopLeft: Boolean(document.querySelector('#top-left-menu [data-commodity-book-toggle]')),
+      lineBefore,
+      lineAfter: line?.textContent || '',
+      emptyBriefing: /no briefing has been filed/i.test(body?.textContent || ''),
+      lineAboveBook: Boolean(lineBox && bookBox && lineBox.bottom <= bookBox.top + 1),
+      filtersStay: filterCount > 0 && select.querySelectorAll('[data-briefing-view], [data-briefing-campaign]').length === filterCount,
+      scrollBefore, scrollAfter,
+      openClip, closedClip,
+      bookOpen: Boolean(book),
+    };
+  });
+  const clipEmpty = (row) => row && row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0;
+  check(results, 'S35.19 ordinary-region-play', guards.ordinary?.ok === true && guards.ordinary.paid > 0
+    && guards.ordinary.dominionScope === 'general', JSON.stringify(guards.ordinary));
+  check(results, 'S35.19 missing-region-play', guards.missingRegion?.paid === 0 && guards.missingRegion?.reason === 'missing-region'
+    && guards.missingRegion.after?.stock === guards.missingRegion.before?.stock
+    && guards.missingRegion.after?.price === guards.missingRegion.before?.price, JSON.stringify(guards.missingRegion));
+  check(results, 'S35.19 unknown-region-play', guards.unknownRegion?.paid === 0 && guards.unknownRegion?.ok === false
+    && guards.unknownRegion.after?.stock === guards.unknownRegion.before?.stock, JSON.stringify(guards.unknownRegion));
+  check(results, 'S35.19 dominion-restricted-play', guards.dominionWorld?.paid === 0 && guards.dominionWorld?.ok === false
+    && guards.dominionWorld.after?.price === guards.dominionWorld.before?.price, JSON.stringify(guards.dominionWorld));
+  check(results, 'S35.19 save-load-sale-id', guards.held?.ok === true && guards.rebuy?.ok === true
+    && guards.rebuy.saleId !== guards.held.saleId
+    && guards.soldOnce?.paid > 0 && guards.soldTwice?.paid === 0, JSON.stringify({
+      held: guards.held, rebuy: guards.rebuy, soldOnce: guards.soldOnce, soldTwice: guards.soldTwice,
+    }));
+  check(results, 'S35.19 held-cap-play', guards.ids.filter(Boolean).length === 8
+    && guards.ninth?.paid === 0 && guards.ninth?.reason === 'sale-cap'
+    && guards.afterNinth?.stock === guards.beforeNinth?.stock && guards.afterNinth?.price === guards.beforeNinth?.price
+    && guards.capSell?.paid > 0 && guards.capSellAgain?.paid === 0
+    && guards.capNext?.ok === true && !guards.ids.includes(guards.capNext.saleId), JSON.stringify({
+      ids: guards.ids, ninth: guards.ninth, capSell: guards.capSell, capNext: guards.capNext,
+    }));
+  check(results, 'S35.19 book-control', guards.buttonInToolbar === true && guards.buttonInTopLeft === false
+    && guards.bookOpen === true && guards.emptyBriefing === false && guards.lineBefore && guards.lineAfter === guards.lineBefore
+    && guards.lineAboveBook === true && guards.filtersStay === true
+    && guards.scrollBefore != null && guards.scrollAfter === guards.scrollBefore
+    && clipEmpty(guards.openClip) && clipEmpty(guards.closedClip), JSON.stringify({
+      buttonInToolbar: guards.buttonInToolbar,
+      buttonInTopLeft: guards.buttonInTopLeft,
+      emptyBriefing: guards.emptyBriefing,
+      lineAboveBook: guards.lineAboveBook,
+      filtersStay: guards.filtersStay,
+      scrollBefore: guards.scrollBefore,
+      scrollAfter: guards.scrollAfter,
+      lineBefore: guards.lineBefore,
+      open: guards.openClip && { clipped: guards.openClip.clippedControls, occluders: guards.openClip.occluders, pills: guards.openClip.pillOverlaps },
+      closed: guards.closedClip && { clipped: guards.closedClip.clippedControls, occluders: guards.closedClip.occluders },
+    }));
   const fit = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const measure = () => api.measureNoClip();
