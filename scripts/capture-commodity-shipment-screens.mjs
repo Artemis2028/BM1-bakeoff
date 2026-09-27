@@ -75,12 +75,9 @@ async function boot(page) {
   }));
   await page.waitForTimeout(400);
   await page.evaluate(() => {
-    document.getElementById('btn-close-map')?.click();
-    document.getElementById('interstellar-map-frame')?.classList.add('hidden');
-    document.getElementById('interstellar-map-canvas')?.classList.add('hidden');
-    const minimap = document.getElementById('minimap-panel');
-    if (minimap) minimap.style.display = 'none';
-    document.getElementById('briefing-archive')?.classList.add('hidden');
+    globalThis.BM1Probe?.closeMap?.();
+    globalThis.BM1Probe?.freezeLoop?.();
+    globalThis.BM1Probe?.redraw?.();
   });
 }
 
@@ -93,13 +90,9 @@ async function shot(page, name) {
 
 async function showCampaignAndCargo(page) {
   await page.evaluate(() => {
-    const api = globalThis.__BM1_PROBE__?.worldCargo;
-    api?.undock?.();
-    document.getElementById('planet-menu')?.classList.add('hidden');
-    document.getElementById('phase10-readout')?.classList.remove('hidden');
-    document.getElementById('world-cargo')?.classList.remove('hidden');
-    document.getElementById('bottom-dock')?.classList.remove('hidden');
-    globalThis.BM1Probe?.paint?.();
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    globalThis.BM1Probe?.freezeLoop?.();
+    globalThis.BM1Probe?.redraw?.();
   });
 }
 
@@ -107,12 +100,11 @@ async function showDockMarket(page) {
   await page.evaluate(() => {
     globalThis.BM1Probe?.worldCargo?.placeAtWorld?.();
     globalThis.BM1Probe?.tryDockPlanet?.();
-    globalThis.BM1Probe?.paint?.();
-  });
-  await page.evaluate(() => {
-    const menu = document.getElementById('planet-menu');
-    menu?.querySelector('[data-dock-tab="market"]')?.click();
-    globalThis.BM1Probe?.paint?.();
+    globalThis.BM1Probe?.freezeLoop?.();
+    globalThis.BM1Probe?.redraw?.();
+    document.querySelector('#planet-menu [data-dock-tab="market"]')?.click();
+    globalThis.BM1Probe?.freezeLoop?.();
+    globalThis.BM1Probe?.redraw?.();
   });
   await page.waitForTimeout(200);
 }
@@ -145,7 +137,8 @@ async function main() {
           });
           api.installPods?.('baseline-wc');
         }
-        globalThis.BM1Probe?.paint?.();
+        globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
       });
       await page.waitForTimeout(200);
       await shot(page, 'baseline-world-cargo');
@@ -317,7 +310,8 @@ async function main() {
       const book = globalThis.__BM1_PROBE__?.commodityShipment;
       book?.close?.();
       book?.clearCombatTarget?.();
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await logRefusal();
     await page.waitForTimeout(150);
@@ -325,7 +319,8 @@ async function main() {
     const campaign = await measurePaused();
     await page.evaluate(() => {
       document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await logRefusal();
     await page.waitForTimeout(150);
@@ -368,12 +363,10 @@ async function main() {
         document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
       }
       book?.close?.();
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await logRefusal();
-    await page.evaluate(() => {
-      document.getElementById('phase10-readout')?.classList.add('hidden');
-    });
     await page.waitForTimeout(150);
     await shot(page, 'after-world-cargo');
     const worldCargo = await measurePaused();
@@ -388,7 +381,8 @@ async function main() {
         attitude: 'neutral',
       });
       globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 'shot-odyssey');
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await logRefusal();
     await page.waitForTimeout(200);
@@ -397,7 +391,8 @@ async function main() {
     console.log('target rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
       document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await logRefusal();
     await page.waitForTimeout(200);
@@ -407,7 +402,8 @@ async function main() {
     await page.evaluate(() => {
       const boarding = globalThis.__BM1_PROBE__?.boarding;
       boarding?.injectHullRatio?.('shot-odyssey', 0.10);
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await page.waitForTimeout(200);
     await shot(page, 'after-book-target-low-hull');
@@ -416,7 +412,8 @@ async function main() {
     await showDockMarket(page);
     await page.evaluate(() => {
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
-      globalThis.BM1Probe?.paint?.();
+      globalThis.BM1Probe?.freezeLoop?.();
+      globalThis.BM1Probe?.redraw?.();
     });
     await logRefusal();
     await page.waitForTimeout(150);
