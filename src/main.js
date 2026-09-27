@@ -26822,6 +26822,10 @@ function createWorldCargoProbeApi() {
       state.dockedPlanetIndex = null;
       state.dockedStationId = null;
       closePlanetMenu();
+      renderBriefingArchive();
+      renderPhase10Readout();
+      renderWorldCargo();
+      renderCommodityShipment();
       return true;
     },
     serviceRange: () => {
