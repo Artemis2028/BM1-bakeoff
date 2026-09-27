@@ -11104,9 +11104,35 @@ function currentBookMarket(good) {
   });
 }
 
+function dominionTradeContextForMarket(market) {
+  const planetName = state.planets[state.currentPlanet]?.name || '';
+  const scope = market?.availabilityRegion || null;
+  return {
+    availabilityRegion: scope,
+    scope,
+    systemName: planetName,
+    region: String(planetName).trim().toLowerCase() === 'dominica' ? 'dominion-core' : '',
+    role: 'traffic',
+    authorizedDeployment: resolveAuthorizedDeployment(ensureDominionBook(), 'fleetAttack') === true,
+  };
+}
+
+function tradeWitness() {
+  ensureContactBook();
+  const ledger = ensureIncidentLedger();
+  const policy = getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet));
+  return JSON.stringify({
+    standing: state.factionStanding || {},
+    contacts: ensureContactBook(),
+    alerts: areAlertsActive(policy),
+    known: ledger.observerCopies?.player?.knownIncidentIds || [],
+    flash: currentFlash(ledger)?.text || '',
+  });
+}
+
 function buyFromCommodityBook(good) {
   if (!requireDocked()) return;
-  const market = currentBookMarket(good) || listMarkets(ensureMarketBook()).find((row) => row.systemIndex === state.currentPlanet);
+  const market = currentBookMarket(good) || listMarkets(ensureMarketBook()).find((row) => row.good === good && row.systemIndex === state.currentPlanet);
   const result = buyCommodityLot(ensureCommodityShipmentBook(), {
     market,
     marketBook: ensureMarketBook(),
@@ -11115,6 +11141,8 @@ function buyFromCommodityBook(good) {
     credits: state.latinum,
     tons: 1,
     strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+    contraband: market?.contraband === true,
+    dominion: dominionTradeContextForMarket(market),
     config: COMMODITY_SHIPMENT_CONFIG,
   });
   if (result.paid) {
@@ -11126,6 +11154,7 @@ function buyFromCommodityBook(good) {
   recalcCargoFromPods();
   refreshCommodityShipment();
   updateStats();
+  return result;
 }
 
 function sellBackFromCommodityBook(saleId) {
@@ -11138,6 +11167,7 @@ function sellBackFromCommodityBook(saleId) {
     market,
     marketBook: ensureMarketBook(),
     pods: state.cargoArray,
+    dominion: dominionTradeContextForMarket(market),
     config: COMMODITY_SHIPMENT_CONFIG,
   });
   if (result.paid) {
@@ -11149,6 +11179,7 @@ function sellBackFromCommodityBook(saleId) {
   recalcCargoFromPods();
   refreshCommodityShipment();
   updateStats();
+  return result;
 }
 
 function placeTargetWindow(host) {
@@ -26496,6 +26527,119 @@ function createCommodityShipmentProbeApi() {
       renderCommodityShipment();
       return { ...result, before, market: market ? { stock: market.stock, demand: market.demand, price: market.price } : null };
     },
+    emptyHold: () => {
+      state.cargoArray = Array.from({ length: Math.max(10, state.cargoArray?.length || 0) }, () => ({
+        tons: 0, item: 'Nothing', destination: undefined, payout: 0,
+      }));
+      recalcCargoFromPods();
+      return state.cargo;
+    },
+    playBuy: (good) => {
+      const market = currentBookMarket(good);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const result = buyFromCommodityBook(good) || { ok: false, paid: 0, reason: 'not-docked', logLine: state.log, logBand: null };
+      const book = ensureCommodityShipmentBook();
+      const lot = result.lotId ? book.lots?.[result.lotId] : null;
+      return {
+        ok: result.ok === true,
+        paid: result.paid || 0,
+        reason: result.reason || null,
+        saleId: result.saleId ?? null,
+        lotId: result.lotId ?? null,
+        contraband: lot?.contraband === true,
+        salePresent: result.saleId != null && Boolean(book.sales?.[String(result.saleId)]),
+        podTons: lot ? state.cargoArray.find((pod) => String(pod.bookSaleId ?? '') === String(result.saleId))?.tons ?? 0 : 0,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: result.logLine || state.log || '',
+        log: state.log || '',
+        logBand: result.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+        systemName: state.planets[state.currentPlanet]?.name || '',
+      };
+    },
+    playSell: (saleId) => {
+      const book = ensureCommodityShipmentBook();
+      const sale = book.sales?.[String(saleId)];
+      const market = sale ? currentBookMarket(sale.good) : null;
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const result = sellBackFromCommodityBook(saleId) || { ok: false, paid: 0, reason: 'not-docked', logLine: state.log, logBand: null };
+      const afterBook = ensureCommodityShipmentBook();
+      return {
+        ok: result.ok === true,
+        paid: result.paid || 0,
+        reason: result.reason || null,
+        salePresent: Boolean(afterBook.sales?.[String(saleId)]),
+        podTons: state.cargoArray.find((pod) => String(pod.bookSaleId ?? '') === String(saleId))?.tons ?? 0,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: result.logLine || state.log || '',
+        log: state.log || '',
+        logBand: result.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+      };
+    },
+    playShopBuy: (marketId) => {
+      const offers = currentMarketOffers();
+      const slot = offers.findIndex((row) => row.marketId === marketId);
+      const market = getMarket(ensureMarketBook(), marketId);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const bought = slot >= 0 ? buyMarketGood(slot) : { ok: false, reason: 'missing-offer' };
+      return {
+        ok: bought?.ok === true || bought?.allowed === true,
+        paid: latinumBefore - state.latinum,
+        reason: bought?.reason || null,
+        kind: bought?.kind || null,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: bought?.logLine || state.log || '',
+        log: state.log || '',
+        logBand: bought?.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        sayable: bought?.sayable || '',
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+        slot,
+      };
+    },
+    playShopSell: (marketId) => {
+      const offers = currentMarketOffers();
+      const slot = offers.findIndex((row) => row.marketId === marketId);
+      const market = getMarket(ensureMarketBook(), marketId);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const sold = slot >= 0 ? sellMarketGood(slot) : { ok: false, reason: 'missing-offer' };
+      return {
+        ok: sold?.ok === true || sold?.allowed === true,
+        paid: state.latinum - latinumBefore,
+        reason: sold?.reason || null,
+        kind: sold?.kind || null,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: sold?.logLine || state.log || '',
+        log: state.log || '',
+        logBand: sold?.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+        slot,
+      };
+    },
     stageScreenshots: () => {
       const longGood = 'Pharmaceutical Grade Medical Supplies And Emergency Ration Packs';
       const longWorld = 'Ferenginar Outer Commerce Reach';
@@ -28081,6 +28225,9 @@ function createPhase8ProbeApi() {
         sellerWillDeal: opts.sellerWillDeal,
         wartimeGood: opts.wartimeGood,
         marketId: opts.marketId,
+        premiumMultiplier: opts.premiumMultiplier,
+        contraband: opts.contraband === true,
+        availabilityRegion: opts.availabilityRegion,
       });
       if (!injected.ok) return injected;
       return { ok: true, market: injected.market, snapshot: snapshot() };

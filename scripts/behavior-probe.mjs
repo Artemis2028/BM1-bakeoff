@@ -7209,6 +7209,139 @@ async function runCommodityShipment(page, results) {
   check(results, 'S35.2 hold-full', s35.fullPaid === 0 && s35.fullReason === 'hold-full' && s35.stockAfterFull === s35.stockAfterSell && s35.priceAfterFull === s35.priceAfterSell, JSON.stringify(s35));
   check(results, 'S35.7 no-mint', s35.handPods === true && s35.handLatinum === 0, JSON.stringify(s35));
   check(results, 'S35.6 no-third-roe', Array.isArray(s35.roeModes) && s35.roeModes.join(',') === 'return-fire,defend' && s35.offersProtectAll !== true && s35.tractor === false, JSON.stringify(s35));
+  const lane = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    globalThis.BM1Probe?.worldCargo?.placeAtWorld?.();
+    globalThis.BM1Probe?.tryDockPlanet?.();
+    const reset = () => {
+      api.restore(undefined);
+      api.emptyHold();
+    };
+    const mint = (marketId, good, extra = {}) => p8.injectMarket({
+      marketId,
+      good,
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+      ...extra,
+    });
+    const still = (row) => Boolean(row?.before && row?.after
+      && row.after.stock === row.before.stock
+      && row.after.price === row.before.price
+      && row.after.demand === row.before.demand);
+    const refused = (row) => Boolean(row && row.paid === 0 && row.ok === false && row.latinumDelta === 0
+      && still(row) && row.identitySame === true && row.logBand == null
+      && row.band !== 'flash' && !String(row.log || '').startsWith('FLASH'));
+    reset();
+    mint('mkt-embargo', 'Embargo Leaf', { restriction: 'embargo' });
+    const embargoBuy = api.playBuy('Embargo Leaf');
+    reset();
+    mint('mkt-license', 'License Ore', { restriction: 'license', licenseId: 'warp-license' });
+    const licenseBuy = api.playBuy('License Ore');
+    reset();
+    mint('mkt-seller', 'Seller Ale', { restriction: 'seller_rule', sellerWillDeal: false });
+    const sellerBuy = api.playBuy('Seller Ale');
+    reset();
+    mint('mkt-embargo-sell', 'Embargo Resale');
+    const embargoLot = api.playBuy('Embargo Resale');
+    mint('mkt-embargo-sell', 'Embargo Resale', {
+      restriction: 'embargo',
+      price: embargoLot.after?.price,
+      stock: embargoLot.after?.stock,
+      demand: embargoLot.after?.demand,
+    });
+    const embargoSell = api.playSell(embargoLot.saleId);
+    reset();
+    mint('mkt-license-sell', 'License Resale');
+    const licenseLot = api.playBuy('License Resale');
+    mint('mkt-license-sell', 'License Resale', {
+      restriction: 'license',
+      licenseId: 'warp-license',
+      price: licenseLot.after?.price,
+      stock: licenseLot.after?.stock,
+      demand: licenseLot.after?.demand,
+    });
+    const licenseSell = api.playSell(licenseLot.saleId);
+    reset();
+    mint('mkt-seller-sell', 'Seller Resale');
+    const sellerLot = api.playBuy('Seller Resale');
+    mint('mkt-seller-sell', 'Seller Resale', {
+      restriction: 'seller_rule',
+      sellerWillDeal: false,
+      price: sellerLot.after?.price,
+      stock: sellerLot.after?.stock,
+      demand: sellerLot.after?.demand,
+    });
+    const sellerSell = api.playSell(sellerLot.saleId);
+    reset();
+    mint('mkt-prem-shop', 'Premium Silk', { restriction: 'premium', premiumMultiplier: 3 });
+    const shopBuy = api.playShopBuy('mkt-prem-shop');
+    const shopSell = api.playShopSell('mkt-prem-shop');
+    reset();
+    mint('mkt-prem-book', 'Premium Book', { restriction: 'premium', premiumMultiplier: 3 });
+    const bookBuy = api.playBuy('Premium Book');
+    const bookSell = api.playSell(bookBuy.saleId);
+    reset();
+    mint('mkt-mix-a', 'Premium Mix A', { restriction: 'premium', premiumMultiplier: 3, stock: 8, demand: 8 });
+    const mixBook = api.playBuy('Premium Mix A');
+    const mixShopSell = api.playShopSell('mkt-mix-a');
+    reset();
+    mint('mkt-mix-b', 'Premium Mix B', { restriction: 'premium', premiumMultiplier: 3, stock: 8, demand: 8 });
+    const mixSetup = api.playBuy('Premium Mix B');
+    const mixShopBuy = api.playShopBuy('mkt-mix-b');
+    const mixBookSell = api.playSell(mixSetup.saleId);
+    reset();
+    mint('mkt-contra', 'Contraband Spice', { contraband: true });
+    const contra = api.playBuy('Contraband Spice');
+    reset();
+    mint('mkt-dominion', 'Dominion Isolinear', { availabilityRegion: 'dominion-core' });
+    const dominion = api.playBuy('Dominion Isolinear');
+    return {
+      embargoBuy, licenseBuy, sellerBuy,
+      embargoLot, embargoSell, licenseLot, licenseSell, sellerLot, sellerSell,
+      shopBuy, shopSell, bookBuy, bookSell,
+      mixBook, mixShopSell, mixSetup, mixShopBuy, mixBookSell,
+      contra, dominion,
+    };
+  });
+  const laneRefused = (row) => row && row.paid === 0 && row.ok === false && row.latinumDelta === 0
+    && row.before && row.after && row.after.stock === row.before.stock
+    && row.after.price === row.before.price && row.after.demand === row.before.demand
+    && row.identitySame === true && row.logBand == null && row.band !== 'flash'
+    && !String(row.log || '').startsWith('FLASH');
+  check(results, 'S35.17 embargo-play-buy', laneRefused(lane.embargoBuy) && /embargo/i.test(lane.embargoBuy.log), JSON.stringify(lane.embargoBuy));
+  check(results, 'S35.17 license-play-buy', laneRefused(lane.licenseBuy) && /license/i.test(lane.licenseBuy.log), JSON.stringify(lane.licenseBuy));
+  check(results, 'S35.17 seller-play-buy', laneRefused(lane.sellerBuy) && /seller|refuses/i.test(lane.sellerBuy.log), JSON.stringify(lane.sellerBuy));
+  check(results, 'S35.17 embargo-play-sell', lane.embargoLot?.ok === true && laneRefused(lane.embargoSell)
+    && lane.embargoSell.salePresent === true && lane.embargoSell.podTons >= 1, JSON.stringify({ lot: lane.embargoLot, sell: lane.embargoSell }));
+  check(results, 'S35.17 license-play-sell', lane.licenseLot?.ok === true && laneRefused(lane.licenseSell)
+    && lane.licenseSell.salePresent === true, JSON.stringify({ lot: lane.licenseLot, sell: lane.licenseSell }));
+  check(results, 'S35.17 seller-play-sell', lane.sellerLot?.ok === true && laneRefused(lane.sellerSell)
+    && lane.sellerSell.salePresent === true, JSON.stringify({ lot: lane.sellerLot, sell: lane.sellerSell }));
+  check(results, 'S35.17 premium-shop', lane.shopBuy?.paid === 33 && lane.shopBuy.after?.price === 11
+    && /Bought 1 ton /.test(lane.shopBuy.log) && /Black-market premium/.test(lane.shopBuy.log)
+    && lane.shopSell?.paid === 30 && lane.shopSell.after?.price === 10
+    && /Sold 1 ton /.test(lane.shopSell.log) && lane.shopBuy.identitySame === true, JSON.stringify({ buy: lane.shopBuy, sell: lane.shopSell }));
+  check(results, 'S35.17 premium-book', lane.bookBuy?.paid === 33 && lane.bookBuy.latinumDelta === -33
+    && lane.bookBuy.after?.price === 11 && /Bought 1 ton of /.test(lane.bookBuy.log) && !/1 tons/.test(lane.bookBuy.log)
+    && lane.bookSell?.paid === 30 && lane.bookSell.after?.price === 10
+    && /Sold 1 ton of /.test(lane.bookSell.log) && !/1 tons/.test(lane.bookSell.log), JSON.stringify({ buy: lane.bookBuy, sell: lane.bookSell }));
+  check(results, 'S35.15 premium-book-then-shop', lane.mixBook?.paid === 33 && lane.mixShopSell?.paid === 30
+    && (-lane.mixBook.paid + lane.mixShopSell.paid) <= 0 && lane.mixShopSell.after?.price === 10, JSON.stringify({ buy: lane.mixBook, sell: lane.mixShopSell }));
+  check(results, 'S35.15 premium-shop-then-book', lane.mixSetup?.after?.price === 11
+    && lane.mixShopBuy?.paid === 36 && lane.mixShopBuy.after?.price === 12
+    && lane.mixBookSell?.paid === 33 && lane.mixBookSell.after?.price === 11
+    && (-lane.mixShopBuy.paid + lane.mixBookSell.paid) <= 0, JSON.stringify({ setup: lane.mixSetup, shop: lane.mixShopBuy, book: lane.mixBookSell }));
+  check(results, 'S35.17 contraband-play', lane.contra?.ok === true && lane.contra.contraband === true, JSON.stringify(lane.contra));
+  check(results, 'S35.17 dominion-play-buy', laneRefused(lane.dominion) && lane.dominion.reason === 'region-refused'
+    && lane.dominion.docked === true && String(lane.dominion.systemName || '').trim().toLowerCase() !== 'dominica', JSON.stringify(lane.dominion));
   const fit = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const measure = () => api.measureNoClip();

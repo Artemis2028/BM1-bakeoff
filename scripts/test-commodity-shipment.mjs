@@ -968,6 +968,176 @@ assert('S35.14 direct-n-tons', (() => {
   return moved.ok && market.stock === 3 && moved.paid === 11 + 12 + 13;
 })());
 
+function rowSnapshot(market) {
+  return { stock: market.stock, demand: market.demand, price: market.price };
+}
+
+function buyOpen(good) {
+  const minted = freshMarket({ good, price: 10, stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0, restriction: 'open' });
+  const pods = emptyPods();
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: minted.market,
+    marketBook: minted.book,
+    pods,
+    cargoCap: 20,
+    credits: 5000,
+    tons: 1,
+  });
+  return { ...minted, pods, bought };
+}
+
+{
+  const embargo = freshMarket({ good: 'Embargo Leaf', restriction: 'embargo', price: 10, stock: 6, demand: 6 });
+  const before = rowSnapshot(embargo.market);
+  const pods = emptyPods();
+  const buy = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: embargo.market, marketBook: embargo.book, pods, cargoCap: 20, credits: 500, tons: 1,
+  });
+  assert('S35.17 embargo-book-buy', buy.paid === 0 && buy.ok === false
+    && buy.logBand == null && !String(buy.logLine).startsWith('FLASH') && /embargo/i.test(buy.logLine)
+    && embargo.market.stock === before.stock && embargo.market.price === before.price && embargo.market.demand === before.demand
+    && pods.every((pod) => !pod.tons), JSON.stringify({ paid: buy.paid, reason: buy.reason, log: buy.logLine }));
+  const held = buyOpen('Embargo Resale');
+  held.market.restriction = 'embargo';
+  const sellBefore = rowSnapshot(held.market);
+  const sold = sellBackBookLot(held.bought.book, {
+    saleId: held.bought.saleId, market: held.market, marketBook: held.book, pods: held.pods,
+  });
+  assert('S35.17 embargo-book-sell', held.bought.ok && sold.paid === 0 && sold.ok !== true
+    && held.market.stock === sellBefore.stock && held.market.price === sellBefore.price
+    && Boolean(held.bought.book.sales[String(held.bought.saleId)])
+    && held.pods.some((pod) => pod.tons > 0)
+    && sold.logBand == null && !String(sold.logLine).startsWith('FLASH'), JSON.stringify(sold));
+}
+
+{
+  const license = freshMarket({
+    good: 'License Ore', restriction: 'license', licenseId: 'warp-license', price: 10, stock: 6, demand: 6,
+  });
+  const before = rowSnapshot(license.market);
+  const buy = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: license.market, marketBook: license.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
+  });
+  assert('S35.17 license-book-buy', buy.paid === 0 && buy.ok === false
+    && /license/i.test(buy.logLine) && license.market.price === before.price && license.market.stock === before.stock
+    && buy.logBand == null && !String(buy.logLine).startsWith('FLASH'));
+  license.book.licenses['warp-license'] = true;
+  const allowed = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: license.market, marketBook: license.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
+  });
+  assert('S35.17 license-held-buys', allowed.ok === true && allowed.paid === 11 && license.market.price === 11);
+  const held = buyOpen('License Resale');
+  held.market.restriction = 'license';
+  held.market.licenseId = 'warp-license';
+  const sold = sellBackBookLot(held.bought.book, {
+    saleId: held.bought.saleId, market: held.market, marketBook: held.book, pods: held.pods,
+  });
+  assert('S35.17 license-book-sell', sold.paid === 0 && Boolean(held.bought.book.sales[String(held.bought.saleId)])
+    && held.market.price === 11);
+}
+
+{
+  const seller = freshMarket({
+    good: 'Seller Ale', restriction: 'seller_rule', sellerWillDeal: false, price: 10, stock: 6, demand: 6,
+  });
+  const before = rowSnapshot(seller.market);
+  const buy = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: seller.market, marketBook: seller.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
+  });
+  assert('S35.17 seller-book-buy', buy.paid === 0 && buy.ok === false
+    && /seller|refuses/i.test(buy.logLine) && seller.market.stock === before.stock && seller.market.price === before.price
+    && buy.logBand == null && !String(buy.logLine).startsWith('FLASH'));
+  const held = buyOpen('Seller Resale');
+  held.market.restriction = 'seller_rule';
+  held.market.sellerWillDeal = false;
+  const sellBefore = rowSnapshot(held.market);
+  const sold = sellBackBookLot(held.bought.book, {
+    saleId: held.bought.saleId, market: held.market, marketBook: held.book, pods: held.pods,
+  });
+  assert('S35.17 seller-book-sell', sold.paid === 0 && held.market.price === sellBefore.price
+    && held.market.stock === sellBefore.stock
+    && Boolean(held.bought.book.sales[String(held.bought.saleId)]));
+}
+
+{
+  const shop = freshMarket({
+    good: 'Premium Silk', price: 10, stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0,
+    restriction: 'premium', premiumMultiplier: 3,
+  });
+  const shopBuy = applyShopBuy(shop.book, { marketId: shop.market.marketId, credits: 5000 });
+  assert('S35.17 premium-shop-buy', shopBuy.ok && shopBuy.paid === 33 && shopBuy.price === 33
+    && shop.market.price === 11 && shopBuy.standingDelta === 0);
+  const shopSell = applyShopSell(shop.book, { marketId: shop.market.marketId, credits: 5000 });
+  assert('S35.17 premium-shop-sell', shopSell.ok && shopSell.paid === 30 && shopSell.price === 30
+    && shop.market.price === 10 && shopSell.standingDelta === 0);
+}
+
+{
+  const book = freshMarket({
+    good: 'Premium Book', price: 10, stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0,
+    restriction: 'premium', premiumMultiplier: 3,
+  });
+  const hold = emptyPods();
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: book.market, marketBook: book.book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
+  });
+  assert('S35.17 premium-book-buy', bought.ok && bought.paid === 33 && bought.prices.join(',') === '33'
+    && book.market.price === 11
+    && /Bought 1 ton of /.test(bought.logLine) && !/1 tons/.test(bought.logLine)
+    && /Black-market premium/.test(bought.logLine));
+  const sold = sellBackBookLot(bought.book, {
+    saleId: bought.saleId, market: book.market, marketBook: book.book, pods: hold,
+  });
+  assert('S35.17 premium-book-sell', sold.ok && sold.paid === 30 && book.market.price === 10
+    && /Sold 1 ton of /.test(sold.logLine) && !/1 tons/.test(sold.logLine));
+  const plural = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: book.market, marketBook: book.book, pods: emptyPods(), cargoCap: 20, credits: 5000, tons: 3,
+  });
+  assert('S35.17 plural-tons', plural.ok && /Bought 3 tons of /.test(plural.logLine)
+    && plural.paid === 33 + 36 + 39 && book.market.price === 13);
+}
+
+{
+  const mix = freshMarket({
+    good: 'Premium Mix A', price: 10, stock: 8, demand: 8, stockCap: 8, demandCap: 8, floor: 0,
+    restriction: 'premium', premiumMultiplier: 3,
+  });
+  const hold = emptyPods();
+  const start = mix.market.price;
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: mix.market, marketBook: mix.book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
+  });
+  const sold = applyShopSell(mix.book, { marketId: mix.market.marketId, credits: 5000 });
+  assert('S35.15 premium-book-then-shop', bought.paid === 33 && sold.paid === 30
+    && (-bought.paid + sold.paid) <= 0 && mix.market.price === start, JSON.stringify({ bought: bought.paid, sold: sold.paid, price: mix.market.price }));
+}
+
+{
+  const mix = freshMarket({
+    good: 'Premium Mix B', price: 10, stock: 8, demand: 8, stockCap: 8, demandCap: 8, floor: 0,
+    restriction: 'premium', premiumMultiplier: 3,
+  });
+  const hold = emptyPods();
+  const setup = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: mix.market, marketBook: mix.book, pods: hold, cargoCap: 20, credits: 5000, tons: 1,
+  });
+  const start = mix.market.price;
+  const shop = applyShopBuy(mix.book, { marketId: mix.market.marketId, credits: 5000 });
+  const sold = sellBackBookLot(setup.book, {
+    saleId: setup.saleId, market: mix.market, marketBook: mix.book, pods: hold,
+  });
+  assert('S35.15 premium-shop-then-book', shop.paid === 36 && sold.paid === 33
+    && (-shop.paid + sold.paid) <= 0 && mix.market.price === start, JSON.stringify({ shop: shop.paid, sold: sold.paid, price: mix.market.price, start }));
+}
+
+{
+  const contra = freshMarket({ good: 'Contraband Spice', contraband: true, price: 10, stock: 4, demand: 4 });
+  const bought = buyCommodityLot(emptyCommodityShipmentBook(), {
+    market: contra.market, marketBook: contra.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
+  });
+  assert('S35.17 contraband-from-market', bought.ok === true && bought.book.lots[bought.lotId].contraband === true);
+}
+
 if (failed) {
   console.error(failures.join('\n'));
   console.error(`S35 commodity shipment: ${passed} passed, ${failed} failed`);

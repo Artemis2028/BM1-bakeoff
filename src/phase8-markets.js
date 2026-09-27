@@ -206,6 +206,8 @@ function sanitizeMarket(raw, goodsSpec, magnitudes) {
     premiumMultiplier: Math.max(1, asInt(raw.premiumMultiplier, magnitudes.premiumMultiplier)),
     sellerWillDeal: raw.sellerWillDeal !== false,
     wartimeGood: raw.wartimeGood === true,
+    contraband: raw.contraband === true,
+    availabilityRegion: normalizeKey(raw.availabilityRegion) || null,
     lastWrite: raw.lastWrite && typeof raw.lastWrite === 'object' ? raw.lastWrite : null,
     saturated: raw.saturated === true,
   };
@@ -385,6 +387,8 @@ export function injectMarket(book, input = {}, injected = null) {
     premiumMultiplier: input.premiumMultiplier,
     sellerWillDeal: input.sellerWillDeal,
     wartimeGood: input.wartimeGood,
+    contraband: input.contraband === true,
+    availabilityRegion: input.availabilityRegion,
   }, store.goods, magnitudes);
   if (!market) return { ok: false, reason: 'invalid-market' };
   if (existing && input.remint === false) {
@@ -891,6 +895,16 @@ function clampStoredPrice(price, options) {
   return Math.max(options.priceFloor, Math.min(options.priceCap, asInt(price, options.priceFloor)));
 }
 
+/** Premium docks multiply each settled ton. The stored price is not rewritten, and standing is not an input. */
+export function premiumCharge(amount, market, injected = null) {
+  const base = Math.max(0, asInt(amount, 0));
+  if (!market || market.restriction !== 'premium') return base;
+  const magnitudes = magnitudesOf(injected);
+  const factor = Math.max(1, asInt(market.premiumMultiplier, magnitudes.premiumMultiplier));
+  if (factor === 1 || base <= 0) return base;
+  return Math.max(1, Math.round(base * factor));
+}
+
 export function postMovePrice(market, direction, injected = null) {
   const options = settleOptions(injected);
   const current = asInt(market?.price, options.priceFloor);
@@ -1008,7 +1022,7 @@ export function applyShopBuy(book, input = {}, injected = null) {
     store.lastRefuse = empty;
     return empty;
   }
-  const quote = postMovePrice(market, 'buy', injected);
+  const quote = premiumCharge(postMovePrice(market, 'buy', injected), market, injected);
   const credits = asInt(input.credits, quote);
   if (credits < quote) {
     return withRefusalLine({
@@ -1026,6 +1040,7 @@ export function applyShopBuy(book, input = {}, injected = null) {
       market,
     }, 'Buy refused. Stock is at the floor. The market did not move.');
   }
+  const charged = premiumCharge(step.paid, market, injected);
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'buy' });
   return {
     ok: true,
@@ -1033,8 +1048,8 @@ export function applyShopBuy(book, input = {}, injected = null) {
     kind: deal.kind,
     reason: 'allowed',
     sayable: deal.sayable,
-    price: step.paid,
-    paid: step.paid,
+    price: charged,
+    paid: charged,
     stock: market.stock,
     demand: market.demand,
     standingDelta: shop.standingDelta,
@@ -1075,13 +1090,14 @@ export function applyShopSell(book, input = {}, injected = null) {
       market,
     }, line);
   }
+  const charged = premiumCharge(step.paid, market, injected);
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'sell' });
   return {
     ok: true,
     allowed: true,
     kind: deal.kind,
-    price: step.paid,
-    paid: step.paid,
+    price: charged,
+    paid: charged,
     stock: market.stock,
     demand: market.demand,
     standingDelta: shop.standingDelta,

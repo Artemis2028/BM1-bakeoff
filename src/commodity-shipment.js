@@ -16,8 +16,10 @@ import { tractorIsBoarding } from './phase9-ew.js';
 import {
   PER_TON_SETTLE_DEFAULTS,
   PHASE8_MAGNITUDES,
+  evaluateCargoDeal,
   goodSpec,
   postMovePrice,
+  premiumCharge,
   settleMarketTons,
 } from './phase8-markets.js';
 
@@ -464,6 +466,48 @@ function refuseTrade(book, reason, notice) {
   };
 }
 
+function tonPhrase(count) {
+  const n = Math.max(0, asInt(count, 0));
+  return n === 1 ? '1 ton' : `${n} tons`;
+}
+
+function dealBook(market, input) {
+  const store = input.marketBook;
+  if (store?.markets && (store.markets[market.marketId] || Object.values(store.markets).includes(market))) {
+    return store;
+  }
+  return {
+    markets: { [market.marketId]: market },
+    licenses: input.licenses && typeof input.licenses === 'object' ? input.licenses : {},
+    goods: {},
+  };
+}
+
+/** Same deal inputs the shop passes to evaluateCargoDeal. Price is not a ban bypass. */
+function evaluateBookDeal(market, input, injected) {
+  const dealInput = {
+    marketId: market.marketId,
+    good: market.good,
+    credits: input.credits,
+    hasLicense: input.hasLicense,
+    licenseId: input.licenseId,
+    sellerHostile: input.sellerHostile,
+  };
+  if (input.licenses) dealInput.licenses = input.licenses;
+  return evaluateCargoDeal(dealBook(market, input), dealInput, injected);
+}
+
+function chargeTons(settled, market, injected) {
+  const prices = (settled.prices || []).map((price) => premiumCharge(price, market, injected));
+  const paid = prices.reduce((sum, amount) => sum + amount, 0);
+  return { ...settled, prices, paid };
+}
+
+function tradeLine(verb, tons, good, paid, deal) {
+  const premium = deal?.kind === 'premium' && deal.sayable ? ` ${deal.sayable}` : '';
+  return `${verb} ${tonPhrase(tons)} of ${good} for ${paid} latinum.${premium}`;
+}
+
 export function buyCommodityLot(book, input = {}) {
   const store = book && book.version === COMMODITY_SHIPMENT_VERSION ? book : emptyCommodityShipmentBook();
   store.lockedFromRemastered = false;
@@ -471,6 +515,10 @@ export function buyCommodityLot(book, input = {}) {
   if (access.refused) return refuseTrade(store, 'region-refused', 'Dominion trade is closed at this world.');
   const market = input.market;
   if (!market) return refuseTrade(store, 'missing-market', 'No market for this good.');
+  const spec = input.spec || goodSpec(input.marketBook, market.good, null);
+  const inject = settleInject(input.config);
+  const deal = evaluateBookDeal(market, input, inject);
+  if (!deal.allowed) return refuseTrade(store, deal.kind || 'refused', deal.sayable);
   const tons = Math.max(1, asInt(input.tons, 1));
   const pods = Array.isArray(input.pods) ? input.pods : [];
   const cargoCap = asInt(input.cargoCap, 20);
@@ -480,9 +528,7 @@ export function buyCommodityLot(book, input = {}) {
   if (!findEmptySlot(pods)) {
     return refuseTrade(store, 'no-pod-slot', 'No empty cargo pod. Purchase refused. The market did not move.');
   }
-  const spec = input.spec || goodSpec(input.marketBook, market.good, null);
-  const inject = settleInject(input.config);
-  const quote = settleMarketTons({ ...market }, 'buy', tons, spec, inject);
+  const quote = chargeTons(settleMarketTons({ ...market }, 'buy', tons, spec, inject), market, inject);
   if (!quote.ok) {
     return refuseTrade(store, quote.reason, quote.reason === 'stock-floor'
       ? 'Buy refused. Stock is at the floor. The market did not move.'
@@ -492,7 +538,8 @@ export function buyCommodityLot(book, input = {}) {
     return refuseTrade(store, 'funds', 'Not enough latinum. The market did not move.');
   }
   const before = { stock: market.stock, demand: market.demand, price: market.price };
-  const settled = settleMarketTons(market, 'buy', tons, spec, inject);
+  const settledRaw = settleMarketTons(market, 'buy', tons, spec, inject);
+  const settled = chargeTons(settledRaw, market, inject);
   if (!settled.ok) {
     market.stock = before.stock;
     market.demand = before.demand;
@@ -520,7 +567,7 @@ export function buyCommodityLot(book, input = {}) {
     lotId,
     good: market.good,
     source: 'book-bought',
-    contraband: input.contraband === true,
+    contraband: input.contraband === true || market.contraband === true,
     saleId,
     seq: takeSeq(store),
   };
@@ -533,7 +580,8 @@ export function buyCommodityLot(book, input = {}) {
     seq: takeSeq(store),
   };
   upsertCommodity(store, market.good, 'pod', input.strategicJumps);
-  pushNotice(store, `Bought ${tons} tons of ${market.good} for ${settled.paid} latinum.`);
+  const line = tradeLine('Bought', tons, market.good, settled.paid, deal);
+  pushNotice(store, line);
   enforceCaps(store, input.config);
   return {
     ok: true,
@@ -545,7 +593,7 @@ export function buyCommodityLot(book, input = {}) {
     book: store,
     latinumDelta: -settled.paid,
     logBand: null,
-    logLine: `Bought ${tons} tons of ${market.good} for ${settled.paid} latinum.`,
+    logLine: line,
     cultureFire: false,
     firingSolution: false,
     engagement_authorized: false,
@@ -580,8 +628,10 @@ export function sellBackBookLot(book, input = {}) {
   if (!market) return refuseTrade(store, 'missing-market', 'No market for this good.');
   const spec = input.spec || goodSpec(input.marketBook, market.good, null);
   const inject = settleInject(input.config);
+  const deal = evaluateBookDeal(market, input, inject);
+  if (!deal.allowed) return refuseTrade(store, deal.kind || 'refused', deal.sayable);
   const before = { stock: market.stock, demand: market.demand, price: market.price };
-  const settled = settleMarketTons(market, 'sell', sale.tons, spec, inject);
+  const settled = chargeTons(settleMarketTons(market, 'sell', sale.tons, spec, inject), market, inject);
   if (!settled.ok) {
     market.stock = before.stock;
     market.demand = before.demand;
@@ -599,7 +649,8 @@ export function sellBackBookLot(book, input = {}) {
   delete store.sales[key];
   const lot = store.lots[sale.lotId];
   if (lot) lot.saleId = null;
-  pushNotice(store, `Sell-back paid ${settled.paid} latinum and consumed sale ${sale.saleId}.`);
+  const line = tradeLine('Sold', sale.tons, sale.good, settled.paid, deal);
+  pushNotice(store, line);
   return {
     ok: true,
     paid: settled.paid,
@@ -609,7 +660,7 @@ export function sellBackBookLot(book, input = {}) {
     book: store,
     latinumDelta: settled.paid,
     logBand: null,
-    logLine: `Sold back ${sale.tons} tons of ${sale.good} for ${settled.paid} latinum.`,
+    logLine: line,
     cultureFire: false,
     firingSolution: false,
     engagement_authorized: false,
