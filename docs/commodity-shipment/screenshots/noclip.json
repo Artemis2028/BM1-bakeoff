@@ -6,7 +6,31 @@
   "clippedControls": [],
   "occluders": [],
   "pillOverlaps": [],
-  "nameCut": false,
-  "bookPresent": true,
-  "bookHidden": false
+  "states": {
+    "briefing": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": []
+    },
+    "campaign": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": []
+    },
+    "worldCargo": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": []
+    },
+    "target": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": []
+    },
+    "dock": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": []
+    }
+  }
 }

@@ -946,26 +946,21 @@ body.ui-theme-cardassian .planet-menu::before {
 }
 .world-cargo.hidden { display: none; }
 .commodity-shipment {
-  position: fixed;
-  /* placeCommodityShipmentHost() assigns top/left/width/max-height so this
-     host stays off #briefing-archive, the campaign readout, world cargo,
-     the header, the dock, and the planet menu. */
-  top: 320px;
-  left: 430px;
-  z-index: 26;
-  width: 320px;
-  max-height: calc(100vh - 320px - var(--bm1-dock-clear) - 16px);
+  /* Parked host. The visible book is .commodity-book-section inside the dock market panel. */
+  display: none;
+}
+.commodity-book-section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+  margin: 0 0 10px;
   padding: 10px 12px;
   color: var(--lcars-text);
   background: #05070e;
   border: 4px solid var(--lcars-cyan);
   border-radius: 14px 4px 14px 4px;
-  box-shadow: inset 0 0 0 2px #000, 0 0 14px rgba(0, 0, 0, 0.6);
-  overflow: hidden;
-  pointer-events: auto;
+  box-shadow: inset 0 0 0 2px #000;
   font-size: 13px;
   line-height: 1.35;
 }
@@ -994,6 +989,13 @@ body.ui-theme-cardassian .planet-menu::before {
 .commodity-entries { flex: 0 1 auto; max-height: 34%; }
 .shipment-records { flex: 0 1 auto; max-height: 34%; }
 .commodity-shipment-detail { flex: 1 1 auto; min-height: 72px; }
+.commodity-book-section .commodity-entries,
+.commodity-book-section .shipment-records,
+.commodity-book-section .commodity-shipment-detail {
+  max-height: none;
+  overflow: visible;
+}
+.commodity-book-section button,
 .commodity-shipment button {
   white-space: normal;
   text-align: left;

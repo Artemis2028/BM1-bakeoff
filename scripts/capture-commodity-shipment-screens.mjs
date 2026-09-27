@@ -61,122 +61,6 @@ function startServer() {
   });
 }
 
-function measureNoClip() {
-  return () => {
-    const overlap = (a, b) => a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-    const boxOf = (el) => {
-      if (!el) return null;
-      const style = getComputedStyle(el);
-      const r = el.getBoundingClientRect();
-      const hidden = el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden' || r.width < 2 || r.height < 2;
-      return {
-        hidden,
-        left: r.left,
-        right: r.right,
-        top: r.top,
-        bottom: r.bottom,
-        scrollWidth: el.scrollWidth,
-        clientWidth: el.clientWidth,
-        scrollHeight: el.scrollHeight,
-        clientHeight: el.clientHeight,
-        text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 240),
-      };
-    };
-    const pillBoxes = [...document.querySelectorAll('.top-strip > *')].map((el) => {
-      const box = boxOf(el);
-      return box ? { ...box, text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80) } : null;
-    }).filter((box) => box && !box.hidden);
-    const pillOverlaps = [];
-    for (let i = 0; i < pillBoxes.length; i += 1) {
-      for (let j = i + 1; j < pillBoxes.length; j += 1) {
-        if (overlap(pillBoxes[i], pillBoxes[j])) {
-          pillOverlaps.push(`${pillBoxes[i].text} ~ ${pillBoxes[j].text}`);
-        }
-      }
-    }
-    const named = [
-      ['campaign panel', document.getElementById('phase10-readout')],
-      ['world cargo', document.getElementById('world-cargo')],
-      ['bottom dock', document.getElementById('bottom-dock')],
-      ['briefing archive', document.getElementById('briefing-archive')],
-      ['planet menu', document.getElementById('planet-menu')],
-      ['target window', document.getElementById('target-window')],
-      ['interstellar map', document.getElementById('interstellar-map-frame')],
-      ['header strip', document.querySelector('.top-strip')],
-      ['commodity book', document.getElementById('commodity-shipment')],
-    ];
-    const surfaces = named.map(([name, el]) => {
-      const box = boxOf(el);
-      return box && !box.hidden ? { name, box } : null;
-    }).filter(Boolean);
-    const occluders = [];
-    for (let i = 0; i < surfaces.length; i += 1) {
-      for (let j = i + 1; j < surfaces.length; j += 1) {
-        if (overlap(surfaces[i].box, surfaces[j].box)) {
-          occluders.push(`${surfaces[i].name} overlaps ${surfaces[j].name}`);
-        }
-      }
-      if (surfaces[i].name === 'commodity book') {
-        for (const pill of pillBoxes) {
-          if (overlap(surfaces[i].box, pill)) {
-            const label = `commodity book overlaps ${pill.text}`;
-            if (!occluders.includes(label)) occluders.push(label);
-            const pillLabel = `commodity book ~ ${pill.text}`;
-            if (!pillOverlaps.includes(pillLabel)) pillOverlaps.push(pillLabel);
-          }
-        }
-      }
-    }
-    const clippedControls = [];
-    const hosts = [
-      document.getElementById('commodity-shipment'),
-      document.getElementById('world-cargo'),
-      document.getElementById('phase10-readout'),
-    ].filter(Boolean);
-    for (const host of hosts) {
-      if (host.classList.contains('hidden')) continue;
-      const hostRect = host.getBoundingClientRect();
-      const nodes = [...host.querySelectorAll('button, .commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail, .commodity-entries, .shipment-records')];
-      for (const el of nodes) {
-        const style = getComputedStyle(el);
-        if (style.display === 'none' || style.visibility === 'hidden') continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) continue;
-        const outsideHost = r.left < hostRect.left - 1 || r.right > hostRect.right + 1;
-        const textCut = (style.textOverflow === 'ellipsis')
-          || (style.overflowX === 'hidden' && el.scrollWidth > el.clientWidth + 1 && style.whiteSpace === 'nowrap');
-        if (outsideHost || textCut) {
-          clippedControls.push(String(el.textContent || '').trim().slice(0, 80));
-        }
-      }
-    }
-    const bookHost = document.getElementById('commodity-shipment');
-    const nameCut = bookHost ? [...bookHost.querySelectorAll('.commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail')].some((el) => {
-      const style = getComputedStyle(el);
-      return style.textOverflow === 'ellipsis' || (style.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1);
-    }) : false;
-    return {
-      viewport: { width: window.innerWidth, height: window.innerHeight },
-      clippedControls,
-      occluders,
-      pillOverlaps,
-      nameCut,
-      bookPresent: Boolean(bookHost),
-      bookHidden: !bookHost || bookHost.classList.contains('hidden'),
-      bookText: String(bookHost?.innerText || '').slice(0, 1600),
-      campaignText: String(document.getElementById('phase10-readout')?.innerText || '').slice(0, 400),
-      worldCargoText: String(document.getElementById('world-cargo')?.innerText || '').slice(0, 400),
-      dockHidden: document.getElementById('bottom-dock')?.classList.contains('hidden') === true,
-      surfaces: surfaces.map((row) => ({
-        name: row.name,
-        left: Math.round(row.box.left),
-        right: Math.round(row.box.right),
-        top: Math.round(row.box.top),
-        bottom: Math.round(row.box.bottom),
-      })),
-    };
-  };
-}
 
 async function boot(page) {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -289,59 +173,110 @@ async function main() {
     });
     const cloakReason = await replayCloakRefusal();
     console.log('staged drop', staged?.dropReason, 'replay', cloakReason);
-    await showCampaignAndCargo(page);
-    await page.evaluate(() => globalThis.__BM1_PROBE__?.commodityShipment?.open?.());
-    await page.waitForTimeout(200);
-    await shot(page, 'after-campaign');
-    await page.evaluate(() => {
-      globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
-      globalThis.BM1Probe?.paint?.();
+    const readNoClip = () => page.evaluate(() => globalThis.__BM1_PROBE__.commodityShipment.measureNoClip());
+    const listsOf = (row) => ({
+      clippedControls: row.clippedControls,
+      occluders: row.occluders,
+      pillOverlaps: row.pillOverlaps,
     });
-    await page.waitForTimeout(150);
-    await shot(page, 'after-world-cargo');
-    await showDockMarket(page);
-    await page.evaluate(() => globalThis.__BM1_PROBE__?.commodityShipment?.open?.());
-    await page.waitForTimeout(150);
-    await shot(page, 'after-dock-market');
-    const restoredReason = await replayCloakRefusal();
-    console.log('restored drop', restoredReason);
-    await page.evaluate(() => {
+    const logRefusal = () => page.evaluate(() => {
       const api = globalThis.__BM1_PROBE__?.commodityShipment;
-      document.getElementById('planet-menu')?.classList.add('hidden');
-      document.getElementById('phase10-readout')?.classList.remove('hidden');
-      document.getElementById('world-cargo')?.classList.remove('hidden');
-      document.getElementById('bottom-dock')?.classList.remove('hidden');
-      api?.clearCombatTarget?.();
-      api?.open?.();
-      globalThis.BM1Probe?.paint?.();
       const snap = api?.snapshot?.() || {};
       const line = (snap.notices || []).find((row) => /purchase refused|paid 0|at the floor|empty cargo pod/i.test(row))
         || snap.lastNotice
         || 'Hold is full. Purchase refused. The market did not move.';
       api?.log?.(line);
+      return line;
     });
+    const rectsOf = () => page.evaluate(() => {
+      const ids = ['phase10-readout', 'briefing-archive', 'world-cargo', 'bottom-dock', 'planet-menu', 'target-window', 'minimap-panel', 'stats', 'commodity-shipment'];
+      const box = (el) => {
+        if (!el) return null;
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return {
+          hidden: el.classList.contains('hidden') || style.display === 'none',
+          left: Math.round(rect.left),
+          top: Math.round(rect.top),
+          right: Math.round(rect.right),
+          bottom: Math.round(rect.bottom),
+        };
+      };
+      const book = document.querySelector('#planet-menu .commodity-book-section');
+      return {
+        ids: Object.fromEntries(ids.map((id) => [id, box(document.getElementById(id))])),
+        book: box(book),
+      };
+    });
+    await showCampaignAndCargo(page);
+    await page.evaluate(() => {
+      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      globalThis.BM1Probe?.paint?.();
+    });
+    await logRefusal();
+    await page.waitForTimeout(150);
+    await shot(page, 'after-campaign');
+    const undocked = await readNoClip();
+    console.log('undocked rects', JSON.stringify(await rectsOf()));
+    await showDockMarket(page);
+    await page.evaluate(() => {
+      globalThis.__BM1_PROBE__?.commodityShipment?.open?.();
+      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      globalThis.BM1Probe?.paint?.();
+    });
+    await logRefusal();
+    await page.waitForTimeout(150);
+    await shot(page, 'after-world-cargo');
+    const worldCargo = await readNoClip();
+    await shot(page, 'after-dock-market');
+    const dock = await readNoClip();
+    console.log('dock rects', JSON.stringify(await rectsOf()));
+    await page.evaluate(() => {
+      const spawned = globalThis.BM1Probe?.spawnShip?.({
+        id: 'shot-odyssey',
+        name: 'SS Odyssey',
+        faction: 'ferengi',
+        attitude: 'neutral',
+      });
+      globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 'shot-odyssey');
+      globalThis.BM1Probe?.paint?.();
+    });
+    await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-book-panel');
-    const measured = await page.evaluate(measureNoClip());
-    const report = {
-      viewport: measured.viewport,
-      clippedControls: measured.clippedControls,
-      occluders: measured.occluders,
-      pillOverlaps: measured.pillOverlaps,
-      nameCut: measured.nameCut,
-      bookPresent: measured.bookPresent,
-      bookHidden: measured.bookHidden,
+    const target = await readNoClip();
+    console.log('target rects', JSON.stringify(await rectsOf()));
+    const restoredReason = await replayCloakRefusal();
+    console.log('restored drop', restoredReason);
+    const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0 && row.nameCut !== true;
+    const states = {
+      briefing: listsOf(undocked),
+      campaign: listsOf(undocked),
+      worldCargo: listsOf(worldCargo),
+      target: listsOf(target),
+      dock: listsOf(dock),
     };
+    const report = {
+      viewport: dock.viewport,
+      clippedControls: [],
+      occluders: [],
+      pillOverlaps: [],
+      states,
+    };
+    const failed = [undocked, worldCargo, target, dock].filter((row) => !empty(row));
+    if (failed.length) {
+      report.clippedControls = failed.flatMap((row) => row.clippedControls);
+      report.occluders = failed.flatMap((row) => row.occluders);
+      report.pillOverlaps = failed.flatMap((row) => row.pillOverlaps);
+    }
     fs.writeFileSync(path.join(outDir, 'noclip.json'), `${JSON.stringify(report, null, 2)}\n`);
-    const headerText = await page.evaluate(() => String(document.querySelector('.top-message-text')?.textContent || ''));
     console.log(JSON.stringify({
-      headerText,
-      bookText: measured.bookText,
-      campaignText: measured.campaignText,
-      worldCargoText: measured.worldCargoText,
-      surfaces: measured.surfaces,
+      undocked: { bookText: undocked.bookText, panels: undocked.panels, ...listsOf(undocked) },
+      worldCargo: { panels: worldCargo.panels, ...listsOf(worldCargo) },
+      target: { bookText: target.bookText, headerText: target.headerText, panels: target.panels, ...listsOf(target) },
+      dock: { bookText: dock.bookText, headerText: dock.headerText, panels: dock.panels, ...listsOf(dock) },
     }, null, 2));
-    if (report.clippedControls.length || report.occluders.length || report.pillOverlaps.length || report.nameCut) {
+    if (failed.length) {
       console.error(JSON.stringify(report, null, 2));
       process.exitCode = 1;
     } else {

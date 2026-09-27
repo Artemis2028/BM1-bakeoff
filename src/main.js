@@ -5697,7 +5697,8 @@ function refreshFleetOrderPanel(force = false) {
   const escorts = getPlayerEscortFleetShips();
   const visible = Boolean(state.gameStarted && !state.gameOver && !state.warp.active && escorts.length);
   fleetOrderPanelEl.classList.toggle('hidden', !visible);
-  if (visible && minimapPanelEl) minimapPanelEl.style.display = 'block';
+  if (minimapPanelEl && state.planetMenuOpen) minimapPanelEl.style.display = 'none';
+  else if (visible && minimapPanelEl) minimapPanelEl.style.display = 'block';
   if (!visible) {
     fleetOrderPanelEl.innerHTML = '';
     fleetOrderPanelEl.dataset.renderKey = '';
@@ -11150,11 +11151,12 @@ function sellBackFromCommodityBook(saleId) {
   updateStats();
 }
 
-function placeCommodityShipmentHost(host) {
+function placeTargetWindow(host) {
+  if (!host || host.classList.contains('hidden')) return;
   const gap = 12;
   const minWidth = 260;
   const preferredWidth = 320;
-  const minHeight = 168;
+  const minHeight = 120;
   const viewportW = window.innerWidth;
   const viewportH = window.innerHeight;
   const dockClear = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bm1-dock-clear')) || 88;
@@ -11173,7 +11175,6 @@ function placeCommodityShipmentHost(host) {
     'bottom-dock',
     'briefing-archive',
     'planet-menu',
-    'target-window',
     'interstellar-map-frame',
     'minimap-panel',
     'top-left-panel',
@@ -11201,13 +11202,11 @@ function placeCommodityShipmentHost(host) {
   const planet = boxOf(document.getElementById('planet-menu'));
   const cargo = boxOf(document.getElementById('world-cargo'));
   const campaign = boxOf(document.getElementById('phase10-readout'));
-  const target = boxOf(document.getElementById('target-window'));
   const dock = boxOf(document.getElementById('bottom-dock'));
   const leftOfColumn = Math.max(
     18,
     cargo ? cargo.right + gap : 18,
     campaign ? campaign.right + gap : 18,
-    target ? target.right + gap : 18,
   );
   const rightEdge = Math.min(viewportW - 8, planet ? planet.left - gap : viewportW - 8);
   const bottomEdge = Math.min(floor, dock ? dock.top - gap : floor);
@@ -11267,12 +11266,7 @@ function placeCommodityShipmentHost(host) {
   host.style.bottom = 'auto';
 }
 
-function renderCommodityShipment() {
-  const host = document.getElementById('commodity-shipment');
-  if (!host) return;
-  const visible = Boolean(state.gameStarted && !state.gameOver && !state.mapOpen && state.commodityShipmentOpen);
-  host.classList.toggle('hidden', !visible);
-  if (!visible) return;
+function commodityBookInnerHtml() {
   const book = ensureCommodityShipmentBook();
   const entries = Object.values(book.commodities || {});
   const shipments = Object.values(book.shipments || {});
@@ -11298,14 +11292,174 @@ function renderCommodityShipment() {
   const buyButton = buyName
     ? `<button type="button" data-commodity-buy="${escapeHtml(buyName)}">Buy one ton</button>`
     : '';
-  const entriesEl = host.querySelector('.commodity-entries');
-  const shipmentEl = host.querySelector('.shipment-records');
-  const detailEl = host.querySelector('.commodity-shipment-detail');
-  if (!entriesEl || !shipmentEl || !detailEl) return;
-  entriesEl.innerHTML = entriesHtml;
-  shipmentEl.innerHTML = shipmentHtml;
-  detailEl.innerHTML = `<p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}${buyButton}${sellButton}`;
-  placeCommodityShipmentHost(host);
+  return `<div class="commodity-shipment-title">COMMODITY BOOK</div>
+    <div class="commodity-entries">${entriesHtml}</div>
+    <div class="shipment-records">${shipmentHtml}</div>
+    <div class="commodity-shipment-detail"><p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}${buyButton}${sellButton}</div>`;
+}
+
+function renderCommodityShipment() {
+  const host = document.getElementById('commodity-shipment');
+  if (host) {
+    host.classList.add('hidden');
+    host.style.left = '';
+    host.style.top = '';
+    host.style.width = '';
+    host.style.maxHeight = '';
+    host.style.right = '';
+    host.style.bottom = '';
+  }
+  const html = commodityBookInnerHtml();
+  const marketSlot = document.querySelector('#planet-menu .commodity-book-section');
+  if (marketSlot && state.planetMenuOpen && state.dockMenuTab === 'market') marketSlot.innerHTML = html;
+  const briefing = document.getElementById('briefing-archive');
+  if (!briefing) return;
+  const briefingOpen = Boolean(
+    state.commodityShipmentOpen
+    && state.gameStarted
+    && !state.gameOver
+    && !state.mapOpen
+    && !state.planetMenuOpen
+    && !briefing.classList.contains('hidden')
+  );
+  if (!briefingOpen) {
+    briefing.querySelector(':scope > .commodity-book-section')?.remove();
+    return;
+  }
+  let slot = briefing.querySelector(':scope > .commodity-book-section');
+  if (!slot) {
+    slot = document.createElement('div');
+    slot.className = 'commodity-book-section';
+    briefing.appendChild(slot);
+  }
+  slot.innerHTML = html;
+}
+
+function measureCommodityNoClip() {
+  const shown = (el) => {
+    if (!el || !el.isConnected) return false;
+    const style = getComputedStyle(el);
+    if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width >= 2 && rect.height >= 2;
+  };
+  const playfield = (el) => el?.id === 'game' || el?.id === 'interstellar-map-canvas';
+  const panelRoot = (el) => {
+    let found = null;
+    let node = el;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      const positioned = style.position === 'fixed' || style.position === 'absolute';
+      if (positioned && shown(node) && !playfield(node)) {
+        const rect = node.getBoundingClientRect();
+        if (rect.width >= 40 && rect.height >= 24) found = node;
+      }
+      node = node.parentElement;
+    }
+    return found;
+  };
+  const labelOf = (el) => {
+    if (!el) return 'panel';
+    if (el.id) return el.id;
+    const aria = el.getAttribute('aria-label');
+    if (aria) return aria;
+    const cls = String(el.className || '').split(/\s+/).filter(Boolean)[0];
+    return cls || 'panel';
+  };
+  const panels = [...document.querySelectorAll('body *')].filter((el) => {
+    const style = getComputedStyle(el);
+    if (style.position !== 'fixed' && style.position !== 'absolute') return false;
+    if (!shown(el)) return false;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 40 || rect.height < 24) return false;
+    return panelRoot(el) === el;
+  });
+  const pillBoxes = [...document.querySelectorAll('.top-strip > *')].filter(shown).map((el) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+    };
+  });
+  const pillOverlaps = [];
+  const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  for (let i = 0; i < pillBoxes.length; i += 1) {
+    for (let j = i + 1; j < pillBoxes.length; j += 1) {
+      if (overlaps(pillBoxes[i], pillBoxes[j])) pillOverlaps.push(`${pillBoxes[i].text} ~ ${pillBoxes[j].text}`);
+    }
+  }
+  const controlSelector = [
+    'button', 'a', 'input', 'select', 'textarea', '[role="button"]',
+    '.commodity-entry', '.shipment-record', '.commodity-shipment-line', '.commodity-shipment-title',
+    '.world-cargo-line', '.world-cargo-outcome-line',
+    '.briefing-line', '.briefing-empty', '.briefing-jump',
+    '.p10-line', '.p10-meta',
+    '.target-window-head', '.target-meta', '.target-class',
+    '.panel-head', 'h2',
+    '.top-strip > *',
+  ].join(', ');
+  const occluders = [];
+  const clippedControls = [];
+  for (const panel of panels) {
+    const controls = [...panel.querySelectorAll(controlSelector)].filter((el) => shown(el) && panelRoot(el) === panel);
+    const panelRect = panel.getBoundingClientRect();
+    for (const control of controls) {
+      const rect = control.getBoundingClientRect();
+      const left = Math.max(rect.left, panelRect.left);
+      const right = Math.min(rect.right, panelRect.right);
+      const top = Math.max(rect.top, panelRect.top);
+      const bottom = Math.min(rect.bottom, panelRect.bottom);
+      if (right - left < 6 || bottom - top < 6) continue;
+      const style = getComputedStyle(control);
+      const overflows = control.scrollWidth > control.clientWidth + 1;
+      const textCut = overflows && (
+        style.textOverflow === 'ellipsis'
+        || (style.overflowX === 'hidden' && style.whiteSpace === 'nowrap')
+      );
+      const outside = rect.left < panelRect.left - 1 || rect.right > panelRect.right + 1;
+      if (panel.id !== 'stats' && (textCut || outside)) clippedControls.push(String(control.textContent || '').trim().slice(0, 80));
+      const points = [
+        [(left + right) / 2, (top + bottom) / 2],
+        [left + 3, top + 3],
+        [right - 3, top + 3],
+        [left + 3, bottom - 3],
+        [right - 3, bottom - 3],
+      ];
+      for (const [x, y] of points) {
+        if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) continue;
+        const topPanel = document.elementsFromPoint(x, y).map((el) => panelRoot(el)).find(Boolean);
+        if (topPanel && topPanel !== panel) {
+          const line = `${labelOf(panel)} control covered by ${labelOf(topPanel)}`;
+          if (!occluders.includes(line)) occluders.push(line);
+          break;
+        }
+      }
+    }
+  }
+  const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
+  const nameCut = bookSection
+    ? [...bookSection.querySelectorAll('.commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail')].some((el) => {
+      const style = getComputedStyle(el);
+      return style.textOverflow === 'ellipsis' || (style.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1);
+    })
+    : false;
+  return {
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    clippedControls,
+    occluders,
+    pillOverlaps,
+    nameCut,
+    panels: panels.map(labelOf),
+    bookPresent: Boolean(document.getElementById('commodity-shipment')),
+    bookHidden: !bookSection || !shown(bookSection),
+    bookText: String(bookSection?.innerText || '').slice(0, 1600),
+    campaignText: String(document.getElementById('phase10-readout')?.innerText || '').slice(0, 400),
+    worldCargoText: String(document.getElementById('world-cargo')?.innerText || '').slice(0, 400),
+    headerText: String(document.querySelector('.top-message-text')?.textContent || ''),
+  };
 }
 
 function renderWorldCargo() {
@@ -13896,6 +14050,7 @@ function renderPlanetMenu() {
     </div>
     <div class="meta">${escapeHtml(claimStatus.message)}</div>`,
     market: `${station ? `<div class="service-grid station-repair-row">${renderRepairServiceButton()}</div>` : ''}
+      <div class="commodity-book-section">${commodityBookInnerHtml()}</div>
       <div class="panel-head">Cargo Market</div>
       <div class="market">${market}</div>
       ${marketFlags}
@@ -16523,6 +16678,26 @@ document.getElementById('commodity-shipment')?.addEventListener('click', (event)
 document.getElementById('briefing-archive')?.addEventListener('click', (event) => {
   const host = document.getElementById('briefing-archive');
   if (!host) return;
+  const commoditySelect = event.target.closest('[data-commodity-select]');
+  if (commoditySelect) {
+    selectCommodityShipment(ensureCommodityShipmentBook(), commoditySelect.dataset.commoditySelect);
+    renderCommodityShipment();
+    return;
+  }
+  const commodityBuy = event.target.closest('[data-commodity-buy]');
+  if (commodityBuy) {
+    event.preventDefault();
+    buyFromCommodityBook(commodityBuy.dataset.commodityBuy || '');
+    renderCommodityShipment();
+    return;
+  }
+  const commoditySell = event.target.closest('[data-commodity-sell]');
+  if (commoditySell) {
+    event.preventDefault();
+    sellBackFromCommodityBook(commoditySell.dataset.commoditySell || '');
+    renderCommodityShipment();
+    return;
+  }
   const view = event.target.closest('[data-briefing-view]');
   if (view) {
     event.preventDefault();
@@ -17251,6 +17426,26 @@ planetMenuEl?.addEventListener('click', (e) => {
   const sell = e.target.closest('[data-market-sell]');
   if (sell) {
     sellMarketGood(Number(sell.dataset.marketSell));
+    return;
+  }
+  const commoditySelect = e.target.closest('[data-commodity-select]');
+  if (commoditySelect) {
+    selectCommodityShipment(ensureCommodityShipmentBook(), commoditySelect.dataset.commoditySelect);
+    renderCommodityShipment();
+    return;
+  }
+  const commodityBuy = e.target.closest('[data-commodity-buy]');
+  if (commodityBuy) {
+    e.preventDefault();
+    buyFromCommodityBook(commodityBuy.dataset.commodityBuy || '');
+    renderCommodityShipment();
+    return;
+  }
+  const commoditySell = e.target.closest('[data-commodity-sell]');
+  if (commoditySell) {
+    e.preventDefault();
+    sellBackFromCommodityBook(commoditySell.dataset.commoditySell || '');
+    renderCommodityShipment();
     return;
   }
   const ship = e.target.closest('[data-ship-buy]');
@@ -18290,6 +18485,7 @@ function updateTargetWindow() {
     (state.playerFleet || []).length,
   ].join(':');
   if (!targetWindowEl.classList.contains('hidden') && targetWindowEl.dataset.renderKey === renderKey && now - lastTargetWindowRenderAt < 120) {
+    placeTargetWindow(targetWindowEl);
     return;
   }
   lastTargetWindowRenderAt = now;
@@ -18315,6 +18511,7 @@ function updateTargetWindow() {
     </div>
     ${isStation || !view.showName ? '' : renderShipHailPanel(target, distance)}
     ${renderBoardingChrome(target, isStation)}`;
+  placeTargetWindow(targetWindowEl);
 }
 
 function damageCombatTarget(target, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
@@ -22899,7 +23096,7 @@ function drawSystemStar(now = performance.now()) {
 
 function drawMinimap() {
   if (!minimapCanvas || !minimapCtx) return;
-  const visible = state.gameStarted && !state.warp.active && !isWormholeTransitActive();
+  const visible = state.gameStarted && !state.warp.active && !isWormholeTransitActive() && !state.planetMenuOpen;
   if (minimapPanelEl) minimapPanelEl.style.display = visible ? 'block' : 'none';
   minimapCanvas.style.display = visible ? 'block' : 'none';
   if (!visible) return;
@@ -26209,9 +26406,15 @@ function createCommodityShipmentProbeApi() {
     config: () => ({ ...COMMODITY_SHIPMENT_CONFIG }),
     open: () => {
       state.commodityShipmentOpen = true;
+      if (state.docked) {
+        state.planetMenuOpen = true;
+        state.dockMenuTab = 'market';
+        renderPlanetMenu();
+      }
       renderCommodityShipment();
       return true;
     },
+    measureNoClip: () => measureCommodityNoClip(),
     clearCombatTarget: () => {
       state.autoTarget = false;
       state.combatTargetId = null;
