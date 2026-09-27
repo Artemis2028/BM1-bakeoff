@@ -226,6 +226,7 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-briefing');
+    await shot(page, 'after-book-panel');
     const briefing = await readNoClip();
     console.log('briefing rects', JSON.stringify(await rectsOf()));
     await page.evaluate(() => {
@@ -259,7 +260,6 @@ async function main() {
     await logRefusal();
     await page.waitForTimeout(200);
     await shot(page, 'after-target-undocked');
-    await shot(page, 'after-book-panel');
     const target = await readNoClip();
     console.log('target rects', JSON.stringify(await rectsOf()));
     await showDockMarket(page);

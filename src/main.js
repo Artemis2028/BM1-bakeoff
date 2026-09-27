@@ -26769,6 +26769,7 @@ function createCommodityShipmentProbeApi() {
         restriction: 'open',
       }).market;
       recalcCargoFromPods();
+      const shotScope = { scope: 'general', systemName: state.planets[state.currentPlanet]?.name || '' };
       const bought = buyCommodityLot(ensureCommodityShipmentBook(), {
         market,
         marketBook: ensureMarketBook(),
@@ -26776,6 +26777,7 @@ function createCommodityShipmentProbeApi() {
         cargoCap: state.cargoCap,
         credits: state.latinum,
         tons: 1,
+        dominion: shotScope,
         config: COMMODITY_SHIPMENT_CONFIG,
       });
       if (bought.paid) state.latinum -= bought.paid;
@@ -26784,6 +26786,7 @@ function createCommodityShipmentProbeApi() {
         market,
         marketBook: ensureMarketBook(),
         pods: state.cargoArray,
+        dominion: shotScope,
         config: COMMODITY_SHIPMENT_CONFIG,
       });
       if (sold.paid) state.latinum += sold.paid;
@@ -26803,6 +26806,7 @@ function createCommodityShipmentProbeApi() {
         cargoCap: state.cargoCap,
         credits: state.latinum,
         tons: 1,
+        dominion: shotScope,
         config: COMMODITY_SHIPMENT_CONFIG,
       });
       setLog(refused.logLine || 'Hold is full. Purchase refused. The market did not move.');
