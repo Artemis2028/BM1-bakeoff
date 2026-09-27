@@ -695,6 +695,18 @@ import {
   worldCargoSnapshot,
 } from './world-cargo-delivery.js';
 import {
+  COMMODITY_SHIPMENT_CONFIG,
+  COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED,
+  buyCommodityLot,
+  commodityShipmentSnapshot,
+  emptyCommodityShipmentBook,
+  indexCommodityShipment,
+  restoreCommodityShipmentBook,
+  selectCommodityShipment,
+  sellBackBookLot,
+  serializeCommodityShipmentBook,
+} from './commodity-shipment.js';
+import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
   installEwEquipment,
@@ -1518,6 +1530,8 @@ const state = {
   solarSailorBook: emptySolarSailorBook(),
   briefingArchive: emptyBriefingArchive(),
   worldCargoBook: emptyWorldCargoBook(),
+  commodityShipmentBook: emptyCommodityShipmentBook(),
+  commodityShipmentOpen: false,
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
@@ -5861,6 +5875,26 @@ function ensureBriefingArchive() {
   return state.briefingArchive;
 }
 
+function ensureCommodityShipmentBook() {
+  if (!state.commodityShipmentBook || state.commodityShipmentBook.version !== 1 || !state.commodityShipmentBook.commodities) {
+    state.commodityShipmentBook = restoreCommodityShipmentBook(state.commodityShipmentBook, {
+      pods: state.cargoArray,
+    });
+  }
+  state.commodityShipmentBook.lockedFromRemastered = false;
+  return state.commodityShipmentBook;
+}
+
+function refreshCommodityShipment() {
+  state.commodityShipmentBook = indexCommodityShipment(ensureCommodityShipmentBook(), {
+    pods: state.cargoArray,
+    openContracts: getOpenContracts(),
+    worldCargoBook: ensureWorldCargoBook(),
+    strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+  });
+  return state.commodityShipmentBook;
+}
+
 function ensureWorldCargoBook() {
   if (!state.worldCargoBook || state.worldCargoBook.version !== 1 || !state.worldCargoBook.contracts) {
     state.worldCargoBook = restoreWorldCargoBook(state.worldCargoBook);
@@ -5946,6 +5980,7 @@ function expireWorldCargoOnJump(strategicJumps) {
     pods: state.cargoArray,
   });
   recalcCargoFromPods();
+  refreshCommodityShipment();
 }
 
 function enrollAcceptedWorldCargo(offer, mode = 'open') {
@@ -11059,6 +11094,102 @@ function renderBriefingArchive() {
   bodyEl.innerHTML = bodyHtml;
 }
 
+function currentBookMarket(good) {
+  const book = ensureMarketBook();
+  return findMarket(book, {
+    good,
+    locationId: currentMarketLocationId(),
+    systemIndex: state.currentPlanet,
+  });
+}
+
+function buyFromCommodityBook(good) {
+  if (!requireDocked()) return;
+  const market = currentBookMarket(good) || listMarkets(ensureMarketBook()).find((row) => row.systemIndex === state.currentPlanet);
+  const result = buyCommodityLot(ensureCommodityShipmentBook(), {
+    market,
+    marketBook: ensureMarketBook(),
+    pods: state.cargoArray,
+    cargoCap: state.cargoCap,
+    credits: state.latinum,
+    tons: 1,
+    strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+    config: COMMODITY_SHIPMENT_CONFIG,
+  });
+  if (result.paid) {
+    state.latinum = Math.max(0, state.latinum - result.paid);
+    state.mylatinum = state.latinum;
+  }
+  if (result.logLine) setLog(result.logLine);
+  else if (result.book?.lastNotice) setLog(result.book.lastNotice);
+  recalcCargoFromPods();
+  refreshCommodityShipment();
+  updateStats();
+}
+
+function sellBackFromCommodityBook(saleId) {
+  if (!requireDocked()) return;
+  const book = ensureCommodityShipmentBook();
+  const sale = book.sales?.[String(saleId)] || Object.values(book.sales || {})[0];
+  const market = sale ? currentBookMarket(sale.good) : null;
+  const result = sellBackBookLot(book, {
+    saleId: sale?.saleId ?? saleId,
+    market,
+    marketBook: ensureMarketBook(),
+    pods: state.cargoArray,
+    config: COMMODITY_SHIPMENT_CONFIG,
+  });
+  if (result.paid) {
+    state.latinum += result.paid;
+    state.mylatinum = state.latinum;
+  }
+  if (result.logLine) setLog(result.logLine);
+  else if (result.book?.lastNotice) setLog(result.book.lastNotice);
+  recalcCargoFromPods();
+  refreshCommodityShipment();
+  updateStats();
+}
+
+function renderCommodityShipment() {
+  const host = document.getElementById('commodity-shipment');
+  if (!host) return;
+  const visible = Boolean(state.gameStarted && !state.gameOver && !state.mapOpen && state.commodityShipmentOpen);
+  host.classList.toggle('hidden', !visible);
+  if (!visible) return;
+  const book = ensureCommodityShipmentBook();
+  const entries = Object.values(book.commodities || {});
+  const shipments = Object.values(book.shipments || {});
+  const entriesHtml = entries.length
+    ? entries.map((entry) => `<div class="commodity-entry" data-commodity-select="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</div>`).join('')
+    : '<div class="commodity-entry">No commodity has been carried or contracted yet.</div>';
+  const shipmentHtml = shipments.length
+    ? shipments.map((row) => `<div class="shipment-record" data-commodity-select="${escapeHtml(row.id)}">${escapeHtml(row.good)} · ${escapeHtml(row.tons)}t · ${escapeHtml(row.targetName || 'destination')} · ${escapeHtml(row.worldCargoStatus || 'indexed')}${row.lastAttemptReason ? ` · ${escapeHtml(row.lastAttemptReason)}` : ''}</div>`).join('')
+    : '<div class="shipment-record">No shipment is indexed.</div>';
+  const selected = book.selectedId;
+  const selectedShipment = selected ? book.shipments?.[selected] : null;
+  const selectedEntry = selected ? book.commodities?.[selected] : null;
+  const detailName = selectedShipment?.good || selectedEntry?.name || entries[0]?.name || 'Commodity book';
+  const route = selectedShipment
+    ? `${selectedShipment.good} to ${selectedShipment.targetName || 'destination'} · ${selectedShipment.worldCargoStatus || 'indexed'}${selectedShipment.lastAttemptReason ? ` · ${selectedShipment.lastAttemptReason}` : ''}`
+    : 'Select a commodity or a shipment.';
+  const notices = (book.notices || []).slice().reverse().map((line) => `<p class="commodity-shipment-line">${escapeHtml(line)}</p>`).join('');
+  const sales = Object.values(book.sales || {});
+  const sellButton = sales.length
+    ? `<button type="button" data-commodity-sell="${escapeHtml(sales[0].saleId)}">Sell back book lot</button>`
+    : '';
+  const buyName = selectedEntry?.name || entries[0]?.name || '';
+  const buyButton = buyName
+    ? `<button type="button" data-commodity-buy="${escapeHtml(buyName)}">Buy one ton</button>`
+    : '';
+  const entriesEl = host.querySelector('.commodity-entries');
+  const shipmentEl = host.querySelector('.shipment-records');
+  const detailEl = host.querySelector('.commodity-shipment-detail');
+  if (!entriesEl || !shipmentEl || !detailEl) return;
+  entriesEl.innerHTML = entriesHtml;
+  shipmentEl.innerHTML = shipmentHtml;
+  detailEl.innerHTML = `<p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}${buyButton}${sellButton}`;
+}
+
 function renderWorldCargo() {
   const host = document.getElementById('world-cargo');
   if (!host) return;
@@ -13730,6 +13861,8 @@ function clearCargoPod(pod) {
   delete pod.contractId;
   delete pod.targetIndex;
   delete pod.targetName;
+  delete pod.bookLotId;
+  delete pod.bookSaleId;
   pod.payout = 0;
 }
 
@@ -13902,6 +14035,7 @@ function updateStats() {
   renderPhase10Readout();
   renderBriefingArchive();
   renderWorldCargo();
+  renderCommodityShipment();
 }
 
 function getFlightPlanetMarker() {
@@ -13933,6 +14067,7 @@ function tryDockAtPlanetIndex(i, marker = state.planets[i]) {
   const checkpointBlock = getCheckpointDockRefusal(null, { planet: true });
   if (checkpointBlock) {
     applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext()));
+    refreshCommodityShipment();
     setLog(checkpointBlock);
     addWorldPop(marker.x, marker.y - popOffset, 'Clearance');
     return false;
@@ -13951,6 +14086,7 @@ function tryDockAtPlanetIndex(i, marker = state.planets[i]) {
   addWorldPop(marker.x, marker.y - popOffset, 'Docked', '#9cffb4');
   openPlanetMenu();
   applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext()));
+  refreshCommodityShipment();
   updateStats();
   return true;
 }
@@ -14761,6 +14897,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     solarSailorBook: serializeSolarSailorBook(ensureSolarSailorBook()),
     briefingArchive: serializeBriefingArchive(ensureBriefingArchive()),
     worldCargoBook: serializeWorldCargoBook(ensureWorldCargoBook()),
+    commodityShipmentBook: serializeCommodityShipmentBook(ensureCommodityShipmentBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
@@ -14858,6 +14995,9 @@ function loadGame(slot = state.currentSaveSlot || 1) {
     discovery: state.dominionBook?.discovery,
   });
   state.worldCargoBook = restoreWorldCargoBook(s.worldCargoBook);
+  state.commodityShipmentBook = restoreCommodityShipmentBook(s.commodityShipmentBook, {
+    pods: state.cargoArray,
+  });
   state.factionRosterBook = restoreFactionRosterBook(s.factionRosterBook);
   state.solarSailorBook = restoreSolarSailorBook(s.solarSailorBook);
   state.ew91 = restoreEw91Book(s.ew91);
@@ -14974,6 +15114,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   stopAllGameAudioLoops();
   playGameSound('shipLaunch', { cooldownKey: 'ship:load' });
   setLog(`${state.captainName} aboard ${state.shipName}. Game loaded from slot ${saveSlot}.`);
+  refreshCommodityShipment();
   updateStats();
 }
 
@@ -15349,6 +15490,7 @@ function hailSelectedShip() {
   }
   npc.hailSession = createShipHailSession(npc);
   applyWorldCargoEconomy(noteHailNotWorld(ensureWorldCargoBook(), worldCargoContext({ stationId: npc.id })));
+  refreshCommodityShipment();
   playGameSound('hail', { cooldownKey: `hail:${npc.id}` });
   setLog(`${getShipDisplayName(npc)} responds: ${npc.hailSession.line}`);
   rerenderTargetWindowNow();
@@ -15585,6 +15727,7 @@ function acceptPendingContract() {
   state.openContracts = [...getOpenContracts(), offer];
   state.activeContract = state.openContracts[0] || null;
   enrollAcceptedWorldCargo(offer, 'open');
+  refreshCommodityShipment();
   state.pendingContractOffer = null;
   playGameSound('contract', { cooldownKey: `contract:${offer.id}` });
   setLog(`Accepted contract: ${offer.tons} tons of ${offer.goods} to ${offer.targetName} for ${getContractTotal(offer)} latinum.`);
@@ -15618,18 +15761,28 @@ function buyMarketGood(slot = 0) {
     systemIndex: state.currentPlanet,
   });
   if (market) {
+    const stockBeforeBuy = market.stock;
+    const priceBeforeBuy = market.price;
+    const demandBeforeBuy = market.demand;
     const bought = applyShopBuy(book, {
       marketId: market.marketId,
       credits: state.latinum,
       good: market.good,
-    }, livePhase8Magnitudes());
+    }, {
+      ...livePhase8Magnitudes(),
+      priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
+      priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
+      priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
+    });
     if (!bought.allowed) {
       setLog(bought.sayable || `Cannot buy ${offer.goods} here.`);
       updateStats();
       return bought;
     }
     if (!addCargoToPods(market.good, 1, undefined, 0)) {
-      market.stock += 1;
+      market.stock = stockBeforeBuy;
+      market.price = priceBeforeBuy;
+      market.demand = demandBeforeBuy;
       setLog('You have no more cargo space for this cargo.');
       updateStats();
       return { ok: false, reason: 'cargo-full' };
@@ -15683,7 +15836,12 @@ function sellMarketGood(slot = 0) {
     return;
   }
   if (market) {
-    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, livePhase8Magnitudes());
+    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, {
+      ...livePhase8Magnitudes(),
+      priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
+      priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
+      priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
+    });
     if (!sale.allowed) {
       addCargoToPods(market.good, 1, undefined, 0);
       setLog(sale.sayable || `Local seller will not buy ${market.good}.`);
@@ -16219,8 +16377,29 @@ document.getElementById('world-cargo')?.addEventListener('click', (event) => {
   const result = applyWorldCargoEconomy(dropWorldCargo(ensureWorldCargoBook(), worldCargoContext({
     contractId: drop.dataset.worldCargoDrop,
   })));
+  refreshCommodityShipment();
   setLog(result?.outcome || 'Drop recorded.');
   updateStats();
+});
+
+document.getElementById('commodity-shipment')?.addEventListener('click', (event) => {
+  const select = event.target.closest('[data-commodity-select]');
+  if (select) {
+    selectCommodityShipment(ensureCommodityShipmentBook(), select.dataset.commoditySelect);
+    renderCommodityShipment();
+    return;
+  }
+  const buy = event.target.closest('[data-commodity-buy]');
+  if (buy) {
+    event.preventDefault();
+    buyFromCommodityBook(buy.dataset.commodityBuy || '');
+    return;
+  }
+  const sell = event.target.closest('[data-commodity-sell]');
+  if (sell) {
+    event.preventDefault();
+    sellBackFromCommodityBook(sell.dataset.commoditySell || '');
+  }
 });
 
 document.getElementById('briefing-archive')?.addEventListener('click', (event) => {
@@ -17492,6 +17671,7 @@ function tryDockAtStation(station) {
   state.combatTargetType = 'ship';
   openStationMenu(station);
   applyWorldCargoEconomy(noteStationNotWorld(ensureWorldCargoBook(), worldCargoContext({ stationId: station.id })));
+  refreshCommodityShipment();
   addWorldPop(screen.x, screen.y - 44, 'Docked', '#9cffb4');
   return true;
 }
@@ -23307,6 +23487,8 @@ function resetRunState() {
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
   state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -23454,6 +23636,8 @@ function restartInEscapePod() {
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
   state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23537,6 +23721,8 @@ function startWithFaction(key, options = {}) {
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
   state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -24498,6 +24684,7 @@ function installBm1ProbeHarness() {
     solarSailor: createSolarSailorProbeApi(),
     briefingArchive: createBriefingArchiveProbeApi(),
     worldCargo: createWorldCargoProbeApi(),
+    commodityShipment: createCommodityShipmentProbeApi(),
   };
 }
 
@@ -25892,6 +26079,181 @@ function briefingAuthorityFingerprint() {
   };
 }
 
+function createCommodityShipmentProbeApi() {
+  const standingNow = () => JSON.parse(JSON.stringify(state.factionStanding || {}));
+  return {
+    lock: () => COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === true,
+    config: () => ({ ...COMMODITY_SHIPMENT_CONFIG }),
+    open: () => {
+      state.commodityShipmentOpen = true;
+      renderCommodityShipment();
+      return true;
+    },
+    close: () => {
+      state.commodityShipmentOpen = false;
+      renderCommodityShipment();
+      return true;
+    },
+    index: () => commodityShipmentSnapshot(refreshCommodityShipment(), {
+      podDigest: JSON.stringify(state.cargoArray),
+      cargoCap: state.cargoCap,
+    }),
+    restore: (payload) => {
+      const beforePods = JSON.stringify(state.cargoArray);
+      const beforeLatinum = state.latinum;
+      state.commodityShipmentBook = restoreCommodityShipmentBook(payload, { pods: state.cargoArray });
+      return {
+        ...commodityShipmentSnapshot(state.commodityShipmentBook),
+        podsUnchanged: JSON.stringify(state.cargoArray) === beforePods,
+        latinumDelta: state.latinum - beforeLatinum,
+        bookInsideSystemStates: Boolean(state.systemStates?.[state.currentPlanet]?.commodityShipmentBook),
+      };
+    },
+    snapshot: () => commodityShipmentSnapshot(ensureCommodityShipmentBook(), {
+      podDigest: JSON.stringify(state.cargoArray),
+      cargoCap: state.cargoCap,
+      latinum: state.latinum,
+      standing: standingNow(),
+      saveSlotCount: SAVE_SLOT_COUNT,
+    }),
+    select: (id) => {
+      selectCommodityShipment(ensureCommodityShipmentBook(), id);
+      renderCommodityShipment();
+      return commodityShipmentSnapshot(state.commodityShipmentBook);
+    },
+    buy: (good, tons = 1, extras = {}) => {
+      const market = extras.market || findMarket(ensureMarketBook(), {
+        good,
+        marketId: extras.marketId,
+        systemIndex: state.currentPlanet,
+      });
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const result = buyCommodityLot(ensureCommodityShipmentBook(), {
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        cargoCap: extras.cargoCap ?? state.cargoCap,
+        credits: extras.credits ?? state.latinum,
+        tons,
+        strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+        dominion: extras.dominion,
+        contraband: extras.contraband === true,
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      if (result.paid) state.latinum = Math.max(0, state.latinum - result.paid);
+      recalcCargoFromPods();
+      renderCommodityShipment();
+      return { ...result, before, market: market ? { stock: market.stock, demand: market.demand, price: market.price } : null };
+    },
+    sellBack: (saleId, extras = {}) => {
+      const book = ensureCommodityShipmentBook();
+      const sale = book.sales?.[String(saleId)];
+      const market = extras.market || (sale ? findMarket(ensureMarketBook(), { good: sale.good, marketId: extras.marketId }) : null);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const result = sellBackBookLot(book, {
+        saleId,
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        dominion: extras.dominion,
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      if (result.paid) state.latinum += result.paid;
+      recalcCargoFromPods();
+      renderCommodityShipment();
+      return { ...result, before, market: market ? { stock: market.stock, demand: market.demand, price: market.price } : null };
+    },
+    stageScreenshots: () => {
+      const longGood = 'Pharmaceutical Grade Medical Supplies And Emergency Ration Packs';
+      const longWorld = 'Ferenginar Outer Commerce Reach';
+      state.commodityShipmentBook = emptyCommodityShipmentBook();
+      state.cargoArray = Array.from({ length: 10 }, () => ({ tons: 0, item: 'Nothing', destination: undefined, payout: 0 }));
+      state.cargoArray[0].tons = 1;
+      state.cargoArray[0].item = longGood;
+      state.cargoArray[0].destination = longWorld;
+      state.cargoArray[0].contractId = 'shot-long';
+      state.cargoArray[0].payout = 0;
+      enrollWorldCargoContract(ensureWorldCargoBook(), {
+        id: 'shot-long',
+        mode: 'open',
+        good: longGood,
+        tons: 1,
+        targetName: longWorld,
+        targetIndex: state.currentPlanet,
+        legalPayout: 12,
+      });
+      placePlayerAtWorldBody();
+      const marker = getFlightPlanetMarker();
+      state.ship.x = marker.x;
+      state.ship.y = marker.y;
+      state.docked = false;
+      state.dockedPlanetIndex = null;
+      state.dockedStationId = null;
+      setPlayerCloak(true, performance.now(), true);
+      const dropped = dropWorldCargo(ensureWorldCargoBook(), worldCargoContext({ contractId: 'shot-long' }));
+      setPlayerCloak(false, performance.now(), true);
+      const market = injectMarket(ensureMarketBook(), {
+        marketId: 'mkt-shot-book',
+        good: 'Grain',
+        stock: 6,
+        demand: 6,
+        stockCap: 8,
+        demandCap: 8,
+        floor: 0,
+        price: 8,
+        systemIndex: state.currentPlanet,
+        locationName: longWorld,
+        restriction: 'open',
+      }).market;
+      recalcCargoFromPods();
+      const bought = buyCommodityLot(ensureCommodityShipmentBook(), {
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        cargoCap: state.cargoCap,
+        credits: state.latinum,
+        tons: 1,
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      if (bought.paid) state.latinum -= bought.paid;
+      const sold = sellBackBookLot(ensureCommodityShipmentBook(), {
+        saleId: bought.saleId,
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      if (sold.paid) state.latinum += sold.paid;
+      for (const pod of state.cargoArray) {
+        if (!pod.tons || pod.item === 'Nothing') {
+          pod.tons = 1;
+          pod.item = 'Staple Crate';
+          pod.destination = undefined;
+          pod.payout = 0;
+        }
+      }
+      recalcCargoFromPods();
+      buyCommodityLot(ensureCommodityShipmentBook(), {
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        cargoCap: state.cargoCap,
+        credits: state.latinum,
+        tons: 1,
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      refreshCommodityShipment();
+      state.commodityShipmentOpen = true;
+      renderCommodityShipment();
+      renderWorldCargo();
+      return {
+        ...commodityShipmentSnapshot(ensureCommodityShipmentBook()),
+        dropReason: dropped?.reason || null,
+      };
+    },
+  };
+}
+
 function createWorldCargoProbeApi() {
   const failIfMissing = (helper, name) => {
     if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
@@ -26299,6 +26661,8 @@ function createBriefingArchiveProbeApi() {
       const archive = serializeBriefingArchive(ensureBriefingArchive());
       state.briefingArchive = emptyBriefingArchive();
       state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
       saveGame(2);
       const slot2 = JSON.parse(localStorage.getItem('bm2_html_save_slot_2') || '{}');
       loadGame(2);
@@ -30151,6 +30515,7 @@ function installPlayerSecurityProbe() {
     solarSailor: createSolarSailorProbeApi(),
     briefingArchive: createBriefingArchiveProbeApi(),
     worldCargo: createWorldCargoProbeApi(),
+    commodityShipment: createCommodityShipmentProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

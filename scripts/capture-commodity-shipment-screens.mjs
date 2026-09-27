@@ -263,6 +263,20 @@ async function main() {
       return api.stageScreenshots();
     });
     if (staged?.missing) throw new Error('commodityShipment probe missing');
+    const replayCloakRefusal = () => page.evaluate(() => {
+      const wc = globalThis.__BM1_PROBE__?.worldCargo;
+      const book = globalThis.__BM1_PROBE__?.commodityShipment;
+      wc?.undock?.();
+      wc?.placeAtWorld?.();
+      wc?.setCloak?.(true);
+      const dropped = wc?.drop?.({ contractId: 'shot-long' });
+      wc?.setCloak?.(false);
+      book?.index?.();
+      book?.open?.();
+      return dropped?.reason || null;
+    });
+    const cloakReason = await replayCloakRefusal();
+    console.log('staged drop', staged?.dropReason, 'replay', cloakReason);
     await showCampaignAndCargo(page);
     await page.evaluate(() => globalThis.__BM1_PROBE__?.commodityShipment?.open?.());
     await page.waitForTimeout(200);
@@ -277,10 +291,13 @@ async function main() {
     await page.evaluate(() => globalThis.__BM1_PROBE__?.commodityShipment?.open?.());
     await page.waitForTimeout(150);
     await shot(page, 'after-dock-market');
+    const restoredReason = await replayCloakRefusal();
+    console.log('restored drop', restoredReason);
     await page.evaluate(() => {
       document.getElementById('planet-menu')?.classList.add('hidden');
       document.getElementById('phase10-readout')?.classList.remove('hidden');
       document.getElementById('world-cargo')?.classList.remove('hidden');
+      document.getElementById('bottom-dock')?.classList.remove('hidden');
       globalThis.__BM1_PROBE__?.commodityShipment?.open?.();
       globalThis.BM1Probe?.paint?.();
     });
@@ -297,6 +314,11 @@ async function main() {
       bookHidden: measured.bookHidden,
     };
     fs.writeFileSync(path.join(outDir, 'noclip.json'), `${JSON.stringify(report, null, 2)}\n`);
+    console.log(JSON.stringify({
+      bookText: measured.bookText,
+      campaignText: measured.campaignText,
+      worldCargoText: measured.worldCargoText,
+    }, null, 2));
     if (report.clippedControls.length || report.occluders.length || report.pillOverlaps.length || report.nameCut) {
       console.error(JSON.stringify(report, null, 2));
       process.exitCode = 1;

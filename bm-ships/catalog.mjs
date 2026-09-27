@@ -1,4 +1,23 @@
 /** Engine-independent, side-effect-free content helpers. No global game state. */
+
+export function regionAllows(ship, context = {}) {
+  const region = ship?.availabilityRegion || 'general';
+  const name = String(context.systemName || '').trim().toLowerCase();
+  const deployment = context.authorizedDeployment === true;
+  const mission = context.role === 'mission' && deployment;
+  const invasion = context.role === 'fleetAttack' && deployment;
+  if (region === 'general') return true;
+  if (region === 'reserved-gorn' || region === 'unassigned') return false;
+  if (region === 'mission-only') return mission;
+  if (region === 'secret-paso') return context.role === 'purchase' && name === 'paso' && context.vendor === 'paso-project-x';
+  if (region === 'secret-remus') return context.role === 'purchase' && name === 'remus' && context.vendor === 'remus-secret';
+  if (region === 'independent-endgame') return context.role === 'purchase' && context.vendor === 'independent-endgame';
+  if (region === 'dominion-all') return name === 'blender' || name === 'dominica' || context.region === 'dominion-core' || invasion || mission;
+  if (region === 'dominion-core') return name === 'dominica' || context.region === 'dominion-core' || invasion || mission;
+  if (region === 'borg-core') return context.controller === 'borg' || invasion || mission;
+  return false; // Unknown region must not silently authorize a spawn or sale.
+}
+
 export function createShipCatalog(manifest, sourceMap, sizeConfig) {
   const ships = manifest.ships;
   if (!Array.isArray(ships)) throw new TypeError('manifest.ships must be an array');
@@ -39,23 +58,6 @@ export function createShipCatalog(manifest, sourceMap, sizeConfig) {
   function fromBM2(sourceId) {
     const id = sourceMap.sourceToRemaster?.[String(sourceId)];
     return id == null ? null : getShip(id);
-  }
-  function regionAllows(ship, context = {}) {
-    const region = ship.availabilityRegion || 'general';
-    const name = String(context.systemName || '').trim().toLowerCase();
-    const deployment = context.authorizedDeployment === true;
-    const mission = context.role === 'mission' && deployment;
-    const invasion = context.role === 'fleetAttack' && deployment;
-    if (region === 'general') return true;
-    if (region === 'reserved-gorn' || region === 'unassigned') return false;
-    if (region === 'mission-only') return mission;
-    if (region === 'secret-paso') return context.role === 'purchase' && name === 'paso' && context.vendor === 'paso-project-x';
-    if (region === 'secret-remus') return context.role === 'purchase' && name === 'remus' && context.vendor === 'remus-secret';
-    if (region === 'independent-endgame') return context.role === 'purchase' && context.vendor === 'independent-endgame';
-    if (region === 'dominion-all') return name === 'blender' || name === 'dominica' || context.region === 'dominion-core' || invasion || mission;
-    if (region === 'dominion-core') return name === 'dominica' || context.region === 'dominion-core' || invasion || mission;
-    if (region === 'borg-core') return context.controller === 'borg' || invasion || mission;
-    return false; // Unknown region must not silently authorize a spawn or sale.
   }
   function eligibleForSpawn(id, context = {}) {
     const ship = getShip(id);

@@ -7139,6 +7139,78 @@ async function runWorldCargo(page, results) {
   }));
 }
 
+async function runCommodityShipment(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.commodityShipment?.buy));
+  if (!present) {
+    check(results, 'S35.setup commodityShipment-api', false, 'commodityShipment probe API missing');
+    return;
+  }
+  const s35 = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const wc = globalThis.__BM1_PROBE__.worldCargo;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const empty = api.restore(undefined);
+    p8.injectMarket({
+      marketId: 'mkt-s35',
+      good: 'Grain',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const before = p8.snapshot().book.markets['mkt-s35'];
+    const bought = api.buy('Grain', 3, { marketId: 'mkt-s35' });
+    const afterBuy = p8.snapshot().book.markets['mkt-s35'];
+    const sold = api.sellBack(bought.saleId, { marketId: 'mkt-s35' });
+    const afterSell = p8.snapshot().book.markets['mkt-s35'];
+    const full = api.buy('Grain', 1, { marketId: 'mkt-s35', cargoCap: 0 });
+    const afterFull = p8.snapshot().book.markets['mkt-s35'];
+    const hand = api.restore({
+      version: 1,
+      nextSaleId: 1,
+      commodities: { 'Ghost Spice': { name: 'Ghost Spice', seenOn: 'pod' } },
+      latinum: 9000,
+      credits: 9000,
+    });
+    const roe = wc.snapshot();
+    return {
+      lock: api.lock(),
+      emptyNames: empty.commodityNames || [],
+      podsUnchanged: empty.podsUnchanged,
+      beforeStock: before.stock,
+      beforePrice: before.price,
+      boughtOk: bought.ok,
+      boughtPaid: bought.paid,
+      stockAfterBuy: afterBuy.stock,
+      soldOk: sold.ok,
+      soldPaid: sold.paid,
+      priceAfterSell: afterSell.price,
+      stockAfterSell: afterSell.stock,
+      fullPaid: full.paid,
+      fullReason: full.reason,
+      stockAfterFull: afterFull.stock,
+      priceAfterFull: afterFull.price,
+      handPods: hand.podsUnchanged,
+      handLatinum: hand.latinumDelta,
+      roeModes: roe.roeModes,
+      offersProtectAll: roe.offersProtectAll,
+      tractor: api.snapshot().tractorIsBoarding,
+    };
+  });
+  check(results, 'S35.1 name-and-lock', s35.lock === false && s35.emptyNames.length === 0 && s35.podsUnchanged === true, JSON.stringify(s35));
+  check(results, 'S35.14 n-ton-buy', s35.boughtOk === true && s35.stockAfterBuy === s35.beforeStock - 3 && s35.boughtPaid === 11 + 12 + 13, JSON.stringify(s35));
+  check(results, 'S35.15 round-trip', s35.soldOk === true && s35.priceAfterSell === s35.beforePrice && s35.soldPaid - s35.boughtPaid <= 0, JSON.stringify(s35));
+  check(results, 'S35.2 hold-full', s35.fullPaid === 0 && s35.fullReason === 'hold-full' && s35.stockAfterFull === s35.stockAfterSell && s35.priceAfterFull === s35.priceAfterSell, JSON.stringify(s35));
+  check(results, 'S35.7 no-mint', s35.handPods === true && s35.handLatinum === 0, JSON.stringify(s35));
+  check(results, 'S35.6 no-third-roe', Array.isArray(s35.roeModes) && s35.roeModes.join(',') === 'return-fire,defend' && s35.offersProtectAll !== true && s35.tractor === false, JSON.stringify(s35));
+}
+
 async function runHeaderStrip(page, results) {
   const worst = longestHeaderStatusMessage();
   await startScenario(page, 'terran', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
@@ -7450,6 +7522,7 @@ async function main() {
     await runBajoranSolarSailor(page, results);
     await runBriefingArchive(page, results);
     await runWorldCargo(page, results);
+    await runCommodityShipment(page, results);
     await runHeaderStrip(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
@@ -7457,7 +7530,7 @@ async function main() {
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive + S34 world cargo Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive + S34 world cargo + S35 commodity shipment Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

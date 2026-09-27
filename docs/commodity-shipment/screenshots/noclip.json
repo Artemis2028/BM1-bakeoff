@@ -1,0 +1,12 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "clippedControls": [],
+  "occluders": [],
+  "pillOverlaps": [],
+  "nameCut": false,
+  "bookPresent": true,
+  "bookHidden": false
+}

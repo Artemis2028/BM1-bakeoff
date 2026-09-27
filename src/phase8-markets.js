@@ -81,6 +81,13 @@ export const PHASE8_MAGNITUDES = Object.freeze({
   repairPremiumWithoutSupply: 2,
 });
 
+/** Per-ton price settle. Not part of PHASE8_MAGNITUDES. tickDrift stays 0. */
+export const PER_TON_SETTLE_DEFAULTS = Object.freeze({
+  priceStep: 1,
+  priceFloor: 1,
+  priceCap: 36,
+});
+
 const KIND_SET = new Set(RESTRICTION_KINDS);
 const DOCK_SET = new Set(DOCK_KINDS);
 const LANE_SET = new Set(OBLIGATION_LANES);
@@ -859,12 +866,124 @@ export function recordShopTrade(book, trade) {
   return { reversal, standingDelta: shopStandingDelta({ isReversal: reversal, writeStanding: false }) };
 }
 
+function settleOptions(injected = null) {
+  const priceFloor = Math.max(1, asInt(injected?.priceFloor, PER_TON_SETTLE_DEFAULTS.priceFloor));
+  const priceCap = Math.max(priceFloor, asInt(injected?.priceCap, PER_TON_SETTLE_DEFAULTS.priceCap));
+  const priceStep = Math.max(0, asInt(injected?.priceStep, PER_TON_SETTLE_DEFAULTS.priceStep));
+  return { priceFloor, priceCap, priceStep };
+}
+
+function clampStoredPrice(price, options) {
+  return Math.max(options.priceFloor, Math.min(options.priceCap, asInt(price, options.priceFloor)));
+}
+
+export function postMovePrice(market, direction, injected = null) {
+  const options = settleOptions(injected);
+  const current = asInt(market?.price, options.priceFloor);
+  const delta = direction === 'sell' ? -options.priceStep : options.priceStep;
+  return clampStoredPrice(current + delta, options);
+}
+
+/**
+ * One ton on the stored market row. Buy lowers stock by 1 and raises price
+ * by one step. Sell raises stock by 1, lowers demand by 1, and lowers price
+ * by one step. The ton settles at the clamped post-move price. A buy at the
+ * stock floor, a sell at the demand floor, or a sell that would pass stockCap
+ * pays 0 and leaves the row unchanged.
+ */
+export function settleMarketTon(market, direction, spec = {}, injected = null) {
+  if (!market) return { ok: false, paid: 0, reason: 'missing-market', unchanged: true };
+  const options = settleOptions(injected);
+  const floor = asInt(spec?.floor, 0);
+  const stockCap = asInt(spec?.stockCap, PHASE8_MAGNITUDES.stockCap);
+  if (direction === 'sell') {
+    if (market.demand - 1 < floor) {
+      return { ok: false, paid: 0, price: market.price, reason: 'demand-floor', unchanged: true };
+    }
+    if (market.stock + 1 > stockCap) {
+      return { ok: false, paid: 0, price: market.price, reason: 'stock-cap', unchanged: true };
+    }
+    const nextPrice = postMovePrice(market, 'sell', injected);
+    market.stock += 1;
+    market.demand -= 1;
+    market.price = nextPrice;
+    return {
+      ok: true,
+      paid: nextPrice,
+      price: nextPrice,
+      stock: market.stock,
+      demand: market.demand,
+      reason: 'sold',
+      unchanged: false,
+    };
+  }
+  if (market.stock - 1 < floor) {
+    return { ok: false, paid: 0, price: market.price, reason: 'stock-floor', unchanged: true };
+  }
+  const nextPrice = postMovePrice(market, 'buy', injected);
+  market.stock -= 1;
+  market.price = nextPrice;
+  return {
+    ok: true,
+    paid: nextPrice,
+    price: nextPrice,
+    stock: market.stock,
+    demand: market.demand,
+    reason: 'bought',
+    unchanged: false,
+  };
+}
+
+/** N tons is N one-ton settles. A ton that cannot move refuses the whole order. */
+export function settleMarketTons(market, direction, tons, spec = {}, injected = null) {
+  const n = Math.max(0, asInt(tons, 0));
+  if (!market || n <= 0) return { ok: false, paid: 0, prices: [], reason: 'no-tons', unchanged: true };
+  const floor = asInt(spec?.floor, 0);
+  const stockCap = asInt(spec?.stockCap, PHASE8_MAGNITUDES.stockCap);
+  if (direction === 'buy' && market.stock - n < floor) {
+    return { ok: false, paid: 0, prices: [], reason: 'stock-floor', unchanged: true };
+  }
+  if (direction === 'sell') {
+    if (market.demand - n < floor) {
+      return { ok: false, paid: 0, prices: [], reason: 'demand-floor', unchanged: true };
+    }
+    if (market.stock + n > stockCap) {
+      return { ok: false, paid: 0, prices: [], reason: 'stock-cap', unchanged: true };
+    }
+  }
+  const snapshot = { stock: market.stock, demand: market.demand, price: market.price };
+  const prices = [];
+  let paid = 0;
+  for (let i = 0; i < n; i += 1) {
+    const step = settleMarketTon(market, direction, spec, injected);
+    if (!step.ok) {
+      market.stock = snapshot.stock;
+      market.demand = snapshot.demand;
+      market.price = snapshot.price;
+      return { ok: false, paid: 0, prices: [], reason: step.reason, unchanged: true };
+    }
+    prices.push(step.paid);
+    paid += step.paid;
+  }
+  return {
+    ok: true,
+    paid,
+    prices,
+    price: market.price,
+    stock: market.stock,
+    demand: market.demand,
+    reason: direction === 'sell' ? 'sold' : 'bought',
+    unchanged: false,
+  };
+}
+
 export function applyShopBuy(book, input = {}, injected = null) {
   const store = book || createMarketBook();
   const market = findMarket(store, input);
   const deal = evaluateCargoDeal(store, input, injected);
-  if (!deal.allowed) return { ok: false, ...deal, standingDelta: 0 };
-  if (!market || market.stock <= goodSpec(store, market.good, injected).floor) {
+  if (!deal.allowed) return { ok: false, ...deal, standingDelta: 0, paid: 0 };
+  const spec = goodSpec(store, market?.good, injected);
+  if (!market || market.stock - 1 < spec.floor) {
     const empty = dealResult({
       allowed: false,
       kind: market?.restriction || 'seller_rule',
@@ -873,21 +992,26 @@ export function applyShopBuy(book, input = {}, injected = null) {
       market,
     });
     store.lastRefuse = empty;
-    return { ok: false, ...empty, standingDelta: 0 };
+    return { ok: false, ...empty, standingDelta: 0, paid: 0 };
   }
-  const credits = asInt(input.credits, deal.price);
-  if (credits < deal.price) {
+  const quote = postMovePrice(market, 'buy', injected);
+  const credits = asInt(input.credits, quote);
+  if (credits < quote) {
     return {
       ok: false,
       allowed: false,
       kind: deal.kind,
       reason: 'funds',
-      sayable: `Need ${deal.price} latinum for ${market.good}. A higher standing is not money.`,
-      price: deal.price,
+      sayable: `Need ${quote} latinum for ${market.good}. A higher standing is not money.`,
+      price: quote,
+      paid: 0,
       standingDelta: 0,
     };
   }
-  market.stock = Math.max(goodSpec(store, market.good, injected).floor, market.stock - 1);
+  const step = settleMarketTon(market, 'buy', spec, injected);
+  if (!step.ok) {
+    return { ok: false, allowed: false, reason: step.reason, price: market.price, paid: 0, standingDelta: 0, market };
+  }
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'buy' });
   return {
     ok: true,
@@ -895,7 +1019,8 @@ export function applyShopBuy(book, input = {}, injected = null) {
     kind: deal.kind,
     reason: 'allowed',
     sayable: deal.sayable,
-    price: deal.price,
+    price: step.paid,
+    paid: step.paid,
     stock: market.stock,
     demand: market.demand,
     standingDelta: shop.standingDelta,
@@ -908,27 +1033,48 @@ export function applyShopSell(book, input = {}, injected = null) {
   const store = book || createMarketBook();
   const market = findMarket(store, input);
   if (!market) {
-    return { ok: false, allowed: false, reason: 'missing-market', standingDelta: 0 };
+    return { ok: false, allowed: false, reason: 'missing-market', standingDelta: 0, paid: 0 };
   }
   const deal = evaluateCargoDeal(store, { ...input, marketId: market.marketId }, injected);
   if (!deal.allowed && deal.kind !== 'premium' && deal.kind !== 'open' && deal.kind !== 'license') {
-    return { ok: false, ...deal, standingDelta: 0 };
+    return { ok: false, ...deal, standingDelta: 0, paid: 0 };
   }
-  if (!deal.allowed) return { ok: false, ...deal, standingDelta: 0 };
+  if (!deal.allowed) return { ok: false, ...deal, standingDelta: 0, paid: 0 };
   const spec = goodSpec(store, market.good, injected);
-  const next = market.stock + 1;
-  market.stock = clampInt(next, spec.floor, spec.stockCap);
+  const before = { stock: market.stock, demand: market.demand, price: market.price };
+  const step = settleMarketTon(market, 'sell', spec, injected);
+  if (!step.ok) {
+    market.stock = before.stock;
+    market.demand = before.demand;
+    market.price = before.price;
+    return {
+      ok: false,
+      allowed: false,
+      kind: deal.kind,
+      reason: step.reason,
+      price: 0,
+      paid: 0,
+      stock: market.stock,
+      demand: market.demand,
+      standingDelta: 0,
+      sayable: step.reason === 'demand-floor'
+        ? `No demand for ${market.good} at ${market.locationName || 'this port'}.`
+        : `No room for ${market.good} stock at ${market.locationName || 'this port'}.`,
+      market,
+    };
+  }
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'sell' });
   return {
     ok: true,
     allowed: true,
     kind: deal.kind,
-    price: deal.price,
+    price: step.paid,
+    paid: step.paid,
     stock: market.stock,
     demand: market.demand,
     standingDelta: shop.standingDelta,
     reversal: shop.reversal,
-    saturated: next > spec.stockCap,
+    saturated: false,
     market,
   };
 }
