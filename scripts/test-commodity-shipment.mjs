@@ -1209,7 +1209,9 @@ assert('S35.18 missing-scope', (() => {
     sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 } },
   }, { pods });
   const sold = sellBackBookLot(revived, { saleId: 4, market: freshMarket().market, pods });
-  assert('S35.18 restore-no-resurrect', !revived.sales['4'] && sold.paid === 0 && revived.nextSaleId === 6);
+  const packed = serializeCommodityShipmentBook(revived);
+  assert('S35.18 restore-no-resurrect', !revived.sales['4'] && sold.paid === 0 && revived.nextSaleId === 6
+    && revived.consumedSaleIds == null && packed.consumedSaleIds == null);
 }
 
 if (failed) {
