@@ -7303,12 +7303,44 @@ async function runCommodityShipment(page, results) {
     reset();
     mint('mkt-dominion', 'Dominion Isolinear', { availabilityRegion: 'dominion-core' });
     const dominion = api.playBuy('Dominion Isolinear');
+    api.setStanding('ferengi', 0);
+    reset();
+    mint('mkt-hostile', 'Hostile Grain');
+    const friendlyLot = api.playBuy('Hostile Grain');
+    api.setStanding('ferengi', -50);
+    const hostileBuy = api.playBuy('Hostile Grain');
+    const hostileSell = api.playSell(friendlyLot.saleId);
+    api.setStanding('ferengi', 0);
+    reset();
+    mint('mkt-only-grain', 'Listed Grain');
+    const listedBefore = p8.snapshot().book.markets['mkt-only-grain'];
+    const wrongGood = api.playBuy('Unlisted Spice');
+    const listedAfter = p8.snapshot().book.markets['mkt-only-grain'];
+    reset();
+    mint('mkt-noscope', 'Scope Grain');
+    const scopeBefore = p8.snapshot().book.markets['mkt-noscope'];
+    const missingScope = api.buy('Scope Grain', 1, { marketId: 'mkt-noscope', dominion: null });
+    const scopeAfter = p8.snapshot().book.markets['mkt-noscope'];
+    reset();
+    mint('mkt-unknown-scope', 'Unknown Scope', { availabilityRegion: 'dominion-first' });
+    const unknownScope = api.playBuy('Unknown Scope');
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api.close?.();
+    const clickBook = () => document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    const bookButton = Boolean(document.querySelector('#briefing-archive [data-commodity-book-toggle]'));
+    clickBook();
+    const bookOpened = Boolean(document.querySelector('#briefing-archive > .commodity-book-section'));
+    clickBook();
+    const bookClosed = !document.querySelector('#briefing-archive > .commodity-book-section');
     return {
       embargoBuy, licenseBuy, sellerBuy,
       embargoLot, embargoSell, licenseLot, licenseSell, sellerLot, sellerSell,
       shopBuy, shopSell, bookBuy, bookSell,
       mixBook, mixShopSell, mixSetup, mixShopBuy, mixBookSell,
       contra, dominion,
+      friendlyLot, hostileBuy, hostileSell, wrongGood, listedBefore, listedAfter,
+      missingScope, scopeBefore, scopeAfter, unknownScope,
+      bookOpened, bookClosed, bookButton: Boolean(bookButton),
     };
   });
   const laneRefused = (row) => row && row.paid === 0 && row.ok === false && row.latinumDelta === 0
@@ -7342,6 +7374,23 @@ async function runCommodityShipment(page, results) {
   check(results, 'S35.17 contraband-play', lane.contra?.ok === true && lane.contra.contraband === true, JSON.stringify(lane.contra));
   check(results, 'S35.17 dominion-play-buy', laneRefused(lane.dominion) && lane.dominion.reason === 'region-refused'
     && lane.dominion.docked === true && String(lane.dominion.systemName || '').trim().toLowerCase() !== 'dominica', JSON.stringify(lane.dominion));
+  check(results, 'S35.18 service-refusal-play', lane.friendlyLot?.ok === true
+    && lane.hostileBuy?.paid === 0 && lane.hostileBuy?.reason === 'service-refused'
+    && lane.hostileBuy.latinumDelta === 0 && lane.hostileBuy.after?.price === lane.hostileBuy.before?.price
+    && /ports refuse you/i.test(lane.hostileBuy.log || '')
+    && lane.hostileSell?.paid === 0 && lane.hostileSell.salePresent === true
+    && !String(lane.hostileBuy.log || '').startsWith('FLASH'), JSON.stringify({ buy: lane.hostileBuy, sell: lane.hostileSell }));
+  check(results, 'S35.18 wrong-good-play', lane.wrongGood?.paid === 0 && lane.wrongGood?.reason === 'missing-market'
+    && lane.listedAfter?.stock === lane.listedBefore?.stock && lane.listedAfter?.price === lane.listedBefore?.price
+    && /no .+ market at this world/i.test(lane.wrongGood.log || ''), JSON.stringify(lane.wrongGood));
+  check(results, 'S35.18 missing-scope-play', lane.missingScope?.paid === 0 && lane.missingScope?.ok === false
+    && lane.missingScope?.reason === 'missing-scope'
+    && lane.scopeAfter?.stock === lane.scopeBefore?.stock && lane.scopeAfter?.price === lane.scopeBefore?.price, JSON.stringify(lane.missingScope));
+  check(results, 'S35.18 unknown-scope-play', lane.unknownScope?.paid === 0 && lane.unknownScope?.ok === false
+    && lane.unknownScope.after?.price === lane.unknownScope.before?.price, JSON.stringify(lane.unknownScope));
+  check(results, 'S35.18 book-button', lane.bookButton === true && lane.bookOpened === true && lane.bookClosed === true, JSON.stringify({
+    button: lane.bookButton, opened: lane.bookOpened, closed: lane.bookClosed,
+  }));
   const fit = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__?.commodityShipment;
     const measure = () => api.measureNoClip();

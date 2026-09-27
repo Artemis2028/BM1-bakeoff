@@ -11072,6 +11072,7 @@ function renderBriefingArchive() {
   const hasWider = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'wider_dominion');
   const hasObjectives = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'objectives');
   const selectHtml = `<div class="briefing-archive-toolbar">
+      <button type="button" data-commodity-book-toggle class="${state.commodityShipmentOpen ? 'active' : ''}">Book</button>
       <button type="button" data-briefing-view="briefing" class="${view === 'briefing' ? 'active' : ''}">Briefing</button>
       <button type="button" data-briefing-view="archive" class="${view === 'archive' ? 'active' : ''}">Archive</button>
       <button type="button" data-briefing-campaign="" class="${campaign === '' ? 'active' : ''}">All</button>
@@ -11106,7 +11107,8 @@ function currentBookMarket(good) {
 
 function dominionTradeContextForMarket(market) {
   const planetName = state.planets[state.currentPlanet]?.name || '';
-  const scope = market?.availabilityRegion || null;
+  const declared = market?.availabilityRegion || null;
+  const scope = declared || 'general';
   return {
     availabilityRegion: scope,
     scope,
@@ -11114,6 +11116,31 @@ function dominionTradeContextForMarket(market) {
     region: String(planetName).trim().toLowerCase() === 'dominica' ? 'dominion-core' : '',
     role: 'traffic',
     authorizedDeployment: resolveAuthorizedDeployment(ensureDominionBook(), 'fleetAttack') === true,
+  };
+}
+
+function refuseBookService() {
+  const line = serviceRefusal(getSystemFaction(state.currentPlanet));
+  if (!line) return null;
+  const marketBook = ensureMarketBook();
+  marketBook.lastRefuse = {
+    allowed: false,
+    kind: 'seller_rule',
+    reason: 'refused',
+    sayable: line,
+    priceMayBypass: false,
+    logLine: line,
+    logBand: null,
+    paid: 0,
+  };
+  setLog(line);
+  return {
+    ok: false,
+    paid: 0,
+    reason: 'service-refused',
+    logLine: line,
+    logBand: null,
+    book: ensureCommodityShipmentBook(),
   };
 }
 
@@ -11132,7 +11159,14 @@ function tradeWitness() {
 
 function buyFromCommodityBook(good) {
   if (!requireDocked()) return;
-  const market = currentBookMarket(good) || listMarkets(ensureMarketBook()).find((row) => row.good === good && row.systemIndex === state.currentPlanet);
+  const serviceBlock = refuseBookService();
+  if (serviceBlock) return serviceBlock;
+  const market = currentBookMarket(good);
+  if (!market) {
+    const line = `No ${good || 'cargo'} market at this world. Purchase refused. The market did not move.`;
+    setLog(line);
+    return { ok: false, paid: 0, reason: 'missing-market', logLine: line, logBand: null };
+  }
   const result = buyCommodityLot(ensureCommodityShipmentBook(), {
     market,
     marketBook: ensureMarketBook(),
@@ -11159,6 +11193,8 @@ function buyFromCommodityBook(good) {
 
 function sellBackFromCommodityBook(saleId) {
   if (!requireDocked()) return;
+  const serviceBlock = refuseBookService();
+  if (serviceBlock) return serviceBlock;
   const book = ensureCommodityShipmentBook();
   const sale = book.sales?.[String(saleId)] || Object.values(book.sales || {})[0];
   const market = sale ? currentBookMarket(sale.good) : null;
@@ -11182,8 +11218,21 @@ function sellBackFromCommodityBook(saleId) {
   return result;
 }
 
+function clearTargetWindowPlacement(host) {
+  if (!host) return;
+  host.style.left = '';
+  host.style.top = '';
+  host.style.width = '';
+  host.style.maxHeight = '';
+  host.style.right = '';
+  host.style.bottom = '';
+}
+
 function placeTargetWindow(host) {
-  if (!host || host.classList.contains('hidden')) return;
+  if (!host || host.classList.contains('hidden')) {
+    clearTargetWindowPlacement(host);
+    return;
+  }
   const gap = 12;
   const minWidth = 260;
   const preferredWidth = 320;
@@ -11280,14 +11329,35 @@ function placeTargetWindow(host) {
     }
   }
   if (!chosen) {
-    const width = Math.min(preferredWidth, Math.max(minWidth, rightEdge - leftOfColumn));
-    const top = briefing ? Math.max(ceiling, briefing.bottom + gap) : ceiling;
-    chosen = {
-      left: leftOfColumn,
-      top,
-      right: leftOfColumn + width,
-      bottom: Math.min(bottomEdge, top + minHeight),
-    };
+    const widths = [preferredWidth, minWidth];
+    const heights = [220, minHeight];
+    const lefts = [18, leftOfColumn, briefing ? briefing.right + gap : leftOfColumn];
+    const tops = [ceiling, cargo ? cargo.bottom + gap : ceiling, campaign ? campaign.bottom + gap : ceiling];
+    for (const width of widths) {
+      for (const height of heights) {
+        for (const left of lefts) {
+          for (const top of tops) {
+            const rect = {
+              left,
+              top,
+              right: left + width,
+              bottom: top + height,
+            };
+            if (within(rect)) {
+              chosen = rect;
+              break;
+            }
+          }
+          if (chosen) break;
+        }
+        if (chosen) break;
+      }
+      if (chosen) break;
+    }
+  }
+  if (!chosen) {
+    clearTargetWindowPlacement(host);
+    return;
   }
   host.style.left = `${Math.round(chosen.left)}px`;
   host.style.top = `${Math.round(chosen.top)}px`;
@@ -16729,6 +16799,14 @@ document.getElementById('briefing-archive')?.addEventListener('click', (event) =
     renderCommodityShipment();
     return;
   }
+  const bookToggle = event.target.closest('[data-commodity-book-toggle]');
+  if (bookToggle) {
+    event.preventDefault();
+    state.commodityShipmentOpen = !state.commodityShipmentOpen;
+    renderBriefingArchive();
+    renderCommodityShipment();
+    return;
+  }
   const view = event.target.closest('[data-briefing-view]');
   if (view) {
     event.preventDefault();
@@ -18459,6 +18537,7 @@ function updateTargetWindow() {
     targetWindowEl.classList.add('hidden');
     targetWindowEl.innerHTML = '';
     targetWindowEl.dataset.renderKey = '';
+    clearTargetWindowPlacement(targetWindowEl);
     return;
   }
   const target = getSelectedCombatTarget();
@@ -18466,6 +18545,7 @@ function updateTargetWindow() {
     targetWindowEl.classList.add('hidden');
     targetWindowEl.innerHTML = '';
     targetWindowEl.dataset.renderKey = '';
+    clearTargetWindowPlacement(targetWindowEl);
     return;
   }
   ensureCombatTargetStats(target);
@@ -26500,7 +26580,7 @@ function createCommodityShipmentProbeApi() {
         credits: extras.credits ?? state.latinum,
         tons,
         strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
-        dominion: extras.dominion,
+        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: 'general' },
         contraband: extras.contraband === true,
         config: COMMODITY_SHIPMENT_CONFIG,
       });
@@ -26519,13 +26599,19 @@ function createCommodityShipmentProbeApi() {
         market,
         marketBook: ensureMarketBook(),
         pods: state.cargoArray,
-        dominion: extras.dominion,
+        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: 'general' },
         config: COMMODITY_SHIPMENT_CONFIG,
       });
       if (result.paid) state.latinum += result.paid;
       recalcCargoFromPods();
       renderCommodityShipment();
       return { ...result, before, market: market ? { stock: market.stock, demand: market.demand, price: market.price } : null };
+    },
+    setStanding: (faction, value) => {
+      const key = String(faction || 'neutral').trim().toLowerCase();
+      if (!state.factionStanding || typeof state.factionStanding !== 'object') state.factionStanding = {};
+      state.factionStanding[key] = Math.round(Number(value) || 0);
+      return state.factionStanding[key];
     },
     emptyHold: () => {
       state.cargoArray = Array.from({ length: Math.max(10, state.cargoArray?.length || 0) }, () => ({

@@ -210,28 +210,43 @@ async function main() {
     });
     await showCampaignAndCargo(page);
     await page.evaluate(() => {
-      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      const book = globalThis.__BM1_PROBE__?.commodityShipment;
+      book?.close?.();
+      book?.clearCombatTarget?.();
       globalThis.BM1Probe?.paint?.();
     });
     await logRefusal();
     await page.waitForTimeout(150);
     await shot(page, 'after-campaign');
-    const undocked = await readNoClip();
-    console.log('undocked rects', JSON.stringify(await rectsOf()));
-    await showDockMarket(page);
+    const campaign = await readNoClip();
     await page.evaluate(() => {
-      globalThis.__BM1_PROBE__?.commodityShipment?.open?.();
-      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
       globalThis.BM1Probe?.paint?.();
     });
     await logRefusal();
     await page.waitForTimeout(150);
+    await shot(page, 'after-briefing');
+    const briefing = await readNoClip();
+    console.log('briefing rects', JSON.stringify(await rectsOf()));
+    await page.evaluate(() => {
+      const book = globalThis.__BM1_PROBE__?.commodityShipment;
+      if (document.querySelector('#briefing-archive > .commodity-book-section')) {
+        document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+      }
+      book?.close?.();
+      globalThis.BM1Probe?.paint?.();
+    });
+    await logRefusal();
+    await page.evaluate(() => {
+      document.getElementById('phase10-readout')?.classList.add('hidden');
+    });
+    await page.waitForTimeout(150);
     await shot(page, 'after-world-cargo');
     const worldCargo = await readNoClip();
-    await shot(page, 'after-dock-market');
-    const dock = await readNoClip();
-    console.log('dock rects', JSON.stringify(await rectsOf()));
+    await showCampaignAndCargo(page);
     await page.evaluate(() => {
+      globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
+      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
       const spawned = globalThis.BM1Probe?.spawnShip?.({
         id: 'shot-odyssey',
         name: 'SS Odyssey',
@@ -242,16 +257,27 @@ async function main() {
       globalThis.BM1Probe?.paint?.();
     });
     await logRefusal();
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(200);
+    await shot(page, 'after-target-undocked');
     await shot(page, 'after-book-panel');
     const target = await readNoClip();
     console.log('target rects', JSON.stringify(await rectsOf()));
+    await showDockMarket(page);
+    await page.evaluate(() => {
+      globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+      globalThis.BM1Probe?.paint?.();
+    });
+    await logRefusal();
+    await page.waitForTimeout(150);
+    await shot(page, 'after-dock-market');
+    const dock = await readNoClip();
+    console.log('dock rects', JSON.stringify(await rectsOf()));
     const restoredReason = await replayCloakRefusal();
     console.log('restored drop', restoredReason);
     const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0 && row.nameCut !== true;
     const states = {
-      briefing: listsOf(undocked),
-      campaign: listsOf(undocked),
+      briefing: listsOf(briefing),
+      campaign: listsOf(campaign),
       worldCargo: listsOf(worldCargo),
       target: listsOf(target),
       dock: listsOf(dock),
@@ -263,7 +289,7 @@ async function main() {
       pillOverlaps: [],
       states,
     };
-    const failed = [undocked, worldCargo, target, dock].filter((row) => !empty(row));
+    const failed = [briefing, campaign, worldCargo, target, dock].filter((row) => !empty(row));
     if (failed.length) {
       report.clippedControls = failed.flatMap((row) => row.clippedControls);
       report.occluders = failed.flatMap((row) => row.occluders);
@@ -271,7 +297,8 @@ async function main() {
     }
     fs.writeFileSync(path.join(outDir, 'noclip.json'), `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify({
-      undocked: { bookText: undocked.bookText, panels: undocked.panels, ...listsOf(undocked) },
+      campaign: { bookText: campaign.bookText, panels: campaign.panels, ...listsOf(campaign) },
+      briefing: { bookText: briefing.bookText, panels: briefing.panels, ...listsOf(briefing) },
       worldCargo: { panels: worldCargo.panels, ...listsOf(worldCargo) },
       target: { bookText: target.bookText, headerText: target.headerText, panels: target.panels, ...listsOf(target) },
       dock: { bookText: dock.bookText, headerText: dock.headerText, panels: dock.panels, ...listsOf(dock) },

@@ -100,11 +100,12 @@ function issueSaleId(book) {
   return id;
 }
 
-function rememberConsumed(book, saleId) {
-  const id = String(saleId ?? '');
-  if (!id) return;
-  if (!asObject(book.consumedSaleIds)) book.consumedSaleIds = {};
-  book.consumedSaleIds[id] = true;
+/** An issued id that is no longer in sales has been consumed. There is no fifth map. */
+function saleIsConsumed(book, saleId) {
+  const id = asInt(saleId, 0);
+  if (id <= 0) return false;
+  if (book?.sales && Object.prototype.hasOwnProperty.call(book.sales, String(id))) return false;
+  return id < asInt(book?.nextSaleId, 1);
 }
 
 function trimOldest(map, cap, keep) {
@@ -114,9 +115,11 @@ function trimOldest(map, cap, keep) {
   let extra = rows.length - cap;
   for (const row of droppable) {
     if (extra <= 0) break;
-    const key = row.id || row.lotId || row.saleId || row.name;
-    if (key != null && map[key]) {
-      delete map[key];
+    const key = [row.id, row.lotId, row.saleId, row.name].find((candidate) => (
+      candidate != null && Object.prototype.hasOwnProperty.call(map, String(candidate))
+    ));
+    if (key != null) {
+      delete map[String(key)];
       extra -= 1;
     }
   }
@@ -141,11 +144,7 @@ function enforceCaps(book, config) {
   trimOldest(book.commodities, cap);
   trimShipments(book.shipments, cap);
   trimOldest(book.lots, cap);
-  const salesBefore = Object.keys(book.sales || {});
   trimOldest(book.sales, cap);
-  for (const id of salesBefore) {
-    if (!book.sales[id]) rememberConsumed(book, id);
-  }
   book.rowCap = cap;
 }
 
@@ -166,7 +165,6 @@ export function emptyCommodityShipmentBook() {
     shipments: {},
     lots: {},
     sales: {},
-    consumedSaleIds: {},
     notices: [],
     lastNotice: '',
   };
@@ -184,7 +182,6 @@ export function serializeCommodityShipmentBook(book) {
     shipments: source.shipments || {},
     lots: source.lots || {},
     sales: source.sales || {},
-    consumedSaleIds: source.consumedSaleIds || {},
   };
 }
 
@@ -203,13 +200,11 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
   const cap = Math.max(1, asInt(context.rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
   book.selectedId = saved.selectedId == null ? null : String(saved.selectedId);
   let maxIssued = 0;
-  const consumed = asObject(saved.consumedSaleIds) || {};
-  for (const id of Object.keys(consumed)) {
-    if (consumed[id]) {
-      book.consumedSaleIds[String(id)] = true;
-      maxIssued = Math.max(maxIssued, asInt(id, 0));
-    }
+  const legacyConsumed = asObject(saved.consumedSaleIds) || {};
+  for (const id of Object.keys(legacyConsumed)) {
+    if (legacyConsumed[id]) maxIssued = Math.max(maxIssued, asInt(id, 0));
   }
+  delete book.consumedSaleIds;
   let maxSeq = 0;
   for (const [key, row] of Object.entries(asObject(saved.commodities) || {})) {
     const source = asObject(row);
@@ -276,7 +271,7 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
     const saleId = asInt(source.saleId ?? key, 0);
     if (!saleId) continue;
     maxIssued = Math.max(maxIssued, saleId);
-    if (book.consumedSaleIds[String(saleId)]) continue;
+    if (legacyConsumed[String(saleId)]) continue;
     const sale = {
       saleId,
       lotId: String(source.lotId || ''),
@@ -286,10 +281,7 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
       seq: asInt(source.seq, 0) || takeSeq(book),
     };
     maxSeq = Math.max(maxSeq, sale.seq);
-    if (pods && !pods.some((pod) => podTaggedForSale(pod, sale))) {
-      rememberConsumed(book, saleId);
-      continue;
-    }
+    if (pods && !pods.some((pod) => podTaggedForSale(pod, sale))) continue;
     book.sales[String(saleId)] = sale;
   }
   const savedNext = Math.max(1, asInt(saved.nextSaleId, 1));
@@ -430,7 +422,16 @@ export function indexCommodityShipment(book, input = {}) {
 
 export function dominionTradeAllowed(context = {}) {
   const scope = context?.availabilityRegion || context?.scope || null;
-  if (!scope) return { allowed: true, refused: false, reason: 'not-dominion-scope' };
+  if (!scope) {
+    return {
+      allowed: false,
+      refused: true,
+      reason: 'missing-scope',
+      roeModesUnchanged: true,
+      offersProtectAll: false,
+      engagement_authorized: false,
+    };
+  }
   const allowed = regionAllows({ availabilityRegion: scope }, {
     systemName: context.systemName,
     region: context.region,
@@ -512,7 +513,12 @@ export function buyCommodityLot(book, input = {}) {
   const store = book && book.version === COMMODITY_SHIPMENT_VERSION ? book : emptyCommodityShipmentBook();
   store.lockedFromRemastered = false;
   const access = dominionTradeAllowed(input.dominion || {});
-  if (access.refused) return refuseTrade(store, 'region-refused', 'Dominion trade is closed at this world.');
+  if (access.refused) {
+    const notice = access.reason === 'missing-scope'
+      ? 'Trade refused. This market has no dominion scope. The market did not move.'
+      : 'Dominion trade is closed at this world.';
+    return refuseTrade(store, access.reason || 'region-refused', notice);
+  }
   const market = input.market;
   if (!market) return refuseTrade(store, 'missing-market', 'No market for this good.');
   const spec = input.spec || goodSpec(input.marketBook, market.good, null);
@@ -605,22 +611,25 @@ export function sellBackBookLot(book, input = {}) {
   const store = book && book.version === COMMODITY_SHIPMENT_VERSION ? book : emptyCommodityShipmentBook();
   store.lockedFromRemastered = false;
   const access = dominionTradeAllowed(input.dominion || {});
-  if (access.refused) return refuseTrade(store, 'region-refused', 'Dominion trade is closed at this world.');
+  if (access.refused) {
+    const notice = access.reason === 'missing-scope'
+      ? 'Trade refused. This market has no dominion scope. The market did not move.'
+      : 'Dominion trade is closed at this world.';
+    return refuseTrade(store, access.reason || 'region-refused', notice);
+  }
   const saleId = input.saleId;
   const key = String(saleId ?? '');
-  if (store.consumedSaleIds[key]) {
+  if (saleIsConsumed(store, saleId)) {
     return refuseTrade(store, 'sale-consumed', 'That sale was already used.');
   }
   const sale = store.sales[key];
   if (!sale || sale.soldByBook !== true) {
-    if (key) rememberConsumed(store, key);
     delete store.sales[key];
     return refuseTrade(store, 'not-book-bought', 'Sell-back paid 0. That sale row is not a book-bought lot.');
   }
   const pods = Array.isArray(input.pods) ? input.pods : [];
   const pod = pods.find((row) => podTaggedForSale(row, sale));
   if (!pod) {
-    rememberConsumed(store, sale.saleId);
     delete store.sales[key];
     return refuseTrade(store, 'missing-pod', 'Sell-back paid 0. The tagged lot is not aboard.');
   }
@@ -645,7 +654,6 @@ export function sellBackBookLot(book, input = {}) {
   }
   pod.tons = asInt(pod.tons, 0) - asInt(sale.tons, 0);
   if (pod.tons <= 0) emptyPodShape(pod);
-  rememberConsumed(store, sale.saleId);
   delete store.sales[key];
   const lot = store.lots[sale.lotId];
   if (lot) lot.saleId = null;

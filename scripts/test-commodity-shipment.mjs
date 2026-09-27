@@ -47,7 +47,7 @@ import { BRIEFING_ARCHIVE_LOCKED_FROM_REMASTERED } from '../src/briefing-archive
 import {
   COMMODITY_SHIPMENT_CONFIG,
   COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED,
-  buyCommodityLot,
+  buyCommodityLot as buyCommodityLotRaw,
   dominionTradeAllowed,
   emptyCommodityShipmentBook,
   indexCommodityShipment,
@@ -55,7 +55,7 @@ import {
   recoverMarketBounded,
   restoreCommodityShipmentBook,
   selectCommodityShipment,
-  sellBackBookLot,
+  sellBackBookLot as sellBackBookLotRaw,
   serializeCommodityShipmentBook,
 } from '../src/commodity-shipment.js';
 
@@ -71,6 +71,19 @@ function assert(id, condition, detail = '') {
   }
   failed += 1;
   failures.push(`${id}${detail ? `: ${detail}` : ''}`);
+}
+
+function withTradeScope(input = {}) {
+  if (input && Object.prototype.hasOwnProperty.call(input, 'dominion')) return input;
+  return { ...input, dominion: { scope: 'general' } };
+}
+
+function buyCommodityLot(book, input = {}) {
+  return buyCommodityLotRaw(book, withTradeScope(input));
+}
+
+function sellBackBookLot(book, input = {}) {
+  return sellBackBookLotRaw(book, withTradeScope(input));
 }
 
 function emptyPods() {
@@ -384,13 +397,11 @@ for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap + 2; i += 1) {
 const opens = restoreCommodityShipmentBook(serializeCommodityShipmentBook(openOnly));
 assert('S35.7 never-drop-open', Object.keys(opens.shipments).length === COMMODITY_SHIPMENT_CONFIG.rowCap + 2);
 
-const issued = emptyCommodityShipmentBook();
-issued.nextSaleId = 6;
-issued.consumedSaleIds = { 4: true };
-const kept = restoreCommodityShipmentBook(serializeCommodityShipmentBook(issued));
-const rewound = restoreCommodityShipmentBook({ ...serializeCommodityShipmentBook(issued), nextSaleId: 1 });
-assert('S35.7 nextSaleId-round-trip', kept.nextSaleId === 6);
-assert('S35.7 nextSaleId-never-lowers', rewound.nextSaleId === 5);
+const legacyIssued = { version: 1, nextSaleId: 6, sales: {}, consumedSaleIds: { 4: true } };
+const kept = restoreCommodityShipmentBook(legacyIssued);
+const rewound = restoreCommodityShipmentBook({ ...legacyIssued, nextSaleId: 1 });
+assert('S35.7 nextSaleId-round-trip', kept.nextSaleId === 6 && serializeCommodityShipmentBook(kept).consumedSaleIds == null);
+assert('S35.7 nextSaleId-never-lowers', rewound.nextSaleId === 5 && !rewound.sales['4']);
 
 const contacts = [{ id: 'c' }];
 const incidents = ['inc-1'];
@@ -648,7 +659,7 @@ roundTrip('S35.15 lump-then-split', () => {
     pod.tons = 3 - i;
     const sold = sellBackBookLot(bought.book, { saleId: oneId, market, marketBook: book, pods: hold });
     net += sold.paid;
-    delete bought.book.consumedSaleIds[oneId];
+    delete bought.book.sales[String(bought.saleId)];
   }
   return { net, priceReturned: market.price === start, price: market.price, start };
 });
@@ -766,7 +777,7 @@ assert('S35.16 stock-floor-log', visibleRefusal(floorBuy)
   && /stock is at the floor/i.test(floorBuy.logLine)
   && shopFloorBuy.paid === 0
   && shopFloorBuy.logBand == null
-  && /stock is at the floor/i.test(shopFloorBuy.logLine)
+  && /No .+ stock at /.test(shopFloorBuy.logLine)
   && floorBuyMarket.market.stock === floorBuyBefore.stock
   && floorBuyMarket.market.price === floorBuyBefore.price);
 
@@ -1136,6 +1147,69 @@ function buyOpen(good) {
     market: contra.market, marketBook: contra.book, pods: emptyPods(), cargoCap: 20, credits: 500, tons: 1,
   });
   assert('S35.17 contraband-from-market', bought.ok === true && bought.book.lots[bought.lotId].contraband === true);
+}
+
+assert('S35.18 missing-scope', (() => {
+  const minted = freshMarket({ price: 10, stock: 6, demand: 6 });
+  const before = { stock: minted.market.stock, price: minted.market.price, demand: minted.market.demand };
+  const buy = buyCommodityLotRaw(emptyCommodityShipmentBook(), {
+    market: minted.market,
+    marketBook: minted.book,
+    pods: emptyPods(),
+    cargoCap: 20,
+    credits: 500,
+    tons: 1,
+  });
+  const unknown = dominionTradeAllowed({ scope: 'dominion-first', systemName: 'Ferenginar', role: 'traffic' });
+  const missing = dominionTradeAllowed({});
+  return buy.paid === 0 && buy.ok === false && buy.reason === 'missing-scope'
+    && missing.allowed === false && missing.reason === 'missing-scope'
+    && unknown.allowed === false
+    && minted.market.stock === before.stock && minted.market.price === before.price
+    && !String(buy.logLine).startsWith('FLASH');
+})());
+
+{
+  const minted = freshMarket({ price: 4, stock: 30, demand: 30, stockCap: 40, demandCap: 40, floor: 0 });
+  const hold = emptyPods();
+  const ledger = emptyCommodityShipmentBook();
+  const buyOne = () => buyCommodityLot(ledger, {
+    market: minted.market, marketBook: minted.book, pods: hold, cargoCap: 40, credits: 9000, tons: 1,
+  });
+  const sellOne = () => {
+    const saleId = Object.keys(ledger.sales || {})[0];
+    return sellBackBookLot(ledger, { saleId, market: minted.market, marketBook: minted.book, pods: hold });
+  };
+  for (let n = 0; n < 12; n += 1) {
+    if (!hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
+    buyOne();
+  }
+  const mid = JSON.stringify(serializeCommodityShipmentBook(ledger)).length;
+  const early = sellBackBookLot(ledger, { saleId: 1, market: minted.market, marketBook: minted.book, pods: hold });
+  for (let n = 0; n < 12; n += 1) {
+    if (!hold.some((pod) => !pod.tons || pod.item === 'Nothing')) sellOne();
+    buyOne();
+  }
+  const packed = serializeCommodityShipmentBook(ledger);
+  const later = JSON.stringify(packed).length;
+  assert('S35.18 sales-bounded', Object.keys(packed.sales || {}).length <= COMMODITY_SHIPMENT_CONFIG.rowCap
+    && packed.consumedSaleIds == null
+    && later <= mid + 400
+    && early.paid === 0
+    && !ledger.sales['1'], JSON.stringify({ sales: Object.keys(packed.sales || {}), mid, later, early: early.paid }));
+}
+
+{
+  const pods = emptyPods();
+  pods[0] = { tons: 1, item: 'Medical Supplies', destination: undefined, payout: 0, bookLotId: 'lot:4', bookSaleId: 4 };
+  const revived = restoreCommodityShipmentBook({
+    version: 1,
+    nextSaleId: 6,
+    consumedSaleIds: { 4: true },
+    sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 } },
+  }, { pods });
+  const sold = sellBackBookLot(revived, { saleId: 4, market: freshMarket().market, pods });
+  assert('S35.18 restore-no-resurrect', !revived.sales['4'] && sold.paid === 0 && revived.nextSaleId === 6);
 }
 
 if (failed) {

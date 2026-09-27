@@ -1015,10 +1015,10 @@ export function applyShopBuy(book, input = {}, injected = null) {
     const empty = withRefusalLine(dealResult({
       allowed: false,
       kind: market?.restriction || 'seller_rule',
-      sayable: 'Buy refused. Stock is at the floor. The market did not move.',
+      sayable: `No ${market?.good || 'cargo'} stock at ${market?.locationName || 'this port'}.`,
       price: deal.price,
       market,
-    }), 'Buy refused. Stock is at the floor. The market did not move.');
+    }), `No ${market?.good || 'cargo'} stock at ${market?.locationName || 'this port'}.`);
     store.lastRefuse = empty;
     return empty;
   }
@@ -1038,7 +1038,7 @@ export function applyShopBuy(book, input = {}, injected = null) {
       reason: step.reason,
       price: market.price,
       market,
-    }, 'Buy refused. Stock is at the floor. The market did not move.');
+    }, `No ${market?.good || 'cargo'} stock at ${market?.locationName || 'this port'}.`);
   }
   const charged = premiumCharge(step.paid, market, injected);
   const shop = recordShopTrade(store, { good: market.good, locationId: market.locationId, direction: 'buy' });
@@ -1070,6 +1070,7 @@ export function applyShopSell(book, input = {}, injected = null) {
   }
   if (!deal.allowed) return withRefusalLine({ ...deal, standingDelta: 0, paid: 0 }, deal.sayable);
   const spec = goodSpec(store, market.good, injected);
+  const next = market.stock + 1;
   const before = { stock: market.stock, demand: market.demand, price: market.price };
   const step = settleMarketTon(market, 'sell', spec, injected);
   if (!step.ok) {
@@ -1102,7 +1103,7 @@ export function applyShopSell(book, input = {}, injected = null) {
     demand: market.demand,
     standingDelta: shop.standingDelta,
     reversal: shop.reversal,
-    saturated: false,
+    saturated: next > spec.stockCap,
     market,
   };
 }
