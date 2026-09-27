@@ -11630,7 +11630,10 @@ function fitOpenBookBriefing() {
     if (book) {
       book.style.flex = '';
       book.style.minHeight = '';
+      book.style.maxHeight = '';
       book.style.overflow = '';
+      book.style.overflowY = '';
+      book.classList.remove('is-scrolling');
     }
     syncArchiveScrollbar(host);
     return;
@@ -11694,7 +11697,41 @@ function fitOpenBookBriefing() {
     host.style.overflowY = 'auto';
   }
   syncArchiveScrollbar(host);
-  if (host.classList.contains('is-scrolling')) host.scrollTop = 0;
+  const heading = host.querySelector('.commodity-shipment-title');
+  if (heading) {
+    const padTop = (parseFloat(getComputedStyle(host).borderTopWidth) || 0) + 6;
+    const frame = host.getBoundingClientRect();
+    const headingBox = heading.getBoundingClientRect();
+    if (headingBox.height > 1 && (headingBox.top < frame.top + padTop - 1 || headingBox.bottom > frame.bottom - 1)) {
+      host.scrollTop += headingBox.top - (frame.top + padTop);
+    }
+    syncArchiveScrollbar(host);
+  }
+  if (book) {
+    book.style.maxHeight = '';
+    book.classList.remove('is-scrolling');
+    const hostBox = host.getBoundingClientRect();
+    const hostStyle = getComputedStyle(host);
+    const innerBottom = hostBox.bottom
+      - (parseFloat(hostStyle.borderBottomWidth) || 0)
+      - (parseFloat(hostStyle.paddingBottom) || 0);
+    const bookBox = book.getBoundingClientRect();
+    const extra = bookBox.bottom - innerBottom;
+    const fitted = Math.floor(bookBox.height - extra);
+    if (extra > 1 && fitted >= 96) {
+      book.style.maxHeight = `${fitted}px`;
+      book.style.overflow = 'hidden';
+      const inner = book.querySelector('.commodity-book-scroll');
+      if (inner) {
+        inner.style.flex = '';
+        inner.style.overflow = '';
+        inner.style.overflowY = '';
+        inner.style.height = '';
+        inner.style.maxHeight = '';
+        inner.style.minHeight = '';
+      }
+    }
+  }
 }
 
 function measureCommodityNoClip() {
@@ -12044,10 +12081,14 @@ function measureCommodityNoClip() {
     if (target.nodeType === 1) return [target.getBoundingClientRect()];
     return [];
   };
+  const innerReveals = (outer, el, rect) => clippingAncestors(el).some((node) => {
+    if (node === outer || !outer.contains(node) || !canRevealLine(node, rect)) return false;
+    return !edgeCuts(outer, node.getBoundingClientRect());
+  });
   const lineCut = (el, rects) => rects.some((rect) => {
     const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
     if (!cutters.length) return false;
-    return cutters.some((node) => !canRevealLine(node, rect));
+    return cutters.some((node) => !canRevealLine(node, rect) && !innerReveals(node, el, rect));
   });
   const spillsPast = (panel, target, rect) => {
     let top = rect.top;
@@ -12136,13 +12177,77 @@ function measureCommodityNoClip() {
       if (textTarget && breaksInsideWord(textTarget)) pushMeasure(cutOffLines, piece.text);
     }
   }
+  const viewportEdge = () => ({ top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth });
+  const boxInside = (rect, edge) => rect.width > 1 && rect.height > 1
+    && rect.top >= edge.top - 1 && rect.bottom <= edge.bottom + 1
+    && rect.left >= edge.left - 1 && rect.right <= edge.right + 1;
+  const rowVisible = (el) => {
+    if (!shown(el)) return false;
+    const rect = el.getBoundingClientRect();
+    if (!boxInside(rect, viewportEdge())) return false;
+    return clippingAncestors(el).every((node) => boxInside(rect, clientEdges(node)));
+  };
+  const rowReachable = (el) => {
+    if (!shown(el)) return false;
+    if (rowVisible(el)) return true;
+    const rect = el.getBoundingClientRect();
+    const clippers = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
+    return clippers.length > 0 && clippers.every((node) => canRevealLine(node, rect) || innerReveals(node, el, rect));
+  };
   const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
   const bookSnap = globalThis.__BM1_PROBE__?.commodityShipment?.snapshot?.() || {};
   const noticeCount = Array.isArray(bookSnap.notices) ? bookSnap.notices.length : 0;
+  const countRows = (selector, test) => (bookSection ? [...bookSection.querySelectorAll(selector)].filter(test).length : 0);
   const bookCounts = {
-    entries: bookSection ? bookSection.querySelectorAll('.commodity-entry').length : 0,
-    records: bookSection ? bookSection.querySelectorAll('.shipment-record').length : 0,
-    lines: bookSection ? bookSection.querySelectorAll('.commodity-shipment-line').length : 0,
+    entries: countRows('.commodity-entry', rowVisible),
+    records: countRows('.shipment-record', rowVisible),
+    lines: countRows('.commodity-shipment-line', rowVisible),
+  };
+  const reachableCounts = {
+    entries: countRows('.commodity-entry', rowReachable),
+    records: countRows('.shipment-record', rowReachable),
+    lines: countRows('.commodity-shipment-line', rowReachable),
+  };
+  const edgeOnScreen = (el, side) => {
+    if (!shown(el)) return false;
+    const rect = el.getBoundingClientRect();
+    const y = side === 'bottom' ? rect.bottom : rect.top;
+    if (y < -1 || y > window.innerHeight + 1 || rect.right < 0 || rect.left > window.innerWidth) return false;
+    return clippingAncestors(el).every((node) => {
+      const edge = clientEdges(node);
+      return y >= edge.top - 1 && y <= edge.bottom + 1 && rect.right > edge.left + 1 && rect.left < edge.right - 1;
+    });
+  };
+  const bookHeadingVisible = rowVisible(bookSection?.querySelector('.commodity-shipment-title'));
+  const firstEntryVisible = rowVisible(bookSection?.querySelector('.commodity-entry'));
+  const buyVisible = rowVisible(bookSection?.querySelector('[data-commodity-buy]'));
+  const frameBottomVisible = edgeOnScreen(bookSection?.querySelector('.commodity-book-frame'), 'bottom');
+  const cargoHeading = [...document.querySelectorAll('.panel-head')].find((el) => /cargo market/i.test(el.textContent || ''));
+  const cargoHeadingVisible = rowVisible(cargoHeading);
+  const firstMarket = document.querySelector('#planet-menu .market-good');
+  const firstMarketVisible = rowVisible(firstMarket);
+  const targetEl = document.getElementById('target-window');
+  const targetShown = Boolean(targetEl && shown(targetEl) && targetEl.querySelector('.target-window-head'));
+  const hullMeter = targetShown
+    ? [...targetEl.querySelectorAll('.target-meter')].find((el) => /hull/i.test(el.textContent || ''))
+    : null;
+  const hullText = String(hullMeter?.querySelector('b')?.textContent || '').trim();
+  const hullPct = /^\d+%$/.test(hullText) ? Number.parseInt(hullText, 10) : null;
+  const boardButton = (action) => {
+    const button = targetEl?.querySelector(`[data-board-action="${action}"]`);
+    return {
+      present: Boolean(button),
+      visible: Boolean(button && rowVisible(button)),
+      disabled: Boolean(button && (button.disabled || button.hasAttribute('disabled'))),
+    };
+  };
+  const targetCard = {
+    shown: targetShown,
+    name: targetShown ? String(targetEl.querySelector('.target-window-head b')?.textContent || '').trim() : '',
+    hullText,
+    hullPct,
+    capture: boardButton('capture'),
+    scuttle: boardButton('scuttle'),
   };
   const expectedCounts = bookSection ? {
     entries: Array.isArray(bookSnap.commodityNames) ? bookSnap.commodityNames.length : 0,
@@ -12164,7 +12269,15 @@ function measureCommodityNoClip() {
     cutOffLines,
     nameCut,
     bookCounts,
+    reachableCounts,
     expectedCounts,
+    bookHeadingVisible,
+    firstEntryVisible,
+    buyVisible,
+    frameBottomVisible,
+    cargoHeadingVisible,
+    firstMarketVisible,
+    targetCard,
     panels: panels.map(labelOf),
     bookPresent: Boolean(document.getElementById('commodity-shipment')),
     bookHidden: !bookSection || !shown(bookSection),

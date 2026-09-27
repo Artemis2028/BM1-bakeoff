@@ -17,6 +17,11 @@
       "cutOffLines": [],
       "bookCounts": {
         "entries": 8,
+        "records": 3,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 8,
         "records": 8,
         "lines": 8
       },
@@ -24,6 +29,28 @@
         "entries": 8,
         "records": 8,
         "lines": 8
+      },
+      "bookHeadingVisible": true,
+      "firstEntryVisible": true,
+      "buyVisible": true,
+      "frameBottomVisible": true,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true
@@ -39,10 +66,37 @@
         "records": 0,
         "lines": 0
       },
+      "reachableCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
       "expectedCounts": {
         "entries": 0,
         "records": 0,
         "lines": 0
+      },
+      "bookHeadingVisible": false,
+      "firstEntryVisible": false,
+      "buyVisible": false,
+      "frameBottomVisible": false,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true
@@ -58,10 +112,37 @@
         "records": 0,
         "lines": 0
       },
+      "reachableCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
       "expectedCounts": {
         "entries": 0,
         "records": 0,
         "lines": 0
+      },
+      "bookHeadingVisible": false,
+      "firstEntryVisible": false,
+      "buyVisible": false,
+      "frameBottomVisible": false,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true
@@ -77,10 +158,37 @@
         "records": 0,
         "lines": 0
       },
+      "reachableCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
       "expectedCounts": {
         "entries": 0,
         "records": 0,
         "lines": 0
+      },
+      "bookHeadingVisible": false,
+      "firstEntryVisible": false,
+      "buyVisible": false,
+      "frameBottomVisible": false,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "100%",
+        "hullPct": 100,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true
@@ -92,6 +200,11 @@
       "squashedControls": [],
       "cutOffLines": [],
       "bookCounts": {
+        "entries": 3,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
         "entries": 8,
         "records": 8,
         "lines": 8
@@ -100,6 +213,28 @@
         "entries": 8,
         "records": 8,
         "lines": 8
+      },
+      "bookHeadingVisible": true,
+      "firstEntryVisible": true,
+      "buyVisible": true,
+      "frameBottomVisible": true,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "100%",
+        "hullPct": 100,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true
@@ -111,6 +246,11 @@
       "squashedControls": [],
       "cutOffLines": [],
       "bookCounts": {
+        "entries": 3,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
         "entries": 8,
         "records": 8,
         "lines": 8
@@ -119,6 +259,28 @@
         "entries": 8,
         "records": 8,
         "lines": 8
+      },
+      "bookHeadingVisible": true,
+      "firstEntryVisible": true,
+      "buyVisible": true,
+      "frameBottomVisible": true,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "10%",
+        "hullPct": 10,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": false
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true
@@ -130,6 +292,11 @@
       "squashedControls": [],
       "cutOffLines": [],
       "bookCounts": {
+        "entries": 5,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
         "entries": 8,
         "records": 8,
         "lines": 8
@@ -138,6 +305,74 @@
         "entries": 8,
         "records": 8,
         "lines": 8
+      },
+      "bookHeadingVisible": true,
+      "firstEntryVisible": true,
+      "buyVisible": false,
+      "frameBottomVisible": false,
+      "cargoHeadingVisible": false,
+      "firstMarketVisible": false,
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "dockBottom": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 5
+      },
+      "reachableCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "bookHeadingVisible": false,
+      "firstEntryVisible": false,
+      "buyVisible": true,
+      "frameBottomVisible": true,
+      "cargoHeadingVisible": true,
+      "firstMarketVisible": true,
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
       },
       "observerMutations": 0,
       "saveHashMatch": true

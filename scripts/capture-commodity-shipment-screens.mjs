@@ -272,7 +272,15 @@ async function main() {
       squashedControls: row.squashedControls,
       cutOffLines: row.cutOffLines,
       bookCounts: row.bookCounts,
+      reachableCounts: row.reachableCounts,
       expectedCounts: row.expectedCounts,
+      bookHeadingVisible: row.bookHeadingVisible,
+      firstEntryVisible: row.firstEntryVisible,
+      buyVisible: row.buyVisible,
+      frameBottomVisible: row.frameBottomVisible,
+      cargoHeadingVisible: row.cargoHeadingVisible,
+      firstMarketVisible: row.firstMarketVisible,
+      targetCard: row.targetCard,
       observerMutations: row.observerMutations,
       saveHashMatch: row.saveHashMatch,
     });
@@ -371,7 +379,7 @@ async function main() {
     await shot(page, 'after-world-cargo');
     const worldCargo = await measurePaused();
     await showCampaignAndCargo(page);
-    await page.evaluate(() => {
+    const locked = await page.evaluate(() => {
       globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
       globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
       const spawned = globalThis.BM1Probe?.spawnShip?.({
@@ -380,10 +388,24 @@ async function main() {
         faction: 'ferengi',
         attitude: 'neutral',
       });
-      globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 'shot-odyssey');
+      const selected = globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 'shot-odyssey');
+      globalThis.BM1Probe?.paint?.();
       globalThis.BM1Probe?.freezeLoop?.();
-      globalThis.BM1Probe?.redraw?.();
+      const card = document.getElementById('target-window');
+      const hidden = !card || card.classList.contains('hidden') || getComputedStyle(card).display === 'none';
+      return {
+        spawnedId: spawned?.id || null,
+        selectedOk: selected?.ok === true,
+        selectedReason: selected?.reason || null,
+        cardHidden: hidden,
+        cardText: hidden ? '' : String(card.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 180),
+      };
     });
+    console.log('target lock', JSON.stringify(locked));
+    if (!locked.selectedOk || locked.cardHidden) {
+      console.error('target card was not shown', JSON.stringify(locked));
+      process.exitCode = 1;
+    }
     await logRefusal();
     await page.waitForTimeout(200);
     await shot(page, 'after-target-undocked');
@@ -420,12 +442,68 @@ async function main() {
     await shot(page, 'after-dock-market');
     const dock = await measurePaused();
     console.log('dock rects', JSON.stringify(await rectsOf()));
-    const countsMatch = (row) => row.bookCounts
+    const dockPoint = await page.evaluate(() => {
+      const panel = document.querySelector('#planet-menu .dock-panel');
+      const rect = panel?.getBoundingClientRect();
+      if (!rect || rect.width < 20) return null;
+      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + 36) };
+    });
+    if (!dockPoint) {
+      console.error('dock panel is not on screen');
+      process.exitCode = 1;
+    } else {
+      await page.mouse.move(dockPoint.x, dockPoint.y);
+      let dockBottomReady = false;
+      for (let step = 0; step < 40 && !dockBottomReady; step += 1) {
+        const place = await page.evaluate(() => {
+          const panel = document.querySelector('#planet-menu .dock-panel');
+          const frame = panel?.querySelector('.commodity-book-frame');
+          const buy = panel?.querySelector('[data-commodity-buy]');
+          const heading = [...(panel?.querySelectorAll('.panel-head') || [])].find((el) => /cargo market/i.test(el.textContent || ''));
+          const row = panel?.querySelector('.market-good');
+          const host = panel?.getBoundingClientRect();
+          const inside = (el) => {
+            if (!el || !host) return false;
+            const box = el.getBoundingClientRect();
+            return box.height > 8 && box.top >= host.top - 1 && box.bottom <= host.bottom + 1
+              && box.top >= -1 && box.bottom <= window.innerHeight + 1;
+          };
+          const frameBox = frame?.getBoundingClientRect();
+          const frameBottom = Boolean(frameBox && host && frameBox.bottom >= host.top + 8 && frameBox.bottom <= host.bottom + 1
+            && frameBox.bottom <= window.innerHeight + 1);
+          if (frameBottom && inside(buy) && inside(heading) && inside(row)) return 'ready';
+          const buyBox = buy?.getBoundingClientRect();
+          if (!buyBox || !host) return 'missing';
+          if (buyBox.top > host.bottom - 8) return 'below';
+          return 'above';
+        });
+        dockBottomReady = place === 'ready';
+        if (!dockBottomReady) {
+          await page.mouse.wheel(0, place === 'above' ? -140 : 160);
+          await page.waitForTimeout(40);
+        }
+      }
+      if (!dockBottomReady) {
+        console.error('dock bottom did not scroll into view');
+        process.exitCode = 1;
+      }
+    }
+    await shot(page, 'after-dock-market-bottom');
+    const dockBottom = await measurePaused();
+    const countsMatch = (row) => row.reachableCounts
       && row.expectedCounts
-      && row.bookCounts.entries === row.expectedCounts.entries
-      && row.bookCounts.records === row.expectedCounts.records
-      && row.bookCounts.lines === row.expectedCounts.lines;
-    const atCap = (row) => countsMatch(row) && row.bookCounts.entries === 8 && row.bookCounts.records === 8;
+      && row.reachableCounts.entries === row.expectedCounts.entries
+      && row.reachableCounts.records === row.expectedCounts.records
+      && row.reachableCounts.lines === row.expectedCounts.lines;
+    const atCap = (row) => countsMatch(row) && row.reachableCounts.entries === 8 && row.reachableCounts.records === 8;
+    const bookOnScreen = (row) => row.bookHeadingVisible === true && row.firstEntryVisible === true;
+    const cardOk = (row, hull, both) => {
+      const card = row.targetCard || {};
+      const named = /odyssey/i.test(card.name || '');
+      const buttons = card.capture?.present === true && card.capture.visible === true && card.capture.disabled === false
+        && card.scuttle?.present === true && card.scuttle.visible === true && card.scuttle.disabled === false;
+      return card.shown === true && named && card.hullPct === hull && (!both || buttons);
+    };
     const empty = (row) => row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0
       && row.squashedControls.length === 0 && row.cutOffLines.length === 0 && row.nameCut !== true
       && row.observerMutations === 0 && row.saveHashMatch === true && countsMatch(row);
@@ -437,6 +515,7 @@ async function main() {
       bookTarget: listsOf(bookTarget),
       bookTargetLow: listsOf(bookTargetLow),
       dock: listsOf(dock),
+      dockBottom: listsOf(dockBottom),
     };
     const report = {
       viewport: dock.viewport,
@@ -447,12 +526,40 @@ async function main() {
       cutOffLines: [],
       states,
     };
-    const failed = [briefing, campaign, worldCargo, target, bookTarget, bookTargetLow, dock].filter((row) => !empty(row));
-    if (![bookTarget, bookTargetLow, dock].every(atCap)) {
-      console.error('full-state counts are not at the caps', JSON.stringify({
-        bookTarget: bookTarget.bookCounts,
-        bookTargetLow: bookTargetLow.bookCounts,
-        dock: dock.bookCounts,
+    const measuredStates = [briefing, campaign, worldCargo, target, bookTarget, bookTargetLow, dock, dockBottom];
+    const failed = measuredStates.filter((row) => !empty(row));
+    const capped = [briefing, bookTarget, bookTargetLow, dock, dockBottom];
+    if (!capped.every(atCap)) {
+      console.error('full-state reachable counts are not at the caps', JSON.stringify(capped.map((row) => ({
+        visible: row.bookCounts,
+        reachable: row.reachableCounts,
+        expected: row.expectedCounts,
+      }))));
+      process.exitCode = 1;
+    }
+    if (![briefing, bookTarget, bookTargetLow, dock].every(bookOnScreen)) {
+      console.error('book heading is not on screen', JSON.stringify({
+        briefing: bookOnScreen(briefing),
+        bookTarget: bookOnScreen(bookTarget),
+        bookTargetLow: bookOnScreen(bookTargetLow),
+        dock: bookOnScreen(dock),
+      }));
+      process.exitCode = 1;
+    }
+    if (!cardOk(target, 100, false) || !cardOk(bookTarget, 100, false) || !cardOk(bookTargetLow, 10, true)) {
+      console.error('target card facts failed', JSON.stringify({
+        target: target.targetCard,
+        bookTarget: bookTarget.targetCard,
+        bookTargetLow: bookTargetLow.targetCard,
+      }));
+      process.exitCode = 1;
+    }
+    if (!(dockBottom.frameBottomVisible && dockBottom.buyVisible && dockBottom.cargoHeadingVisible && dockBottom.firstMarketVisible)) {
+      console.error('dock bottom rows are not on screen', JSON.stringify({
+        frameBottomVisible: dockBottom.frameBottomVisible,
+        buyVisible: dockBottom.buyVisible,
+        cargoHeadingVisible: dockBottom.cargoHeadingVisible,
+        firstMarketVisible: dockBottom.firstMarketVisible,
       }));
       process.exitCode = 1;
     }
@@ -472,10 +579,11 @@ async function main() {
       bookTarget: { bookText: bookTarget.bookText, headerText: bookTarget.headerText, panels: bookTarget.panels, ...listsOf(bookTarget) },
       bookTargetLow: { bookText: bookTargetLow.bookText, headerText: bookTargetLow.headerText, panels: bookTargetLow.panels, ...listsOf(bookTargetLow) },
       dock: { bookText: dock.bookText, headerText: dock.headerText, panels: dock.panels, ...listsOf(dock) },
+      dockBottom: { bookText: dockBottom.bookText, headerText: dockBottom.headerText, panels: dockBottom.panels, ...listsOf(dockBottom) },
     }, null, 2));
     const duplicate = path.join(outDir, 'after-book-panel.png');
     if (fs.existsSync(duplicate)) fs.unlinkSync(duplicate);
-    const afterNames = ['after-campaign', 'after-briefing', 'after-world-cargo', 'after-target-undocked', 'after-book-target', 'after-book-target-low-hull', 'after-dock-market'];
+    const afterNames = ['after-campaign', 'after-briefing', 'after-world-cargo', 'after-target-undocked', 'after-book-target', 'after-book-target-low-hull', 'after-dock-market', 'after-dock-market-bottom'];
     const hashes = afterNames.map((name) => crypto.createHash('sha256').update(fs.readFileSync(path.join(outDir, `${name}.png`))).digest('hex'));
     console.log('after hashes', Object.fromEntries(afterNames.map((name, index) => [name, hashes[index].slice(0, 12)])));
     if (new Set(hashes).size !== hashes.length) {
