@@ -595,12 +595,12 @@
       "squashedControls": [],
       "cutOffLines": [],
       "bookCounts": {
-        "entries": 0,
+        "entries": 3,
         "records": 0,
         "lines": 0
       },
       "reachableCounts": {
-        "entries": 8,
+        "entries": 5,
         "records": 8,
         "lines": 8
       },
@@ -664,12 +664,12 @@
       "squashedControls": [],
       "cutOffLines": [],
       "bookCounts": {
-        "entries": 1,
+        "entries": 3,
         "records": 0,
         "lines": 0
       },
       "reachableCounts": {
-        "entries": 7,
+        "entries": 5,
         "records": 8,
         "lines": 8
       },
@@ -733,12 +733,12 @@
       "squashedControls": [],
       "cutOffLines": [],
       "bookCounts": {
-        "entries": 1,
+        "entries": 3,
         "records": 0,
         "lines": 0
       },
       "reachableCounts": {
-        "entries": 7,
+        "entries": 5,
         "records": 8,
         "lines": 8
       },
@@ -804,12 +804,12 @@
       "bookCounts": {
         "entries": 0,
         "records": 0,
-        "lines": 1
+        "lines": 5
       },
       "reachableCounts": {
         "entries": 8,
         "records": 8,
-        "lines": 7
+        "lines": 3
       },
       "expectedCounts": {
         "entries": 8,

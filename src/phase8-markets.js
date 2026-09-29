@@ -1127,7 +1127,6 @@ export function applyShopSell(book, input = {}, injected = null) {
   }
   if (!deal.allowed) return withRefusalLine({ ...deal, standingDelta: 0, paid: 0 }, deal.sayable);
   const spec = goodSpec(store, market.good, injected);
-  const next = market.stock + 1;
   const before = { stock: market.stock, demand: market.demand, price: market.price };
   const step = settleMarketTon(market, 'sell', spec, injected);
   if (!step.ok) {
@@ -1160,7 +1159,6 @@ export function applyShopSell(book, input = {}, injected = null) {
     demand: market.demand,
     standingDelta: shop.standingDelta,
     reversal: shop.reversal,
-    saturated: next > spec.stockCap,
     market,
   };
 }

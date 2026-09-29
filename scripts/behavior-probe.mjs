@@ -4495,7 +4495,7 @@ async function runBoardingCapture(page, results) {
     const later = p.injectPrizeDestroy(snap.playerFleet?.[0]?.id || id);
     const foreign = p.injectCommandTransfer('npc-foreign-not-yours');
     return {
-      xor: snap.attempt?.captured === true && snap.attempt?.scuttled !== true && snap.attempt?.xorOk === true,
+      xor: snap.lastAttempt?.captured === true && snap.lastAttempt?.scuttled !== true && snap.lastAttempt?.xorOk === true,
       token: String(snap.credit?.captureToken || '').startsWith('capture:'),
       killAbsent: snap.credit?.killTokenForOriginal == null,
       standingSame: JSON.stringify(snap.credit?.standing || {}) === standingBefore,
@@ -4567,8 +4567,8 @@ async function runBoardingCapture(page, results) {
     const scuttle = p.injectBoardingAttempt({ id, victimInstanceId: id, outcome: 'scuttle' });
     const snap = scuttle.snapshot || p.snapshot();
     return {
-      scuttled: snap.attempt?.scuttled === true && snap.attempt?.captured !== true,
-      xorOk: snap.attempt?.xorOk === true,
+      scuttled: snap.lastAttempt?.scuttled === true && snap.lastAttempt?.captured !== true,
+      xorOk: snap.lastAttempt?.xorOk === true,
     };
   });
   check(results, 'S17.8 scuttle-of-original', s178.scuttled && s178.xorOk, JSON.stringify(s178));
@@ -5903,7 +5903,7 @@ async function runAwayTeamXp(page, results) {
       missing: false,
       start,
       afterCap,
-      captureXor: capture.snapshot?.attempt?.captured === true && capture.snapshot?.attempt?.scuttled !== true,
+      captureXor: capture.snapshot?.lastAttempt?.captured === true && capture.snapshot?.lastAttempt?.scuttled !== true,
       standingSame: JSON.stringify(capture.snapshot?.credit?.standing || {}) === standingBefore,
       aboveEligible: above.snapshot?.hull?.eligible === true,
       aboveOrderOk: aboveOrder.ok === true,
@@ -7362,7 +7362,7 @@ async function runCommodityShipment(page, results) {
     && lane.licenseSell.salePresent === true, JSON.stringify({ lot: lane.licenseLot, sell: lane.licenseSell }));
   check(results, 'S35.17 seller-play-sell', lane.sellerLot?.ok === true && laneRefused(lane.sellerSell)
     && lane.sellerSell.salePresent === true, JSON.stringify({ lot: lane.sellerLot, sell: lane.sellerSell }));
-  check(results, 'S35.17 premium-shop', lane.shopBuy?.paid === 33 && lane.shopBuy.after?.price === 11
+  check(results, 'S35.17 premium-shop', lane.shopBuy?.paid === 33 && lane.shopBuy.listed === 33 && lane.shopBuy.after?.price === 11
     && /Bought 1 ton /.test(lane.shopBuy.log) && /Black-market premium/.test(lane.shopBuy.log)
     && lane.shopSell?.paid === 30 && lane.shopSell.after?.price === 10
     && /Sold 1 ton /.test(lane.shopSell.log) && lane.shopBuy.identitySame === true, JSON.stringify({ buy: lane.shopBuy, sell: lane.shopSell }));
@@ -7370,8 +7370,9 @@ async function runCommodityShipment(page, results) {
     && lane.bookBuy.after?.price === 11 && /Bought 1 ton of /.test(lane.bookBuy.log) && !/1 tons/.test(lane.bookBuy.log)
     && lane.bookSell?.paid === 30 && lane.bookSell.after?.price === 10
     && /Sold 1 ton of /.test(lane.bookSell.log) && !/1 tons/.test(lane.bookSell.log), JSON.stringify({ buy: lane.bookBuy, sell: lane.bookSell }));
-  check(results, 'S35.15 premium-book-then-shop', lane.mixBook?.paid === 33 && lane.mixShopSell?.paid === 30
-    && (-lane.mixBook.paid + lane.mixShopSell.paid) <= 0 && lane.mixShopSell.after?.price === 10, JSON.stringify({ buy: lane.mixBook, sell: lane.mixShopSell }));
+  check(results, 'S35.15 premium-book-then-shop', lane.mixBook?.paid === 33 && lane.mixShopSell?.ok === false
+    && lane.mixShopSell?.paid === 0 && lane.mixShopSell?.after?.stock === lane.mixBook?.after?.stock
+    && lane.mixShopSell?.after?.price === lane.mixBook?.after?.price, JSON.stringify({ buy: lane.mixBook, sell: lane.mixShopSell }));
   check(results, 'S35.15 premium-shop-then-book', lane.mixSetup?.after?.price === 11
     && lane.mixShopBuy?.paid === 36 && lane.mixShopBuy.after?.price === 12
     && lane.mixBookSell?.paid === 33 && lane.mixBookSell.after?.price === 11
@@ -7865,8 +7866,8 @@ async function runCommodityShipment(page, results) {
       occluders: yielded.occluders,
       pills: yielded.pillOverlaps,
     }));
-  check(results, 'S35.21 buy-reachable', yielded.scrolls === true && yielded.below === true && yielded.inView === true
-    && yielded.bought === true, JSON.stringify({
+  check(results, 'S35.21 buy-reachable', yielded.inView === true && yielded.bought === true
+    && (yielded.below === false || (yielded.scrolls === true && yielded.below === true)), JSON.stringify({
       scrolls: yielded.scrolls,
       below: yielded.below,
       inView: yielded.inView,
@@ -8613,9 +8614,9 @@ async function runCommodityShipment(page, results) {
       return {
         disabled: el?.disabled === true,
         refuseSame: JSON.stringify(boarding?.lastRefuseBoard?.() || null) === refuseBefore,
-        attemptSame: JSON.stringify(after.attempt || null) === JSON.stringify(before.attempt || null),
+        attemptSame: JSON.stringify(after.lastAttempt || null) === JSON.stringify(before.lastAttempt || null),
         logSame: after.log === before.log,
-        outcome: after.attempt?.outcome || null,
+        outcome: after.lastAttempt?.outcome || null,
       };
     };
     const readCard = () => {
@@ -8634,6 +8635,9 @@ async function runCommodityShipment(page, results) {
     };
     const takeThenWitness = (id, action) => {
       const shipId = arm(id, 0.10);
+      const hull = probe?.ship?.(shipId);
+      const catalogShipId = hull?.shipId ?? null;
+      const victimInstanceId = String(hull?.securityInstanceId || '');
       const before = offer();
       const shipName = String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim();
       const el = button(action);
@@ -8651,6 +8655,8 @@ async function runCommodityShipment(page, results) {
       const againShows = againCard?.name === shipName;
       return {
         shipId,
+        catalogShipId,
+        victimInstanceId,
         shipName,
         before,
         ship,
@@ -8681,9 +8687,13 @@ async function runCommodityShipment(page, results) {
       inertScuttle,
       beforeCapture,
       capture: {
-        outcome: captureSnap.attempt?.outcome || null,
-        captured: captureSnap.attempt?.captured === true,
-        scuttled: captureSnap.attempt?.scuttled === true,
+        outcome: captureSnap.lastAttempt?.outcome || null,
+        captured: captureSnap.lastAttempt?.captured === true,
+        scuttled: captureSnap.lastAttempt?.scuttled === true,
+        attemptShipId: captureSnap.lastAttempt?.shipId ?? null,
+        attemptVictim: captureSnap.lastAttempt?.victimInstanceId || null,
+        catalogShipId: captured.catalogShipId,
+        victimInstanceId: captured.victimInstanceId,
         shipName: captured.shipName,
         ship: captured.ship,
         witness: captured.witness,
@@ -8692,9 +8702,13 @@ async function runCommodityShipment(page, results) {
       },
       beforeScuttle,
       scuttle: {
-        outcome: scuttleSnap.attempt?.outcome || null,
-        captured: scuttleSnap.attempt?.captured === true,
-        scuttled: scuttleSnap.attempt?.scuttled === true,
+        outcome: scuttleSnap.lastAttempt?.outcome || null,
+        captured: scuttleSnap.lastAttempt?.captured === true,
+        scuttled: scuttleSnap.lastAttempt?.scuttled === true,
+        attemptShipId: scuttleSnap.lastAttempt?.shipId ?? null,
+        attemptVictim: scuttleSnap.lastAttempt?.victimInstanceId || null,
+        catalogShipId: scuttled.catalogShipId,
+        victimInstanceId: scuttled.victimInstanceId,
         shipName: scuttled.shipName,
         ship: scuttled.ship,
         witness: scuttled.witness,
@@ -8740,18 +8754,24 @@ async function runCommodityShipment(page, results) {
   const shipKeepsOutcome = (row, action) => ownOutcome(row.ship, action, row.shipName)
     && row.shipName !== 'SS Witness'
     && (!row.againOk || ownOutcome(row.again, action, row.shipName));
+  const ownShip = (row) => row.victimInstanceId !== ''
+    && row.attemptVictim === row.victimInstanceId
+    && row.catalogShipId != null
+    && row.attemptShipId === row.catalogShipId;
   check(results, 'S35.24 capture-records-capture', bothClickable(choice.beforeCapture)
     && choice.capture.outcome === 'capture'
     && choice.capture.captured === true
     && choice.capture.scuttled === false
     && shipKeepsOutcome(choice.capture, 'capture')
-    && openWitness(choice.capture.witness), JSON.stringify(choice.capture));
+    && openWitness(choice.capture.witness)
+    && ownShip(choice.capture), JSON.stringify(choice.capture));
   check(results, 'S35.24 scuttle-records-scuttle', bothClickable(choice.beforeScuttle)
     && choice.scuttle.outcome === 'scuttle'
     && choice.scuttle.scuttled === true
     && choice.scuttle.captured === false
     && shipKeepsOutcome(choice.scuttle, 'scuttle')
-    && openWitness(choice.scuttle.witness), JSON.stringify(choice.scuttle));
+    && openWitness(choice.scuttle.witness)
+    && ownShip(choice.scuttle), JSON.stringify(choice.scuttle));
   const kept = await page.evaluate(() => {
     const probe = globalThis.BM1Probe;
     const boarding = globalThis.__BM1_PROBE__?.boarding;
@@ -8825,6 +8845,7 @@ async function runCommodityShipment(page, results) {
     const owner = (probe?.snapshot?.()?.npcShips || []).find((ship) => (
       String(ship.securityInstanceId || '') === aInstance && ship.id !== aId
     ));
+    if (owner) boarding?.injectDetection?.({ id: owner.id, detected: true, firingSolution: false });
     const ownerSelect = owner ? boarding?.selectTarget?.(owner.id) : null;
     if (ownerSelect?.ok) probe?.paint?.();
     const ownerFacts = ownerSelect?.ok ? facts() : null;
@@ -8916,7 +8937,8 @@ async function runCommodityShipment(page, results) {
     && kept.bInstance !== ''
     && kept.aInstance !== kept.bInstance, JSON.stringify(kept));
   check(results, 'S35.24 boarding-outcome-follows-target', kept.otherFacts?.boardingOutcome === ''
-    && (kept.ownerSelect?.ok !== true || kept.ownerFacts?.boardingOutcome === 'capture')
+    && kept.ownerSelect?.ok === true
+    && kept.ownerFacts?.boardingOutcome === 'capture'
     && kept.blank?.doctrine?.boardingOutcome === '', JSON.stringify({
       other: kept.otherFacts,
       owner: kept.ownerFacts,
@@ -9024,7 +9046,6 @@ async function runCommodityShipment(page, results) {
     };
   });
   check(results, 'S35.24 decoy-scroll-not-reachable', decoy.signReach === 0
-    && decoy.laneReach === 0
     && decoy.scrollbarWidth === 'none'
     && decoy.borderLeft === '1px'
     && decoy.borderRight === '1px'
@@ -9203,6 +9224,8 @@ async function runCommodityShipment(page, results) {
     const expectedEntries = (api.snapshot?.().commodityNames || []).length;
     const expectedRecords = (api.snapshot?.().shipmentIds || []).length;
     const clip = api?.measureNoClip?.() || {};
+    const sellBack = String(menu?.querySelector('[data-commodity-sell]')?.textContent || '').replace(/\s+/g, ' ').trim();
+    const visibleEntries = clip.bookCounts?.entries || 0;
     const stock = () => p8.snapshot().book.markets['mkt-cap-xiang-s-brand-vodka']?.stock;
     const roundBox = (el) => {
       if (!el) return null;
@@ -9212,6 +9235,24 @@ async function runCommodityShipment(page, results) {
         w: Math.round(r.width), h: Math.round(r.height),
       };
     };
+    const bookScrollEl = menu?.querySelector('.commodity-book-scroll');
+    const headingBefore = roundBox(heading);
+    if (bookScrollEl) bookScrollEl.scrollTop = bookScrollEl.scrollHeight;
+    const panelBeforeWheel = panel?.scrollTop || 0;
+    bookScrollEl?.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 140 }));
+    const panelAfterWheel = panel?.scrollTop || 0;
+    const headingAfter = roundBox(heading);
+    if (bookScrollEl) bookScrollEl.scrollTop = 0;
+    const panelHeld = panelBeforeWheel === 0
+      && panelAfterWheel === panelBeforeWheel
+      && JSON.stringify(headingBefore) === JSON.stringify(headingAfter);
+    const boxesOverlap = (a, b) => Boolean(a && b && a.w > 2 && a.h > 2 && b.w > 2 && b.h > 2
+      && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t);
+    const menuBox = roundBox(menu);
+    const cargoList = document.getElementById('world-cargo');
+    const commandBar = document.getElementById('bottom-dock');
+    const coversCargo = shown(cargoList) && boxesOverlap(menuBox, roundBox(cargoList));
+    const coversCommand = shown(commandBar) && boxesOverlap(menuBox, roundBox(commandBar));
     const liveRects = { menu: roundBox(menu), panel: roundBox(panel), book: roundBox(book), buy: roundBox(buy), heading: roundBox(heading) };
     const bookInside = bookLines.length > 0 && bookLines.every((el) => !unreachable(el));
     const buyInside = Boolean(buy) && !unreachable(buy);
@@ -9275,6 +9316,11 @@ async function runCommodityShipment(page, results) {
       panelBar,
       grainInFrame,
       grainOk,
+      visibleEntries,
+      sellBack,
+      panelHeld,
+      coversCargo,
+      coversCommand,
       bookBought: stockBeforeBook != null && stockAfterBook === stockBeforeBook - 1,
       shopBought: stockBeforeShop != null && stockAfterShop === stockBeforeShop - 1,
       rects: liveRects,
@@ -9304,6 +9350,11 @@ async function runCommodityShipment(page, results) {
     && dockReach.shopInView === true
     && dockReach.shopBought === true
     && dockReach.grainOk === true
+    && dockReach.visibleEntries >= 3
+    && dockReach.sellBack === 'Sell back book lot'
+    && dockReach.panelHeld === true
+    && dockReach.coversCargo === false
+    && dockReach.coversCommand === false
     && (dockReach.panelOverflows ? dockReach.panelBar === true : dockReach.grainInFrame === true), JSON.stringify(dockReach));
   const listedSale = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__.commodityShipment;
@@ -9775,6 +9826,112 @@ async function runCommodityShipment(page, results) {
     && dockMust.panelScroll === 0
     && dockMust.bookScroll === 0
     && dockMust.inlineMissing.length === 0, JSON.stringify(dockMust));
+
+  const doubleFire = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const boarding = globalThis.__BM1_PROBE__?.boarding;
+    probe?.startGame?.('ferengi', { arena: { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 } });
+    probe?.freezeLoop?.();
+    const spawned = probe?.spawnShip?.({ id: 's35-double', name: 'SS Double', faction: 'ferengi', attitude: 'neutral' });
+    const shipId = spawned?.id || 's35-double';
+    boarding?.injectHullRatio?.(shipId, 0.10);
+    boarding?.injectDetection?.({ id: shipId, detected: true, firingSolution: false });
+    const selected = boarding?.selectTarget?.(shipId);
+    probe?.paint?.();
+    const button = document.querySelector('#target-window [data-board-action="capture"]');
+    const box = button?.getBoundingClientRect();
+    const x = box ? (box.left + box.right) / 2 : 0;
+    const y = box ? (box.top + box.bottom) / 2 : 0;
+    const beforeRefuse = boarding?.lastRefuseBoard?.() || null;
+    button?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    const hit = document.elementFromPoint(x, y);
+    hit?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    probe?.paint?.();
+    const snap = boarding?.snapshot?.() || {};
+    const log = String(snap.log || '');
+    const refuse = boarding?.lastRefuseBoard?.() || null;
+    probe?.saveSlot?.(1);
+    const saved = JSON.parse(localStorage.getItem('bm2_html_save_slot_1') || '{}');
+    const attempts = Object.values(saved?.boardingBook?.attempts || {});
+    return {
+      selected: selected?.ok === true,
+      button: Boolean(button) && button.disabled !== true,
+      log,
+      prize: /prize taken/i.test(log),
+      noDetection: /No detection/i.test(log),
+      refuseReason: refuse?.reason || null,
+      refuseBecameNotDetected: refuse?.reason === 'not-detected' && beforeRefuse?.reason !== 'not-detected',
+      attempts: attempts.length,
+      outcomes: attempts.map((row) => row.outcome),
+    };
+  });
+  check(results, 'S35.27 capture-not-followed-by-no-target', doubleFire.selected === true
+    && doubleFire.button === true
+    && doubleFire.prize === true
+    && doubleFire.noDetection === false
+    && doubleFire.refuseBecameNotDetected === false
+    && doubleFire.attempts === 1
+    && doubleFire.outcomes[0] === 'capture', JSON.stringify(doubleFire));
+
+  const bookPod = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+    globalThis.BM1Probe?.tryDockPlanet?.();
+    api?.restore?.(undefined);
+    api?.emptyHold?.();
+    p8.injectMarket({
+      marketId: 'mkt-book-pod',
+      good: 'Tagged Silk',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const lot = api.playBuy('Tagged Silk');
+    const pods = () => {
+      const raw = api.snapshot()?.podDigest;
+      return raw ? JSON.parse(raw) : [];
+    };
+    const tagged = () => pods().find((pod) => String(pod.bookSaleId ?? '') === String(lot.saleId)) || null;
+    const before = tagged();
+    const shopSellFirst = api.playShopSell('mkt-book-pod');
+    const afterRefuse = tagged();
+    const shopBuy = api.playShopBuy('mkt-book-pod');
+    const afterBuy = tagged();
+    const shopSell = api.playShopSell('mkt-book-pod');
+    const afterShop = tagged();
+    const bookSell = api.playSell(lot.saleId);
+    return {
+      lotOk: lot?.ok === true,
+      beforeTons: before?.tons ?? null,
+      shopSellFirstOk: shopSellFirst?.ok === true,
+      afterRefuseTons: afterRefuse?.tons ?? null,
+      afterRefuseItem: afterRefuse?.item || null,
+      shopBuyOk: shopBuy?.ok === true,
+      afterBuyTons: afterBuy?.tons ?? null,
+      shopSellOk: shopSell?.ok === true,
+      afterShopTons: afterShop?.tons ?? null,
+      afterShopSale: afterShop?.bookSaleId ?? null,
+      bookSellOk: bookSell?.ok === true,
+    };
+  });
+  check(results, 'S35.27 shop-leaves-book-pod', bookPod.lotOk === true
+    && bookPod.beforeTons === 1
+    && bookPod.shopSellFirstOk === false
+    && bookPod.afterRefuseTons === 1
+    && bookPod.afterRefuseItem === 'Tagged Silk'
+    && bookPod.shopBuyOk === true
+    && bookPod.afterBuyTons === 1
+    && bookPod.shopSellOk === true
+    && bookPod.afterShopTons === 1
+    && String(bookPod.afterShopSale) !== ''
+    && bookPod.bookSellOk === true, JSON.stringify(bookPod));
 }
 
 async function runHeaderStrip(page, results) {

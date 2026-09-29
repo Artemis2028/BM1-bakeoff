@@ -1756,9 +1756,9 @@ body.ui-theme-cardassian .target-meter-track {
   top: 62px;
   z-index: 31;
   width: min(520px, calc(100vw - 36px));
-  height: min(560px, calc(100vh - 328px));
+  height: calc(100vh - 62px - var(--bm1-dock-clear) - 8px);
   min-height: 250px;
-  max-height: calc(100vh - 328px);
+  max-height: calc(100vh - 62px - var(--bm1-dock-clear) - 8px);
   overflow: visible;
   padding: 18px 14px 14px 92px;
   background: var(--lcars-panel);
@@ -1896,8 +1896,9 @@ body.ui-theme-cardassian .target-meter-track {
 }
 .planet-menu .dock-panel > .commodity-book-section .commodity-book-frame {
   flex: 0 0 auto;
-  max-height: 36px;
-  min-height: 0;
+  height: 118px;
+  max-height: 118px;
+  min-height: 118px;
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -1907,11 +1908,12 @@ body.ui-theme-cardassian .target-meter-track {
 .planet-menu .dock-panel > .commodity-book-section .commodity-book-scroll {
   flex: 1 1 auto;
   width: auto;
-  height: auto;
-  min-height: 0;
-  max-height: 36px;
+  height: 118px;
+  min-height: 118px;
+  max-height: 118px;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--lcars-amber) #05070e;
 }
