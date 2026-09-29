@@ -414,6 +414,28 @@ const refusedIndex = indexCommodityShipment(indexedOpen, { pods: emptyPods(), op
 assert('S35.7 shipment-hard-cap', Object.keys(indexedOpen.shipments).length === COMMODITY_SHIPMENT_CONFIG.rowCap
   && !indexedOpen.shipments['live-extra']
   && /not indexed/i.test(refusedIndex.lastNotice || ''));
+const staleBook = emptyCommodityShipmentBook();
+for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap; i += 1) {
+  staleBook.shipments[`stale-${i}`] = {
+    id: `stale-${i}`,
+    contractId: `stale-${i}`,
+    good: 'Grain',
+    tons: 1,
+    worldCargoStatus: 'open',
+    seq: i + 1,
+  };
+}
+const staleIndex = indexCommodityShipment(staleBook, {
+  pods: emptyPods(),
+  openContracts: [{ id: 'fresh-live', goods: 'Grain', tons: 1, targetName: 'Friend' }],
+  worldCargoBook: emptyWorldCargoBook(),
+});
+assert('S35.7 stale-open-does-not-fill-cap', Boolean(staleBook.shipments['fresh-live'])
+  && !staleBook.shipments['stale-0']
+  && !/not indexed/i.test(staleIndex.lastNotice || ''), JSON.stringify({
+    ids: Object.keys(staleBook.shipments),
+    notice: staleIndex.lastNotice,
+  }));
 const manySales = { version: 1, nextSaleId: 60, sales: {} };
 for (let i = 1; i <= 50; i += 1) {
   manySales.sales[String(i)] = { saleId: i, lotId: `lot:${i}`, good: 'Grain', tons: 1, soldByBook: true, seq: i };
@@ -613,6 +635,31 @@ floorBook.sales['1'] = { saleId: 1, lotId: 'lot:1', good: 'Medical Supplies', to
 floorBook.lots['lot:1'] = { lotId: 'lot:1', good: 'Medical Supplies', source: 'book-bought', contraband: false, saleId: 1, seq: 1 };
 floorBook.nextSaleId = 2;
 const floorSell = sellBackBookLot(floorBook, { dominion: { scope: 'general' }, saleId: 1, market: floorMarket.market, marketBook: floorMarket.book, pods: floorPods });
+const mismatchMarket = freshMarket({ marketId: 'mkt-mismatch', good: 'Grain', price: 12, stock: 4, demand: 3 });
+const mismatchBefore = { stock: mismatchMarket.market.stock, demand: mismatchMarket.market.demand, price: mismatchMarket.market.price };
+const mismatchPods = emptyPods();
+mismatchPods[0] = { tons: 1, item: 'Medical Supplies', destination: undefined, payout: 0, bookLotId: 'lot:9', bookSaleId: 9 };
+const mismatchBook = emptyCommodityShipmentBook();
+mismatchBook.sales['9'] = { saleId: 9, lotId: 'lot:9', good: 'Medical Supplies', tons: 1, soldByBook: true, seq: 1 };
+mismatchBook.lots['lot:9'] = { lotId: 'lot:9', good: 'Medical Supplies', source: 'book-bought', contraband: false, saleId: 9, seq: 1 };
+mismatchBook.nextSaleId = 10;
+const mismatchSell = sellBackBookLot(mismatchBook, {
+  dominion: { scope: 'general' },
+  saleId: 9,
+  market: mismatchMarket.market,
+  marketBook: mismatchMarket.book,
+  pods: mismatchPods,
+});
+assert('S35.14 sell-good-mismatch', mismatchSell.ok === false
+  && mismatchSell.reason === 'good-mismatch'
+  && mismatchSell.paid === 0
+  && mismatchMarket.market.stock === mismatchBefore.stock
+  && mismatchMarket.market.demand === mismatchBefore.demand
+  && mismatchMarket.market.price === mismatchBefore.price
+  && Boolean(mismatchBook.sales['9'])
+  && mismatchPods[0].tons === 1
+  && mismatchPods[0].item === 'Medical Supplies'
+  && mismatchPods[0].bookSaleId === 9, JSON.stringify(mismatchSell));
 assert('S35.14 sell-at-demand-floor', floorSell.paid === 0
   && floorMarket.market.stock === floorBefore.stock
   && floorMarket.market.demand === floorBefore.demand

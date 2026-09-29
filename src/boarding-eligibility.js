@@ -172,7 +172,7 @@ function accept(target, ratio) {
     eligible: true,
     reason: null,
     ratio,
-    sayable: 'Hull at or below 10%. Boarding available — tractor hold is not a capture.',
+    sayable: 'Hull at or below 10%. Boarding available.',
     captured: false,
     scuttled: false,
     tractorIsBoard: false,

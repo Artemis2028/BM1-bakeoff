@@ -473,6 +473,8 @@ import {
   listHoldings,
   listMarkets,
   locationIdForSystem,
+  postMovePrice,
+  premiumCharge,
   markHoldingLost,
   mintHoldingOnClaim,
   neglectSayable,
@@ -2071,6 +2073,7 @@ let lastTargetWindowRenderAt = 0;
 let targetWindowForceRender = false;
 let targetWindowInteractionLockUntil = 0;
 let lastTargetWindowActionAt = 0;
+let lastBoardPointerAt = 0;
 function openHudTemporarily(ms = 1800) {
   if (!hudEl) return;
   hudEl.classList.add('hud-open');
@@ -11126,8 +11129,10 @@ function renderBriefingArchive() {
   bodyEl.scrollTop = bodyScroll;
   host.classList.toggle('is-book-open', state.commodityShipmentOpen === true);
   fitOpenBookBriefing();
-  host.scrollTop = hostScroll;
   if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
+  host.scrollTop = hostScroll;
+  if (selectEl.scrollTop !== selectScroll) selectEl.scrollTop = selectScroll;
+  if (bodyEl.scrollTop !== bodyScroll) bodyEl.scrollTop = bodyScroll;
 }
 
 function currentBookMarket(good) {
@@ -11285,10 +11290,7 @@ function dismissTargetWindow() {
   targetWindowEl.classList.remove('is-scrolling');
   clearTargetWindowPlacement(targetWindowEl);
   const archive = document.getElementById('briefing-archive');
-  if (archive) {
-    resetArchiveBox(archive);
-    syncArchiveScrollbar(archive);
-  }
+  if (archive) fitOpenBookBriefing();
 }
 
 function measureTargetChrome(host) {
@@ -11429,6 +11431,11 @@ function placeTargetWindow(host) {
     const archive = document.getElementById('briefing-archive');
     if (archive) {
       resetArchiveBox(archive);
+      archive.querySelectorAll(':scope > .briefing-archive-select, :scope > .briefing-archive-body').forEach((pane) => {
+        pane.style.maxHeight = '';
+        pane.style.overflowY = '';
+        pane.style.flexShrink = '';
+      });
       syncArchiveScrollbar(archive);
     }
     return;
@@ -11466,6 +11473,7 @@ function commodityBookInnerHtml() {
     ? `<button type="button" data-commodity-buy="${escapeHtml(buyName)}">Buy one ton</button>`
     : '';
   return `<div class="commodity-shipment-title">COMMODITY BOOK</div>
+    <div class="commodity-book-actions">${buyButton}${sellButton}</div>
     <div class="commodity-book-frame">
       <div class="commodity-book-scroll">
         <div class="commodity-entries">${entriesHtml}</div>
@@ -11473,8 +11481,7 @@ function commodityBookInnerHtml() {
         <div class="commodity-shipment-detail"><p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}</div>
       </div>
       <div class="commodity-book-bar" aria-hidden="true"></div>
-    </div>
-    <div class="commodity-book-actions">${buyButton}${sellButton}</div>`;
+    </div>`;
 }
 
 function renderCommodityShipment() {
@@ -11519,9 +11526,14 @@ function renderCommodityShipment() {
     slot.className = 'commodity-book-section';
     briefing.appendChild(slot);
   }
+  const keptBookScroll = slot.querySelector('.commodity-book-scroll')?.scrollTop || 0;
+  const keptArchiveScroll = briefing.scrollTop;
   slot.innerHTML = html;
   fitOpenBookBriefing();
   if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
+  const nextBookScroll = briefing.querySelector(':scope > .commodity-book-section .commodity-book-scroll');
+  if (nextBookScroll && keptBookScroll > 0) nextBookScroll.scrollTop = keptBookScroll;
+  if (briefing.scrollTop !== keptArchiveScroll) briefing.scrollTop = keptArchiveScroll;
 }
 
 function resetArchiveBox(host) {
@@ -11615,6 +11627,7 @@ function yieldArchiveBox(host) {
 
 function fitOpenBookBriefing() {
   const host = document.getElementById('briefing-archive');
+  const keptArchiveScroll = host?.scrollTop || 0;
   const select = host?.querySelector('.briefing-archive-select');
   const body = host?.querySelector('.briefing-archive-body');
   const clearBriefing = () => {
@@ -11660,6 +11673,7 @@ function fitOpenBookBriefing() {
       book.classList.remove('is-scrolling');
     }
     syncArchiveScrollbar(host);
+    if (host && host.scrollTop !== keptArchiveScroll) host.scrollTop = keptArchiveScroll;
     return;
   }
   clearBriefing();
@@ -11694,6 +11708,7 @@ function fitOpenBookBriefing() {
     resetBookScroll(book.querySelector('.commodity-book-scroll'));
   }
   host.style.overflowY = 'hidden';
+  host.scrollTop = 0;
   const hostRect = host.getBoundingClientRect();
   const briefingBottom = Math.max(
     select?.getBoundingClientRect().bottom || hostRect.top,
@@ -11737,7 +11752,50 @@ function fitOpenBookBriefing() {
     }
     if (host.scrollTop !== saved) host.scrollTop = saved;
   }
+  fitSqueezedBookActions(host);
   syncArchiveScrollbar(host);
+  if (host.scrollTop !== keptArchiveScroll) host.scrollTop = keptArchiveScroll;
+}
+
+function fitSqueezedBookActions(host) {
+  const select = host.querySelector('.briefing-archive-select');
+  const body = host.querySelector('.briefing-archive-body');
+  const buttons = [...host.querySelectorAll(':scope > .commodity-book-section .commodity-book-actions button')];
+  if (!buttons.length) return;
+  const insideHost = () => {
+    const hostBox = host.getBoundingClientRect();
+    return buttons.every((el) => {
+      const box = el.getBoundingClientRect();
+      return box.height >= 16
+        && box.top >= hostBox.top - 1
+        && box.bottom <= hostBox.bottom + 1
+        && box.left >= hostBox.left - 1
+        && box.right <= hostBox.right + 1;
+    });
+  };
+  const shrinkPane = (pane, floor) => {
+    if (!pane) return false;
+    const height = pane.getBoundingClientRect().height;
+    if (height <= floor + 1) return false;
+    const hostBox = host.getBoundingClientRect();
+    const lowest = Math.max(...buttons.map((el) => el.getBoundingClientRect().bottom));
+    const overflow = Math.max(8, Math.ceil(lowest - hostBox.bottom));
+    const next = Math.max(floor, Math.floor(height - overflow));
+    if (next >= height - 1) return false;
+    pane.style.maxHeight = `${next}px`;
+    pane.style.overflowY = 'auto';
+    pane.style.flexShrink = '0';
+    return true;
+  };
+  let guard = 0;
+  while (!insideHost() && guard < 30) {
+    guard += 1;
+    if (shrinkPane(body, 36)) continue;
+    if (shrinkPane(select, 36)) continue;
+    if (shrinkPane(body, 18)) continue;
+    if (shrinkPane(select, 18)) continue;
+    break;
+  }
 }
 
 function commodityDoctrineFacts() {
@@ -11981,35 +12039,6 @@ function measureCommodityNoClip(mustShow = []) {
         if (!pillOverlaps.includes(label)) pillOverlaps.push(label);
       }
     }
-    const nearestClipper = (el) => {
-      let node = el.parentElement;
-      while (node && node !== document.body && node !== document.documentElement) {
-        const style = getComputedStyle(node);
-        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
-        node = node.parentElement;
-      }
-      return null;
-    };
-    const canBringIntoView = (clipper, rect) => {
-      if (!clipper || !rect) return false;
-      const style = getComputedStyle(clipper);
-      const host = clipper.getBoundingClientRect();
-      const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
-      const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
-      if (!scrollY && !scrollX) return false;
-      if ((scrollY || scrollX) && !scrollbarShown(clipper)) return false;
-      const topIn = rect.top - host.top + clipper.scrollTop;
-      const bottomIn = rect.bottom - host.top + clipper.scrollTop;
-      const leftIn = rect.left - host.left + clipper.scrollLeft;
-      const rightIn = rect.right - host.left + clipper.scrollLeft;
-      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
-      if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
-      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
-      if (rightIn - leftIn > clipper.clientWidth + 1) return false;
-      const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
-      const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
-      return yFits && xFits;
-    };
     const buy = archive.querySelector('[data-commodity-buy]');
     if (buy && shown(buy) && !inScrollingBook(buy)) {
       const { full, visible } = visibleHeight(buy);
@@ -12018,15 +12047,7 @@ function measureCommodityNoClip(mustShow = []) {
       const inside = buyBox.top >= archiveBox.top - 1 && buyBox.bottom <= archiveBox.bottom + 1
         && buyBox.left >= archiveBox.left - 1 && buyBox.right <= archiveBox.right + 1
         && full >= 16 && visible >= full - 1;
-      const revealable = (() => {
-        let node = buy.parentElement;
-        while (node && node !== document.body && node !== document.documentElement) {
-          if (canBringIntoView(node, buyBox)) return true;
-          node = node.parentElement;
-        }
-        return false;
-      })();
-      if (!inside && !revealable) pushClip(buy.textContent);
+      if (!inside) pushClip(buy.textContent);
     }
   }
   const squashedControls = [];
@@ -16322,6 +16343,10 @@ function syncInterstellarMapFrame() {
   }
 }
 
+function cargoPodIsBookTagged(pod) {
+  return Boolean(pod) && (pod.bookLotId != null || pod.bookSaleId != null);
+}
+
 function addCargoToPods(item, tons = 1, destination = undefined, payout = 0, options = {}) {
   const amount = Math.max(0, Number(tons || 0));
   if (amount <= 0) return false;
@@ -16338,6 +16363,7 @@ function addCargoToPods(item, tons = 1, destination = undefined, payout = 0, opt
   const destinationKey = getCargoDestinationKeyFromValues(destinationName, destinationIndex);
 
   for (const pod of state.cargoArray) {
+    if (options.skipBookTagged && cargoPodIsBookTagged(pod)) continue;
     if (pod.item === item && getCargoDestinationKey(pod) === destinationKey) {
       pod.tons += amount;
       pod.destination = destinationName;
@@ -16349,6 +16375,7 @@ function addCargoToPods(item, tons = 1, destination = undefined, payout = 0, opt
     }
   }
   for (const pod of state.cargoArray) {
+    if (options.skipBookTagged && cargoPodIsBookTagged(pod)) continue;
     if (!pod.tons || pod.item === 'Nothing') {
       pod.tons = amount;
       pod.item = item;
@@ -16376,8 +16403,9 @@ function addCargoToPods(item, tons = 1, destination = undefined, payout = 0, opt
   return false;
 }
 
-function removeCargoFromPods(item, tons = 1) {
+function removeCargoFromPods(item, tons = 1, options = {}) {
   for (const pod of state.cargoArray) {
+    if (options.skipBookTagged && cargoPodIsBookTagged(pod)) continue;
     if (pod.item === item && pod.tons > 0 && pod.destination === undefined) {
       const take = Math.min(tons, pod.tons);
       pod.tons -= take;
@@ -16468,6 +16496,20 @@ function getPlanetMarket(planetIndex = state.currentPlanet) {
   return offers;
 }
 
+function shopTradeInject() {
+  return {
+    ...livePhase8Magnitudes(),
+    priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
+    priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
+    priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
+  };
+}
+
+function listedShopPrice(market) {
+  const injected = shopTradeInject();
+  return premiumCharge(postMovePrice(market, 'buy', injected), market, injected);
+}
+
 function currentMarketOffers() {
   const book = ensureMarketBook();
   const covered = listMarkets(book).filter((row) => (
@@ -16477,9 +16519,7 @@ function currentMarketOffers() {
   if (covered.length) {
     return covered.map((row) => ({
       goods: row.good,
-      price: row.restriction === 'premium'
-        ? Math.max(1, Math.round(row.price * (row.premiumMultiplier || 3)))
-        : row.price,
+      price: listedShopPrice(row),
       stock: row.stock,
       demand: row.demand,
       restriction: row.restriction,
@@ -16925,18 +16965,13 @@ function buyMarketGood(slot = 0) {
       marketId: market.marketId,
       credits: state.latinum,
       good: market.good,
-    }, {
-      ...livePhase8Magnitudes(),
-      priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
-      priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
-      priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
-    });
+    }, shopTradeInject());
     if (!bought.allowed) {
       setLog(bought.logLine || bought.sayable || `Cannot buy ${offer.goods} here.`);
       updateStats();
       return bought;
     }
-    if (!addCargoToPods(market.good, 1, undefined, 0)) {
+    if (!addCargoToPods(market.good, 1, undefined, 0, { skipBookTagged: true })) {
       market.stock = stockBeforeBuy;
       market.price = priceBeforeBuy;
       market.demand = demandBeforeBuy;
@@ -16986,21 +17021,16 @@ function sellMarketGood(slot = 0) {
     locationId: offer.locationId || currentMarketLocationId(),
     systemIndex: state.currentPlanet,
   });
-  const sold = removeCargoFromPods(offer.goods || market?.good, 1);
+  const sold = removeCargoFromPods(offer.goods || market?.good, 1, { skipBookTagged: true });
   if (!sold) {
     setLog(`No undelivered ${offer.goods} cargo to sell.`);
     updateStats();
     return;
   }
   if (market) {
-    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, {
-      ...livePhase8Magnitudes(),
-      priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
-      priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
-      priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
-    });
+    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, shopTradeInject());
     if (!sale.allowed) {
-      addCargoToPods(market.good, 1, undefined, 0);
+      addCargoToPods(market.good, 1, undefined, 0, { skipBookTagged: true });
       setLog(sale.logLine || sale.sayable || `Local seller will not buy ${market.good}.`);
       updateStats();
       return sale;
@@ -17490,7 +17520,10 @@ function handleTargetWindowAction(e, fromPointer = false) {
   if (board) {
     e.preventDefault();
     e.stopPropagation();
+    const now = performance.now();
+    if (!fromPointer && now - lastBoardPointerAt < 350) return true;
     if (board.disabled || board.hasAttribute('disabled')) return true;
+    if (fromPointer) lastBoardPointerAt = now;
     const npc = getSelectedNpcTarget();
     const action = board.dataset.boardAction;
     if (action === 'board') issuePlayerBoardingOrder(npc);
@@ -18396,11 +18429,7 @@ planetMenuEl?.addEventListener('wheel', (e) => {
   const panel = planetMenuEl.querySelector('.dock-panel');
   if (!panel || panel.scrollHeight <= panel.clientHeight) return;
   const bookScroll = e.target?.closest?.('.commodity-book-scroll');
-  if (bookScroll && panel.contains(bookScroll) && bookScroll.scrollHeight > bookScroll.clientHeight + 1) {
-    const roomDown = bookScroll.scrollTop + bookScroll.clientHeight < bookScroll.scrollHeight - 1;
-    const roomUp = bookScroll.scrollTop > 0;
-    if ((e.deltaY > 0 && roomDown) || (e.deltaY < 0 && roomUp)) return;
-  }
+  if (bookScroll && panel.contains(bookScroll)) return;
   e.preventDefault();
   panel.scrollTop += e.deltaY;
   if (panel.dataset?.dockTab) state.dockPanelScrollByTab[panel.dataset.dockTab] = panel.scrollTop;
@@ -27500,6 +27529,7 @@ function createCommodityShipmentProbeApi() {
         identitySame: tradeWitness() === witness,
         docked: state.docked === true,
         slot,
+        listed: slot >= 0 ? offers[slot].price : null,
       };
     },
     playShopSell: (marketId) => {
@@ -29099,7 +29129,7 @@ function createPhase8ProbeApi() {
       const bought = applyShopBuy(book, { marketId: market.marketId, credits: extras.credits ?? state.latinum }, livePhase8Magnitudes());
       if (bought.ok) {
         state.latinum = Math.max(0, state.latinum - bought.price);
-        addCargoToPods(market.good, 1, undefined, 0);
+        addCargoToPods(market.good, 1, undefined, 0, { skipBookTagged: true });
       }
       return { ...bought, snapshot: snapshot() };
     },
@@ -29112,12 +29142,12 @@ function createPhase8ProbeApi() {
       const bought = applyShopBuy(book, { marketId: market.marketId, credits: extras.credits ?? state.latinum }, livePhase8Magnitudes());
       if (bought.ok) {
         state.latinum = Math.max(0, state.latinum - bought.price);
-        addCargoToPods(market.good, 1, undefined, 0);
+        addCargoToPods(market.good, 1, undefined, 0, { skipBookTagged: true });
       }
       const sold = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, livePhase8Magnitudes());
       if (sold.ok) {
         state.latinum += sold.price;
-        removeCargoFromPods(market.good, 1);
+        removeCargoFromPods(market.good, 1, { skipBookTagged: true });
       }
       return {
         ok: bought.ok && sold.ok,
@@ -31554,7 +31584,7 @@ function createBoardingProbeApi() {
         eligible: eligibility.ok === true,
         reason: eligibility.reason || null,
       },
-      attempt,
+      lastAttempt: attempt,
       credit: {
         captureToken: victim ? (book.captures?.[victim]?.token || null) : null,
         killTokenForOriginal: victim ? killTokenForOriginal(ledger, victim) : null,

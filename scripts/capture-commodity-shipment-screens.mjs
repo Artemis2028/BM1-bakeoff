@@ -362,7 +362,7 @@ async function main() {
       { selector: '#target-window .target-meter-head', text: 'Hull10%' },
       { selector: '#target-window [data-hail-action="hail"]', text: 'Hail Ship' },
       { selector: '#target-window .target-boarding-note', text: 'Tractor hold is not a capture.' },
-      { selector: '#target-window .target-boarding-note', text: 'Hull at or below 10%. Boarding available — tractor hold is not a capture.' },
+      { selector: '#target-window .target-boarding-note', text: 'Hull at or below 10%. Boarding available.' },
       { selector: '#target-window [data-board-action="capture"]', text: 'Capture', enabled: true },
       { selector: '#target-window [data-board-action="scuttle"]', text: 'Scuttle', enabled: true },
     ];
@@ -638,6 +638,7 @@ async function main() {
     const dockMust = [
       { selector: '#planet-menu .commodity-shipment-title', text: 'COMMODITY BOOK' },
       { selector: '#planet-menu [data-commodity-buy]', text: 'Buy one ton' },
+      { selector: '#planet-menu [data-commodity-sell]', text: 'Sell back book lot' },
       { selector: '#planet-menu .panel-head', text: 'Cargo Market' },
       { selector: '#planet-menu .market-good', text: shopText },
       { selector: '#planet-menu [data-market-buy]', text: 'Buy' },
@@ -650,11 +651,19 @@ async function main() {
     await page.waitForTimeout(150);
     await shot(page, 'after-dock-market');
     const dock = withBefore(await measurePaused(dockMust), lockPrep.before);
+    if ((dock.bookCounts?.entries || 0) < 3) failStep('dock-three-rows', dock.bookCounts);
     const bookPoint = await page.evaluate(() => {
       const scroll = document.querySelector('#planet-menu .commodity-book-scroll');
       const rect = scroll?.getBoundingClientRect();
+      const market = [...document.querySelectorAll('#planet-menu .panel-head')].find((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim() === 'Cargo Market');
+      const box = market?.getBoundingClientRect();
       if (!rect || rect.width < 8 || rect.height < 8) return null;
-      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+      return {
+        x: Math.round(rect.left + rect.width / 2),
+        y: Math.round(rect.top + rect.height / 2),
+        panel: document.querySelector('#planet-menu .dock-panel')?.scrollTop || 0,
+        market: box ? { t: Math.round(box.top), l: Math.round(box.left), h: Math.round(box.height) } : null,
+      };
     });
     if (!bookPoint) failStep('dock-book-wheel', 'book scroller is not on screen');
     else {
@@ -681,6 +690,17 @@ async function main() {
         await page.waitForTimeout(30);
       }
       if (!ready) failStep('dock-book-wheel', lastBookLine);
+      const afterWheel = await page.evaluate(() => {
+        const market = [...document.querySelectorAll('#planet-menu .panel-head')].find((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim() === 'Cargo Market');
+        const box = market?.getBoundingClientRect();
+        return {
+          panel: document.querySelector('#planet-menu .dock-panel')?.scrollTop || 0,
+          market: box ? { t: Math.round(box.top), l: Math.round(box.left), h: Math.round(box.height) } : null,
+        };
+      });
+      if (afterWheel.panel !== 0 || JSON.stringify(afterWheel.market) !== JSON.stringify(bookPoint.market)) {
+        failStep('dock-book-wheel-panel', { before: bookPoint, after: afterWheel });
+      }
     }
     await shot(page, 'after-dock-market-book');
     const dockBook = withBefore(await measurePaused(dockLast), lockPrep.before);

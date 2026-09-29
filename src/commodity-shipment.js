@@ -35,8 +35,6 @@ export const COMMODITY_SHIPMENT_CONFIG = Object.freeze({
   priceCap: PER_TON_SETTLE_DEFAULTS.priceCap,
 });
 
-const PAYABLE_KEYS = ['latinum', 'credits', 'legalPayout', 'covertReward', 'payout', 'price', 'stock', 'demand'];
-
 function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
@@ -169,12 +167,6 @@ function enforceCaps(book, config, pods) {
   trimOldest(book.lots, cap, keepLot);
   trimOldest(book.sales, cap, Array.isArray(pods) ? (row) => saleLotHeld(row, pods) : null);
   book.rowCap = cap;
-}
-
-function stripPayable(row) {
-  const copy = { ...row };
-  for (const key of PAYABLE_KEYS) delete copy[key];
-  return copy;
 }
 
 export function emptyCommodityShipmentBook() {
@@ -313,7 +305,7 @@ export function restoreCommodityShipmentBook(saved, context = {}) {
   enforceCaps(book, { rowCap: cap }, pods);
   book.notices = [];
   book.lastNotice = '';
-  return stripPayable(book) && book;
+  return book;
 }
 
 export function selectCommodityShipment(book, id) {
@@ -398,11 +390,7 @@ export function indexCommodityShipment(book, input = {}) {
     }
     const previous = store.shipments[id];
     const shipmentCap = Math.max(1, asInt(configOf(input.config).rowCap, COMMODITY_SHIPMENT_CONFIG.rowCap));
-    const shipmentRows = Object.values(store.shipments);
-    const everyRowOpen = shipmentRows.length >= shipmentCap && shipmentRows.every((row) => (
-      row.worldCargoStatus !== 'delivered' && row.worldCargoStatus !== 'expired'
-    ));
-    if (!previous && everyRowOpen) {
+    if (!previous && liveOpenShipmentCount(store, rows) >= shipmentCap) {
       const line = 'Shipment book is full. Every row is still open. This shipment was not indexed.';
       if (store.lastNotice !== line) pushNotice(store, line);
       continue;
@@ -450,6 +438,28 @@ export function indexCommodityShipment(book, input = {}) {
   }
   enforceCaps(store, input.config, pods);
   return store;
+}
+
+function incomingShipmentStatus(packed) {
+  const world = packed?.world;
+  if (!world) return null;
+  return world.status === 'delivered' || world.status === 'expired' ? world.status : 'open';
+}
+
+function shipmentStatusIsOpen(status) {
+  return status !== 'delivered' && status !== 'expired';
+}
+
+/** Rows that this index will keep. Stale open rows are pruned after the pass and do not fill the cap. */
+function liveOpenShipmentCount(store, rows) {
+  let count = 0;
+  for (const [id, packed] of rows) {
+    const existing = store.shipments?.[id];
+    if (!existing) continue;
+    const status = packed?.world ? incomingShipmentStatus(packed) : existing.worldCargoStatus;
+    if (shipmentStatusIsOpen(status)) count += 1;
+  }
+  return count;
 }
 
 function tradeRefusalNotice(reason) {
@@ -684,6 +694,12 @@ export function sellBackBookLot(book, input = {}) {
   }
   const market = input.market;
   if (!market) return refuseTrade(store, 'missing-market', 'No market for this good.');
+  const lotGood = store.lots?.[sale.lotId]?.good;
+  if (String(market.good || '') !== String(sale.good || '')
+    || (lotGood != null && String(lotGood) !== String(sale.good || ''))
+    || String(pod.item || '') !== String(sale.good || '')) {
+    return refuseTrade(store, 'good-mismatch', 'Sell-back refused. That lot is a different good. The market did not move.');
+  }
   const spec = input.spec || goodSpec(input.marketBook, market.good, null);
   const inject = settleInject(input.config);
   const deal = evaluateBookDeal(market, input, inject);
