@@ -436,6 +436,52 @@ assert('S35.7 stale-open-does-not-fill-cap', Boolean(staleBook.shipments['fresh-
     ids: Object.keys(staleBook.shipments),
     notice: staleIndex.lastNotice,
   }));
+const droppedBook = emptyCommodityShipmentBook();
+const droppedWorld = emptyWorldCargoBook();
+for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap; i += 1) {
+  enrollWorldCargoContract(droppedWorld, {
+    id: `drop-${i}`, mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', legalPayout: 1,
+  });
+}
+indexCommodityShipment(droppedBook, { pods: emptyPods(), openContracts: [], worldCargoBook: droppedWorld });
+for (const contract of Object.values(droppedWorld.contracts)) contract.status = 'delivered';
+enrollWorldCargoContract(droppedWorld, {
+  id: 'after-drop', mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', legalPayout: 1,
+});
+const afterDrop = indexCommodityShipment(droppedBook, {
+  pods: emptyPods(),
+  openContracts: [],
+  worldCargoBook: droppedWorld,
+});
+assert('S35.7 dropped-contract-does-not-fill-cap', Boolean(droppedBook.shipments['after-drop'])
+  && !/Shipment book is full/i.test(afterDrop.lastNotice || ''), JSON.stringify({
+    ids: Object.keys(droppedBook.shipments),
+    notice: afterDrop.lastNotice,
+    status: droppedBook.shipments['drop-0']?.worldCargoStatus,
+  }));
+const staleDropBook = emptyCommodityShipmentBook();
+const staleDropWorld = emptyWorldCargoBook();
+for (let i = 0; i < COMMODITY_SHIPMENT_CONFIG.rowCap; i += 1) {
+  enrollWorldCargoContract(staleDropWorld, {
+    id: `gone-${i}`, mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', legalPayout: 1,
+  });
+}
+indexCommodityShipment(staleDropBook, { pods: emptyPods(), openContracts: [], worldCargoBook: staleDropWorld });
+const droppedOpen = Object.values(staleDropWorld.contracts).map((contract) => ({ ...contract, status: 'delivered' }));
+staleDropWorld.contracts = {};
+enrollWorldCargoContract(staleDropWorld, {
+  id: 'after-gone', mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', legalPayout: 1,
+});
+const afterGone = indexCommodityShipment(staleDropBook, {
+  pods: emptyPods(),
+  openContracts: droppedOpen,
+  worldCargoBook: staleDropWorld,
+});
+assert('S35.7 dropped-open-row-does-not-fill-cap', Boolean(staleDropBook.shipments['after-gone'])
+  && !/Shipment book is full/i.test(afterGone.lastNotice || ''), JSON.stringify({
+    ids: Object.keys(staleDropBook.shipments),
+    notice: afterGone.lastNotice,
+  }));
 const manySales = { version: 1, nextSaleId: 60, sales: {} };
 for (let i = 1; i <= 50; i += 1) {
   manySales.sales[String(i)] = { saleId: i, lotId: `lot:${i}`, good: 'Grain', tons: 1, soldByBook: true, seq: i };

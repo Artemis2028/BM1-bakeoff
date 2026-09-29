@@ -25200,6 +25200,7 @@ function probeShipSummary(ship) {
   const player = playerWorldPosition();
   return {
     id: ship.id,
+    shipId: ship.shipId ?? null,
     name: ship.name || null,
     faction: ship.faction || null,
     role: ship.role || null,
@@ -31565,7 +31566,13 @@ function createBoardingProbeApi() {
     const eligibility = target ? evaluateBoardingEligibility(target) : { ok: false, reason: 'no-target', eligible: false };
     const contact = target ? findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(target)) : null;
     const attempt = snapshotAttempt(book);
-    const victim = attempt.attemptId ? book.attempts[attempt.attemptId]?.victimInstanceId : (target?.securityInstanceId || null);
+    const attemptRow = attempt.attemptId ? book.attempts[attempt.attemptId] : null;
+    const attemptVictimId = attemptRow?.victimInstanceId ? String(attemptRow.victimInstanceId) : null;
+    const attemptHull = attemptVictimId ? findNpcByBoardingId(attemptVictimId) : null;
+    const attemptPrize = attemptVictimId
+      ? Object.values(book.prizes || {}).find((row) => String(row.sourceInstanceId || '') === attemptVictimId)
+      : null;
+    const victim = attemptVictimId || (target?.securityInstanceId || null);
     const prize = Object.values(book.prizes || {})[0] || (state.playerFleet || []).find((row) => row.captured) || null;
     const obj = Object.values(ensureObjectiveBoard().objectives || {})[0] || null;
     const sampleEngage = playerForceMayAutoEngage(
@@ -31584,7 +31591,15 @@ function createBoardingProbeApi() {
         eligible: eligibility.ok === true,
         reason: eligibility.reason || null,
       },
-      lastAttempt: attempt,
+      lastAttempt: {
+        attemptId: attempt.attemptId,
+        outcome: attempt.outcome,
+        captured: attempt.captured,
+        scuttled: attempt.scuttled,
+        xorOk: attempt.xorOk,
+        shipId: attemptHull?.shipId ?? attemptPrize?.shipId ?? null,
+        victimInstanceId: attemptVictimId,
+      },
       credit: {
         captureToken: victim ? (book.captures?.[victim]?.token || null) : null,
         killTokenForOriginal: victim ? killTokenForOriginal(ledger, victim) : null,

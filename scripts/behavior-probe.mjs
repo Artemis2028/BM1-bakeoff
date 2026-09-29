@@ -8635,6 +8635,9 @@ async function runCommodityShipment(page, results) {
     };
     const takeThenWitness = (id, action) => {
       const shipId = arm(id, 0.10);
+      const hull = probe?.ship?.(shipId);
+      const catalogShipId = hull?.shipId ?? null;
+      const victimInstanceId = String(hull?.securityInstanceId || '');
       const before = offer();
       const shipName = String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim();
       const el = button(action);
@@ -8652,6 +8655,8 @@ async function runCommodityShipment(page, results) {
       const againShows = againCard?.name === shipName;
       return {
         shipId,
+        catalogShipId,
+        victimInstanceId,
         shipName,
         before,
         ship,
@@ -8685,6 +8690,10 @@ async function runCommodityShipment(page, results) {
         outcome: captureSnap.lastAttempt?.outcome || null,
         captured: captureSnap.lastAttempt?.captured === true,
         scuttled: captureSnap.lastAttempt?.scuttled === true,
+        attemptShipId: captureSnap.lastAttempt?.shipId ?? null,
+        attemptVictim: captureSnap.lastAttempt?.victimInstanceId || null,
+        catalogShipId: captured.catalogShipId,
+        victimInstanceId: captured.victimInstanceId,
         shipName: captured.shipName,
         ship: captured.ship,
         witness: captured.witness,
@@ -8696,6 +8705,10 @@ async function runCommodityShipment(page, results) {
         outcome: scuttleSnap.lastAttempt?.outcome || null,
         captured: scuttleSnap.lastAttempt?.captured === true,
         scuttled: scuttleSnap.lastAttempt?.scuttled === true,
+        attemptShipId: scuttleSnap.lastAttempt?.shipId ?? null,
+        attemptVictim: scuttleSnap.lastAttempt?.victimInstanceId || null,
+        catalogShipId: scuttled.catalogShipId,
+        victimInstanceId: scuttled.victimInstanceId,
         shipName: scuttled.shipName,
         ship: scuttled.ship,
         witness: scuttled.witness,
@@ -8741,18 +8754,24 @@ async function runCommodityShipment(page, results) {
   const shipKeepsOutcome = (row, action) => ownOutcome(row.ship, action, row.shipName)
     && row.shipName !== 'SS Witness'
     && (!row.againOk || ownOutcome(row.again, action, row.shipName));
+  const ownShip = (row) => row.victimInstanceId !== ''
+    && row.attemptVictim === row.victimInstanceId
+    && row.catalogShipId != null
+    && row.attemptShipId === row.catalogShipId;
   check(results, 'S35.24 capture-records-capture', bothClickable(choice.beforeCapture)
     && choice.capture.outcome === 'capture'
     && choice.capture.captured === true
     && choice.capture.scuttled === false
     && shipKeepsOutcome(choice.capture, 'capture')
-    && openWitness(choice.capture.witness), JSON.stringify(choice.capture));
+    && openWitness(choice.capture.witness)
+    && ownShip(choice.capture), JSON.stringify(choice.capture));
   check(results, 'S35.24 scuttle-records-scuttle', bothClickable(choice.beforeScuttle)
     && choice.scuttle.outcome === 'scuttle'
     && choice.scuttle.scuttled === true
     && choice.scuttle.captured === false
     && shipKeepsOutcome(choice.scuttle, 'scuttle')
-    && openWitness(choice.scuttle.witness), JSON.stringify(choice.scuttle));
+    && openWitness(choice.scuttle.witness)
+    && ownShip(choice.scuttle), JSON.stringify(choice.scuttle));
   const kept = await page.evaluate(() => {
     const probe = globalThis.BM1Probe;
     const boarding = globalThis.__BM1_PROBE__?.boarding;
@@ -9227,6 +9246,13 @@ async function runCommodityShipment(page, results) {
     const panelHeld = panelBeforeWheel === 0
       && panelAfterWheel === panelBeforeWheel
       && JSON.stringify(headingBefore) === JSON.stringify(headingAfter);
+    const boxesOverlap = (a, b) => Boolean(a && b && a.w > 2 && a.h > 2 && b.w > 2 && b.h > 2
+      && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t);
+    const menuBox = roundBox(menu);
+    const cargoList = document.getElementById('world-cargo');
+    const commandBar = document.getElementById('bottom-dock');
+    const coversCargo = shown(cargoList) && boxesOverlap(menuBox, roundBox(cargoList));
+    const coversCommand = shown(commandBar) && boxesOverlap(menuBox, roundBox(commandBar));
     const liveRects = { menu: roundBox(menu), panel: roundBox(panel), book: roundBox(book), buy: roundBox(buy), heading: roundBox(heading) };
     const bookInside = bookLines.length > 0 && bookLines.every((el) => !unreachable(el));
     const buyInside = Boolean(buy) && !unreachable(buy);
@@ -9293,6 +9319,8 @@ async function runCommodityShipment(page, results) {
       visibleEntries,
       sellBack,
       panelHeld,
+      coversCargo,
+      coversCommand,
       bookBought: stockBeforeBook != null && stockAfterBook === stockBeforeBook - 1,
       shopBought: stockBeforeShop != null && stockAfterShop === stockBeforeShop - 1,
       rects: liveRects,
@@ -9325,6 +9353,8 @@ async function runCommodityShipment(page, results) {
     && dockReach.visibleEntries >= 3
     && dockReach.sellBack === 'Sell back book lot'
     && dockReach.panelHeld === true
+    && dockReach.coversCargo === false
+    && dockReach.coversCommand === false
     && (dockReach.panelOverflows ? dockReach.panelBar === true : dockReach.grainInFrame === true), JSON.stringify(dockReach));
   const listedSale = await page.evaluate(() => {
     const api = globalThis.__BM1_PROBE__.commodityShipment;

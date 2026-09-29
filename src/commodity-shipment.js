@@ -442,8 +442,11 @@ export function indexCommodityShipment(book, input = {}) {
 
 function incomingShipmentStatus(packed) {
   const world = packed?.world;
-  if (!world) return null;
-  return world.status === 'delivered' || world.status === 'expired' ? world.status : 'open';
+  const contract = packed?.contract;
+  const status = world?.status || contract?.status;
+  if (status === 'delivered' || status === 'expired') return status;
+  if (world) return 'open';
+  return null;
 }
 
 function shipmentStatusIsOpen(status) {
@@ -456,7 +459,8 @@ function liveOpenShipmentCount(store, rows) {
   for (const [id, packed] of rows) {
     const existing = store.shipments?.[id];
     if (!existing) continue;
-    const status = packed?.world ? incomingShipmentStatus(packed) : existing.worldCargoStatus;
+    const incoming = incomingShipmentStatus(packed);
+    const status = incoming != null ? incoming : existing.worldCargoStatus;
     if (shipmentStatusIsOpen(status)) count += 1;
   }
   return count;
