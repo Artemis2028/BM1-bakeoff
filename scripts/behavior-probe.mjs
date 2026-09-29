@@ -7139,6 +7139,2644 @@ async function runWorldCargo(page, results) {
   }));
 }
 
+async function runCommodityShipment(page, results) {
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const present = await page.evaluate(() => Boolean(globalThis.__BM1_PROBE__?.commodityShipment?.buy));
+  if (!present) {
+    check(results, 'S35.setup commodityShipment-api', false, 'commodityShipment probe API missing');
+    return;
+  }
+  const s35 = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const wc = globalThis.__BM1_PROBE__.worldCargo;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const empty = api.restore(undefined);
+    p8.injectMarket({
+      marketId: 'mkt-s35',
+      good: 'Grain',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const before = p8.snapshot().book.markets['mkt-s35'];
+    const scope = { scope: 'general', systemName: 'Ferenginar', role: 'traffic' };
+    const bought = api.buy('Grain', 3, { marketId: 'mkt-s35', dominion: scope });
+    const afterBuy = p8.snapshot().book.markets['mkt-s35'];
+    const sold = api.sellBack(bought.saleId, { marketId: 'mkt-s35', dominion: scope });
+    const afterSell = p8.snapshot().book.markets['mkt-s35'];
+    const full = api.buy('Grain', 1, { marketId: 'mkt-s35', cargoCap: 0, dominion: scope });
+    const afterFull = p8.snapshot().book.markets['mkt-s35'];
+    const hand = api.restore({
+      version: 1,
+      nextSaleId: 1,
+      commodities: { 'Ghost Spice': { name: 'Ghost Spice', seenOn: 'pod' } },
+      latinum: 9000,
+      credits: 9000,
+    });
+    const roe = wc.snapshot();
+    return {
+      lock: api.lock(),
+      emptyNames: empty.commodityNames || [],
+      podsUnchanged: empty.podsUnchanged,
+      beforeStock: before.stock,
+      beforePrice: before.price,
+      boughtOk: bought.ok,
+      boughtPaid: bought.paid,
+      stockAfterBuy: afterBuy.stock,
+      soldOk: sold.ok,
+      soldPaid: sold.paid,
+      priceAfterSell: afterSell.price,
+      stockAfterSell: afterSell.stock,
+      fullPaid: full.paid,
+      fullReason: full.reason,
+      stockAfterFull: afterFull.stock,
+      priceAfterFull: afterFull.price,
+      handPods: hand.podsUnchanged,
+      handLatinum: hand.latinumDelta,
+      roeModes: roe.roeModes,
+      offersProtectAll: roe.offersProtectAll,
+      tractor: api.snapshot().tractorIsBoarding,
+    };
+  });
+  check(results, 'S35.1 name-and-lock', s35.lock === false && s35.emptyNames.length === 0 && s35.podsUnchanged === true, JSON.stringify(s35));
+  check(results, 'S35.14 n-ton-buy', s35.boughtOk === true && s35.stockAfterBuy === s35.beforeStock - 3 && s35.boughtPaid === 11 + 12 + 13, JSON.stringify(s35));
+  check(results, 'S35.15 round-trip', s35.soldOk === true && s35.priceAfterSell === s35.beforePrice && s35.soldPaid - s35.boughtPaid <= 0, JSON.stringify(s35));
+  check(results, 'S35.2 hold-full', s35.fullPaid === 0 && s35.fullReason === 'hold-full' && s35.stockAfterFull === s35.stockAfterSell && s35.priceAfterFull === s35.priceAfterSell, JSON.stringify(s35));
+  check(results, 'S35.7 no-mint', s35.handPods === true && s35.handLatinum === 0, JSON.stringify(s35));
+  check(results, 'S35.6 no-third-roe', Array.isArray(s35.roeModes) && s35.roeModes.join(',') === 'return-fire,defend' && s35.offersProtectAll !== true && s35.tractor === false, JSON.stringify(s35));
+  const lane = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    globalThis.BM1Probe?.worldCargo?.placeAtWorld?.();
+    globalThis.BM1Probe?.tryDockPlanet?.();
+    const reset = () => {
+      api.restore(undefined);
+      api.emptyHold();
+    };
+    const mint = (marketId, good, extra = {}) => p8.injectMarket({
+      marketId,
+      good,
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+      ...extra,
+    });
+    const still = (row) => Boolean(row?.before && row?.after
+      && row.after.stock === row.before.stock
+      && row.after.price === row.before.price
+      && row.after.demand === row.before.demand);
+    const refused = (row) => Boolean(row && row.paid === 0 && row.ok === false && row.latinumDelta === 0
+      && still(row) && row.identitySame === true && row.logBand == null
+      && row.band !== 'flash' && !String(row.log || '').startsWith('FLASH'));
+    reset();
+    mint('mkt-embargo', 'Embargo Leaf', { restriction: 'embargo' });
+    const embargoBuy = api.playBuy('Embargo Leaf');
+    reset();
+    mint('mkt-license', 'License Ore', { restriction: 'license', licenseId: 'warp-license' });
+    const licenseBuy = api.playBuy('License Ore');
+    reset();
+    mint('mkt-seller', 'Seller Ale', { restriction: 'seller_rule', sellerWillDeal: false });
+    const sellerBuy = api.playBuy('Seller Ale');
+    reset();
+    mint('mkt-embargo-sell', 'Embargo Resale');
+    const embargoLot = api.playBuy('Embargo Resale');
+    mint('mkt-embargo-sell', 'Embargo Resale', {
+      restriction: 'embargo',
+      price: embargoLot.after?.price,
+      stock: embargoLot.after?.stock,
+      demand: embargoLot.after?.demand,
+    });
+    const embargoSell = api.playSell(embargoLot.saleId);
+    reset();
+    mint('mkt-license-sell', 'License Resale');
+    const licenseLot = api.playBuy('License Resale');
+    mint('mkt-license-sell', 'License Resale', {
+      restriction: 'license',
+      licenseId: 'warp-license',
+      price: licenseLot.after?.price,
+      stock: licenseLot.after?.stock,
+      demand: licenseLot.after?.demand,
+    });
+    const licenseSell = api.playSell(licenseLot.saleId);
+    reset();
+    mint('mkt-seller-sell', 'Seller Resale');
+    const sellerLot = api.playBuy('Seller Resale');
+    mint('mkt-seller-sell', 'Seller Resale', {
+      restriction: 'seller_rule',
+      sellerWillDeal: false,
+      price: sellerLot.after?.price,
+      stock: sellerLot.after?.stock,
+      demand: sellerLot.after?.demand,
+    });
+    const sellerSell = api.playSell(sellerLot.saleId);
+    reset();
+    mint('mkt-prem-shop', 'Premium Silk', { restriction: 'premium', premiumMultiplier: 3 });
+    const shopBuy = api.playShopBuy('mkt-prem-shop');
+    const shopSell = api.playShopSell('mkt-prem-shop');
+    reset();
+    mint('mkt-prem-book', 'Premium Book', { restriction: 'premium', premiumMultiplier: 3 });
+    const bookBuy = api.playBuy('Premium Book');
+    const bookSell = api.playSell(bookBuy.saleId);
+    reset();
+    mint('mkt-mix-a', 'Premium Mix A', { restriction: 'premium', premiumMultiplier: 3, stock: 8, demand: 8 });
+    const mixBook = api.playBuy('Premium Mix A');
+    const mixShopSell = api.playShopSell('mkt-mix-a');
+    reset();
+    mint('mkt-mix-b', 'Premium Mix B', { restriction: 'premium', premiumMultiplier: 3, stock: 8, demand: 8 });
+    const mixSetup = api.playBuy('Premium Mix B');
+    const mixShopBuy = api.playShopBuy('mkt-mix-b');
+    const mixBookSell = api.playSell(mixSetup.saleId);
+    reset();
+    mint('mkt-contra', 'Contraband Spice', { contraband: true });
+    const contra = api.playBuy('Contraband Spice');
+    reset();
+    const dominionHome = api.setWorldName('Vortara');
+    mint('mkt-dominion', 'Dominion Isolinear');
+    const dominion = api.playBuy('Dominion Isolinear');
+    api.setWorldName(dominionHome);
+    api.setStanding('ferengi', 0);
+    reset();
+    mint('mkt-hostile', 'Hostile Grain');
+    const friendlyLot = api.playBuy('Hostile Grain');
+    api.setStanding('ferengi', -50);
+    const hostileBuy = api.playBuy('Hostile Grain');
+    const hostileSell = api.playSell(friendlyLot.saleId);
+    api.setStanding('ferengi', 0);
+    reset();
+    mint('mkt-only-grain', 'Listed Grain');
+    const listedBefore = p8.snapshot().book.markets['mkt-only-grain'];
+    const wrongGood = api.playBuy('Unlisted Spice');
+    const listedAfter = p8.snapshot().book.markets['mkt-only-grain'];
+    reset();
+    mint('mkt-noscope', 'Scope Grain');
+    const scopeBefore = p8.snapshot().book.markets['mkt-noscope'];
+    const missingScope = api.buy('Scope Grain', 1, { marketId: 'mkt-noscope', dominion: null });
+    const scopeAfter = p8.snapshot().book.markets['mkt-noscope'];
+    reset();
+    const unknownHome = api.setWorldName('Vortara');
+    mint('mkt-unknown-scope', 'Unknown Scope');
+    const unknownScope = api.playBuy('Unknown Scope');
+    api.setWorldName(unknownHome);
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api.close?.();
+    const clickBook = () => document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    const bookButton = Boolean(document.querySelector('#briefing-archive [data-commodity-book-toggle]'));
+    clickBook();
+    const bookOpened = Boolean(document.querySelector('#briefing-archive > .commodity-book-section'));
+    clickBook();
+    const bookClosed = !document.querySelector('#briefing-archive > .commodity-book-section');
+    return {
+      embargoBuy, licenseBuy, sellerBuy,
+      embargoLot, embargoSell, licenseLot, licenseSell, sellerLot, sellerSell,
+      shopBuy, shopSell, bookBuy, bookSell,
+      mixBook, mixShopSell, mixSetup, mixShopBuy, mixBookSell,
+      contra, dominion,
+      friendlyLot, hostileBuy, hostileSell, wrongGood, listedBefore, listedAfter,
+      missingScope, scopeBefore, scopeAfter, unknownScope,
+      bookOpened, bookClosed, bookButton: Boolean(bookButton),
+    };
+  });
+  const laneRefused = (row) => row && row.paid === 0 && row.ok === false && row.latinumDelta === 0
+    && row.before && row.after && row.after.stock === row.before.stock
+    && row.after.price === row.before.price && row.after.demand === row.before.demand
+    && row.identitySame === true && row.logBand == null && row.band !== 'flash'
+    && !String(row.log || '').startsWith('FLASH');
+  check(results, 'S35.17 embargo-play-buy', laneRefused(lane.embargoBuy) && /embargo/i.test(lane.embargoBuy.log), JSON.stringify(lane.embargoBuy));
+  check(results, 'S35.17 license-play-buy', laneRefused(lane.licenseBuy) && /license/i.test(lane.licenseBuy.log), JSON.stringify(lane.licenseBuy));
+  check(results, 'S35.17 seller-play-buy', laneRefused(lane.sellerBuy) && /seller|refuses/i.test(lane.sellerBuy.log), JSON.stringify(lane.sellerBuy));
+  check(results, 'S35.17 embargo-play-sell', lane.embargoLot?.ok === true && laneRefused(lane.embargoSell)
+    && lane.embargoSell.salePresent === true && lane.embargoSell.podTons >= 1, JSON.stringify({ lot: lane.embargoLot, sell: lane.embargoSell }));
+  check(results, 'S35.17 license-play-sell', lane.licenseLot?.ok === true && laneRefused(lane.licenseSell)
+    && lane.licenseSell.salePresent === true, JSON.stringify({ lot: lane.licenseLot, sell: lane.licenseSell }));
+  check(results, 'S35.17 seller-play-sell', lane.sellerLot?.ok === true && laneRefused(lane.sellerSell)
+    && lane.sellerSell.salePresent === true, JSON.stringify({ lot: lane.sellerLot, sell: lane.sellerSell }));
+  check(results, 'S35.17 premium-shop', lane.shopBuy?.paid === 33 && lane.shopBuy.after?.price === 11
+    && /Bought 1 ton /.test(lane.shopBuy.log) && /Black-market premium/.test(lane.shopBuy.log)
+    && lane.shopSell?.paid === 30 && lane.shopSell.after?.price === 10
+    && /Sold 1 ton /.test(lane.shopSell.log) && lane.shopBuy.identitySame === true, JSON.stringify({ buy: lane.shopBuy, sell: lane.shopSell }));
+  check(results, 'S35.17 premium-book', lane.bookBuy?.paid === 33 && lane.bookBuy.latinumDelta === -33
+    && lane.bookBuy.after?.price === 11 && /Bought 1 ton of /.test(lane.bookBuy.log) && !/1 tons/.test(lane.bookBuy.log)
+    && lane.bookSell?.paid === 30 && lane.bookSell.after?.price === 10
+    && /Sold 1 ton of /.test(lane.bookSell.log) && !/1 tons/.test(lane.bookSell.log), JSON.stringify({ buy: lane.bookBuy, sell: lane.bookSell }));
+  check(results, 'S35.15 premium-book-then-shop', lane.mixBook?.paid === 33 && lane.mixShopSell?.paid === 30
+    && (-lane.mixBook.paid + lane.mixShopSell.paid) <= 0 && lane.mixShopSell.after?.price === 10, JSON.stringify({ buy: lane.mixBook, sell: lane.mixShopSell }));
+  check(results, 'S35.15 premium-shop-then-book', lane.mixSetup?.after?.price === 11
+    && lane.mixShopBuy?.paid === 36 && lane.mixShopBuy.after?.price === 12
+    && lane.mixBookSell?.paid === 33 && lane.mixBookSell.after?.price === 11
+    && (-lane.mixShopBuy.paid + lane.mixBookSell.paid) <= 0, JSON.stringify({ setup: lane.mixSetup, shop: lane.mixShopBuy, book: lane.mixBookSell }));
+  check(results, 'S35.17 contraband-play', lane.contra?.ok === true && lane.contra.contraband === true, JSON.stringify(lane.contra));
+  check(results, 'S35.17 dominion-play-buy', laneRefused(lane.dominion) && lane.dominion.reason === 'region-refused'
+    && lane.dominion.docked === true && String(lane.dominion.systemName || '').trim().toLowerCase() !== 'dominica', JSON.stringify(lane.dominion));
+  check(results, 'S35.18 service-refusal-play', lane.friendlyLot?.ok === true
+    && lane.hostileBuy?.paid === 0 && lane.hostileBuy?.reason === 'service-refused'
+    && lane.hostileBuy.latinumDelta === 0 && lane.hostileBuy.after?.price === lane.hostileBuy.before?.price
+    && /ports refuse you/i.test(lane.hostileBuy.log || '')
+    && lane.hostileSell?.paid === 0 && lane.hostileSell.salePresent === true
+    && !String(lane.hostileBuy.log || '').startsWith('FLASH'), JSON.stringify({ buy: lane.hostileBuy, sell: lane.hostileSell }));
+  check(results, 'S35.18 wrong-good-play', lane.wrongGood?.paid === 0 && lane.wrongGood?.reason === 'missing-market'
+    && lane.listedAfter?.stock === lane.listedBefore?.stock && lane.listedAfter?.price === lane.listedBefore?.price
+    && /no .+ market at this world/i.test(lane.wrongGood.log || ''), JSON.stringify(lane.wrongGood));
+  check(results, 'S35.18 missing-scope-play', lane.missingScope?.paid === 0 && lane.missingScope?.ok === false
+    && lane.missingScope?.reason === 'missing-scope'
+    && lane.scopeAfter?.stock === lane.scopeBefore?.stock && lane.scopeAfter?.price === lane.scopeBefore?.price, JSON.stringify(lane.missingScope));
+  check(results, 'S35.18 unknown-scope-play', lane.unknownScope?.paid === 0 && lane.unknownScope?.ok === false
+    && lane.unknownScope.after?.price === lane.unknownScope.before?.price, JSON.stringify(lane.unknownScope));
+  check(results, 'S35.18 book-button', lane.bookButton === true && lane.bookOpened === true && lane.bookClosed === true, JSON.stringify({
+    button: lane.bookButton, opened: lane.bookOpened, closed: lane.bookClosed,
+  }));
+  const guards = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    globalThis.BM1Probe?.worldCargo?.placeAtWorld?.();
+    globalThis.BM1Probe?.tryDockPlanet?.();
+    api.restore(undefined);
+    api.emptyHold();
+    const mint = (marketId, good, extra = {}) => p8.injectMarket({
+      marketId, good, stock: 20, demand: 20, stockCap: 40, demandCap: 40, floor: 0, price: 6,
+      systemIndex: here, restriction: 'open', ...extra,
+    });
+    mint('mkt-ordinary', 'Ordinary Grain');
+    const ordinary = api.playBuy('Ordinary Grain');
+    const home = api.setWorldName('');
+    mint('mkt-missing-region', 'Missing Region Grain');
+    const missingRegion = api.playBuy('Missing Region Grain');
+    api.setWorldName('Vortara');
+    mint('mkt-unknown-region', 'Unknown Region Grain');
+    const unknownRegion = api.playBuy('Unknown Region Grain');
+    api.setWorldName(home);
+    api.setWorldName('Dominica');
+    mint('mkt-dominion-world', 'Dominion Restricted');
+    const dominionWorld = api.playBuy('Dominion Restricted');
+    api.setWorldName(home);
+    api.restore(undefined);
+    api.emptyHold();
+    mint('mkt-save-grain', 'Save Grain');
+    const held = api.playBuy('Save Grain');
+    const saved = api.save();
+    api.restore(saved);
+    const rebuy = api.playBuy('Save Grain');
+    const soldOnce = api.playSell(held.saleId);
+    const soldTwice = api.playSell(held.saleId);
+    api.restore(undefined);
+    api.emptyHold();
+    mint('mkt-cap-grain', 'Cap Grain', { stock: 30, demand: 30 });
+    const ids = [];
+    for (let n = 0; n < 8; n += 1) ids.push(api.playBuy('Cap Grain').saleId);
+    const beforeNinth = p8.snapshot().book.markets['mkt-cap-grain'];
+    const ninth = api.playBuy('Cap Grain');
+    const afterNinth = p8.snapshot().book.markets['mkt-cap-grain'];
+    const capSell = api.playSell(ids[0]);
+    const capSellAgain = api.playSell(ids[0]);
+    const capNext = api.playBuy('Cap Grain');
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api.close?.();
+    api.clearCombatTarget?.();
+    globalThis.BM1Probe?.paint?.();
+    for (let n = 0; n < 6; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
+    const select = document.querySelector('#briefing-archive .briefing-archive-select');
+    const body = document.querySelector('#briefing-archive .briefing-archive-body');
+    if (select) select.scrollTop = 48;
+    const scrollBefore = select ? select.scrollTop : null;
+    const lineBefore = body?.querySelector('.briefing-line')?.textContent || '';
+    const filterCount = select ? select.querySelectorAll('[data-briefing-view], [data-briefing-campaign]').length : 0;
+    const button = document.querySelector('#briefing-archive .briefing-archive-toolbar [data-commodity-book-toggle]');
+    button?.click();
+    const book = document.querySelector('#briefing-archive > .commodity-book-section');
+    const line = body?.querySelector('.briefing-line');
+    const lineBox = line ? line.getBoundingClientRect() : null;
+    const bookBox = book ? book.getBoundingClientRect() : null;
+    const scrollAfter = select ? select.scrollTop : null;
+    const openClip = api.measureNoClip();
+    document.querySelector('#briefing-archive .briefing-archive-toolbar [data-commodity-book-toggle]')?.click();
+    const closedClip = api.measureNoClip();
+    api.close?.();
+    return {
+      ordinary, missingRegion, unknownRegion, dominionWorld,
+      held, rebuy, soldOnce, soldTwice,
+      ids, ninth, beforeNinth, afterNinth, capSell, capSellAgain, capNext,
+      home,
+      buttonInToolbar: Boolean(button),
+      buttonInTopLeft: Boolean(document.querySelector('#top-left-menu [data-commodity-book-toggle]')),
+      lineBefore,
+      lineAfter: line?.textContent || '',
+      emptyBriefing: /no briefing has been filed/i.test(body?.textContent || ''),
+      lineAboveBook: Boolean(lineBox && bookBox && lineBox.bottom <= bookBox.top + 1),
+      filtersStay: filterCount > 0 && select.querySelectorAll('[data-briefing-view], [data-briefing-campaign]').length === filterCount,
+      scrollBefore, scrollAfter,
+      openClip, closedClip,
+      bookOpen: Boolean(book),
+    };
+  });
+  const clipEmpty = (row) => row && row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0
+    && row.squashedControls.length === 0 && row.cutOffLines.length === 0;
+  check(results, 'S35.19 ordinary-region-play', guards.ordinary?.ok === true && guards.ordinary.paid > 0
+    && guards.ordinary.dominionScope === 'general', JSON.stringify(guards.ordinary));
+  check(results, 'S35.19 missing-region-play', guards.missingRegion?.paid === 0 && guards.missingRegion?.reason === 'missing-region'
+    && guards.missingRegion.after?.stock === guards.missingRegion.before?.stock
+    && guards.missingRegion.after?.price === guards.missingRegion.before?.price, JSON.stringify(guards.missingRegion));
+  check(results, 'S35.19 unknown-region-play', guards.unknownRegion?.paid === 0 && guards.unknownRegion?.ok === false
+    && guards.unknownRegion.after?.stock === guards.unknownRegion.before?.stock, JSON.stringify(guards.unknownRegion));
+  check(results, 'S35.19 dominion-core-allows-dominica', guards.dominionWorld?.ok === true && guards.dominionWorld.paid > 0
+    && guards.dominionWorld.dominionScope === 'dominion-core', JSON.stringify(guards.dominionWorld));
+  check(results, 'S35.19 save-load-sale-id', guards.held?.ok === true && guards.rebuy?.ok === true
+    && guards.rebuy.saleId !== guards.held.saleId
+    && guards.soldOnce?.paid > 0 && guards.soldTwice?.paid === 0, JSON.stringify({
+      held: guards.held, rebuy: guards.rebuy, soldOnce: guards.soldOnce, soldTwice: guards.soldTwice,
+    }));
+  check(results, 'S35.19 held-cap-play', guards.ids.filter(Boolean).length === 8
+    && guards.ninth?.paid === 0 && guards.ninth?.reason === 'sale-cap'
+    && guards.afterNinth?.stock === guards.beforeNinth?.stock && guards.afterNinth?.price === guards.beforeNinth?.price
+    && guards.capSell?.paid > 0 && guards.capSellAgain?.paid === 0
+    && guards.capNext?.ok === true && !guards.ids.includes(guards.capNext.saleId), JSON.stringify({
+      ids: guards.ids, ninth: guards.ninth, capSell: guards.capSell, capNext: guards.capNext,
+    }));
+  check(results, 'S35.19 book-control', guards.buttonInToolbar === true && guards.buttonInTopLeft === false
+    && guards.bookOpen === true && guards.emptyBriefing === false && guards.lineBefore && guards.lineAfter === guards.lineBefore
+    && guards.lineAboveBook === true && guards.filtersStay === true
+    && guards.scrollBefore != null && guards.scrollAfter === guards.scrollBefore
+    && clipEmpty(guards.openClip) && clipEmpty(guards.closedClip), JSON.stringify({
+      buttonInToolbar: guards.buttonInToolbar,
+      buttonInTopLeft: guards.buttonInTopLeft,
+      emptyBriefing: guards.emptyBriefing,
+      lineAboveBook: guards.lineAboveBook,
+      filtersStay: guards.filtersStay,
+      scrollBefore: guards.scrollBefore,
+      scrollAfter: guards.scrollAfter,
+      lineBefore: guards.lineBefore,
+      open: guards.openClip && { clipped: guards.openClip.clippedControls, occluders: guards.openClip.occluders, pills: guards.openClip.pillOverlaps, squashed: guards.openClip.squashedControls, cutOff: guards.openClip.cutOffLines },
+      closed: guards.closedClip && { clipped: guards.closedClip.clippedControls, occluders: guards.closedClip.occluders, squashed: guards.closedClip.squashedControls, cutOff: guards.closedClip.cutOffLines },
+    }));
+  const uncrushed = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    globalThis.BM1Probe?.paint?.();
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    globalThis.BM1Probe?.paint?.();
+    const archive = document.getElementById('briefing-archive');
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    const rectOf = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const pill = archive?.querySelector('[data-briefing-select]');
+    const jump = archive?.querySelector('.briefing-jump');
+    const body = archive?.querySelector('.briefing-archive-body');
+    const book = archive?.querySelector(':scope > .commodity-book-section');
+    const buy = archive?.querySelector('[data-commodity-buy]');
+    const lines = [...(archive?.querySelectorAll('.briefing-line') || [])];
+    const pillBox = rectOf(pill);
+    const jumpBox = rectOf(jump);
+    const bodyBox = rectOf(body);
+    const bookBox = rectOf(book);
+    const archiveBox = rectOf(archive);
+    const buyBox = rectOf(buy);
+    const sliced = lines.some((line) => {
+      const range = document.createRange();
+      range.selectNodeContents(line);
+      const hostBottom = Math.min(bodyBox?.bottom ?? 0, archiveBox?.bottom ?? 0, bookBox?.top ?? Infinity);
+      const hostTop = bodyBox?.top ?? 0;
+      return [...range.getClientRects()].some((rect) => {
+        if (rect.height < 2) return false;
+        const visible = Math.min(rect.bottom, hostBottom) - Math.max(rect.top, hostTop);
+        return visible > 1 && visible < rect.height - 1;
+      });
+    });
+    const buyInside = Boolean(buyBox && archiveBox && buyBox.height >= 20
+      && buyBox.top >= archiveBox.top - 1 && buyBox.bottom <= archiveBox.bottom + 1
+      && buyBox.left >= archiveBox.left - 1 && buyBox.right <= archiveBox.right + 1);
+    const archiveStyle = archive ? getComputedStyle(archive) : null;
+    const archiveScrolls = Boolean(archive && archiveStyle && /(auto|scroll)/.test(archiveStyle.overflowY)
+      && archive.scrollHeight > archive.clientHeight + 1);
+    let buyReachable = buyInside;
+    if (!buyInside && buy && archive && archiveScrolls) {
+      const previous = archive.scrollTop;
+      const host = archive.getBoundingClientRect();
+      const box = buy.getBoundingClientRect();
+      archive.scrollTop = Math.max(0, previous + (box.top - host.top) - 4);
+      const next = buy.getBoundingClientRect();
+      const hostNext = archive.getBoundingClientRect();
+      buyReachable = next.height >= 20 && next.top >= hostNext.top - 1 && next.bottom <= hostNext.bottom + 1;
+      archive.scrollTop = previous;
+    }
+    const scroll = book?.querySelector('.commodity-book-scroll');
+    const scrollStyle = scroll ? getComputedStyle(scroll) : null;
+    const bar = book?.querySelector('.commodity-book-bar');
+    const barBox = bar?.getBoundingClientRect();
+    const bookScrolls = Boolean(scroll && scrollStyle && /(auto|scroll)/.test(scrollStyle.overflowY)
+      && scroll.scrollHeight > scroll.clientHeight + 1
+      && barBox && barBox.width >= 8 && barBox.height >= 24
+      && getComputedStyle(bar).display !== 'none');
+    const clip = api.measureNoClip();
+    const buttonInToolbar = Boolean(archive?.querySelector('.briefing-archive-toolbar [data-commodity-book-toggle]'));
+    const buttonInTopLeft = Boolean(document.querySelector('#top-left-menu [data-commodity-book-toggle]'));
+    const spawned = globalThis.BM1Probe?.spawnShip?.({
+      id: 's35-book-target',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-book-target');
+    globalThis.BM1Probe?.paint?.();
+    const target = document.getElementById('target-window');
+    const targetBox = rectOf(target);
+    const archiveOpen = rectOf(archive);
+    const bookOpen = rectOf(archive?.querySelector(':scope > .commodity-book-section'));
+    const visibleBox = (box, host) => {
+      if (!box || !host) return box;
+      return {
+        left: Math.max(box.left, host.left),
+        right: Math.min(box.right, host.right),
+        top: Math.max(box.top, host.top),
+        bottom: Math.min(box.bottom, host.bottom),
+      };
+    };
+    const bookVisible = visibleBox(bookOpen, archiveOpen);
+    const bookPaints = Boolean(bookVisible && bookVisible.right - bookVisible.left > 4 && bookVisible.bottom - bookVisible.top > 4);
+    const targetClear = Boolean(targetBox && targetBox.width > 40 && targetBox.height > 40 && archiveOpen
+      && !overlap(targetBox, archiveOpen) && (!bookPaints || !overlap(targetBox, bookVisible)));
+    const targetClip = api.measureNoClip();
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    globalThis.BM1Probe?.paint?.();
+    return {
+      pillHeight: pillBox?.height || 0,
+      pillText: String(pill?.textContent || ''),
+      jumpText: String(jump?.textContent || ''),
+      jumpOverlapsPill: overlap(pillBox, jumpBox),
+      lineCount: lines.length,
+      sliced,
+      buyInside,
+      buyReachable,
+      archiveScrolls,
+      buyText: String(buy?.textContent || ''),
+      bookScrolls,
+      emptyBriefing: /no briefing has been filed/i.test(body?.textContent || ''),
+      buttonInToolbar,
+      buttonInTopLeft,
+      clip: clip && {
+        clippedControls: clip.clippedControls,
+        occluders: clip.occluders,
+        pillOverlaps: clip.pillOverlaps,
+        squashedControls: clip.squashedControls,
+        cutOffLines: clip.cutOffLines,
+      },
+      targetClear,
+      targetClip: targetClip && {
+        clippedControls: targetClip.clippedControls,
+        occluders: targetClip.occluders,
+        pillOverlaps: targetClip.pillOverlaps,
+        squashedControls: targetClip.squashedControls,
+        cutOffLines: targetClip.cutOffLines,
+      },
+      targetBox,
+      archiveBox: archiveOpen,
+    };
+  });
+  check(results, 'S35.20 briefing-book-open', uncrushed.buttonInToolbar === true && uncrushed.buttonInTopLeft === false
+    && uncrushed.emptyBriefing === false && uncrushed.lineCount > 0
+    && uncrushed.pillHeight >= 24 && uncrushed.jumpOverlapsPill === false && uncrushed.sliced === false
+    && uncrushed.buyReachable === true && /buy one ton/i.test(uncrushed.buyText)
+    && (uncrushed.bookScrolls === true || uncrushed.archiveScrolls === true)
+    && clipEmpty(uncrushed.clip), JSON.stringify({
+      pillHeight: uncrushed.pillHeight,
+      pillText: uncrushed.pillText,
+      jumpText: uncrushed.jumpText,
+      jumpOverlapsPill: uncrushed.jumpOverlapsPill,
+      sliced: uncrushed.sliced,
+      buyInside: uncrushed.buyInside,
+      buyText: uncrushed.buyText,
+      bookScrolls: uncrushed.bookScrolls,
+      clip: uncrushed.clip,
+    }));
+  check(results, 'S35.20 book-target-clear', uncrushed.targetClear === true && clipEmpty(uncrushed.targetClip), JSON.stringify({
+    targetClear: uncrushed.targetClear,
+    targetBox: uncrushed.targetBox,
+    archiveBox: uncrushed.archiveBox,
+    clip: uncrushed.targetClip,
+  }));
+  const yielded = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const probe = globalThis.BM1Probe;
+    const round = (rect) => rect && {
+      left: Math.round(rect.left),
+      top: Math.round(rect.top),
+      right: Math.round(rect.right),
+      bottom: Math.round(rect.bottom),
+    };
+    const rectOf = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-planet-action="close"]')?.click();
+    api?.emptyHold?.();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    p8.injectMarket({
+      marketId: 'mkt-reach',
+      good: 'Reach Grain',
+      stock: 8,
+      demand: 8,
+      stockCap: 20,
+      demandCap: 20,
+      floor: 0,
+      price: 8,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const seeded = api.playBuy('Reach Grain');
+    api?.close?.();
+    probe?.paint?.();
+    for (let n = 0; n < 18; n += 1) briefing?.produce?.({ strategicJumps: n + 1 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    const spawned = probe?.spawnShip?.({
+      id: 's35-yield-target',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-yield-target');
+    probe?.paint?.();
+    const targetBefore = round(rectOf(document.getElementById('target-window')));
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.paint?.();
+    const archive = document.getElementById('briefing-archive');
+    const targetAfter = round(rectOf(document.getElementById('target-window')));
+    const archiveBox = rectOf(archive);
+    const bookBox = rectOf(archive?.querySelector(':scope > .commodity-book-section'));
+    const targetBox = rectOf(document.getElementById('target-window'));
+    const scrollHostTo = (host, el) => {
+      if (!host || host === document.body || host === document.documentElement) return;
+      const style = getComputedStyle(host);
+      if (!/(auto|scroll)/.test(style.overflowY) || host.scrollHeight <= host.clientHeight + 1) return;
+      const hostBox = host.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      host.scrollTop = Math.max(0, host.scrollTop + (box.top - hostBox.top) - 4);
+    };
+    const scrollArchiveTo = (el) => {
+      const chain = [];
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        chain.push(node);
+        node = node.parentElement;
+      }
+      chain.forEach((host) => scrollHostTo(host, el));
+      [...chain].reverse().forEach((host) => scrollHostTo(host, el));
+    };
+    const clippedBox = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      let top = rect.top;
+      let bottom = rect.bottom;
+      let left = rect.left;
+      let right = rect.right;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) {
+          const host = node.getBoundingClientRect();
+          top = Math.max(top, host.top);
+          bottom = Math.min(bottom, host.bottom);
+          left = Math.max(left, host.left);
+          right = Math.min(right, host.right);
+        }
+        node = node.parentElement;
+      }
+      return { left, right, top, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+    };
+    const buy = archive.querySelector('[data-commodity-buy]');
+    archive.scrollTop = 0;
+    const hostBefore = archive.getBoundingClientRect();
+    const buyBefore = buy?.getBoundingClientRect();
+    const archiveStyle = getComputedStyle(archive);
+    const scrolls = /(auto|scroll)/.test(archiveStyle.overflowY) && archive.scrollHeight > archive.clientHeight + 1;
+    const below = Boolean(buyBefore && buyBefore.top >= hostBefore.bottom - 1);
+    const stockBefore = p8.snapshot().book.markets['mkt-reach']?.stock;
+    const pills = [...archive.querySelectorAll('.briefing-archive-select button')];
+    const lines = [...archive.querySelectorAll('.briefing-line, .briefing-jump, .briefing-omitted, .briefing-empty')];
+    const pillShrink = pills.length > 0 && pills.every((pill) => getComputedStyle(pill).flexShrink === '0');
+    let covered = false;
+    let short = false;
+    let unread = false;
+    for (const el of [...pills, ...lines]) {
+      const before = el.getBoundingClientRect().height;
+      scrollArchiveTo(el);
+      const box = el.getBoundingClientRect();
+      const host = archive.getBoundingClientRect();
+      const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
+      const full = box.top >= host.top - 1 && box.bottom <= host.bottom + 1 && box.height >= 8;
+      if (!full) unread = true;
+      if (Number.isFinite(lineHeight) && box.height + 0.5 < lineHeight) short = true;
+      if (before >= 8 && box.height + 1 < before) short = true;
+      const cx = Math.min(host.right - 4, Math.max(host.left + 4, (box.left + box.right) / 2));
+      const cy = Math.min(host.bottom - 4, Math.max(host.top + 4, (box.top + box.bottom) / 2));
+      const hit = document.elementsFromPoint(cx, cy)[0];
+      const briefingNode = el.closest('.briefing-archive-select, .briefing-archive-body');
+      if (briefingNode && hit && !el.contains(hit) && !hit.contains(el)) {
+        if (hit.closest('.commodity-book-section, #target-window')) covered = true;
+      }
+    }
+    if (buy) scrollArchiveTo(buy);
+    const hostAfter = archive.getBoundingClientRect();
+    const buyAfter = buy?.getBoundingClientRect();
+    const inView = Boolean(buyAfter && buyAfter.height >= 20
+      && buyAfter.top >= hostAfter.top - 1 && buyAfter.bottom <= hostAfter.bottom + 1
+      && buyAfter.left >= hostAfter.left - 1 && buyAfter.right <= hostAfter.right + 1);
+    buy?.click();
+    const stockAfter = p8.snapshot().book.markets['mkt-reach']?.stock;
+    const clip = api.measureNoClip();
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    probe?.paint?.();
+    return {
+      seededOk: seeded?.ok === true,
+      pillCount: pills.length,
+      lineCount: lines.filter((el) => el.classList.contains('briefing-line')).length,
+      pillShrink,
+      covered,
+      short,
+      unread,
+      scrolls,
+      below,
+      inView,
+      bought: stockBefore != null && stockAfter === stockBefore - 1,
+      stockBefore,
+      stockAfter,
+      docked: probe?.snapshot?.().docked === true,
+      targetSame: JSON.stringify(targetBefore) === JSON.stringify(targetAfter),
+      targetClear: Boolean(targetBox && archiveBox && !overlap(clippedBox(document.getElementById('target-window')), clippedBox(archive)) && (!bookBox || !overlap(clippedBox(document.getElementById('target-window')), clippedBox(archive.querySelector(':scope > .commodity-book-section'))))),
+      targetBefore,
+      targetAfter,
+      squashedControls: clip?.squashedControls,
+      cutOffLines: clip?.cutOffLines,
+      clippedControls: clip?.clippedControls,
+      occluders: clip?.occluders,
+      pillOverlaps: clip?.pillOverlaps,
+      overflow: archiveStyle.overflowY,
+    };
+  });
+  check(results, 'S35.21 briefing-never-yields', yielded.seededOk === true && yielded.pillCount >= 8 && yielded.lineCount >= 4
+    && yielded.pillShrink === true && yielded.covered === false && yielded.short === false && yielded.unread === false
+    && clipEmpty({
+      clippedControls: yielded.clippedControls,
+      occluders: yielded.occluders,
+      pillOverlaps: yielded.pillOverlaps,
+      squashedControls: yielded.squashedControls,
+      cutOffLines: yielded.cutOffLines,
+    }), JSON.stringify({
+      pillCount: yielded.pillCount,
+      lineCount: yielded.lineCount,
+      pillShrink: yielded.pillShrink,
+      covered: yielded.covered,
+      short: yielded.short,
+      unread: yielded.unread,
+      squashed: yielded.squashedControls,
+      cutOff: yielded.cutOffLines,
+      clipped: yielded.clippedControls,
+      occluders: yielded.occluders,
+      pills: yielded.pillOverlaps,
+    }));
+  check(results, 'S35.21 buy-reachable', yielded.scrolls === true && yielded.below === true && yielded.inView === true
+    && yielded.bought === true, JSON.stringify({
+      scrolls: yielded.scrolls,
+      below: yielded.below,
+      inView: yielded.inView,
+      bought: yielded.bought,
+      stockBefore: yielded.stockBefore,
+      stockAfter: yielded.stockAfter,
+      docked: yielded.docked,
+      overflow: yielded.overflow,
+    }));
+  check(results, 'S35.21 book-target-yields', yielded.targetSame === true && yielded.targetClear === true
+    && clipEmpty({
+      clippedControls: yielded.clippedControls,
+      occluders: yielded.occluders,
+      pillOverlaps: yielded.pillOverlaps,
+      squashedControls: yielded.squashedControls,
+      cutOffLines: yielded.cutOffLines,
+    }), JSON.stringify({
+      targetSame: yielded.targetSame,
+      targetClear: yielded.targetClear,
+      before: yielded.targetBefore,
+      after: yielded.targetAfter,
+      squashed: yielded.squashedControls,
+      cutOff: yielded.cutOffLines,
+    }));
+  const pre79 = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    api?.restore?.(undefined);
+    api?.emptyHold?.();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    p8.injectMarket({
+      marketId: 'mkt-pre79',
+      good: 'Pre79 Grain',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    probe.saveSlot(3);
+    const key = 'bm2_html_save_slot_3';
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!saved?.marketBook?.markets?.['mkt-pre79']) return { missing: true };
+    for (const row of Object.values(saved.marketBook.markets)) delete row.availabilityRegion;
+    const row = saved.marketBook.markets['mkt-pre79'];
+    row.contraband = true;
+    if (saved.marketBook.goods?.[row.good]) saved.marketBook.goods[row.good].contraband = false;
+    const loadedHadRegion = Object.values(saved.marketBook.markets).some((entry) => (
+      Object.prototype.hasOwnProperty.call(entry, 'availabilityRegion')
+    ));
+    localStorage.setItem(key, JSON.stringify(saved));
+    probe.loadSlot(3);
+    probe.worldCargo?.placeAtWorld?.();
+    probe.tryDockPlanet?.();
+    api?.emptyHold?.();
+    const restored = p8.snapshot().book.markets['mkt-pre79'];
+    const bought = api.playBuy('Pre79 Grain');
+    return {
+      loadedHadRegion,
+      hasRegion: Boolean(restored && Object.prototype.hasOwnProperty.call(restored, 'availabilityRegion')),
+      contraband: restored?.contraband === true,
+      boughtOk: bought?.ok === true && bought.paid > 0,
+      reason: bought?.reason || null,
+      paid: bought?.paid || 0,
+    };
+  });
+  check(results, 'S35.21 pre79-market-buy', pre79.loadedHadRegion === false && pre79.hasRegion === false
+    && pre79.boughtOk === true && pre79.reason !== 'missing-scope', JSON.stringify(pre79));
+  check(results, 'S35.21 tampered-contraband', pre79.contraband === false, JSON.stringify(pre79));
+  const shotHashes = await page.evaluate(async () => {
+    const names = [
+      'after-campaign.png',
+      'after-briefing.png',
+      'after-world-cargo.png',
+      'after-target-undocked.png',
+      'after-book-target.png',
+      'after-book-target-low-hull.png',
+      'after-dock-market.png',
+      'after-book-panel.png',
+    ];
+    const hashes = {};
+    for (const name of names) {
+      const response = await fetch(`/docs/commodity-shipment/screenshots/${name}`);
+      if (!response.ok) continue;
+      const digest = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
+      hashes[name] = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    }
+    return hashes;
+  });
+  const shotValues = Object.values(shotHashes);
+  const shotDupes = [...new Set(shotValues.filter((hex, index) => shotValues.indexOf(hex) !== index))];
+  check(results, 'S35.21 distinct-shots', shotValues.length >= 4 && shotDupes.length === 0, JSON.stringify({
+    files: Object.keys(shotHashes),
+    dupes: shotDupes,
+  }));
+  const cardFit = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-planet-action="close"]')?.click();
+    for (let n = 0; n < 18; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    const spawned = probe?.spawnShip?.({
+      id: 's35-card-core',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-card-core');
+    probe?.paint?.();
+    const coreOf = (card) => {
+      const style = getComputedStyle(card);
+      const rect = card.getBoundingClientRect();
+      const borderTop = parseFloat(style.borderTopWidth) || 0;
+      const borderBottom = parseFloat(style.borderBottomWidth) || 0;
+      const borderLeft = parseFloat(style.borderLeftWidth) || 0;
+      const borderRight = parseFloat(style.borderRightWidth) || 0;
+      const inner = {
+        top: rect.top + borderTop,
+        bottom: rect.bottom - borderBottom,
+        left: rect.left + borderLeft,
+        right: rect.right - borderRight,
+      };
+      const parts = [];
+      const take = (el, name) => {
+        if (!el) {
+          parts.push({ name, missing: true, inside: false, full: false });
+          return;
+        }
+        const box = el.getBoundingClientRect();
+        parts.push({
+          name,
+          text: String(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48),
+          inside: box.height >= 8
+            && box.top >= inner.top - 1 && box.bottom <= inner.bottom + 1
+            && box.left >= inner.left - 1 && box.right <= inner.right + 1,
+          full: el.scrollHeight <= el.clientHeight + 2 && box.height + 1 >= el.clientHeight,
+          rendered: Math.round(box.height),
+          client: el.clientHeight,
+          natural: el.scrollHeight,
+        });
+      };
+      take(card.querySelector('.target-window-head'), 'head');
+      take(card.querySelector('.target-meta'), 'meta');
+      take(card.querySelector('.target-class'), 'class');
+      const meters = [...card.querySelectorAll('.target-meter')];
+      take(meters[0], 'shield');
+      take(meters[1], 'hull');
+      const hail = [...card.querySelectorAll('.target-hail button')].find((el) => /hail ship/i.test(el.textContent)) || null;
+      take(hail, 'hail');
+      const hailBox = hail?.getBoundingClientRect();
+      let clickable = false;
+      if (hail && hailBox && hailBox.height >= 8) {
+        const hit = document.elementFromPoint((hailBox.left + hailBox.right) / 2, (hailBox.top + hailBox.bottom) / 2);
+        clickable = Boolean(hit && (hit === hail || hail.contains(hit)) && !hail.disabled);
+      }
+      return {
+        scrollTop: card.scrollTop,
+        height: Math.round(rect.height),
+        top: Math.round(rect.top),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        parts,
+        clickable,
+        hailText: hail?.textContent || '',
+      };
+    };
+    const archiveBar = (archive) => {
+      const style = getComputedStyle(archive);
+      const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+      const gutter = archive.offsetWidth - archive.clientWidth - borderX;
+      const scrolls = archive.scrollHeight > archive.clientHeight + 1;
+      return {
+        scrolls,
+        gutter: Math.round(gutter),
+        scrollbarWidth: style.scrollbarWidth,
+        overflowY: style.overflowY,
+        visible: scrolls && gutter > 1 && style.scrollbarWidth !== 'none',
+      };
+    };
+    const bookShown = (archive) => {
+      const host = archive.getBoundingClientRect();
+      const inView = (el) => {
+        if (!el) return false;
+        const box = el.getBoundingClientRect();
+        return box.height >= 8 && box.top >= host.top - 1 && box.bottom <= host.bottom + 1
+          && box.left >= host.left - 1 && box.right <= host.right + 1;
+      };
+      const toggle = archive.querySelector('[data-commodity-book-toggle]');
+      const title = archive.querySelector('.commodity-shipment-title');
+      return {
+        toggle: Boolean(toggle && inView(toggle) && toggle.classList.contains('active') && /open/i.test(toggle.textContent)),
+        title: Boolean(title && inView(title) && /commodity book/i.test(title.textContent)),
+        toggleText: toggle?.textContent || '',
+      };
+    };
+    const closedCard = document.getElementById('target-window');
+    const closed = coreOf(closedCard);
+    const closedArchive = document.getElementById('briefing-archive');
+    const closedBar = archiveBar(closedArchive);
+    if (closedArchive) {
+      closedArchive.scrollTop = 0;
+      const select = closedArchive.querySelector('.briefing-archive-select');
+      if (select) select.scrollTop = 0;
+    }
+    const scrollBeforeOpen = closedArchive?.scrollTop || 0;
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.paint?.();
+    const scrollAfterOpen = document.getElementById('briefing-archive')?.scrollTop || 0;
+    const openCard = document.getElementById('target-window');
+    const open = coreOf(openCard);
+    const archive = document.getElementById('briefing-archive');
+    const openBar = archiveBar(archive);
+    const shown = bookShown(archive);
+    const clip = api.measureNoClip();
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    probe?.paint?.();
+    return { closed, open, closedBar, openBar, shown, scrollSame: scrollBeforeOpen === scrollAfterOpen, clip: {
+      squashedControls: clip?.squashedControls,
+      cutOffLines: clip?.cutOffLines,
+      clippedControls: clip?.clippedControls,
+      occluders: clip?.occluders,
+      pillOverlaps: clip?.pillOverlaps,
+    } };
+  });
+  const coreOk = (row) => row && row.scrollTop === 0 && row.clickable === true && /hail ship/i.test(row.hailText)
+    && row.parts.length >= 6 && row.parts.every((part) => part.inside === true && part.full === true && part.missing !== true);
+  check(results, 'S35.22 target-core-closed', coreOk(cardFit.closed) && cardFit.closedBar?.visible === true, JSON.stringify({
+    closed: cardFit.closed,
+    bar: cardFit.closedBar,
+  }));
+  check(results, 'S35.22 target-core-open', coreOk(cardFit.open) && cardFit.openBar?.visible === true
+    && cardFit.scrollSame === true
+    && (cardFit.shown?.toggle === true || cardFit.shown?.title === true)
+    && clipEmpty({
+      clippedControls: cardFit.clip?.clippedControls,
+      occluders: cardFit.clip?.occluders,
+      pillOverlaps: cardFit.clip?.pillOverlaps,
+      squashedControls: cardFit.clip?.squashedControls,
+      cutOffLines: cardFit.clip?.cutOffLines,
+    }), JSON.stringify({
+      open: cardFit.open,
+      bar: cardFit.openBar,
+      shown: cardFit.shown,
+      clip: cardFit.clip,
+    }));
+  const hullCard = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const boarding = globalThis.__BM1_PROBE__.boarding;
+    const probe = globalThis.BM1Probe;
+    const textOf = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.paint?.();
+    const spawned = probe?.spawnShip?.({
+      id: 's35-hull-core',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+    });
+    const id = spawned?.id || 's35-hull-core';
+    boarding?.selectTarget?.(id);
+    probe?.paint?.();
+    const shown = (el) => {
+      if (!el || !el.isConnected) return false;
+      const style = getComputedStyle(el);
+      if (el.hidden || el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width >= 2 && rect.height >= 2;
+    };
+    const ariaHidden = (el) => {
+      let node = el;
+      while (node && node.nodeType === 1) {
+        if (node.getAttribute('aria-hidden') === 'true') return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
+    const paintsScrollSign = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+      const borderY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      if (el.offsetWidth - el.clientWidth - borderX > 1 || el.offsetHeight - el.clientHeight - borderY > 1) return true;
+      const thumb = (which) => {
+        const ps = getComputedStyle(el, which);
+        if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
+        if (ps.visibility === 'hidden' || ps.display === 'none') return false;
+        return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
+      };
+      const namedThumb = (el.matches('.world-cargo.is-scrolling, .dock-panel.is-scrolling, .briefing-archive.is-scrolling, .briefing-archive-select.is-scrolling, .briefing-archive-body.is-scrolling') && thumb('::before'))
+        || (el.matches('.target-window.is-scrolling') && thumb('::after'));
+      if (namedThumb) return true;
+      const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
+      const bar = frame?.querySelector(':scope > .commodity-book-bar');
+      if (!bar) return false;
+      const rect = bar.getBoundingClientRect();
+      return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+    };
+    const scrollbarShown = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (style.scrollbarWidth === 'none') return false;
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 1;
+      if (!scrollY && !scrollX) return false;
+      return paintsScrollSign(el);
+    };
+    const panelRoots = () => [...document.querySelectorAll('body *')].filter((el) => {
+      const style = getComputedStyle(el);
+      if (style.position !== 'fixed' && style.position !== 'absolute') return false;
+      if (!shown(el) || el.id === 'game') return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 40 || rect.height < 24) return false;
+      let node = el.parentElement;
+      while (node && node !== document.body) {
+        const parentStyle = getComputedStyle(node);
+        const positioned = parentStyle.position === 'fixed' || parentStyle.position === 'absolute';
+        if (positioned && shown(node) && node.id !== 'game') {
+          const box = node.getBoundingClientRect();
+          if (box.width >= 40 && box.height >= 24) return false;
+        }
+        node = node.parentElement;
+      }
+      return true;
+    });
+    const panelWalk = () => {
+      const squashed = [];
+      const cutOff = [];
+      const push = (list, value) => {
+        const line = (typeof value === 'string' ? value : textOf(value)).replace(/\s+/g, ' ').trim().slice(0, 80);
+        if (line && !list.includes(line)) list.push(line);
+      };
+      const isControl = (el) => /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.getAttribute('role') === 'button';
+      const isTextLine = (el) => {
+        if (isControl(el) || el.closest('button, a, [role="button"]')) return false;
+        if (/^(SCRIPT|STYLE|SVG|CANVAS|IMG)$/.test(el.tagName)) return false;
+        if (el.children.length > 0) return false;
+        return textOf(el).length > 0;
+      };
+      const canReveal = (clipper, rect) => {
+        if (!clipper) return false;
+        const style = getComputedStyle(clipper);
+        const host = clipper.getBoundingClientRect();
+        const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+        const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+        if ((!scrollY && !scrollX) || !scrollbarShown(clipper)) return false;
+        const topIn = rect.top - host.top + clipper.scrollTop;
+        const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+        const leftIn = rect.left - host.left + clipper.scrollLeft;
+        const rightIn = rect.right - host.left + clipper.scrollLeft;
+        if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+        if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
+        if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+        if (rightIn - leftIn > clipper.clientWidth + 1) return false;
+        const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+        const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
+        return yFits && xFits;
+      };
+      const clientEdges = (node) => {
+        const host = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          top: host.top + (parseFloat(style.borderTopWidth) || 0),
+          bottom: host.bottom - (parseFloat(style.borderBottomWidth) || 0),
+          left: host.left + (parseFloat(style.borderLeftWidth) || 0),
+          right: host.right - (parseFloat(style.borderRightWidth) || 0),
+        };
+      };
+      const edgeCuts = (node, rect) => {
+        const edge = clientEdges(node);
+        return rect.top < edge.top - 1 || rect.bottom > edge.bottom + 1
+          || rect.left < edge.left - 1 || rect.right > edge.right + 1;
+      };
+      const clippingAncestors = (el) => {
+        const list = [];
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          const style = getComputedStyle(node);
+          if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+          node = node.parentElement;
+        }
+        return list;
+      };
+      const rectsOf = (target) => {
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+        if (rects.length) return rects;
+        if (target.nodeType === 1) return [target.getBoundingClientRect()];
+        return [];
+      };
+      const innerReveals = (outer, el, rect) => clippingAncestors(el).some((node) => {
+        if (node === outer || !outer.contains(node) || !canReveal(node, rect)) return false;
+        const box = node.getBoundingClientRect();
+        return !edgeCuts(outer, box) || canReveal(outer, box);
+      });
+      const lineCut = (el, rects) => rects.some((rect) => {
+        const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
+        if (!cutters.length) return false;
+        return cutters.some((node) => !canReveal(node, rect) && !innerReveals(node, el, rect));
+      });
+      for (const panel of panelRoots()) {
+        const pieces = [];
+        for (const el of panel.querySelectorAll('*')) {
+          if (!shown(el) || ariaHidden(el)) continue;
+          if (isControl(el) || isTextLine(el)) pieces.push({ el, text: textOf(el) });
+          if (isControl(el) || el.closest('button, a, [role="button"]') || el.children.length === 0) continue;
+          for (const node of el.childNodes) {
+            if (node.nodeType !== 3) continue;
+            const text = textOf(node);
+            if (text) pieces.push({ el, text, textNode: node });
+          }
+        }
+        for (const piece of pieces) {
+          const el = piece.el;
+          if (!piece.textNode) {
+            const style = getComputedStyle(el);
+            const inlineText = style.display === 'inline' || style.display === 'contents';
+            const scrollport = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 2 && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+            if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) push(squashed, piece.text);
+            const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
+            const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
+            if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) push(squashed, piece.text);
+          }
+          if (lineCut(el, rectsOf(piece.textNode || el))) push(cutOff, piece.text);
+        }
+      }
+      return {
+        squashed,
+        cutOff,
+        panels: panelRoots().map((el) => el.id || el.getAttribute('aria-label') || String(el.className || '').split(/\s+/)[0] || 'panel'),
+      };
+    };
+    const readCard = (card) => {
+      const style = getComputedStyle(card);
+      const rect = card.getBoundingClientRect();
+      const inner = {
+        top: rect.top + (parseFloat(style.borderTopWidth) || 0),
+        bottom: rect.bottom - (parseFloat(style.borderBottomWidth) || 0),
+        left: rect.left + (parseFloat(style.borderLeftWidth) || 0),
+        right: rect.right - (parseFloat(style.borderRightWidth) || 0),
+      };
+      const parts = [];
+      const take = (el, name) => {
+        if (!el || !shown(el)) {
+          parts.push({ name, missing: true, inside: false, full: false });
+          return;
+        }
+        const box = el.getBoundingClientRect();
+        parts.push({
+          name,
+          text: textOf(el).slice(0, 72),
+          inside: box.top >= inner.top - 1 && box.bottom <= inner.bottom + 1 && box.left >= inner.left - 1 && box.right <= inner.right + 1,
+          full: el.scrollHeight <= el.clientHeight + 2 && box.height + 1 >= Math.min(el.clientHeight, 8),
+        });
+      };
+      take(card.querySelector('.target-window-head'), 'head');
+      take(card.querySelector('.target-meta'), 'meta');
+      take(card.querySelector('.target-class'), 'class');
+      const meters = [...card.querySelectorAll('.target-meter')];
+      take(meters[0], 'shield');
+      take(meters[1], 'hull');
+      const hail = [...card.querySelectorAll('.target-hail button')].find((el) => /hail ship/i.test(el.textContent)) || null;
+      take(hail, 'hail');
+      const notes = [...card.querySelectorAll('.target-boarding-note')].filter(shown);
+      const tractor = notes.find((el) => /^Tractor hold is not a capture/i.test(textOf(el))) || null;
+      const doctrine = notes.find((el) => el !== tractor) || null;
+      take(doctrine, 'doctrine');
+      take(tractor, 'tractor');
+      const outcomeButtons = [...card.querySelectorAll('[data-board-action="capture"], [data-board-action="scuttle"]')].filter(shown);
+      const applies = [...card.querySelectorAll('[data-board-applies]')].filter(shown);
+      const captureBtn = card.querySelector('[data-board-action="capture"]');
+      const scuttleBtn = card.querySelector('[data-board-action="scuttle"]');
+      take(captureBtn, 'capture');
+      take(scuttleBtn, 'scuttle');
+      take(applies[0] || null, 'applies');
+      const hailBox = hail?.getBoundingClientRect();
+      let clickable = false;
+      if (hail && hailBox) {
+        const hit = document.elementFromPoint((hailBox.left + hailBox.right) / 2, (hailBox.top + hailBox.bottom) / 2);
+        clickable = Boolean(hit && (hit === hail || hail.contains(hit)) && !hail.disabled);
+      }
+      const archive = document.getElementById('briefing-archive');
+      const archiveStyle = archive ? getComputedStyle(archive) : null;
+      const borderX = archiveStyle ? (parseFloat(archiveStyle.borderLeftWidth) || 0) + (parseFloat(archiveStyle.borderRightWidth) || 0) : 0;
+      return {
+        scrollTop: card.scrollTop,
+        height: Math.round(rect.height),
+        top: Math.round(rect.top),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        parts,
+        clickable,
+        hailText: textOf(hail),
+        head: textOf(card.querySelector('.target-window-head')),
+        className: textOf(card.querySelector('.target-class')),
+        doctrine: textOf(doctrine),
+        tractor: textOf(tractor),
+        applies: applies.map((el) => el.dataset.boardAction),
+        outcomeButtons: outcomeButtons.map((el) => el.dataset.boardAction),
+        captureDisabled: captureBtn?.disabled === true,
+        scuttleDisabled: scuttleBtn?.disabled === true,
+        toggle: textOf(archive?.querySelector('[data-commodity-book-toggle]')),
+        archiveScrolls: Boolean(archive && archive.scrollHeight > archive.clientHeight + 1),
+        archiveBar: Boolean(archive && scrollbarShown(archive)),
+        archiveGutter: archive ? Math.round(archive.offsetWidth - archive.clientWidth - borderX) : 0,
+        archiveScrollbar: archiveStyle?.scrollbarWidth || '',
+      };
+    };
+    const high = readCard(document.getElementById('target-window'));
+    const highWalk = panelWalk();
+    boarding?.injectHullRatio?.(id, 0.10);
+    probe?.paint?.();
+    const low = readCard(document.getElementById('target-window'));
+    const lowWalk = panelWalk();
+    const samples = [1, 0.5, 0.11, 0.1, 0.09, 0.01].map((ratio) => {
+      boarding?.injectHullRatio?.(id, ratio);
+      probe?.paint?.();
+      const snap = boarding?.snapshot?.() || {};
+      const card = document.getElementById('target-window');
+      const notes = [...(card?.querySelectorAll('.target-boarding-note') || [])].map(textOf);
+      const marked = [...(card?.querySelectorAll('[data-board-applies]') || [])].filter(shown).map((el) => el.dataset.boardAction);
+      const captureBtn = card?.querySelector('[data-board-action="capture"]');
+      const scuttleBtn = card?.querySelector('[data-board-action="scuttle"]');
+      return {
+        ratio,
+        tractorIsBoard: snap.tractorIsBoard === true,
+        eligible: snap.hull?.eligible === true,
+        tractor: notes.find((line) => /^Tractor hold is not a capture/i.test(line)) || '',
+        marked,
+        captureShown: shown(captureBtn),
+        scuttleShown: shown(scuttleBtn),
+        captureDisabled: captureBtn?.disabled === true,
+        scuttleDisabled: scuttleBtn?.disabled === true,
+      };
+    });
+    api?.clearCombatTarget?.();
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    api?.log?.('No empty cargo pod. Purchase refused. The market did not move.');
+    api?.open?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    probe?.paint?.();
+    const dockWalk = panelWalk();
+    const dockClip = api?.measureNoClip?.() || {};
+    const dockPanel = document.querySelector('#planet-menu .dock-panel');
+    const lastLine = dockPanel ? [...dockPanel.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && textOf(el)).at(-1) : null;
+    const lastBox = lastLine?.getBoundingClientRect();
+    const dockBox = dockPanel?.getBoundingClientRect();
+    const lastInside = Boolean(lastBox && dockBox && lastBox.top >= dockBox.top - 1 && lastBox.bottom <= dockBox.bottom + 1);
+    const dockScrolls = Boolean(dockPanel && dockPanel.scrollHeight > dockPanel.clientHeight + 1);
+    const dockBar = Boolean(dockPanel && scrollbarShown(dockPanel));
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    probe?.worldCargo?.undock?.();
+    probe?.paint?.();
+    return {
+      high,
+      low,
+      highWalk,
+      lowWalk,
+      dockWalk,
+      samples,
+      roe: briefing?.snapshot?.()?.roeModes || [],
+      dock: {
+        cutOff: dockClip.cutOffLines || [],
+        squashed: dockClip.squashedControls || [],
+        panels: dockClip.panels || [],
+        last: textOf(lastLine),
+        lastInside,
+        scrolls: dockScrolls,
+        bar: dockBar,
+      },
+    };
+  });
+  const hullCoreOk = (row) => row && row.scrollTop === 0 && row.clickable === true && /hail ship/i.test(row.hailText)
+    && ['head', 'meta', 'class', 'shield', 'hull', 'hail', 'doctrine', 'tractor'].every((name) => {
+      const part = row.parts.find((item) => item.name === name);
+      return part && part.missing !== true && part.inside === true && part.full === true;
+    });
+  const walkClear = (walk) => walk && walk.squashed.length === 0 && walk.cutOff.length === 0;
+  const bothOutcome = (row) => row
+    && row.outcomeButtons.includes('capture')
+    && row.outcomeButtons.includes('scuttle')
+    && row.applies.length === 0
+    && ['capture', 'scuttle'].every((name) => {
+      const part = row.parts.find((item) => item.name === name);
+      return part && part.missing !== true && part.inside === true && part.full === true;
+    });
+  check(results, 'S35.23 core-above-hull', hullCoreOk(hullCard.high)
+    && /Hull above 10%/.test(hullCard.high.doctrine)
+    && /^Tractor hold is not a capture/i.test(hullCard.high.tractor)
+    && bothOutcome(hullCard.high)
+    && hullCard.high.captureDisabled === true
+    && hullCard.high.scuttleDisabled === true
+    && /open/i.test(hullCard.high.toggle)
+    && (hullCard.high.archiveScrolls === false || (hullCard.high.archiveBar === true && hullCard.high.archiveScrollbar !== 'none')), JSON.stringify(hullCard.high));
+  check(results, 'S35.23 core-low-hull', hullCoreOk(hullCard.low)
+    && /Boarding available/.test(hullCard.low.doctrine)
+    && /^Tractor hold is not a capture/i.test(hullCard.low.tractor)
+    && bothOutcome(hullCard.low)
+    && hullCard.low.captureDisabled === false
+    && hullCard.low.scuttleDisabled === false
+    && /open/i.test(hullCard.low.toggle), JSON.stringify(hullCard.low));
+  check(results, 'S35.23 states-differ', hullCard.high.head === hullCard.low.head
+    && hullCard.high.className === hullCard.low.className
+    && hullCard.high.hailText === hullCard.low.hailText
+    && hullCard.high.tractor === hullCard.low.tractor
+    && hullCard.high.doctrine !== hullCard.low.doctrine
+    && bothOutcome(hullCard.low)
+    && hullCard.high.captureDisabled === true
+    && hullCard.high.scuttleDisabled === true
+    && hullCard.low.captureDisabled === false
+    && hullCard.low.scuttleDisabled === false
+    && hullCard.high.left === hullCard.low.left
+    && hullCard.high.right === hullCard.low.right, JSON.stringify({
+      high: { doctrine: hullCard.high.doctrine, applies: hullCard.high.applies, disabled: [hullCard.high.captureDisabled, hullCard.high.scuttleDisabled], rect: [hullCard.high.left, hullCard.high.top, hullCard.high.right, hullCard.high.bottom] },
+      low: { doctrine: hullCard.low.doctrine, applies: hullCard.low.applies, outcome: hullCard.low.outcomeButtons, rect: [hullCard.low.left, hullCard.low.top, hullCard.low.right, hullCard.low.bottom] },
+    }));
+  check(results, 'S35.23 tractor-stable', Array.isArray(hullCard.samples)
+    && hullCard.samples.length === 6
+    && hullCard.samples.every((row) => row.tractorIsBoard === false && row.tractor === hullCard.samples[0].tractor && /^Tractor hold is not a capture/i.test(row.tractor))
+    && hullCard.samples.every((row) => row.eligible === (row.ratio <= 0.10))
+    && hullCard.samples.every((row) => row.marked.length === 0)
+    && hullCard.samples.every((row) => row.captureShown === true && row.scuttleShown === true)
+    && hullCard.samples.every((row) => row.captureDisabled === (row.ratio > 0.10) && row.scuttleDisabled === (row.ratio > 0.10))
+    && hullCard.roe.join(',') === 'return-fire,defend', JSON.stringify({ samples: hullCard.samples, roe: hullCard.roe }));
+  check(results, 'S35.23 panels-above', walkClear(hullCard.highWalk)
+    && hullCard.highWalk.panels.length > 0, JSON.stringify(hullCard.highWalk));
+  check(results, 'S35.23 panels-low', walkClear(hullCard.lowWalk)
+    && hullCard.lowWalk.panels.length > 0, JSON.stringify(hullCard.lowWalk));
+  check(results, 'S35.23 dock-market-line', walkClear(hullCard.dockWalk)
+    && hullCard.dock.cutOff.length === 0
+    && hullCard.dock.squashed.length === 0
+    && (hullCard.dock.lastInside === true || (hullCard.dock.scrolls === true && hullCard.dock.bar === true))
+    && !hullCard.dock.cutOff.some((line) => /purchase refused|cargo market/i.test(line)), JSON.stringify(hullCard.dock));
+  const fit = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const measure = () => api.measureNoClip();
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api?.clearCombatTarget?.();
+    globalThis.BM1Probe?.paint?.();
+    const ghost = document.createElement('div');
+    ghost.id = 'noclip-legacy-3914dac';
+    ghost.setAttribute('aria-label', 'legacy commodity book');
+    ghost.style.cssText = 'position:fixed;top:78px;left:430px;width:300px;height:330px;z-index:40;background:#05070e;border:4px solid #58e0d6;pointer-events:auto;';
+    ghost.innerHTML = '<div class="commodity-entry">Pharmaceutical Grade Medical Supplies And Emergency Ration Packs</div>';
+    document.body.appendChild(ghost);
+    const legacy = measure();
+    ghost.remove();
+    const liveBriefing = measure();
+    globalThis.BM1Probe?.worldCargo?.placeAtWorld?.();
+    globalThis.BM1Probe?.tryDockPlanet?.();
+    api?.open?.();
+    const spawned = globalThis.BM1Probe?.spawnShip?.({ id: 's35-target', name: 'SS Odyssey', faction: 'ferengi', attitude: 'neutral' });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-target');
+    globalThis.BM1Probe?.paint?.();
+    const liveDock = measure();
+    const section = document.querySelector('#planet-menu .commodity-book-section');
+    const entry = section?.querySelector('.commodity-entry');
+    const entryStyle = entry ? getComputedStyle(entry) : null;
+    return {
+      legacyOccluders: legacy.occluders,
+      liveBriefing,
+      liveDock,
+      title: String(section?.querySelector('.commodity-shipment-title')?.textContent || '').trim(),
+      entrySeparated: Boolean(entryStyle) && entryStyle.borderTopWidth !== '0px' && entryStyle.whiteSpace !== 'nowrap',
+      parked: getComputedStyle(document.getElementById('commodity-shipment')).display === 'none',
+    };
+  });
+  const listsEmpty = (row) => row && row.clippedControls.length === 0 && row.occluders.length === 0 && row.pillOverlaps.length === 0
+    && row.squashedControls.length === 0 && row.cutOffLines.length === 0;
+  check(results, 'S35.8 stacking-would-fail-3914dac', fit.legacyOccluders?.some((line) => /briefing-archive/.test(line) && /noclip-legacy-3914dac|legacy/.test(line)) === true, JSON.stringify(fit.legacyOccluders));
+  check(results, 'S35.8 stacking-live-clear', listsEmpty(fit.liveBriefing) && listsEmpty(fit.liveDock)
+    && fit.title === 'COMMODITY BOOK'
+    && fit.entrySeparated === true
+    && fit.parked === true
+    && fit.liveDock.bookHidden === false, JSON.stringify({
+      briefing: fit.liveBriefing,
+      dock: { occluders: fit.liveDock?.occluders, clipped: fit.liveDock?.clippedControls, pills: fit.liveDock?.pillOverlaps, squashed: fit.liveDock?.squashedControls, cutOff: fit.liveDock?.cutOffLines, panels: fit.liveDock?.panels, bookHidden: fit.liveDock?.bookHidden },
+      title: fit.title,
+      parked: fit.parked,
+    }));
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const choice = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const boarding = globalThis.__BM1_PROBE__?.boarding;
+    const restart = () => {
+      probe?.startGame?.('ferengi', { arena: { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 } });
+      probe?.freezeLoop?.();
+    };
+    const arm = (id, ratio) => {
+      const spawned = probe?.spawnShip?.({ id, name: 'SS Choice', faction: 'ferengi', attitude: 'neutral' });
+      const shipId = spawned?.id || id;
+      boarding?.injectHullRatio?.(shipId, ratio);
+      boarding?.selectTarget?.(shipId);
+      probe?.paint?.();
+      return shipId;
+    };
+    const button = (action) => document.querySelector(`#target-window [data-board-action="${action}"]`);
+    const offer = () => ['capture', 'scuttle'].map((action) => {
+      const el = button(action);
+      const box = el?.getBoundingClientRect();
+      const hit = box ? document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2) : null;
+      return {
+        action,
+        shown: Boolean(el && !el.hidden && box && box.width > 8 && box.height > 8),
+        enabled: el?.disabled !== true,
+        clickable: Boolean(el && hit && (hit === el || el.contains(hit)) && !el.disabled && !el.hidden),
+      };
+    });
+    const poke = (action) => {
+      const el = button(action);
+      const before = boarding?.snapshot?.() || {};
+      const refuseBefore = JSON.stringify(boarding?.lastRefuseBoard?.() || null);
+      el?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      el?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      probe?.paint?.();
+      const after = boarding?.snapshot?.() || {};
+      return {
+        disabled: el?.disabled === true,
+        refuseSame: JSON.stringify(boarding?.lastRefuseBoard?.() || null) === refuseBefore,
+        attemptSame: JSON.stringify(after.attempt || null) === JSON.stringify(before.attempt || null),
+        logSame: after.log === before.log,
+        outcome: after.attempt?.outcome || null,
+      };
+    };
+    const readCard = () => {
+      const notes = [...document.querySelectorAll('#target-window .target-boarding-note')]
+        .map((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim());
+      const marks = [...document.querySelectorAll('#target-window [data-board-applies]')]
+        .map((el) => el.getAttribute('data-board-action') || '');
+      return {
+        name: String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim(),
+        outcome: notes.find((text) => text.startsWith('Outcome:')) || '',
+        marked: marks.join(','),
+        captureHidden: button('capture')?.hidden === true,
+        scuttleHidden: button('scuttle')?.hidden === true,
+        rows: offer(),
+      };
+    };
+    const takeThenWitness = (id, action) => {
+      const shipId = arm(id, 0.10);
+      const before = offer();
+      const shipName = String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim();
+      const el = button(action);
+      if (before.every((row) => row.clickable)) el?.click();
+      const ship = readCard();
+      const witness = probe?.spawnShip?.({ id: `${id}-witness`, name: 'SS Witness', faction: 'ferengi', attitude: 'neutral' });
+      const witnessId = witness?.id || `${id}-witness`;
+      boarding?.injectHullRatio?.(witnessId, 0.10);
+      boarding?.selectTarget?.(witnessId);
+      probe?.paint?.();
+      const witnessCard = readCard();
+      const again = boarding?.selectTarget?.(shipId);
+      if (again?.ok) probe?.paint?.();
+      const againCard = again?.ok ? readCard() : null;
+      const againShows = againCard?.name === shipName;
+      return {
+        shipId,
+        shipName,
+        before,
+        ship,
+        witness: witnessCard,
+        againOk: againShows,
+        again: againShows ? againCard : null,
+        snap: boarding?.snapshot?.() || {},
+      };
+    };
+    restart();
+    arm('s35-inert', 1);
+    const highOffer = offer();
+    const inertCapture = poke('capture');
+    const inertScuttle = poke('scuttle');
+    restart();
+    const captured = takeThenWitness('s35-capture', 'capture');
+    const captureSnap = captured.snap;
+    const beforeCapture = captured.before;
+    restart();
+    const scuttled = takeThenWitness('s35-scuttle', 'scuttle');
+    const scuttleSnap = scuttled.snap;
+    const beforeScuttle = scuttled.before;
+    return {
+      roe: globalThis.__BM1_PROBE__?.briefingArchive?.snapshot?.()?.roeModes || [],
+      tractorIsBoard: boarding?.snapshot?.()?.tractorIsBoard === true,
+      highOffer,
+      inertCapture,
+      inertScuttle,
+      beforeCapture,
+      capture: {
+        outcome: captureSnap.attempt?.outcome || null,
+        captured: captureSnap.attempt?.captured === true,
+        scuttled: captureSnap.attempt?.scuttled === true,
+        shipName: captured.shipName,
+        ship: captured.ship,
+        witness: captured.witness,
+        againOk: captured.againOk,
+        again: captured.again,
+      },
+      beforeScuttle,
+      scuttle: {
+        outcome: scuttleSnap.attempt?.outcome || null,
+        captured: scuttleSnap.attempt?.captured === true,
+        scuttled: scuttleSnap.attempt?.scuttled === true,
+        shipName: scuttled.shipName,
+        ship: scuttled.ship,
+        witness: scuttled.witness,
+        againOk: scuttled.againOk,
+        again: scuttled.again,
+      },
+    };
+  });
+  const bothClickable = (rows) => Array.isArray(rows)
+    && rows.some((row) => row.action === 'capture' && row.shown && row.enabled && row.clickable)
+    && rows.some((row) => row.action === 'scuttle' && row.shown && row.enabled && row.clickable);
+  check(results, 'S35.24 high-hull-outcome-inert', choice.highOffer.every((row) => row.shown && row.enabled === false)
+    && choice.inertCapture.disabled === true
+    && choice.inertScuttle.disabled === true
+    && choice.inertCapture.refuseSame === true
+    && choice.inertScuttle.refuseSame === true
+    && choice.inertCapture.attemptSame === true
+    && choice.inertScuttle.attemptSame === true
+    && choice.inertCapture.logSame === true
+    && choice.inertScuttle.logSame === true
+    && choice.inertCapture.outcome == null
+    && choice.inertScuttle.outcome == null
+    && choice.tractorIsBoard === false
+    && choice.roe.join(',') === 'return-fire,defend', JSON.stringify(choice));
+  check(results, 'S35.24 low-hull-both-controls', bothClickable(choice.beforeCapture) && bothClickable(choice.beforeScuttle), JSON.stringify({
+    beforeCapture: choice.beforeCapture,
+    beforeScuttle: choice.beforeScuttle,
+  }));
+  const ownOutcome = (card, action, name) => Boolean(card)
+    && card.name === name
+    && card.outcome === `Outcome: ${action}`
+    && card.marked === action
+    && card.captureHidden === (action !== 'capture')
+    && card.scuttleHidden === (action !== 'scuttle')
+    && card.rows?.some((row) => row.action === action && row.shown && row.enabled);
+  const openWitness = (card) => Boolean(card)
+    && card.name === 'SS Witness'
+    && card.outcome === ''
+    && card.marked === ''
+    && card.captureHidden === false
+    && card.scuttleHidden === false
+    && bothClickable(card.rows);
+  const shipKeepsOutcome = (row, action) => ownOutcome(row.ship, action, row.shipName)
+    && row.shipName !== 'SS Witness'
+    && (!row.againOk || ownOutcome(row.again, action, row.shipName));
+  check(results, 'S35.24 capture-records-capture', bothClickable(choice.beforeCapture)
+    && choice.capture.outcome === 'capture'
+    && choice.capture.captured === true
+    && choice.capture.scuttled === false
+    && shipKeepsOutcome(choice.capture, 'capture')
+    && openWitness(choice.capture.witness), JSON.stringify(choice.capture));
+  check(results, 'S35.24 scuttle-records-scuttle', bothClickable(choice.beforeScuttle)
+    && choice.scuttle.outcome === 'scuttle'
+    && choice.scuttle.scuttled === true
+    && choice.scuttle.captured === false
+    && shipKeepsOutcome(choice.scuttle, 'scuttle')
+    && openWitness(choice.scuttle.witness), JSON.stringify(choice.scuttle));
+  const kept = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const boarding = globalThis.__BM1_PROBE__?.boarding;
+    const facts = () => globalThis.__BM1_PROBE__?.commodityShipment?.doctrineFacts?.() || {};
+    const restart = () => {
+      probe?.startGame?.('ferengi', { arena: { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 } });
+      probe?.freezeLoop?.();
+    };
+    const button = (action) => document.querySelector(`#target-window [data-board-action="${action}"]`);
+    const offer = () => ['capture', 'scuttle'].map((action) => {
+      const el = button(action);
+      const box = el?.getBoundingClientRect();
+      const hit = box ? document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2) : null;
+      return {
+        action,
+        shown: Boolean(el && !el.hidden && box && box.width > 8 && box.height > 8),
+        enabled: el?.disabled !== true,
+        clickable: Boolean(el && hit && (hit === el || el.contains(hit)) && !el.disabled && !el.hidden),
+      };
+    });
+    const readCard = () => {
+      const notes = [...document.querySelectorAll('#target-window .target-boarding-note')]
+        .map((el) => String(el.textContent || '').replace(/\s+/g, ' ').trim());
+      const marks = [...document.querySelectorAll('#target-window [data-board-applies]')]
+        .map((el) => el.getAttribute('data-board-action') || '');
+      return {
+        name: String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim(),
+        outcome: notes.find((text) => text.startsWith('Outcome:')) || '',
+        marked: marks.join(','),
+        captureHidden: button('capture')?.hidden === true,
+        scuttleHidden: button('scuttle')?.hidden === true,
+        rows: offer(),
+      };
+    };
+    const arm = (id) => {
+      const spawned = probe?.spawnShip?.({ id, name: 'SS Choice', faction: 'ferengi', attitude: 'neutral' });
+      const shipId = spawned?.id || id;
+      boarding?.injectHullRatio?.(shipId, 0.10);
+      boarding?.selectTarget?.(shipId);
+      probe?.paint?.();
+      return shipId;
+    };
+    const instanceIdOf = (id) => {
+      const ship = probe?.ship?.(id);
+      return String(ship?.securityInstanceId || ship?.id || '');
+    };
+    const savedAttempts = () => {
+      probe?.saveSlot?.(1);
+      const raw = localStorage.getItem('bm2_html_save_slot_1');
+      const data = raw ? JSON.parse(raw) : {};
+      return Object.values(data?.boardingBook?.attempts || {});
+    };
+    const unmarkedOpen = (card) => Boolean(card)
+      && card.outcome === ''
+      && card.marked === ''
+      && card.captureHidden === false
+      && card.scuttleHidden === false
+      && Array.isArray(card.rows)
+      && card.rows.every((row) => row.shown && row.enabled && row.clickable);
+    restart();
+    const aId = arm('s35-keep-a');
+    const aInstance = instanceIdOf(aId);
+    const aName = String(document.querySelector('#target-window .target-window-head b')?.textContent || '').trim();
+    if (unmarkedOpen(readCard())) button('capture')?.click();
+    const aCard = readCard();
+    probe?.paint?.();
+    const bId = arm('s35-keep-b');
+    const bInstance = instanceIdOf(bId);
+    const bBefore = readCard();
+    const otherFacts = facts();
+    const owner = (probe?.snapshot?.()?.npcShips || []).find((ship) => (
+      String(ship.securityInstanceId || '') === aInstance && ship.id !== aId
+    ));
+    const ownerSelect = owner ? boarding?.selectTarget?.(owner.id) : null;
+    if (ownerSelect?.ok) probe?.paint?.();
+    const ownerFacts = ownerSelect?.ok ? facts() : null;
+    if (ownerSelect?.ok) {
+      boarding?.selectTarget?.(bId);
+      probe?.paint?.();
+    }
+    const back = readCard();
+    const scuttleFrom = ownerSelect?.ok ? back : bBefore;
+    if (unmarkedOpen(scuttleFrom)) button('scuttle')?.click();
+    const bAfter = readCard();
+    probe?.paint?.();
+    const rows = savedAttempts();
+    const blank = (() => {
+      try {
+        restart();
+        probe?.saveSlot?.(1);
+        const key = 'bm2_html_save_slot_1';
+        const saved = JSON.parse(localStorage.getItem(key));
+        saved.boardingBook.attempts['brd-blank'] = {
+          attemptId: 'brd-blank',
+          actorInstanceId: 'player',
+          outcome: 'capture',
+          captured: true,
+          scuttled: false,
+          status: 'resolved',
+          firedAtLocalMs: 1,
+          resolvedAtLocalMs: 2,
+          travelMs: 0,
+          hullRatioAtStart: 0.1,
+        };
+        saved.boardingBook.inFlightId = null;
+        saved.boardingBook.lastOutcome = 'capture';
+        saved.boardingBook.nextAttemptId = Math.max(9, Number(saved.boardingBook.nextAttemptId) || 1);
+        localStorage.setItem(key, JSON.stringify(saved));
+        probe?.loadSlot?.(1);
+        const freshId = arm('s35-blank-victim');
+        const card = readCard();
+        const doctrine = facts();
+        probe?.saveSlot?.(1);
+        const restored = JSON.parse(localStorage.getItem(key))?.boardingBook?.attempts?.['brd-blank'] || null;
+        return {
+          freshId,
+          instanceId: instanceIdOf(freshId),
+          card,
+          doctrine,
+          restoredVictim: restored ? restored.victimInstanceId : null,
+          restoredOutcome: restored?.outcome || null,
+        };
+      } catch (error) {
+        return { error: String(error?.message || error) };
+      }
+    })();
+    return {
+      aInstance,
+      aName,
+      aCard,
+      bInstance,
+      bBefore,
+      back,
+      bAfter,
+      otherFacts,
+      ownerId: owner?.id || null,
+      ownerSelect: ownerSelect ? { ok: ownerSelect.ok === true, reason: ownerSelect.reason || null } : null,
+      ownerFacts,
+      aAttempt: rows.find((row) => String(row.victimInstanceId || '') === aInstance) || null,
+      bAttempt: rows.find((row) => String(row.victimInstanceId || '') === bInstance) || null,
+      blank,
+    };
+  });
+  const unmarkedOpen = (card) => Boolean(card)
+    && card.outcome === ''
+    && card.marked === ''
+    && card.captureHidden === false
+    && card.scuttleHidden === false
+    && Array.isArray(card.rows)
+    && card.rows.every((row) => row.shown && row.enabled && row.clickable);
+  check(results, 'S35.24 scuttle-leaves-capture', unmarkedOpen(kept.bBefore)
+    && kept.aCard?.outcome === 'Outcome: capture'
+    && kept.aCard?.marked === 'capture'
+    && kept.aAttempt?.outcome === 'capture'
+    && kept.aAttempt?.captured === true
+    && kept.bAfter?.outcome === 'Outcome: scuttle'
+    && kept.bAfter?.marked === 'scuttle'
+    && kept.bAfter?.captureHidden === true
+    && kept.bAttempt?.outcome === 'scuttle'
+    && kept.bAttempt?.scuttled === true
+    && kept.aInstance !== ''
+    && kept.bInstance !== ''
+    && kept.aInstance !== kept.bInstance, JSON.stringify(kept));
+  check(results, 'S35.24 boarding-outcome-follows-target', kept.otherFacts?.boardingOutcome === ''
+    && (kept.ownerSelect?.ok !== true || kept.ownerFacts?.boardingOutcome === 'capture')
+    && kept.blank?.doctrine?.boardingOutcome === '', JSON.stringify({
+      other: kept.otherFacts,
+      owner: kept.ownerFacts,
+      ownerSelect: kept.ownerSelect,
+      blank: kept.blank?.doctrine,
+    }));
+  check(results, 'S35.24 empty-victim-stays-blank', kept.blank?.restoredVictim === ''
+    && kept.blank?.restoredOutcome === 'capture'
+    && unmarkedOpen(kept.blank?.card)
+    && kept.blank?.doctrine?.boardingOutcome === ''
+    && kept.blank?.instanceId !== '', JSON.stringify(kept.blank));
+  const decoy = await page.evaluate(async () => {
+    const source = await fetch('/src/main.js').then((res) => res.text());
+    const key = 'const paintsScrollSign = (el) => {';
+    const start = source.indexOf(key);
+    let paints = null;
+    if (start >= 0) {
+      let depth = 0;
+      const open = source.indexOf('{', start);
+      let end = open;
+      for (let i = open; i < source.length; i += 1) {
+        if (source[i] === '{') depth += 1;
+        else if (source[i] === '}') {
+          depth -= 1;
+          if (depth === 0) {
+            end = i;
+            break;
+          }
+        }
+      }
+      const arrow = source.slice(source.indexOf('(el)', start), end + 1);
+      paints = new Function(`return (${arrow});`)();
+    }
+    const css = document.createElement('style');
+    css.textContent = '#s35-decoy-scroll::before{content:"";display:block;width:8px;height:24px;background:#8cf;}';
+    document.head.appendChild(css);
+    const host = document.createElement('section');
+    host.className = 'commodity-book-section';
+    host.id = 's35-decoy-host';
+    host.style.cssText = 'position:fixed;left:16px;top:88px;width:220px;z-index:40;display:block;overflow:visible;';
+    const scroller = document.createElement('div');
+    scroller.id = 's35-decoy-scroll';
+    scroller.style.cssText = 'overflow-y:scroll;height:52px;width:180px;border:1px solid #8cf;scrollbar-width:none;position:relative;';
+    for (const name of ['Alpha Goods', 'Bravo Goods', 'Charlie Goods', 'Delta Goods']) {
+      const row = document.createElement('div');
+      row.className = 'commodity-entry';
+      row.textContent = name;
+      scroller.appendChild(row);
+    }
+    host.appendChild(scroller);
+    document.body.appendChild(host);
+    const style = getComputedStyle(scroller);
+    const scrollbarWidth = style.scrollbarWidth;
+    const borderLeft = style.borderLeftWidth;
+    const borderRight = style.borderRightWidth;
+    const pseudoWidth = getComputedStyle(scroller, '::before').width;
+    const namedBar = Boolean(host.querySelector('.commodity-book-bar'));
+    const shown = (el) => {
+      if (!el || !el.isConnected) return false;
+      const box = el.getBoundingClientRect();
+      return box.width >= 2 && box.height >= 2;
+    };
+    const edgeCuts = (node, rect) => {
+      const hostBox = node.getBoundingClientRect();
+      const nodeStyle = getComputedStyle(node);
+      const top = hostBox.top + (parseFloat(nodeStyle.borderTopWidth) || 0);
+      const bottom = hostBox.bottom - (parseFloat(nodeStyle.borderBottomWidth) || 0);
+      return rect.top < top - 1 || rect.bottom > bottom + 1;
+    };
+    const canReveal = (clipper, rect) => {
+      if (!clipper || !paints) return false;
+      const clipStyle = getComputedStyle(clipper);
+      const scrollY = /(auto|scroll)/.test(clipStyle.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+      if (!scrollY || !paints(clipper)) return false;
+      const hostBox = clipper.getBoundingClientRect();
+      const topIn = rect.top - hostBox.top + clipper.scrollTop;
+      const bottomIn = rect.bottom - hostBox.top + clipper.scrollTop;
+      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+      return true;
+    };
+    const signReach = [...scroller.querySelectorAll('.commodity-entry')].filter((el) => {
+      if (!shown(el)) return false;
+      const rect = el.getBoundingClientRect();
+      return edgeCuts(scroller, rect) && canReveal(scroller, rect);
+    }).length;
+    const others = [...document.querySelectorAll('.commodity-book-section')].filter((el) => el !== host);
+    const prior = others.map((el) => el.style.display);
+    others.forEach((el) => { el.style.display = 'none'; });
+    const lane = globalThis.__BM1_PROBE__?.commodityShipment?.measureNoClip?.() || {};
+    const laneReach = (lane.reachableCounts?.entries || 0)
+      + (lane.reachableCounts?.records || 0)
+      + (lane.reachableCounts?.lines || 0);
+    others.forEach((el, index) => { el.style.display = prior[index]; });
+    host.remove();
+    css.remove();
+    return {
+      signReach,
+      laneReach,
+      scrollbarWidth,
+      borderLeft,
+      borderRight,
+      namedBar,
+      pseudo: pseudoWidth,
+    };
+  });
+  check(results, 'S35.24 decoy-scroll-not-reachable', decoy.signReach === 0
+    && decoy.laneReach === 0
+    && decoy.scrollbarWidth === 'none'
+    && decoy.borderLeft === '1px'
+    && decoy.borderRight === '1px'
+    && decoy.namedBar === false
+    && parseFloat(decoy.pseudo) >= 6, JSON.stringify(decoy));
+  const dockReach = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const probe = globalThis.BM1Probe;
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    api?.emptyHold?.();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const goods = [
+      "Xiang's Brand Vodka",
+      'Feminine Products',
+      'Isolinear Chips',
+      'Medical Supplies',
+      'Dinner Napkins',
+      'Historic Books',
+      'Beetlesnuff',
+      'Old Paintings',
+    ];
+    const buys = [];
+    for (const good of goods) {
+      const marketId = `mkt-cap-${good.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      p8.injectMarket({
+        marketId,
+        good,
+        stock: 8,
+        demand: 6,
+        stockCap: 8,
+        demandCap: 8,
+        floor: 0,
+        price: 10,
+        systemIndex: here,
+        restriction: 'open',
+      });
+      const before = p8.snapshot().book.markets[marketId]?.stock;
+      const bought = api.playBuy(good);
+      const after = p8.snapshot().book.markets[marketId]?.stock;
+      buys.push(bought?.ok === true && (bought?.paid || 0) > 0 && before != null && after === before - 1 && (bought?.podTons || 0) > 0);
+    }
+    const cargo = globalThis.__BM1_PROBE__?.worldCargo;
+    const enrolled = goods.map((good, n) => cargo?.enroll?.({
+      id: `cap-ship-${n}`,
+      good,
+      tons: 1,
+      legalPayout: 4,
+      targetName: 'Near',
+      mode: 'open',
+    })?.ok === true);
+    api.index?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const seeded = buys.every(Boolean) && enrolled.every(Boolean);
+    const menu = document.getElementById('planet-menu');
+    const panel = menu?.querySelector('.dock-panel');
+    const book = menu?.querySelector('.commodity-book-section');
+    const buy = menu?.querySelector('[data-commodity-buy]');
+    const heading = [...(menu?.querySelectorAll('.panel-head') || [])].find((el) => /cargo market/i.test(el.textContent));
+    const shown = (el) => {
+      if (!el || el.hidden) return false;
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 2 && rect.height > 2;
+    };
+    const paintsScrollSign = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+      const borderY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      if (el.offsetWidth - el.clientWidth - borderX > 1 || el.offsetHeight - el.clientHeight - borderY > 1) return true;
+      const thumb = (which) => {
+        const ps = getComputedStyle(el, which);
+        if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
+        if (ps.visibility === 'hidden' || ps.display === 'none') return false;
+        return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
+      };
+      const namedThumb = (el.matches('.world-cargo.is-scrolling, .dock-panel.is-scrolling, .briefing-archive.is-scrolling, .briefing-archive-select.is-scrolling, .briefing-archive-body.is-scrolling') && thumb('::before'))
+        || (el.matches('.target-window.is-scrolling') && thumb('::after'));
+      if (namedThumb) return true;
+      const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
+      const bar = frame?.querySelector(':scope > .commodity-book-bar');
+      if (!bar) return false;
+      const rect = bar.getBoundingClientRect();
+      return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+    };
+    const scrollbarShown = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (style.scrollbarWidth === 'none') return false;
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 1;
+      if (!scrollY && !scrollX) return false;
+      return paintsScrollSign(el);
+    };
+    const canReveal = (clipper, rect) => {
+      if (!clipper) return false;
+      const style = getComputedStyle(clipper);
+      const host = clipper.getBoundingClientRect();
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+      if ((!scrollY && !scrollX) || !scrollbarShown(clipper)) return false;
+      const topIn = rect.top - host.top + clipper.scrollTop;
+      const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+      return scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+    };
+    const edgeCuts = (node, rect) => {
+      const host = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      const top = host.top + (parseFloat(style.borderTopWidth) || 0);
+      const bottom = host.bottom - (parseFloat(style.borderBottomWidth) || 0);
+      const left = host.left + (parseFloat(style.borderLeftWidth) || 0);
+      const right = host.right - (parseFloat(style.borderRightWidth) || 0);
+      return rect.top < top - 1 || rect.bottom > bottom + 1 || rect.left < left - 1 || rect.right > right + 1;
+    };
+    const unreachable = (el) => {
+      if (!el) return true;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+      const boxes = rects.length ? rects : [el.getBoundingClientRect()];
+      return boxes.some((rect) => {
+        const cutters = [];
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+          const style = getComputedStyle(node);
+          if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`) && edgeCuts(node, rect)) cutters.push(node);
+          node = node.parentElement;
+        }
+        const innerReveals = (outer) => cutters.some((node) => {
+          if (node === outer || !outer.contains(node) || !canReveal(node, rect)) return false;
+          const host = outer.getBoundingClientRect();
+          const style = getComputedStyle(outer);
+          const top = host.top + (parseFloat(style.borderTopWidth) || 0);
+          const bottom = host.bottom - (parseFloat(style.borderBottomWidth) || 0);
+          const left = host.left + (parseFloat(style.borderLeftWidth) || 0);
+          const right = host.right - (parseFloat(style.borderRightWidth) || 0);
+          const box = node.getBoundingClientRect();
+          return box.top >= top - 1 && box.bottom <= bottom + 1 && box.left >= left - 1 && box.right <= right + 1;
+        });
+        return cutters.length > 0 && cutters.some((node) => !canReveal(node, rect) && !innerReveals(node));
+      });
+    };
+    const frameInside = (el, host) => {
+      if (!el || !host) return false;
+      const box = el.getBoundingClientRect();
+      const frame = host.getBoundingClientRect();
+      return box.height > 8 && box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1
+        && box.left >= frame.left - 1 && box.right <= frame.right + 1;
+    };
+    const scrollInto = (host, el) => {
+      if (!host || !el) return;
+      const box = el.getBoundingClientRect();
+      const frame = host.getBoundingClientRect();
+      if (box.top < frame.top + 1 || box.bottom > frame.bottom - 1) {
+        host.scrollTop += box.top - frame.top - 8;
+      }
+    };
+    const lastLine = panel ? [...panel.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && String(el.textContent || '').trim()).at(-1) : null;
+    const grain = [...(panel?.querySelectorAll('.market-good') || [])].find((el) => /xiang's brand vodka/i.test(el.textContent));
+    const grainText = grain ? [...grain.childNodes].some((node) => node.nodeType === 3 && /xiang/i.test(node.textContent)) : false;
+    const bookLines = book
+      ? [...book.querySelectorAll('*')].filter((el) => shown(el) && el.children.length === 0 && String(el.textContent || '').trim())
+      : [];
+    const bookCounts = {
+      entries: book?.querySelectorAll('.commodity-entry').length || 0,
+      records: book?.querySelectorAll('.shipment-record').length || 0,
+    };
+    const expectedEntries = (api.snapshot?.().commodityNames || []).length;
+    const expectedRecords = (api.snapshot?.().shipmentIds || []).length;
+    const clip = api?.measureNoClip?.() || {};
+    const stock = () => p8.snapshot().book.markets['mkt-cap-xiang-s-brand-vodka']?.stock;
+    const roundBox = (el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {
+        l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom),
+        w: Math.round(r.width), h: Math.round(r.height),
+      };
+    };
+    const liveRects = { menu: roundBox(menu), panel: roundBox(panel), book: roundBox(book), buy: roundBox(buy), heading: roundBox(heading) };
+    const bookInside = bookLines.length > 0 && bookLines.every((el) => !unreachable(el));
+    const buyInside = Boolean(buy) && !unreachable(buy);
+    const headingInside = Boolean(heading) && !unreachable(heading);
+    const buyCut = unreachable(buy);
+    const headingCut = unreachable(heading);
+    const lastCut = unreachable(lastLine);
+    const panelOverflows = Boolean(panel && panel.scrollHeight > panel.clientHeight + 1);
+    const panelBar = scrollbarShown(panel);
+    const grainInFrame = frameInside(grain, panel);
+    const grainOk = panelOverflows ? panelBar === true : grainInFrame === true && !unreachable(grain);
+    const fullCutOff = (clip.cutOffLines || []).length;
+    const saleId = Object.keys(api.snapshot?.().sales || {})[0];
+    api.playSell?.(saleId);
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const liveBuy = document.querySelector('#planet-menu [data-commodity-buy]');
+    const livePanelForBuy = document.querySelector('#planet-menu .dock-panel');
+    const stockBeforeBook = stock();
+    scrollInto(livePanelForBuy, liveBuy);
+    const buyInView = frameInside(liveBuy, livePanelForBuy);
+    if (buyInView) liveBuy.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const stockAfterBook = stock();
+    const livePanel = document.querySelector('#planet-menu .dock-panel');
+    const shopOffer = [...(livePanel?.querySelectorAll('.market-offer') || [])].find((el) => /xiang's brand vodka/i.test(el.textContent));
+    const shopBuy = shopOffer?.querySelector('[data-market-buy]');
+    const host = livePanel?.getBoundingClientRect();
+    const shopBox = shopBuy?.getBoundingClientRect();
+    if (livePanel && shopBox && host && (shopBox.top < host.top + 1 || shopBox.bottom > host.bottom - 1)) {
+      livePanel.scrollTop += shopBox.top - host.top - 8;
+    }
+    const shopInView = frameInside(shopBuy, livePanel);
+    const stockBeforeShop = stock();
+    if (shopInView) shopBuy.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const stockAfterShop = stock();
+    return {
+      seeded,
+      enrolled,
+      entries: bookCounts.entries,
+      records: bookCounts.records,
+      expectedEntries,
+      expectedRecords,
+      fullCutOff,
+      buyCut,
+      headingCut,
+      lastCut,
+      last: String(lastLine?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      bookInside,
+      buyInside,
+      headingInside,
+      grainText,
+      cutOff: clip.cutOffLines || [],
+      squashed: clip.squashedControls || [],
+      buyInView,
+      shopInView,
+      panelOverflows,
+      panelBar,
+      grainInFrame,
+      grainOk,
+      bookBought: stockBeforeBook != null && stockAfterBook === stockBeforeBook - 1,
+      shopBought: stockBeforeShop != null && stockAfterShop === stockBeforeShop - 1,
+      rects: liveRects,
+      stockBeforeBook,
+      stockAfterBook,
+      stockBeforeShop,
+      stockAfterShop,
+    };
+  });
+  check(results, 'S35.24 dock-book-reachable', dockReach.seeded === true
+    && dockReach.entries === 8
+    && dockReach.records === 8
+    && dockReach.expectedEntries === 8
+    && dockReach.expectedRecords === 8
+    && dockReach.buyCut === false
+    && dockReach.headingCut === false
+    && dockReach.lastCut === false
+    && dockReach.bookInside === true
+    && dockReach.buyInside === true
+    && dockReach.headingInside === true
+    && dockReach.grainText === true
+    && dockReach.fullCutOff === 0
+    && dockReach.cutOff.length === 0
+    && dockReach.squashed.length === 0
+    && dockReach.buyInView === true
+    && dockReach.bookBought === true
+    && dockReach.shopInView === true
+    && dockReach.shopBought === true
+    && dockReach.grainOk === true
+    && (dockReach.panelOverflows ? dockReach.panelBar === true : dockReach.grainInFrame === true), JSON.stringify(dockReach));
+  const listedSale = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    api.emptyHold();
+    const before = api.snapshot().latinum;
+    const restored = api.restore({
+      version: 1,
+      nextSaleId: 6,
+      consumedSaleIds: { 4: true },
+      sales: { 4: { saleId: 4, lotId: 'lot:4', good: 'Legacy Listed Grain', tons: 1, soldByBook: true, seq: 1 } },
+    });
+    const sold = api.sellBack(4, {
+      dominion: { scope: 'general', systemName: 'Ferenginar', role: 'traffic' },
+    });
+    return {
+      paid: sold?.paid ?? null,
+      reason: sold?.reason || null,
+      latinumSame: before === api.snapshot().latinum,
+      restoredSale: Boolean(restored?.sales?.['4']),
+    };
+  });
+  check(results, 'S35.18 consumed-sale-still-listed-pays-zero', listedSale.paid === 0
+    && listedSale.latinumSame === true
+    && (listedSale.reason === 'missing-pod' || listedSale.reason === 'sale-consumed'), JSON.stringify(listedSale));
+  const hookScope = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    api?.emptyHold?.();
+    p8.injectMarket({
+      marketId: 'mkt-hook-scope',
+      good: 'Hook Scope Grain',
+      stock: 4,
+      demand: 4,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const previous = api.setWorldName(' ');
+    const stockBefore = p8.snapshot().book.markets['mkt-hook-scope']?.stock;
+    const bought = api.buy('Hook Scope Grain', 1, { marketId: 'mkt-hook-scope' });
+    const sold = api.sellBack('missing-sale', { marketId: 'mkt-hook-scope' });
+    const stockAfter = p8.snapshot().book.markets['mkt-hook-scope']?.stock;
+    api.setWorldName(previous);
+    return {
+      buyOk: bought?.ok === true,
+      buyReason: bought?.reason || null,
+      sellReason: sold?.reason || null,
+      stockSame: stockBefore === stockAfter,
+    };
+  });
+  check(results, 'S35.24 hook-scope-refuses', hookScope.buyOk === false
+    && hookScope.buyReason === 'missing-scope'
+    && hookScope.sellReason === 'missing-scope'
+    && hookScope.stockSame === true, JSON.stringify(hookScope));
+  const dominionRule = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    api?.emptyHold?.();
+    p8.injectMarket({
+      marketId: 'mkt-dominion-rule',
+      good: 'Dominion Rule Grain',
+      stock: 6,
+      demand: 6,
+      stockCap: 8,
+      demandCap: 8,
+      floor: 0,
+      price: 10,
+      systemIndex: here,
+      restriction: 'open',
+    });
+    const atDominica = api.buy('Dominion Rule Grain', 1, {
+      marketId: 'mkt-dominion-rule',
+      dominion: { scope: 'dominion-core', systemName: 'Dominica', region: 'dominion-core', role: 'traffic' },
+    });
+    const away = api.buy('Dominion Rule Grain', 1, {
+      marketId: 'mkt-dominion-rule',
+      dominion: { scope: 'dominion-core', systemName: 'Ferenginar', region: 'primary-space', role: 'traffic' },
+    });
+    const uncovered = api.buy('Dominion Rule Grain', 1, {
+      marketId: 'mkt-dominion-rule',
+      dominion: { scope: 'dominion-all', systemName: 'Ferenginar', region: 'primary-space', role: 'traffic' },
+    });
+    return {
+      homeOk: atDominica?.ok === true && atDominica.paid > 0,
+      homeReason: atDominica?.reason || null,
+      awayOk: away?.ok === true,
+      awayReason: away?.reason || null,
+      awayPaid: away?.paid || 0,
+      uncoveredReason: uncovered?.reason || null,
+    };
+  });
+  check(results, 'S35.19 dominion-core-refuses-elsewhere', dominionRule.homeOk === true
+    && dominionRule.awayOk === false
+    && dominionRule.awayReason === 'region-refused'
+    && dominionRule.awayPaid === 0
+    && dominionRule.uncoveredReason === 'region-refused', JSON.stringify(dominionRule));
+  const contrabandRestore = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const probe = globalThis.BM1Probe;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    if (typeof p8.loadGoodsPack === 'function') {
+      p8.loadGoodsPack({ goods: { 'Pack Spice': { contraband: true, stockCap: 8, demandCap: 8, floor: 0 } } });
+    }
+    p8.injectMarket({
+      marketId: 'mkt-code-spice', good: 'Contraband Spice', stock: 4, demand: 4, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open', contraband: true,
+    });
+    p8.injectMarket({
+      marketId: 'mkt-pack-spice', good: 'Pack Spice', stock: 4, demand: 4, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open', contraband: true,
+    });
+    p8.injectMarket({
+      marketId: 'mkt-save-only', good: 'Save Only Grain', stock: 4, demand: 4, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open',
+    });
+    probe.saveSlot(3);
+    const key = 'bm2_html_save_slot_3';
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    const goods = saved?.marketBook?.goods || {};
+    if (goods['Contraband Spice']) goods['Contraband Spice'].contraband = false;
+    if (goods['Pack Spice']) goods['Pack Spice'].contraband = false;
+    if (goods['Save Only Grain']) goods['Save Only Grain'].contraband = true;
+    localStorage.setItem(key, JSON.stringify(saved));
+    probe.loadSlot(3);
+    const book = p8.snapshot().book;
+    const codeGood = book.goods?.['Contraband Spice']?.contraband === true && book.markets?.['mkt-code-spice']?.contraband === true;
+    const packGood = book.goods?.['Pack Spice']?.contraband === true && book.markets?.['mkt-pack-spice']?.contraband === true;
+    const saveOnly = book.goods?.['Save Only Grain']?.contraband === true && book.markets?.['mkt-save-only']?.contraband === true;
+    api.emptyHold();
+    const restoredLots = api.restore({
+      version: 1,
+      nextSaleId: 2,
+      lots: {
+        'lot:code': { lotId: 'lot:code', good: 'Contraband Spice', source: 'book-bought', contraband: false, saleId: 1, seq: 1 },
+        'lot:save': { lotId: 'lot:save', good: 'Save Only Grain', source: 'book-bought', contraband: true, saleId: null, seq: 2 },
+      },
+      sales: {},
+    });
+    if (typeof p8.loadGoodsPack === 'function') p8.loadGoodsPack(null);
+    return {
+      codeGood,
+      packGood,
+      saveOnly,
+      lotCode: restoredLots?.lots?.['lot:code']?.contraband === true,
+      lotSave: restoredLots?.lots?.['lot:save']?.contraband === true,
+    };
+  });
+  check(results, 'S35.25 code-good-contraband-sticks', contrabandRestore.codeGood === true, JSON.stringify(contrabandRestore));
+  check(results, 'S35.25 pack-good-contraband-sticks', contrabandRestore.packGood === true, JSON.stringify(contrabandRestore));
+  check(results, 'S35.25 save-only-contraband-true', contrabandRestore.saveOnly === true, JSON.stringify(contrabandRestore));
+  check(results, 'S35.25 lot-contraband-sticks', contrabandRestore.lotCode === true && contrabandRestore.lotSave === true, JSON.stringify(contrabandRestore));
+  const heldLot = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__.phase8;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    api.restore(undefined);
+    api.emptyHold();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const scope = { scope: 'general', systemName: 'Ferenginar', role: 'traffic' };
+    p8.injectMarket({
+      marketId: 'mkt-held-lot', good: 'Contraband Spice', stock: 6, demand: 6, stockCap: 8, demandCap: 8, floor: 0, price: 10, systemIndex: here, restriction: 'open', contraband: true,
+    });
+    const bought = api.buy('Contraband Spice', 1, { marketId: 'mkt-held-lot', dominion: scope, contraband: true });
+    const contracts = [];
+    for (let n = 0; n < 8; n += 1) contracts.push({ id: `held-c-${n}`, goods: 'Grain', tons: 1, targetName: 'Friend' });
+    api.index?.();
+    const book = api.snapshot();
+    const beforeLots = Object.keys(book.lots || {});
+    const wc = globalThis.__BM1_PROBE__.worldCargo;
+    for (const contract of contracts) {
+      wc?.enroll?.({
+        id: contract.id, mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', targetIndex: here, legalPayout: 1,
+      });
+    }
+    api.index?.();
+    const after = api.snapshot();
+    const lot = after.lots?.[bought.lotId];
+    const sold = api.sellBack(bought.saleId, { marketId: 'mkt-held-lot', dominion: scope });
+    return {
+      bought: bought?.ok === true,
+      lotId: bought?.lotId || null,
+      beforeLots,
+      lotKept: Boolean(lot),
+      contraband: sold?.contraband === true,
+      reason: sold?.reason || null,
+      paid: sold?.paid || 0,
+    };
+  });
+  check(results, 'S35.25 held-lot-row-kept', heldLot.bought === true && heldLot.lotKept === true && heldLot.contraband === true, JSON.stringify(heldLot));
+  const shipmentCap = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const wc = globalThis.__BM1_PROBE__.worldCargo;
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    api.restore(undefined);
+    for (let n = 0; n < 8; n += 1) {
+      wc?.enroll?.({ id: `cap-c-${n}`, mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', targetIndex: here, legalPayout: 1 });
+    }
+    api.index?.();
+    const full = api.snapshot();
+    wc?.enroll?.({ id: 'cap-c-extra', mode: 'open', good: 'Grain', tons: 1, targetName: 'Friend', targetIndex: here, legalPayout: 1 });
+    api.index?.();
+    const after = api.snapshot();
+    return {
+      fullCount: (full.shipmentIds || []).length,
+      extraIndexed: (after.shipmentIds || []).includes('cap-c-extra'),
+      count: (after.shipmentIds || []).length,
+      notice: after.lastNotice || '',
+      log: after.log || globalThis.BM1Probe?.snapshot?.().log || '',
+    };
+  });
+  check(results, 'S35.7 shipment-hard-cap', shipmentCap.fullCount === 8
+    && shipmentCap.extraIndexed === false
+    && shipmentCap.count === 8
+    && (/not indexed/i.test(shipmentCap.notice) || /not indexed/i.test(shipmentCap.log)), JSON.stringify(shipmentCap));
+  const cardHide = await page.evaluate(() => {
+    const api = globalThis.__BM1_PROBE__.commodityShipment;
+    const briefing = globalThis.__BM1_PROBE__.briefingArchive;
+    const probe = globalThis.BM1Probe;
+    probe?.worldCargo?.undock?.();
+    api?.close?.();
+    api?.clearCombatTarget?.();
+    probe?.paint?.();
+    for (let n = 0; n < 14; n += 1) briefing?.produce?.({ strategicJumps: n + 3 });
+    const archive = document.getElementById('briefing-archive');
+    const natural = archive.getBoundingClientRect().height;
+    const spawned = probe?.spawnShip?.({ id: 's35-hide-card', name: 'SS Hide', faction: 'ferengi', attitude: 'neutral' });
+    globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id || 's35-hide-card');
+    probe?.paint?.();
+    const squeezed = archive.getBoundingClientRect().height;
+    api.clearCombatTarget();
+    const card = document.getElementById('target-window');
+    const restored = archive.getBoundingClientRect().height;
+    return {
+      natural: Math.round(natural),
+      squeezed: Math.round(squeezed),
+      restored: Math.round(restored),
+      shrunk: squeezed < natural - 8,
+      sameFrame: Math.abs(restored - natural) < 3,
+      hidden: card.classList.contains('hidden'),
+      height: card.style.height,
+      overflowY: card.style.overflowY,
+      left: card.style.left,
+      width: card.style.width,
+    };
+  });
+  check(results, 'S35.25 hide-restores-archive', cardHide.shrunk === true && cardHide.sameFrame === true
+    && cardHide.hidden === true && cardHide.height === '' && cardHide.overflowY === ''
+    && cardHide.left === '' && cardHide.width === '', JSON.stringify(cardHide));
+
+  await startScenario(page, 'ferengi', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
+  const cardLock = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    probe?.freezeLoop?.();
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    globalThis.__BM1_PROBE__?.commodityShipment?.close?.();
+    globalThis.__BM1_PROBE__?.commodityShipment?.clearCombatTarget?.();
+    probe?.redraw?.();
+    const spawned = probe.spawnShip({
+      id: 's35-card-lock',
+      name: 'SS Odyssey',
+      faction: 'ferengi',
+      attitude: 'neutral',
+      speed: 0,
+    });
+    const selected = globalThis.__BM1_PROBE__?.boarding?.selectTarget?.(spawned?.id);
+    probe?.redraw?.();
+    const card = document.getElementById('target-window');
+    const hidden = !card || card.classList.contains('hidden') || getComputedStyle(card).display === 'none';
+    return {
+      ok: selected?.ok === true,
+      reason: selected?.reason || null,
+      hidden,
+      name: hidden ? '' : String(card.querySelector('.target-window-head b')?.textContent || '').trim(),
+    };
+  });
+  check(results, 'S35.26 target-card-on-lock', cardLock.ok === true && cardLock.hidden === false && cardLock.name === 'SS Odyssey', JSON.stringify(cardLock));
+
+  const bookVisible = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    const p8 = globalThis.__BM1_PROBE__?.phase8;
+    const briefing = globalThis.__BM1_PROBE__?.briefingArchive;
+    probe?.destroy?.('s35-card-lock');
+    api?.clearCombatTarget?.();
+    api?.close?.();
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    document.querySelector('[data-dock-tab="market"]')?.click();
+    api?.emptyHold?.();
+    const here = globalThis.__BM1_PROBE__.snapshot().currentPlanet;
+    const goods = [
+      "Xiang's Brand Vodka",
+      'Feminine Products',
+      'Isolinear Chips',
+      'Medical Supplies',
+      'Dinner Napkins',
+      'Historic Books',
+      'Beetlesnuff',
+      'Old Paintings',
+    ];
+    const buys = [];
+    for (const good of goods) {
+      const marketId = `mkt-vis-${good.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      p8.injectMarket({
+        marketId, good, stock: 8, demand: 6, stockCap: 8, demandCap: 8, floor: 0, price: 10,
+        systemIndex: here, restriction: 'open',
+      });
+      const before = p8.snapshot().book.markets[marketId]?.stock;
+      const bought = api.playBuy(good);
+      const after = p8.snapshot().book.markets[marketId]?.stock;
+      buys.push(bought?.ok === true && (bought?.paid || 0) > 0 && before != null && after === before - 1);
+    }
+    for (let n = 0; n < 16; n += 1) briefing?.produce?.({ strategicJumps: n + 4 });
+    const filed = briefing?.produce?.({ strategicJumps: 2 });
+    if (filed?.id) briefing?.select?.(filed.id);
+    globalThis.__BM1_PROBE__?.worldCargo?.undock?.();
+    api?.close?.();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const beforeScroll = document.getElementById('briefing-archive')?.scrollTop || 0;
+    document.querySelector('#briefing-archive [data-commodity-book-toggle]')?.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const afterScroll = document.getElementById('briefing-archive')?.scrollTop || 0;
+    const lineHeightOf = (el) => {
+      const parsed = Number.parseFloat(getComputedStyle(el).lineHeight);
+      if (Number.isFinite(parsed) && parsed >= 8) return parsed;
+      const font = Number.parseFloat(getComputedStyle(el).fontSize);
+      return Number.isFinite(font) && font > 0 ? font : 16;
+    };
+    const clippingAncestors = (el) => {
+      const list = [];
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+        node = node.parentElement;
+      }
+      return list;
+    };
+    const rowVisible = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return false;
+      let top = Math.max(rect.top, 0);
+      let bottom = Math.min(rect.bottom, window.innerHeight);
+      let left = Math.max(rect.left, 0);
+      let right = Math.min(rect.right, window.innerWidth);
+      for (const node of clippingAncestors(el)) {
+        const host = node.getBoundingClientRect();
+        const edge = getComputedStyle(node);
+        top = Math.max(top, host.top + (parseFloat(edge.borderTopWidth) || 0));
+        bottom = Math.min(bottom, host.bottom - (parseFloat(edge.borderBottomWidth) || 0));
+        left = Math.max(left, host.left + (parseFloat(edge.borderLeftWidth) || 0));
+        right = Math.min(right, host.right - (parseFloat(edge.borderRightWidth) || 0));
+      }
+      const height = Math.max(0, bottom - top);
+      const width = Math.max(0, right - left);
+      if (width < 2 || height + 0.5 < lineHeightOf(el)) return false;
+      const hit = document.elementsFromPoint((left + right) / 2, (top + bottom) / 2)[0];
+      return Boolean(hit && (hit === el || el.contains(hit)));
+    };
+    const entries = [...document.querySelectorAll('#briefing-archive .commodity-entry')];
+    const visible = entries.filter(rowVisible).length;
+    const measured = api.measureNoClip().bookCounts?.entries;
+    return {
+      seeded: buys.every(Boolean) && buys.length === 8,
+      dom: entries.length,
+      visible,
+      measured,
+      scrollSame: beforeScroll === afterScroll,
+      scroll: afterScroll,
+    };
+  });
+  check(results, 'S35.26 book-counts-are-visible', bookVisible.seeded === true
+    && bookVisible.dom === 8
+    && bookVisible.visible === 0
+    && bookVisible.measured === 0
+    && bookVisible.scrollSame === true, JSON.stringify(bookVisible));
+
+  const dockMust = await page.evaluate(() => {
+    const probe = globalThis.BM1Probe;
+    const api = globalThis.__BM1_PROBE__?.commodityShipment;
+    globalThis.__BM1_PROBE__?.worldCargo?.placeAtWorld?.();
+    probe?.tryDockPlanet?.();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    document.querySelector('#planet-menu [data-dock-tab="market"]')?.click();
+    probe?.freezeLoop?.();
+    probe?.redraw?.();
+    const panel = document.querySelector('#planet-menu .dock-panel');
+    const book = document.querySelector('#planet-menu .commodity-book-scroll');
+    const lineHeightOf = (el) => {
+      const parsed = Number.parseFloat(getComputedStyle(el).lineHeight);
+      if (Number.isFinite(parsed) && parsed >= 8) return parsed;
+      const font = Number.parseFloat(getComputedStyle(el).fontSize);
+      return Number.isFinite(font) && font > 0 ? font : 16;
+    };
+    const clippingAncestors = (el) => {
+      const list = [];
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+        node = node.parentElement;
+      }
+      return list;
+    };
+    const rowVisible = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return false;
+      let top = Math.max(rect.top, 0);
+      let bottom = Math.min(rect.bottom, window.innerHeight);
+      let left = Math.max(rect.left, 0);
+      let right = Math.min(rect.right, window.innerWidth);
+      for (const node of clippingAncestors(el)) {
+        const host = node.getBoundingClientRect();
+        const edge = getComputedStyle(node);
+        top = Math.max(top, host.top + (parseFloat(edge.borderTopWidth) || 0));
+        bottom = Math.min(bottom, host.bottom - (parseFloat(edge.borderBottomWidth) || 0));
+        left = Math.max(left, host.left + (parseFloat(edge.borderLeftWidth) || 0));
+        right = Math.min(right, host.right - (parseFloat(edge.borderRightWidth) || 0));
+      }
+      if (Math.max(0, right - left) < 2 || Math.max(0, bottom - top) + 0.5 < lineHeightOf(el)) return false;
+      const hit = document.elementsFromPoint((left + right) / 2, (top + bottom) / 2)[0];
+      return Boolean(hit && (hit === el || el.contains(hit)));
+    };
+    const exact = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    const good = document.querySelector('#planet-menu .market-good');
+    const wanted = [
+      [document.querySelector('#planet-menu .commodity-shipment-title'), 'COMMODITY BOOK'],
+      [document.querySelector('#planet-menu [data-commodity-buy]'), 'Buy one ton'],
+      [[...document.querySelectorAll('#planet-menu .panel-head')].find((el) => exact(el) === 'Cargo Market'), 'Cargo Market'],
+      [good, exact(good)],
+      [document.querySelector('#planet-menu [data-market-buy]'), 'Buy'],
+      [document.querySelector('#planet-menu [data-market-sell]'), 'Sell'],
+    ];
+    const inlineMissing = wanted.filter(([el, text]) => !text || exact(el) !== text || !rowVisible(el)).map(([, text]) => text);
+    const must = api.measureNoClip(wanted.filter(([, text]) => text).map(([el, text]) => ({
+      selector: el?.id ? `#${el.id}` : (
+        el?.matches?.('.commodity-shipment-title') ? '#planet-menu .commodity-shipment-title'
+          : el?.matches?.('[data-commodity-buy]') ? '#planet-menu [data-commodity-buy]'
+            : el?.matches?.('.panel-head') ? '#planet-menu .panel-head'
+              : el?.matches?.('.market-good') ? '#planet-menu .market-good'
+                : el?.matches?.('[data-market-buy]') ? '#planet-menu [data-market-buy]'
+                  : '#planet-menu [data-market-sell]'
+      ),
+      text,
+    })));
+    return {
+      panelScroll: panel?.scrollTop || 0,
+      bookScroll: book?.scrollTop || 0,
+      inlineMissing,
+      mustOk: must?.mustShow?.ok === true,
+      missing: must?.mustShow?.missing || inlineMissing,
+    };
+  });
+  check(results, 'S35.26 dock-must-show', dockMust.mustOk === true
+    && dockMust.panelScroll === 0
+    && dockMust.bookScroll === 0
+    && dockMust.inlineMissing.length === 0, JSON.stringify(dockMust));
+}
+
 async function runHeaderStrip(page, results) {
   const worst = longestHeaderStatusMessage();
   await startScenario(page, 'terran', { clearTraffic: true, latinum: 1600, hull: 100, shields: 100 });
@@ -7450,6 +10088,7 @@ async function main() {
     await runBajoranSolarSailor(page, results);
     await runBriefingArchive(page, results);
     await runWorldCargo(page, results);
+    await runCommodityShipment(page, results);
     await runHeaderStrip(page, results);
     const artifactDir = process.env.PROBE_ARTIFACT_DIR;
     if (artifactDir) {
@@ -7457,7 +10096,7 @@ async function main() {
       await page.screenshot({ path: path.join(artifactDir, 'behavior_probe_game.png'), fullPage: true });
       fs.writeFileSync(path.join(artifactDir, 'behavior_probe_results.txt'), `${results.lines.join('\n')}\n`);
     }
-    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive + S34 world cargo Chromium probe: ${results.passed} passed, ${results.failed} failed`;
+    const summary = `Phase 1 + Phase 2 ROE + Phase 3 + Phase 4 incidents + S7 repair/Reman + S7 unrest/independence + S8 Phase 5 + S9 Phase 6 + S10 Phase 6.5 + S11 catalog + S12 Phase 7 + S13 Phase 8 + S14 Phase 9 + S15 Phase 9.1 + S16 Phase 9.2 + S17 boarding + S18 Phase 10 Dominion + S19 Phase 9.3 poison/DF + S20 Phase 9.4 magnitudes + S21 utility inventory + S22 weapon source ledger + S23 empty-armable + S24 construction visuals + S26 economy/difficulty + S27 standing/purchase tiers + S28 dockClear/UI-fit + S29 alertsActive + S30 away-team XP + S31 Phase 10 roster + S32 Bajoran Solar Sailor + S33 briefing archive + S34 world cargo + S35 commodity shipment Chromium probe: ${results.passed} passed, ${results.failed} failed`;
     console.log(results.lines.join('\n'));
     console.log(summary);
     if (results.failed) process.exitCode = 1;

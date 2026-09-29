@@ -1,0 +1,868 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "setup": {
+    "before": {
+      "roe": "defend",
+      "engagement_authorized": false,
+      "firingSolution": false,
+      "firingSolutions": [],
+      "targetFiringSolution": false,
+      "firingSolutionSource": null,
+      "boardingOutcome": "",
+      "lastRefuse": null
+    },
+    "afterPaint": {
+      "roe": "defend",
+      "engagement_authorized": false,
+      "firingSolution": true,
+      "firingSolutions": [
+        {
+          "id": "shot-odyssey",
+          "source": "passive"
+        }
+      ],
+      "targetFiringSolution": false,
+      "firingSolutionSource": null,
+      "boardingOutcome": "",
+      "lastRefuse": null
+    },
+    "afterLock": {
+      "roe": "defend",
+      "engagement_authorized": false,
+      "firingSolution": true,
+      "firingSolutions": [
+        {
+          "id": "shot-odyssey",
+          "source": "passive"
+        }
+      ],
+      "targetFiringSolution": true,
+      "firingSolutionSource": "passive",
+      "boardingOutcome": "",
+      "lastRefuse": null
+    },
+    "afterHull": {
+      "roe": "defend",
+      "engagement_authorized": false,
+      "firingSolution": true,
+      "firingSolutions": [
+        {
+          "id": "shot-odyssey",
+          "source": "passive"
+        }
+      ],
+      "targetFiringSolution": true,
+      "firingSolutionSource": "passive",
+      "boardingOutcome": "",
+      "lastRefuse": null
+    },
+    "firingSolutionSource": "passive",
+    "firingSolutionsBefore": [],
+    "firingSolutionsAfterPaint": [
+      {
+        "id": "shot-odyssey",
+        "source": "passive"
+      }
+    ],
+    "newFiringSolutions": [
+      {
+        "id": "shot-odyssey",
+        "source": "passive"
+      }
+    ],
+    "passiveFiringSolution": true,
+    "lock": {
+      "dist": 104,
+      "x": 540,
+      "y": 330,
+      "onCanvas": true
+    },
+    "shopText": "Xiang's Brand Vodka",
+    "lastBookLine": "Bought 1 ton of Medical Supplies for 11 latinum.",
+    "briefingLine": "Arrival: Ferenginar. Jump 2.",
+    "doctrineChecks": {
+      "campaign": {
+        "ok": true
+      },
+      "briefing": {
+        "ok": true
+      },
+      "briefingBook": {
+        "ok": true
+      },
+      "worldCargo": {
+        "ok": true
+      },
+      "target": {
+        "ok": true
+      },
+      "bookTarget": {
+        "ok": true
+      },
+      "bookTargetBook": {
+        "ok": true
+      },
+      "bookTargetLow": {
+        "ok": true
+      },
+      "bookTargetLowBook": {
+        "ok": true
+      },
+      "dock": {
+        "ok": true
+      },
+      "dockBook": {
+        "ok": true
+      }
+    }
+  },
+  "clippedControls": [],
+  "occluders": [],
+  "pillOverlaps": [],
+  "squashedControls": [],
+  "cutOffLines": [],
+  "states": {
+    "campaign": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "expectedCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "briefing": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "briefingBook": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 3,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 5,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "worldCargo": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "expectedCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "target": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "expectedCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": true,
+        "firingSolutionSource": "passive",
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "100%",
+        "hullPct": 100,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "bookTarget": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": true,
+        "firingSolutionSource": "passive",
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "100%",
+        "hullPct": 100,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "bookTargetBook": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 3,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 5,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": true,
+        "firingSolutionSource": "passive",
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "100%",
+        "hullPct": 100,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": true
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "bookTargetLow": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": true,
+        "firingSolutionSource": "passive",
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "10%",
+        "hullPct": 10,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "bookTargetLowBook": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 1,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 7,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": true,
+        "firingSolutionSource": "passive",
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": true,
+        "name": "SS Odyssey",
+        "hullText": "10%",
+        "hullPct": 10,
+        "capture": {
+          "present": true,
+          "visible": true,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": true,
+          "visible": true,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "dock": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 1,
+        "records": 0,
+        "lines": 0
+      },
+      "reachableCounts": {
+        "entries": 7,
+        "records": 8,
+        "lines": 8
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    },
+    "dockBook": {
+      "clippedControls": [],
+      "occluders": [],
+      "pillOverlaps": [],
+      "squashedControls": [],
+      "cutOffLines": [],
+      "bookCounts": {
+        "entries": 0,
+        "records": 0,
+        "lines": 1
+      },
+      "reachableCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 7
+      },
+      "expectedCounts": {
+        "entries": 8,
+        "records": 8,
+        "lines": 8
+      },
+      "mustShow": {
+        "ok": true,
+        "missing": []
+      },
+      "doctrine": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": true,
+        "firingSolutions": [
+          {
+            "id": "shot-odyssey",
+            "source": "passive"
+          }
+        ],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "doctrineBefore": {
+        "roe": "defend",
+        "engagement_authorized": false,
+        "firingSolution": false,
+        "firingSolutions": [],
+        "targetFiringSolution": false,
+        "firingSolutionSource": null,
+        "boardingOutcome": "",
+        "lastRefuse": null
+      },
+      "targetCard": {
+        "shown": false,
+        "name": "",
+        "hullText": "",
+        "hullPct": null,
+        "capture": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        },
+        "scuttle": {
+          "present": false,
+          "visible": false,
+          "disabled": false
+        }
+      },
+      "observerMutations": 0,
+      "saveHashMatch": true
+    }
+  }
+}

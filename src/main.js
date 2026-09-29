@@ -468,6 +468,7 @@ import {
   injectIndependentRestrictedMarket,
   injectMarket,
   injectWartimePorts,
+  loadGoodsPack,
   lastRefuseKind,
   listHoldings,
   listMarkets,
@@ -694,6 +695,18 @@ import {
   serializeWorldCargoBook,
   worldCargoSnapshot,
 } from './world-cargo-delivery.js';
+import {
+  COMMODITY_SHIPMENT_CONFIG,
+  COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED,
+  buyCommodityLot,
+  commodityShipmentSnapshot,
+  emptyCommodityShipmentBook,
+  indexCommodityShipment,
+  restoreCommodityShipmentBook,
+  selectCommodityShipment,
+  sellBackBookLot,
+  serializeCommodityShipmentBook,
+} from './commodity-shipment.js';
 import {
   EW_SLOT_KIND,
   MAGNITUDES_LOCKED_FROM_REMASTERED,
@@ -1518,6 +1531,8 @@ const state = {
   solarSailorBook: emptySolarSailorBook(),
   briefingArchive: emptyBriefingArchive(),
   worldCargoBook: emptyWorldCargoBook(),
+  commodityShipmentBook: emptyCommodityShipmentBook(),
+  commodityShipmentOpen: false,
   utilityBook: emptyUtilityBook(),
   economyDifficultyBook: emptyEconomyDifficultyBook(),
   ew91: emptyEw91Book(),
@@ -5683,7 +5698,8 @@ function refreshFleetOrderPanel(force = false) {
   const escorts = getPlayerEscortFleetShips();
   const visible = Boolean(state.gameStarted && !state.gameOver && !state.warp.active && escorts.length);
   fleetOrderPanelEl.classList.toggle('hidden', !visible);
-  if (visible && minimapPanelEl) minimapPanelEl.style.display = 'block';
+  if (minimapPanelEl && state.planetMenuOpen) minimapPanelEl.style.display = 'none';
+  else if (visible && minimapPanelEl) minimapPanelEl.style.display = 'block';
   if (!visible) {
     fleetOrderPanelEl.innerHTML = '';
     fleetOrderPanelEl.dataset.renderKey = '';
@@ -5861,6 +5877,29 @@ function ensureBriefingArchive() {
   return state.briefingArchive;
 }
 
+function ensureCommodityShipmentBook() {
+  if (!state.commodityShipmentBook || state.commodityShipmentBook.version !== 1 || !state.commodityShipmentBook.commodities) {
+    state.commodityShipmentBook = restoreCommodityShipmentBook(state.commodityShipmentBook, {
+      pods: state.cargoArray,
+    });
+  }
+  state.commodityShipmentBook.lockedFromRemastered = false;
+  return state.commodityShipmentBook;
+}
+
+function refreshCommodityShipment() {
+  const before = ensureCommodityShipmentBook().lastNotice || '';
+  state.commodityShipmentBook = indexCommodityShipment(ensureCommodityShipmentBook(), {
+    pods: state.cargoArray,
+    openContracts: getOpenContracts(),
+    worldCargoBook: ensureWorldCargoBook(),
+    strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+  });
+  const notice = state.commodityShipmentBook?.lastNotice || '';
+  if (notice && notice !== before) setLog(notice);
+  return state.commodityShipmentBook;
+}
+
 function ensureWorldCargoBook() {
   if (!state.worldCargoBook || state.worldCargoBook.version !== 1 || !state.worldCargoBook.contracts) {
     state.worldCargoBook = restoreWorldCargoBook(state.worldCargoBook);
@@ -5946,6 +5985,7 @@ function expireWorldCargoOnJump(strategicJumps) {
     pods: state.cargoArray,
   });
   recalcCargoFromPods();
+  refreshCommodityShipment();
 }
 
 function enrollAcceptedWorldCargo(offer, mode = 'open') {
@@ -6240,6 +6280,7 @@ function applyBoardingOutcome(attemptId, outcome, extras = {}) {
     xpBook: ensureAwayTeamXpBook(),
   });
   if (!done.ok) return done;
+  if (getSelectedNpcTarget()) rerenderTargetWindowNow();
   return finishLiveBoarding(done, extras);
 }
 
@@ -6316,6 +6357,22 @@ function tickLiveBoarding(localMs = currentLocalMs()) {
   return ticked;
 }
 
+function attemptForTarget(book, target) {
+  const instanceId = String(target?.securityInstanceId || target?.id || '');
+  if (!instanceId) return null;
+  const matches = (attempt) => {
+    const victimId = String(attempt?.victimInstanceId || '');
+    return victimId !== '' && victimId === instanceId;
+  };
+  const inFlight = book?.inFlightId ? book.attempts?.[book.inFlightId] : null;
+  if (matches(inFlight)) return inFlight;
+  const attempts = Object.values(book?.attempts || {});
+  for (let index = attempts.length - 1; index >= 0; index -= 1) {
+    if (matches(attempts[index])) return attempts[index];
+  }
+  return null;
+}
+
 function renderBoardingChrome(target, isStation) {
   const xpLine = awayTeamXpChromeLine(ensureAwayTeamXpBook());
   const owned = (state.playerFleet || []).filter((row) => !row.destroyed);
@@ -6332,17 +6389,21 @@ function renderBoardingChrome(target, isStation) {
   const reason = verdict.ok ? '' : (verdict.reason || '');
   const disabled = verdict.ok ? '' : 'disabled';
   const label = verdict.ok ? 'Board' : 'Board refused';
-  const attempt = snapshotAttempt(ensureBoardingBook());
-  const outcome = attempt.outcome ? `Outcome: ${attempt.outcome}` : 'Tractor hold is not a capture.';
+  const attempt = attemptForTarget(ensureBoardingBook(), target);
+  const attemptOutcome = attempt?.outcome || '';
+  const outcome = attemptOutcome ? `Outcome: ${attemptOutcome}` : '';
+  const mark = (action) => (attemptOutcome === action ? ' data-board-applies="1"' : '');
+  const outcomeHidden = (action) => (attemptOutcome && attemptOutcome !== action ? ' hidden' : '');
   return `<div class="target-boarding" data-boarding-chrome="1">
     <div class="target-boarding-row">
       <button type="button" data-board-action="board" ${disabled} title="${escapeHtml(verdict.sayable || '')}">${label}</button>
-      <button type="button" data-board-action="capture" ${disabled}>Capture</button>
-      <button type="button" data-board-action="scuttle" ${disabled}>Scuttle</button>
+      <button type="button" data-board-action="capture" ${disabled}${mark('capture')}${outcomeHidden('capture')}>Capture</button>
+      <button type="button" data-board-action="scuttle" ${disabled}${mark('scuttle')}${outcomeHidden('scuttle')}>Scuttle</button>
       <button type="button" data-board-action="fail" ${disabled}>Fail</button>
     </div>
-    <div class="target-boarding-note">${escapeHtml(verdict.sayable || '')}</div>
-    <div class="target-boarding-note">${escapeHtml(outcome)}${reason ? ` · ${escapeHtml(reason)}` : ''}</div>
+    <div class="target-boarding-note">${escapeHtml(verdict.sayable || '')}${reason ? ` · ${escapeHtml(reason)}` : ''}</div>
+    <div class="target-boarding-note">Tractor hold is not a capture.</div>
+    ${outcome ? `<div class="target-boarding-note">${escapeHtml(outcome)}</div>` : ''}
     <small>${escapeHtml(xpLine)}</small>
     ${transferBtns ? `<div class="target-boarding-transfer">${transferBtns}</div>` : ''}
   </div>`;
@@ -11036,6 +11097,7 @@ function renderBriefingArchive() {
   const hasWider = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'wider_dominion');
   const hasObjectives = Object.values(book.briefings || {}).some((row) => row.campaignGroup === 'objectives');
   const selectHtml = `<div class="briefing-archive-toolbar">
+      <button type="button" data-commodity-book-toggle class="${state.commodityShipmentOpen ? 'active' : ''}">${state.commodityShipmentOpen ? 'Book open' : 'Book'}</button>
       <button type="button" data-briefing-view="briefing" class="${view === 'briefing' ? 'active' : ''}">Briefing</button>
       <button type="button" data-briefing-view="archive" class="${view === 'archive' ? 'active' : ''}">Archive</button>
       <button type="button" data-briefing-campaign="" class="${campaign === '' ? 'active' : ''}">All</button>
@@ -11055,8 +11117,1227 @@ function renderBriefingArchive() {
     selectEl = host.querySelector('.briefing-archive-select');
     bodyEl = host.querySelector('.briefing-archive-body');
   }
+  const selectScroll = selectEl.scrollTop;
+  const bodyScroll = bodyEl.scrollTop;
+  const hostScroll = host.scrollTop;
   selectEl.innerHTML = selectHtml;
   bodyEl.innerHTML = bodyHtml;
+  selectEl.scrollTop = selectScroll;
+  bodyEl.scrollTop = bodyScroll;
+  host.classList.toggle('is-book-open', state.commodityShipmentOpen === true);
+  fitOpenBookBriefing();
+  host.scrollTop = hostScroll;
+  if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
+}
+
+function currentBookMarket(good) {
+  const book = ensureMarketBook();
+  return findMarket(book, {
+    good,
+    locationId: currentMarketLocationId(),
+    systemIndex: state.currentPlanet,
+  });
+}
+
+function resolveWorldTradeScope(planet) {
+  if (!planet || !String(planet.name || '').trim()) return null;
+  const name = String(planet.name).trim().toLowerCase();
+  if (name === 'dominica') return 'dominion-core';
+  const route = getConventionalRouteRegion(planet);
+  if (route === 'primary-space') return 'general';
+  if (route) return route;
+  return null;
+}
+
+function dominionTradeContextForMarket() {
+  const planet = state.planets?.[state.currentPlanet] || null;
+  const spawn = currentCatalogSpawnContext('traffic');
+  const worldScope = resolveWorldTradeScope(planet);
+  return {
+    availabilityRegion: worldScope,
+    scope: worldScope,
+    worldRegionMissing: worldScope == null,
+    systemName: spawn.systemName,
+    region: spawn.region,
+    role: spawn.role || 'traffic',
+    authorizedDeployment: spawn.authorizedDeployment === true,
+  };
+}
+
+function refuseBookService() {
+  const line = serviceRefusal(getSystemFaction(state.currentPlanet));
+  if (!line) return null;
+  const marketBook = ensureMarketBook();
+  marketBook.lastRefuse = {
+    allowed: false,
+    kind: 'seller_rule',
+    reason: 'refused',
+    sayable: line,
+    priceMayBypass: false,
+    logLine: line,
+    logBand: null,
+    paid: 0,
+  };
+  setLog(line);
+  return {
+    ok: false,
+    paid: 0,
+    reason: 'service-refused',
+    logLine: line,
+    logBand: null,
+    book: ensureCommodityShipmentBook(),
+  };
+}
+
+function tradeWitness() {
+  ensureContactBook();
+  const ledger = ensureIncidentLedger();
+  const policy = getEffectivePolicy(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet));
+  return JSON.stringify({
+    standing: state.factionStanding || {},
+    contacts: ensureContactBook(),
+    alerts: areAlertsActive(policy),
+    known: ledger.observerCopies?.player?.knownIncidentIds || [],
+    flash: currentFlash(ledger)?.text || '',
+  });
+}
+
+function buyFromCommodityBook(good) {
+  if (!requireDocked()) return;
+  const serviceBlock = refuseBookService();
+  if (serviceBlock) return serviceBlock;
+  const market = currentBookMarket(good);
+  if (!market) {
+    const line = `No ${good || 'cargo'} market at this world. Purchase refused. The market did not move.`;
+    setLog(line);
+    return { ok: false, paid: 0, reason: 'missing-market', logLine: line, logBand: null };
+  }
+  const result = buyCommodityLot(ensureCommodityShipmentBook(), {
+    market,
+    marketBook: ensureMarketBook(),
+    pods: state.cargoArray,
+    cargoCap: state.cargoCap,
+    credits: state.latinum,
+    tons: 1,
+    strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+    contraband: market?.contraband === true,
+    dominion: dominionTradeContextForMarket(market),
+    config: COMMODITY_SHIPMENT_CONFIG,
+  });
+  if (result.paid) {
+    state.latinum = Math.max(0, state.latinum - result.paid);
+    state.mylatinum = state.latinum;
+  }
+  if (result.logLine) setLog(result.logLine);
+  else if (result.book?.lastNotice) setLog(result.book.lastNotice);
+  recalcCargoFromPods();
+  refreshCommodityShipment();
+  updateStats();
+  return result;
+}
+
+function sellBackFromCommodityBook(saleId) {
+  if (!requireDocked()) return;
+  const serviceBlock = refuseBookService();
+  if (serviceBlock) return serviceBlock;
+  const book = ensureCommodityShipmentBook();
+  const requested = saleId == null || saleId === '' ? '' : String(saleId);
+  const sale = requested ? book.sales?.[requested] : Object.values(book.sales || {})[0];
+  const market = sale ? currentBookMarket(sale.good) : currentBookMarket(Object.values(book.sales || {})[0]?.good);
+  const result = sellBackBookLot(book, {
+    saleId: sale?.saleId ?? (requested || saleId),
+    market,
+    marketBook: ensureMarketBook(),
+    pods: state.cargoArray,
+    dominion: dominionTradeContextForMarket(market),
+    config: COMMODITY_SHIPMENT_CONFIG,
+  });
+  if (result.paid) {
+    state.latinum += result.paid;
+    state.mylatinum = state.latinum;
+  }
+  if (result.logLine) setLog(result.logLine);
+  else if (result.book?.lastNotice) setLog(result.book.lastNotice);
+  recalcCargoFromPods();
+  refreshCommodityShipment();
+  updateStats();
+  return result;
+}
+
+function clearTargetWindowPlacement(host) {
+  if (!host) return;
+  host.style.left = '';
+  host.style.top = '';
+  host.style.width = '';
+  host.style.height = '';
+  host.style.maxHeight = '';
+  host.style.right = '';
+  host.style.bottom = '';
+  host.style.overflow = '';
+  host.style.overflowY = '';
+}
+
+function dismissTargetWindow() {
+  if (!targetWindowEl) return;
+  targetWindowEl.classList.add('hidden');
+  targetWindowEl.innerHTML = '';
+  targetWindowEl.dataset.renderKey = '';
+  targetWindowEl.classList.remove('is-scrolling');
+  clearTargetWindowPlacement(targetWindowEl);
+  const archive = document.getElementById('briefing-archive');
+  if (archive) {
+    resetArchiveBox(archive);
+    syncArchiveScrollbar(archive);
+  }
+}
+
+function measureTargetChrome(host) {
+  const saved = {
+    maxHeight: host.style.maxHeight,
+    height: host.style.height,
+    overflow: host.style.overflow,
+    overflowY: host.style.overflowY,
+  };
+  host.style.maxHeight = 'none';
+  host.style.height = 'auto';
+  host.style.overflow = 'visible';
+  host.style.overflowY = 'visible';
+  const rect = host.getBoundingClientRect();
+  const cs = getComputedStyle(host);
+  const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+  const borderY = (parseFloat(cs.borderTopWidth) || 0) + borderBottom;
+  let coreBottom = rect.top;
+  host.querySelectorAll('.target-window-head, .target-meta, .target-class, .target-meter, .target-hail, .target-boarding').forEach((el) => {
+    const box = el.getBoundingClientRect();
+    if (box.width > 1 && box.height > 1) coreBottom = Math.max(coreBottom, box.bottom);
+  });
+  const core = Math.ceil((coreBottom - rect.top) + borderBottom);
+  const full = Math.ceil(host.scrollHeight + borderY);
+  host.style.maxHeight = saved.maxHeight;
+  host.style.height = saved.height;
+  host.style.overflow = saved.overflow;
+  host.style.overflowY = saved.overflowY;
+  return { core: Math.max(180, core), full: Math.max(core, full) };
+}
+
+function shownPanel(el) {
+  if (!el || el.classList.contains('hidden')) return false;
+  const style = getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 2 && rect.height > 2;
+}
+
+function syncArchiveScrollbar(host) {
+  if (!host) return;
+  const overflows = host.scrollHeight > host.clientHeight + 1;
+  host.classList.toggle('is-scrolling', overflows);
+  if (overflows) host.style.overflowY = 'auto';
+  else host.style.overflowY = '';
+  host.querySelectorAll(':scope > .briefing-archive-select, :scope > .briefing-archive-body').forEach((pane) => {
+    const style = getComputedStyle(pane);
+    const canScroll = /(auto|scroll)/.test(style.overflowY);
+    pane.classList.toggle('is-scrolling', canScroll && pane.scrollHeight > pane.clientHeight + 1);
+  });
+}
+
+function layoutTargetClearance(host) {
+  if (!host || host.classList.contains('hidden') || !host.querySelector('.target-window-head')) {
+    clearTargetWindowPlacement(host);
+    host?.classList.remove('is-scrolling');
+    return;
+  }
+  const gap = 12;
+  const dockClear = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bm1-dock-clear')) || 88;
+  const floor = window.innerHeight - dockClear - gap;
+  const header = document.querySelector('.top-strip');
+  const headerBottom = header && shownPanel(header) ? header.getBoundingClientRect().bottom : 50;
+  const ceiling = Math.max(62, headerBottom + gap);
+  const locked = Boolean(host.style.left && host.style.width);
+  let width = locked ? Math.max(260, parseFloat(host.style.width) || 320) : 320;
+  let left = locked ? (parseFloat(host.style.left) || 18) : 18;
+  if (!locked) {
+    const cargo = document.getElementById('world-cargo');
+    const campaign = document.getElementById('phase10-readout');
+    if (shownPanel(cargo)) left = Math.max(left, cargo.getBoundingClientRect().right + gap);
+    if (shownPanel(campaign)) left = Math.max(left, campaign.getBoundingClientRect().right + gap);
+  }
+  const planet = document.getElementById('planet-menu');
+  if (shownPanel(planet)) {
+    const room = planet.getBoundingClientRect().left - gap - left;
+    if (room < width) width = Math.max(260, room);
+  }
+  host.style.left = `${Math.round(left)}px`;
+  host.style.width = `${Math.round(width)}px`;
+  host.style.right = 'auto';
+  host.style.bottom = 'auto';
+  host.style.maxHeight = 'none';
+  host.style.height = 'auto';
+  host.style.overflowY = 'visible';
+  const need = measureTargetChrome(host);
+  const maxCard = Math.max(need.core, floor - ceiling);
+  const cardHeight = Math.min(need.full + 2, maxCard);
+  let top = Math.max(ceiling, floor - cardHeight);
+  const archive = document.getElementById('briefing-archive');
+  if (shownPanel(archive)) {
+    const savedTop = archive.style.top;
+    resetArchiveBox(archive);
+    if (savedTop) archive.style.top = savedTop;
+    const natural = archive.getBoundingClientRect();
+    const cardRight = left + width;
+    const xOverlap = natural.left < cardRight - 0.5 && natural.right > left + 0.5;
+    if (xOverlap) {
+      const spaceBelow = floor - (natural.bottom + gap);
+      if (spaceBelow + 1 < cardHeight) {
+        const archiveBottom = Math.max(natural.top + 88, floor - gap - cardHeight);
+        const height = Math.floor(archiveBottom - natural.top);
+        const cardRect = { left, top: floor - cardHeight, right: cardRight, bottom: floor };
+        if (height >= 120) {
+          archive.style.height = `${height}px`;
+          archive.style.maxHeight = `${height}px`;
+          top = archiveBottom + gap;
+        } else if (moveArchiveToFallback(archive, cardRect, floor)) {
+          top = floor - cardHeight;
+        } else {
+          archive.style.height = `${Math.max(88, height)}px`;
+          archive.style.maxHeight = archive.style.height;
+          top = floor - cardHeight;
+        }
+      } else {
+        top = Math.max(ceiling, natural.bottom + gap);
+        if (top + cardHeight > floor + 0.5) top = floor - cardHeight;
+      }
+    }
+    syncArchiveScrollbar(archive);
+  }
+  host.style.left = `${Math.round(left)}px`;
+  host.style.top = `${Math.round(top)}px`;
+  host.style.width = `${Math.round(width)}px`;
+  host.style.maxHeight = `${Math.ceil(cardHeight)}px`;
+  host.style.height = need.full <= cardHeight + 1 ? 'auto' : `${Math.ceil(cardHeight)}px`;
+  host.style.right = 'auto';
+  host.style.bottom = 'auto';
+  const clipped = need.full > cardHeight + 1;
+  host.style.overflowY = clipped ? 'auto' : 'hidden';
+  host.classList.toggle('is-scrolling', clipped);
+}
+
+function placeTargetWindow(host) {
+  if (!host || host.classList.contains('hidden')) {
+    clearTargetWindowPlacement(host);
+    host?.classList.remove('is-scrolling');
+    const archive = document.getElementById('briefing-archive');
+    if (archive) {
+      resetArchiveBox(archive);
+      syncArchiveScrollbar(archive);
+    }
+    return;
+  }
+  fitOpenBookBriefing();
+}
+
+function commodityBookInnerHtml() {
+  const book = ensureCommodityShipmentBook();
+  const entries = Object.values(book.commodities || {});
+  const shipments = Object.values(book.shipments || {});
+  const entriesHtml = entries.length
+    ? entries.map((entry) => `<div class="commodity-entry" data-commodity-select="${escapeHtml(entry.name)}" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</div>`).join('')
+    : '<div class="commodity-entry">No commodity has been carried or contracted yet.</div>';
+  const shipmentHtml = shipments.length
+    ? shipments.map((row) => {
+      const label = `${row.good} · ${row.tons}t · ${row.targetName || 'destination'} · ${row.worldCargoStatus || 'indexed'}${row.lastAttemptReason ? ` · ${row.lastAttemptReason}` : ''}`;
+      return `<div class="shipment-record" data-commodity-select="${escapeHtml(row.id)}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+    }).join('')
+    : '<div class="shipment-record">No shipment is indexed.</div>';
+  const selected = book.selectedId;
+  const selectedShipment = selected ? book.shipments?.[selected] : null;
+  const selectedEntry = selected ? book.commodities?.[selected] : null;
+  const detailName = selectedShipment?.good || selectedEntry?.name || entries[0]?.name || 'Commodity book';
+  const route = selectedShipment
+    ? `${selectedShipment.good} to ${selectedShipment.targetName || 'destination'} · ${selectedShipment.worldCargoStatus || 'indexed'}${selectedShipment.lastAttemptReason ? ` · ${selectedShipment.lastAttemptReason}` : ''}`
+    : 'Select a commodity or a shipment.';
+  const notices = (book.notices || []).slice().reverse().map((line) => `<p class="commodity-shipment-line">${escapeHtml(line)}</p>`).join('');
+  const sales = Object.values(book.sales || {});
+  const sellButton = sales.length
+    ? `<button type="button" data-commodity-sell="${escapeHtml(sales[0].saleId)}">Sell back book lot</button>`
+    : '';
+  const buyName = selectedEntry?.name || entries[0]?.name || '';
+  const buyButton = buyName
+    ? `<button type="button" data-commodity-buy="${escapeHtml(buyName)}">Buy one ton</button>`
+    : '';
+  return `<div class="commodity-shipment-title">COMMODITY BOOK</div>
+    <div class="commodity-book-frame">
+      <div class="commodity-book-scroll">
+        <div class="commodity-entries">${entriesHtml}</div>
+        <div class="shipment-records">${shipmentHtml}</div>
+        <div class="commodity-shipment-detail"><p class="commodity-shipment-line">${escapeHtml(detailName)}</p><p class="commodity-shipment-line">${escapeHtml(route)}</p>${notices}</div>
+      </div>
+      <div class="commodity-book-bar" aria-hidden="true"></div>
+    </div>
+    <div class="commodity-book-actions">${buyButton}${sellButton}</div>`;
+}
+
+function renderCommodityShipment() {
+  const host = document.getElementById('commodity-shipment');
+  if (host) {
+    host.classList.add('hidden');
+    host.style.left = '';
+    host.style.top = '';
+    host.style.width = '';
+    host.style.maxHeight = '';
+    host.style.right = '';
+    host.style.bottom = '';
+  }
+  const html = commodityBookInnerHtml();
+  const marketSlot = document.querySelector('#planet-menu .commodity-book-section');
+  if (marketSlot && state.planetMenuOpen && state.dockMenuTab === 'market') {
+    const keptBookScroll = marketSlot.querySelector('.commodity-book-scroll')?.scrollTop || 0;
+    marketSlot.innerHTML = html;
+    const nextScroll = marketSlot.querySelector('.commodity-book-scroll');
+    if (nextScroll && keptBookScroll > 0) nextScroll.scrollTop = keptBookScroll;
+  }
+  const briefing = document.getElementById('briefing-archive');
+  if (!briefing) return;
+  const briefingOpen = Boolean(
+    state.commodityShipmentOpen
+    && state.gameStarted
+    && !state.gameOver
+    && !state.mapOpen
+    && !state.planetMenuOpen
+    && !briefing.classList.contains('hidden')
+  );
+  briefing.classList.toggle('is-book-open', briefingOpen);
+  if (!briefingOpen) {
+    briefing.querySelector(':scope > .commodity-book-section')?.remove();
+    fitOpenBookBriefing();
+    if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
+    return;
+  }
+  let slot = briefing.querySelector(':scope > .commodity-book-section');
+  if (!slot) {
+    slot = document.createElement('div');
+    slot.className = 'commodity-book-section';
+    briefing.appendChild(slot);
+  }
+  slot.innerHTML = html;
+  fitOpenBookBriefing();
+  if (targetWindowEl && !targetWindowEl.classList.contains('hidden')) placeTargetWindow(targetWindowEl);
+}
+
+function resetArchiveBox(host) {
+  if (!host) return;
+  host.style.height = '';
+  host.style.maxHeight = '';
+  host.style.top = '';
+  host.style.left = '';
+  host.style.right = '';
+  host.style.width = '';
+  host.style.bottom = '';
+  host.style.overflowY = '';
+}
+
+function moveArchiveToFallback(host, targetRect, floor) {
+  const gap = 12;
+  const obstacles = [targetRect];
+  for (const id of ['phase10-readout', 'world-cargo', 'bottom-dock', 'minimap-panel', 'planet-menu', 'top-left-panel']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const style = getComputedStyle(el);
+    if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) continue;
+    obstacles.push(rect);
+  }
+  const hits = (rect) => obstacles.some((ob) => (
+    rect.left < ob.right - 0.5 && rect.right > ob.left + 0.5
+    && rect.top < ob.bottom - 0.5 && rect.bottom > ob.top + 0.5
+  ));
+  const candidates = [
+    { left: 18, top: 78, width: 380, height: Math.min(320, floor - 78) },
+    { left: 18, top: 490, width: 400, height: floor - 490 },
+    { left: 430, top: 78, width: 360, height: Math.min(280, floor - 78) },
+  ];
+  for (const candidate of candidates) {
+    if (candidate.height < 120) continue;
+    const rect = {
+      left: candidate.left,
+      top: candidate.top,
+      right: candidate.left + candidate.width,
+      bottom: candidate.top + candidate.height,
+    };
+    if (rect.bottom > floor + 1 || hits(rect)) continue;
+    host.style.top = `${candidate.top}px`;
+    host.style.left = `${candidate.left}px`;
+    host.style.right = 'auto';
+    host.style.width = `${candidate.width}px`;
+    host.style.height = `${candidate.height}px`;
+    host.style.maxHeight = `${candidate.height}px`;
+    return true;
+  }
+  return false;
+}
+
+function yieldArchiveBox(host) {
+  const savedScroll = host.scrollTop;
+  resetArchiveBox(host);
+  const dockClear = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bm1-dock-clear')) || 88;
+  const gap = 12;
+  const floor = window.innerHeight - dockClear - gap;
+  const natural = host.getBoundingClientRect();
+  let bottomLimit = floor;
+  const target = document.getElementById('target-window');
+  const targetStyle = target ? getComputedStyle(target) : null;
+  const targetLive = Boolean(
+    target
+    && !target.classList.contains('hidden')
+    && targetStyle
+    && targetStyle.display !== 'none'
+    && targetStyle.visibility !== 'hidden'
+    && target.getBoundingClientRect().width > 40
+  );
+  if (targetLive) {
+    const tr = target.getBoundingClientRect();
+    const xOverlap = natural.left < tr.right - 0.5 && natural.right > tr.left + 0.5;
+    if (xOverlap && tr.top >= natural.top + 88) {
+      bottomLimit = Math.min(bottomLimit, tr.top - gap);
+    } else if (xOverlap && tr.bottom > natural.top + 8 && tr.top < natural.top + 88) {
+      if (moveArchiveToFallback(host, tr, floor)) {
+        host.scrollTop = savedScroll;
+        return;
+      }
+    }
+  }
+  const height = Math.max(88, Math.floor(bottomLimit - natural.top));
+  host.style.height = `${height}px`;
+  host.style.maxHeight = `${height}px`;
+  host.scrollTop = savedScroll;
+}
+
+function fitOpenBookBriefing() {
+  const host = document.getElementById('briefing-archive');
+  const select = host?.querySelector('.briefing-archive-select');
+  const body = host?.querySelector('.briefing-archive-body');
+  const clearBriefing = () => {
+    if (select) {
+      select.style.maxHeight = '';
+      select.style.overflowY = '';
+      select.style.flexShrink = '';
+    }
+    if (body) {
+      body.style.maxHeight = '';
+      body.style.overflowY = '';
+      body.style.scrollSnapType = '';
+      body.classList.remove('is-scrolled');
+      body.style.flexShrink = '';
+    }
+  };
+  const card = document.getElementById('target-window');
+  const cardLive = Boolean(card && !card.classList.contains('hidden') && card.querySelector('.target-window-head'));
+  if (!host?.classList.contains('is-book-open')) {
+    clearBriefing();
+    if (cardLive) {
+      layoutTargetClearance(card);
+      if (host.style.height) {
+        if (select) {
+          select.style.flexShrink = '0';
+          select.style.maxHeight = 'none';
+          select.style.overflow = 'visible';
+        }
+        if (body) {
+          body.style.flexShrink = '0';
+          body.style.maxHeight = 'none';
+          body.style.overflow = 'visible';
+        }
+      }
+    } else resetArchiveBox(host);
+    const book = host?.querySelector(':scope > .commodity-book-section');
+    if (book) {
+      book.style.flex = '';
+      book.style.minHeight = '';
+      book.style.maxHeight = '';
+      book.style.overflow = '';
+      book.style.overflowY = '';
+      book.classList.remove('is-scrolling');
+    }
+    syncArchiveScrollbar(host);
+    return;
+  }
+  clearBriefing();
+  if (select) select.style.flexShrink = '0';
+  if (body) body.style.flexShrink = '0';
+  if (cardLive) layoutTargetClearance(card);
+  else resetArchiveBox(host);
+  const book = host.querySelector(':scope > .commodity-book-section');
+  const releaseBookScroll = (scroll) => {
+    if (!scroll) return;
+    scroll.style.flex = '0 0 auto';
+    scroll.style.overflow = 'visible';
+    scroll.style.height = 'auto';
+    scroll.style.maxHeight = 'none';
+    scroll.style.minHeight = '0px';
+    scroll.style.width = '100%';
+    scroll.style.maxWidth = '100%';
+    scroll.style.minWidth = '0px';
+  };
+  const resetBookScroll = (scroll) => {
+    if (!scroll) return;
+    scroll.style.flex = '';
+    scroll.style.overflow = '';
+    scroll.style.height = '';
+    scroll.style.maxHeight = '';
+    scroll.style.minHeight = '';
+  };
+  if (book) {
+    book.style.flex = '1 1 0px';
+    book.style.minHeight = '0px';
+    book.style.overflow = 'visible';
+    resetBookScroll(book.querySelector('.commodity-book-scroll'));
+  }
+  host.style.overflowY = 'hidden';
+  const hostRect = host.getBoundingClientRect();
+  const briefingBottom = Math.max(
+    select?.getBoundingClientRect().bottom || hostRect.top,
+    body?.getBoundingClientRect().bottom || hostRect.top,
+  );
+  const scroll = book?.querySelector('.commodity-book-scroll');
+  const buy = host.querySelector('[data-commodity-buy]');
+  const buyBox = buy?.getBoundingClientRect();
+  const briefingCut = briefingBottom > hostRect.bottom + 1;
+  const buyCut = Boolean(buyBox && (
+    buyBox.height < 20
+    || buyBox.bottom > hostRect.bottom + 1
+    || buyBox.top < hostRect.top - 1
+  ));
+  const scrollCrushed = Boolean(scroll && scroll.clientHeight < 18 && scroll.scrollHeight > scroll.clientHeight + 4);
+  if (briefingCut || buyCut || scrollCrushed) {
+    if (book) {
+      book.style.flex = '0 0 auto';
+      book.style.minHeight = '0px';
+      book.style.minWidth = '0px';
+      book.style.maxWidth = '100%';
+      book.style.overflow = 'visible';
+    }
+    releaseBookScroll(scroll);
+    host.style.overflowY = 'auto';
+  }
+  const firstLine = host.querySelector('.briefing-line, .briefing-empty');
+  if (select && firstLine) {
+    const saved = host.scrollTop;
+    if (saved !== 0) host.scrollTop = 0;
+    const hostBox = host.getBoundingClientRect();
+    const lineBox = firstLine.getBoundingClientRect();
+    if (lineBox.bottom > hostBox.bottom - 2) {
+      const selectBox = select.getBoundingClientRect();
+      const next = Math.max(36, Math.floor(selectBox.height - (lineBox.bottom - (hostBox.bottom - 4))));
+      const selectSaved = select.scrollTop;
+      select.style.maxHeight = `${next}px`;
+      select.style.overflowY = 'auto';
+      select.style.flexShrink = '0';
+      if (select.scrollTop !== selectSaved) select.scrollTop = selectSaved;
+    }
+    if (host.scrollTop !== saved) host.scrollTop = saved;
+  }
+  syncArchiveScrollbar(host);
+}
+
+function commodityDoctrineFacts() {
+  const target = getSelectedCombatTarget();
+  const contact = target && !target.stationTypeId
+    ? findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(target))
+    : null;
+  const contacts = listContacts(ensureContactBook(), playerObserverKey());
+  const attempt = attemptForTarget(ensureBoardingBook(), target);
+  const firingSolutions = contacts.filter((row) => row.firingSolution === true).map((row) => {
+    const subject = String(row.subjectKey || '');
+    const instanceId = subject.startsWith('npc:') ? subject.slice(4) : subject;
+    const npc = (state.npcShips || []).find((ship) => (
+      String(ship.securityInstanceId || '') === instanceId
+      || String(ship.id) === instanceId
+      || subjectKeyOfNpc(ship) === subject
+    ));
+    return {
+      id: npc?.id || subject || row.contactId,
+      source: row.source || null,
+    };
+  }).sort((a, b) => String(a.id).localeCompare(String(b.id)) || String(a.source || '').localeCompare(String(b.source || '')));
+  return {
+    roe: getEffectiveRoe(ensurePlayerSecurity(), state.currentPlanet, isSystemControlled(state.currentPlanet)),
+    engagement_authorized: state.engagement_authorized === true,
+    firingSolution: firingSolutions.length > 0,
+    firingSolutions,
+    targetFiringSolution: contact?.firingSolution === true,
+    firingSolutionSource: contact?.source || null,
+    boardingOutcome: attempt?.outcome || '',
+    lastRefuse: ensureBoardingBook().lastRefuse || null,
+  };
+}
+
+function measureCommodityNoClip(mustShow = []) {
+  const shown = (el) => {
+    if (!el || !el.isConnected) return false;
+    const style = getComputedStyle(el);
+    if (el.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width >= 2 && rect.height >= 2;
+  };
+  const paintsScrollSign = (el) => {
+    if (!el) return false;
+    const style = getComputedStyle(el);
+    const borderX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+    const borderY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+    if (el.offsetWidth - el.clientWidth - borderX > 1 || el.offsetHeight - el.clientHeight - borderY > 1) return true;
+    const thumb = (which) => {
+      const ps = getComputedStyle(el, which);
+      if (!ps || ps.content === 'none' || ps.content === 'normal') return false;
+      if (ps.visibility === 'hidden' || ps.display === 'none') return false;
+      return (parseFloat(ps.width) || 0) >= 6 && (parseFloat(ps.height) || 0) >= 16;
+    };
+    const namedThumb = (el.matches('.world-cargo.is-scrolling, .dock-panel.is-scrolling, .briefing-archive.is-scrolling, .briefing-archive-select.is-scrolling, .briefing-archive-body.is-scrolling') && thumb('::before'))
+      || (el.matches('.target-window.is-scrolling') && thumb('::after'));
+    if (namedThumb) return true;
+    const frame = el.classList.contains('commodity-book-scroll') ? el.parentElement : null;
+    const bar = frame?.querySelector(':scope > .commodity-book-bar');
+    if (!bar) return false;
+    const rect = bar.getBoundingClientRect();
+    return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+  };
+  const scrollbarShown = (el) => {
+    if (!el) return false;
+    const style = getComputedStyle(el);
+    if (style.scrollbarWidth === 'none') return false;
+    const scrollY = /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+    const scrollX = /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 1;
+    if (!scrollY && !scrollX) return false;
+    return paintsScrollSign(el);
+  };
+  const playfield = (el) => el?.id === 'game' || el?.id === 'interstellar-map-canvas';
+  const panelRoot = (el) => {
+    let found = null;
+    let node = el;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      const positioned = style.position === 'fixed' || style.position === 'absolute';
+      if (positioned && shown(node) && !playfield(node)) {
+        const rect = node.getBoundingClientRect();
+        if (rect.width >= 40 && rect.height >= 24) found = node;
+      }
+      node = node.parentElement;
+    }
+    return found;
+  };
+  const labelOf = (el) => {
+    if (!el) return 'panel';
+    if (el.id) return el.id;
+    const aria = el.getAttribute('aria-label');
+    if (aria) return aria;
+    const cls = String(el.className || '').split(/\s+/).filter(Boolean)[0];
+    return cls || 'panel';
+  };
+  const panels = [...document.querySelectorAll('body *')].filter((el) => {
+    const style = getComputedStyle(el);
+    if (style.position !== 'fixed' && style.position !== 'absolute') return false;
+    if (!shown(el)) return false;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 40 || rect.height < 24) return false;
+    return panelRoot(el) === el;
+  });
+  const pillBoxes = [...document.querySelectorAll('.top-strip > *')].filter(shown).map((el) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      text: String(el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+    };
+  });
+  const pillOverlaps = [];
+  const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  for (let i = 0; i < pillBoxes.length; i += 1) {
+    for (let j = i + 1; j < pillBoxes.length; j += 1) {
+      if (overlaps(pillBoxes[i], pillBoxes[j])) pillOverlaps.push(`${pillBoxes[i].text} ~ ${pillBoxes[j].text}`);
+    }
+  }
+  const controlSelector = [
+    'button', 'a', 'input', 'select', 'textarea', '[role="button"]',
+    '.commodity-entry', '.shipment-record', '.commodity-shipment-line', '.commodity-shipment-title',
+    '.world-cargo-line', '.world-cargo-outcome-line',
+    '.briefing-line', '.briefing-empty', '.briefing-jump',
+    '.p10-line', '.p10-meta',
+    '.panel-head', 'h2',
+    '.top-strip > *',
+  ].join(', ');
+  const occluders = [];
+  const clippedControls = [];
+  for (const panel of panels) {
+    const controls = [...panel.querySelectorAll(controlSelector)].filter((el) => shown(el) && panelRoot(el) === panel);
+    const panelRect = panel.getBoundingClientRect();
+    for (const control of controls) {
+      const rect = control.getBoundingClientRect();
+      const left = Math.max(rect.left, panelRect.left);
+      const right = Math.min(rect.right, panelRect.right);
+      const top = Math.max(rect.top, panelRect.top);
+      const bottom = Math.min(rect.bottom, panelRect.bottom);
+      if (right - left < 6 || bottom - top < 6) continue;
+      const style = getComputedStyle(control);
+      const overflows = control.scrollWidth > control.clientWidth + 1;
+      const textCut = overflows && (
+        style.textOverflow === 'ellipsis'
+        || (style.overflowX === 'hidden' && style.whiteSpace === 'nowrap')
+      );
+      const outside = rect.left < panelRect.left - 1 || rect.right > panelRect.right + 1;
+      if (panel.id !== 'stats' && (textCut || outside)) clippedControls.push(String(control.textContent || '').trim().slice(0, 80));
+      const points = [
+        [(left + right) / 2, (top + bottom) / 2],
+        [left + 3, top + 3],
+        [right - 3, top + 3],
+        [left + 3, bottom - 3],
+        [right - 3, bottom - 3],
+      ];
+      for (const [x, y] of points) {
+        if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) continue;
+        const topPanel = document.elementsFromPoint(x, y).map((el) => panelRoot(el)).find(Boolean);
+        if (topPanel && topPanel !== panel) {
+          const line = `${labelOf(panel)} control covered by ${labelOf(topPanel)}`;
+          if (!occluders.includes(line)) occluders.push(line);
+          break;
+        }
+      }
+    }
+  }
+  const archive = document.getElementById('briefing-archive');
+  if (archive && shown(archive)) {
+    const overlapBoxes = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+    const boxOfEl = (el) => {
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const pushClip = (text) => {
+      const line = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      if (line && !clippedControls.includes(line)) clippedControls.push(line);
+    };
+    const scrollsWithBar = (el) => {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (!/(auto|scroll)/.test(style.overflowY)) return false;
+      if (el.scrollHeight <= el.clientHeight + 1) return false;
+      if (el.offsetWidth - el.clientWidth > 1) return true;
+      const bar = el.parentElement?.querySelector(':scope > .commodity-book-bar');
+      if (!bar) return false;
+      const rect = bar.getBoundingClientRect();
+      return getComputedStyle(bar).display !== 'none' && rect.width >= 6 && rect.height >= 16;
+    };
+    const inScrollingBook = (el) => {
+      const scroller = el.closest('.commodity-book-scroll');
+      return Boolean(scroller && archive.contains(scroller) && scrollsWithBar(scroller));
+    };
+    const visibleHeight = (el) => {
+      const full = el.getBoundingClientRect();
+      let top = full.top;
+      let bottom = full.bottom;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflow}${style.overflowY}`)) {
+          const host = node.getBoundingClientRect();
+          top = Math.max(top, host.top);
+          bottom = Math.min(bottom, host.bottom);
+        }
+        node = node.parentElement;
+      }
+      return { full: full.height, visible: Math.max(0, bottom - top) };
+    };
+    const pills = [...archive.querySelectorAll('.briefing-archive-select button')].filter(shown);
+    const clippedBox = (el) => {
+      const full = el.getBoundingClientRect();
+      let top = full.top;
+      let bottom = full.bottom;
+      let left = full.left;
+      let right = full.right;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowX}${style.overflowY}`)) {
+          const host = node.getBoundingClientRect();
+          top = Math.max(top, host.top);
+          bottom = Math.min(bottom, host.bottom);
+          left = Math.max(left, host.left);
+          right = Math.min(right, host.right);
+        }
+        node = node.parentElement;
+      }
+      return { left, right, top, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+    };
+    const briefingLines = [...archive.querySelectorAll('.briefing-line, .briefing-jump, .briefing-empty, .briefing-omitted')].filter(shown);
+    for (const pill of pills) {
+      const pillBox = clippedBox(pill);
+      if (pillBox.height < 4 || pillBox.width < 4) continue;
+      const pillText = String(pill.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      for (const line of briefingLines) {
+        const lineBox = clippedBox(line);
+        if (lineBox.height < 4 || lineBox.width < 4) continue;
+        if (!overlapBoxes(pillBox, lineBox)) continue;
+        const label = `${pillText} ~ ${String(line.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40)}`;
+        if (!pillOverlaps.includes(label)) pillOverlaps.push(label);
+      }
+    }
+    const nearestClipper = (el) => {
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+    const canBringIntoView = (clipper, rect) => {
+      if (!clipper || !rect) return false;
+      const style = getComputedStyle(clipper);
+      const host = clipper.getBoundingClientRect();
+      const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+      const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+      if (!scrollY && !scrollX) return false;
+      if ((scrollY || scrollX) && !scrollbarShown(clipper)) return false;
+      const topIn = rect.top - host.top + clipper.scrollTop;
+      const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+      const leftIn = rect.left - host.left + clipper.scrollLeft;
+      const rightIn = rect.right - host.left + clipper.scrollLeft;
+      if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+      if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
+      if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+      if (rightIn - leftIn > clipper.clientWidth + 1) return false;
+      const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+      const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
+      return yFits && xFits;
+    };
+    const buy = archive.querySelector('[data-commodity-buy]');
+    if (buy && shown(buy) && !inScrollingBook(buy)) {
+      const { full, visible } = visibleHeight(buy);
+      const archiveBox = boxOfEl(archive);
+      const buyBox = boxOfEl(buy);
+      const inside = buyBox.top >= archiveBox.top - 1 && buyBox.bottom <= archiveBox.bottom + 1
+        && buyBox.left >= archiveBox.left - 1 && buyBox.right <= archiveBox.right + 1
+        && full >= 16 && visible >= full - 1;
+      const revealable = (() => {
+        let node = buy.parentElement;
+        while (node && node !== document.body && node !== document.documentElement) {
+          if (canBringIntoView(node, buyBox)) return true;
+          node = node.parentElement;
+        }
+        return false;
+      })();
+      if (!inside && !revealable) pushClip(buy.textContent);
+    }
+  }
+  const squashedControls = [];
+  const cutOffLines = [];
+  const pushMeasure = (list, text) => {
+    const line = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (line && !list.includes(line)) list.push(line);
+  };
+  const ariaHidden = (el) => {
+    let node = el;
+    while (node && node.nodeType === 1) {
+      if (node.getAttribute('aria-hidden') === 'true') return true;
+      node = node.parentElement;
+    }
+    return false;
+  };
+  const isControl = (el) => /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.getAttribute('role') === 'button';
+  const isTextLine = (el) => {
+    if (!el || isControl(el) || el.closest('button, a, [role="button"]')) return false;
+    if (/^(SCRIPT|STYLE|SVG|CANVAS|IMG)$/.test(el.tagName)) return false;
+    if (el.children.length > 0) return false;
+    return String(el.textContent || '').trim().length > 0;
+  };
+  const canRevealLine = (clipper, rect) => {
+    if (!clipper || !rect) return false;
+    const style = getComputedStyle(clipper);
+    const host = clipper.getBoundingClientRect();
+    const scrollY = /(auto|scroll)/.test(style.overflowY) && clipper.scrollHeight > clipper.clientHeight + 1;
+    const scrollX = /(auto|scroll)/.test(style.overflowX) && clipper.scrollWidth > clipper.clientWidth + 1;
+    if (!scrollY && !scrollX) return false;
+    if (!scrollbarShown(clipper)) return false;
+    const topIn = rect.top - host.top + clipper.scrollTop;
+    const bottomIn = rect.bottom - host.top + clipper.scrollTop;
+    const leftIn = rect.left - host.left + clipper.scrollLeft;
+    const rightIn = rect.right - host.left + clipper.scrollLeft;
+    if (topIn < -1 || bottomIn > clipper.scrollHeight + 1) return false;
+    if (leftIn < -1 || rightIn > clipper.scrollWidth + 1) return false;
+    if (bottomIn - topIn > clipper.clientHeight + 1) return false;
+    if (rightIn - leftIn > clipper.clientWidth + 1) return false;
+    const yFits = scrollY || (rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5);
+    const xFits = scrollX || (rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5);
+    return yFits && xFits;
+  };
+  const clientEdges = (node) => {
+    const host = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    return {
+      top: host.top + (parseFloat(style.borderTopWidth) || 0),
+      bottom: host.bottom - (parseFloat(style.borderBottomWidth) || 0),
+      left: host.left + (parseFloat(style.borderLeftWidth) || 0),
+      right: host.right - (parseFloat(style.borderRightWidth) || 0),
+    };
+  };
+  const edgeCuts = (node, rect) => {
+    const edge = clientEdges(node);
+    return rect.top < edge.top - 1 || rect.bottom > edge.bottom + 1
+      || rect.left < edge.left - 1 || rect.right > edge.right + 1;
+  };
+  const clippingAncestors = (el) => {
+    const list = [];
+    let node = el.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) list.push(node);
+      node = node.parentElement;
+    }
+    return list;
+  };
+  const rectsOf = (target) => {
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+    if (rects.length) return rects;
+    if (target.nodeType === 1) return [target.getBoundingClientRect()];
+    return [];
+  };
+  const innerReveals = (outer, el, rect) => clippingAncestors(el).some((node) => {
+    if (node === outer || !outer.contains(node) || !canRevealLine(node, rect)) return false;
+    const box = node.getBoundingClientRect();
+    return !edgeCuts(outer, box) || canRevealLine(outer, box);
+  });
+  const lineCut = (el, rects) => rects.some((rect) => {
+    const cutters = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
+    if (!cutters.length) return false;
+    return cutters.some((node) => !canRevealLine(node, rect) && !innerReveals(node, el, rect));
+  });
+  const spillsPast = (panel, target, rect) => {
+    let top = rect.top;
+    let bottom = rect.bottom;
+    let left = rect.left;
+    let right = rect.right;
+    let node = target.nodeType === 1 ? target.parentElement : target.parentElement;
+    while (node && node !== panel && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(hidden|clip|auto|scroll)/.test(`${style.overflowY}${style.overflowX}`)) {
+        const box = node.getBoundingClientRect();
+        top = Math.max(top, box.top);
+        bottom = Math.min(bottom, box.bottom);
+        left = Math.max(left, box.left);
+        right = Math.min(right, box.right);
+      }
+      node = node.parentElement;
+    }
+    if (bottom - top < 1 || right - left < 1) return false;
+    const frame = panel.getBoundingClientRect();
+    const panelStyle = getComputedStyle(panel);
+    const clipsY = /(hidden|clip|auto|scroll)/.test(panelStyle.overflowY);
+    const clipsX = /(hidden|clip|auto|scroll)/.test(panelStyle.overflowX);
+    const spillsY = !clipsY && (top < frame.top - 1 || bottom > frame.bottom + 1);
+    const spillsX = !clipsX && (left < frame.left - 1 || right > frame.right + 1);
+    return spillsY || spillsX;
+  };
+  const breaksInsideWord = (textNode) => {
+    const text = String(textNode?.textContent || '');
+    if (!/\S/.test(text)) return false;
+    const host = textNode.parentElement;
+    const hostStyle = host ? getComputedStyle(host) : null;
+    if (hostStyle && (hostStyle.wordBreak === 'break-all' || hostStyle.overflowWrap === 'anywhere')) return false;
+    const hostWidth = host?.clientWidth || 0;
+    const re = /[^\s-]+/g;
+    let match = re.exec(text);
+    while (match) {
+      const range = document.createRange();
+      range.setStart(textNode, match.index);
+      range.setEnd(textNode, match.index + match[0].length);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 0.5 && rect.height > 0.5);
+      const tops = [];
+      for (const rect of rects) {
+        if (!tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top);
+      }
+      if (tops.length > 1) return true;
+      if (hostWidth > 0 && rects.some((rect) => rect.width > hostWidth + 1)) return true;
+      match = re.exec(text);
+    }
+    return false;
+  };
+  for (const panel of panels) {
+    const pieces = [];
+    for (const el of panel.querySelectorAll('*')) {
+      if (!shown(el) || ariaHidden(el)) continue;
+      if (isControl(el) || isTextLine(el)) pieces.push({ el, text: el.textContent });
+      if (isControl(el) || el.closest('button, a, [role="button"]') || el.children.length === 0) continue;
+      for (const node of el.childNodes) {
+        if (node.nodeType !== 3) continue;
+        const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text) pieces.push({ el, text, textNode: node });
+      }
+    }
+    for (const piece of pieces) {
+      const el = piece.el;
+      if (!piece.textNode) {
+        const style = getComputedStyle(el);
+        const inlineText = style.display === 'inline' || style.display === 'contents';
+        const scrollport = /(auto|scroll)/.test(style.overflowY)
+          && el.scrollHeight > el.clientHeight + 2
+          && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+        if (!inlineText && !scrollport && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 2) pushMeasure(squashedControls, piece.text);
+        const lineHeight = style.lineHeight.endsWith('px') ? Number.parseFloat(style.lineHeight) : 0;
+        const lineBox = /^(BUTTON|A)$/.test(el.tagName) || /^(block|flex|grid|list-item)$/.test(style.display);
+        if (lineBox && lineHeight >= 8 && el.getBoundingClientRect().height + 0.5 < lineHeight) pushMeasure(squashedControls, piece.text);
+      }
+      const measured = rectsOf(piece.textNode || el);
+      if (lineCut(el, measured)) pushMeasure(cutOffLines, piece.text);
+      if (measured.some((rect) => spillsPast(panel, piece.textNode || el, rect))) pushMeasure(cutOffLines, piece.text);
+      const bookColumn = el.closest('.commodity-entry, .shipment-record, .commodity-shipment-line, .commodity-shipment-title');
+      if (bookColumn) {
+        const bookStyle = getComputedStyle(bookColumn);
+        if (bookStyle.wordBreak === 'break-all' || bookStyle.overflowWrap === 'anywhere') pushMeasure(cutOffLines, piece.text);
+      }
+      const textTarget = piece.textNode || [...el.childNodes].find((node) => node.nodeType === 3 && String(node.textContent || '').trim());
+      if (textTarget && breaksInsideWord(textTarget)) pushMeasure(cutOffLines, piece.text);
+    }
+  }
+  const lineHeightOf = (el) => {
+    const parsed = Number.parseFloat(getComputedStyle(el).lineHeight);
+    if (Number.isFinite(parsed) && parsed >= 8) return parsed;
+    const font = Number.parseFloat(getComputedStyle(el).fontSize);
+    return Number.isFinite(font) && font > 0 ? font : 16;
+  };
+  const clippedBox = (el) => {
+    const rect = el.getBoundingClientRect();
+    let top = Math.max(rect.top, 0);
+    let bottom = Math.min(rect.bottom, window.innerHeight);
+    let left = Math.max(rect.left, 0);
+    let right = Math.min(rect.right, window.innerWidth);
+    for (const node of clippingAncestors(el)) {
+      const edge = clientEdges(node);
+      top = Math.max(top, edge.top);
+      bottom = Math.min(bottom, edge.bottom);
+      left = Math.max(left, edge.left);
+      right = Math.min(right, edge.right);
+    }
+    return { top, bottom, left, right, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+  };
+  const rowVisible = (el) => {
+    if (!shown(el)) return false;
+    const box = clippedBox(el);
+    if (box.width < 2 || box.height + 0.5 < lineHeightOf(el)) return false;
+    const hit = document.elementsFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2)[0];
+    return Boolean(hit && (hit === el || el.contains(hit)));
+  };
+  const rowReachable = (el) => {
+    if (!shown(el) || rowVisible(el)) return false;
+    const rect = el.getBoundingClientRect();
+    const clippers = clippingAncestors(el).filter((node) => edgeCuts(node, rect));
+    return clippers.length > 0 && clippers.every((node) => canRevealLine(node, rect) || innerReveals(node, el, rect));
+  };
+  const exactText = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+  const mustShowItems = Array.isArray(mustShow) ? mustShow : [];
+  const mustShowMissing = mustShowItems.filter((item) => {
+    const wanted = String(item?.text || '').replace(/\s+/g, ' ').trim();
+    const match = [...document.querySelectorAll(item?.selector || '')].find((el) => exactText(el) === wanted && rowVisible(el));
+    if (!match) return true;
+    if (item.enabled === true && (match.disabled || match.hasAttribute('disabled'))) return true;
+    if (item.enabled === false && !(match.disabled || match.hasAttribute('disabled'))) return true;
+    return false;
+  }).map((item) => ({ selector: item.selector, text: item.text }));
+  const bookSection = [...document.querySelectorAll('.commodity-book-section')].find((el) => shown(el)) || null;
+  const bookSnap = globalThis.__BM1_PROBE__?.commodityShipment?.snapshot?.() || {};
+  const noticeCount = Array.isArray(bookSnap.notices) ? bookSnap.notices.length : 0;
+  const countRows = (selector, test) => (bookSection ? [...bookSection.querySelectorAll(selector)].filter(test).length : 0);
+  const bookCounts = {
+    entries: countRows('.commodity-entry', rowVisible),
+    records: countRows('.shipment-record', rowVisible),
+    lines: countRows('.commodity-shipment-line', rowVisible),
+  };
+  const reachableCounts = {
+    entries: countRows('.commodity-entry', rowReachable),
+    records: countRows('.shipment-record', rowReachable),
+    lines: countRows('.commodity-shipment-line', rowReachable),
+  };
+  const edgeOnScreen = (el, side) => {
+    if (!shown(el)) return false;
+    const rect = el.getBoundingClientRect();
+    const y = side === 'bottom' ? rect.bottom : rect.top;
+    if (y < -1 || y > window.innerHeight + 1 || rect.right < 0 || rect.left > window.innerWidth) return false;
+    return clippingAncestors(el).every((node) => {
+      const edge = clientEdges(node);
+      return y >= edge.top - 1 && y <= edge.bottom + 1 && rect.right > edge.left + 1 && rect.left < edge.right - 1;
+    });
+  };
+  const bookHeadingVisible = rowVisible(bookSection?.querySelector('.commodity-shipment-title'));
+  const firstEntryVisible = rowVisible(bookSection?.querySelector('.commodity-entry'));
+  const buyVisible = rowVisible(bookSection?.querySelector('[data-commodity-buy]'));
+  const frameBottomVisible = edgeOnScreen(bookSection?.querySelector('.commodity-book-frame'), 'bottom');
+  const cargoHeading = [...document.querySelectorAll('.panel-head')].find((el) => /cargo market/i.test(el.textContent || ''));
+  const cargoHeadingVisible = rowVisible(cargoHeading);
+  const firstMarket = document.querySelector('#planet-menu .market-good');
+  const firstMarketVisible = rowVisible(firstMarket);
+  const targetEl = document.getElementById('target-window');
+  const targetShown = Boolean(targetEl && shown(targetEl) && targetEl.querySelector('.target-window-head'));
+  const hullMeter = targetShown
+    ? [...targetEl.querySelectorAll('.target-meter')].find((el) => /hull/i.test(el.textContent || ''))
+    : null;
+  const hullText = String(hullMeter?.querySelector('b')?.textContent || '').trim();
+  const hullPct = /^\d+%$/.test(hullText) ? Number.parseInt(hullText, 10) : null;
+  const boardButton = (action) => {
+    const button = targetEl?.querySelector(`[data-board-action="${action}"]`);
+    return {
+      present: Boolean(button),
+      visible: Boolean(button && rowVisible(button)),
+      disabled: Boolean(button && (button.disabled || button.hasAttribute('disabled'))),
+    };
+  };
+  const targetCard = {
+    shown: targetShown,
+    name: targetShown ? String(targetEl.querySelector('.target-window-head b')?.textContent || '').trim() : '',
+    hullText,
+    hullPct,
+    capture: boardButton('capture'),
+    scuttle: boardButton('scuttle'),
+  };
+  const expectedCounts = bookSection ? {
+    entries: Array.isArray(bookSnap.commodityNames) ? bookSnap.commodityNames.length : 0,
+    records: Array.isArray(bookSnap.shipmentIds) ? bookSnap.shipmentIds.length : 0,
+    lines: 2 + noticeCount,
+  } : { entries: 0, records: 0, lines: 0 };
+  const nameCut = bookSection
+    ? [...bookSection.querySelectorAll('.commodity-shipment-title, .commodity-entry, .shipment-record, .commodity-shipment-detail')].some((el) => {
+      const style = getComputedStyle(el);
+      return style.textOverflow === 'ellipsis' || (style.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1);
+    })
+    : false;
+  return {
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    clippedControls,
+    occluders,
+    pillOverlaps,
+    squashedControls,
+    cutOffLines,
+    nameCut,
+    bookCounts,
+    reachableCounts,
+    expectedCounts,
+    mustShow: { ok: mustShowMissing.length === 0, missing: mustShowMissing },
+    doctrine: commodityDoctrineFacts(),
+    bookHeadingVisible,
+    firstEntryVisible,
+    buyVisible,
+    frameBottomVisible,
+    cargoHeadingVisible,
+    firstMarketVisible,
+    targetCard,
+    panels: panels.map(labelOf),
+    bookPresent: Boolean(document.getElementById('commodity-shipment')),
+    bookHidden: !bookSection || !shown(bookSection),
+    bookText: String(bookSection?.innerText || '').slice(0, 1600),
+    campaignText: String(document.getElementById('phase10-readout')?.innerText || '').slice(0, 400),
+    worldCargoText: String(document.getElementById('world-cargo')?.innerText || '').slice(0, 400),
+    headerText: String(document.querySelector('.top-message-text')?.textContent || ''),
+  };
 }
 
 function renderWorldCargo() {
@@ -11097,6 +12378,7 @@ function renderWorldCargo() {
   }
   contractsEl.innerHTML = contractsHtml;
   outcomeEl.innerHTML = outcomeHtml;
+  host.classList.toggle('is-scrolling', host.scrollHeight > host.clientHeight + 1);
 }
 
 function renderPhase10Readout() {
@@ -13647,6 +14929,7 @@ function renderPlanetMenu() {
     </div>
     <div class="meta">${escapeHtml(claimStatus.message)}</div>`,
     market: `${station ? `<div class="service-grid station-repair-row">${renderRepairServiceButton()}</div>` : ''}
+      <div class="commodity-book-section">${commodityBookInnerHtml()}</div>
       <div class="panel-head">Cargo Market</div>
       <div class="market">${market}</div>
       ${marketFlags}
@@ -13678,6 +14961,10 @@ function renderPlanetMenu() {
   ${dockTabsMarkup}
   <div class="dock-panel" tabindex="0" data-dock-tab="${escapeHtml(state.dockMenuTab)}">${panels[state.dockMenuTab] || panels.services}</div>`;
   const activeDockPanel = planetMenuEl.querySelector('.dock-panel');
+  if (activeDockPanel) {
+    const dockOverflows = activeDockPanel.scrollHeight > activeDockPanel.clientHeight + 1;
+    activeDockPanel.classList.toggle('is-scrolling', dockOverflows);
+  }
   const rememberedScroll = state.dockPanelScrollByTab[state.dockMenuTab] || 0;
   if (activeDockPanel && rememberedScroll > 0) {
     activeDockPanel.scrollTop = rememberedScroll;
@@ -13685,6 +14972,7 @@ function renderPlanetMenu() {
       const currentDockPanel = planetMenuEl.querySelector('.dock-panel');
       if (currentDockPanel?.dataset?.dockTab === state.dockMenuTab) {
         currentDockPanel.scrollTop = rememberedScroll;
+        currentDockPanel.classList.toggle('is-scrolling', currentDockPanel.scrollHeight > currentDockPanel.clientHeight + 1);
       }
     });
   }
@@ -13730,6 +15018,8 @@ function clearCargoPod(pod) {
   delete pod.contractId;
   delete pod.targetIndex;
   delete pod.targetName;
+  delete pod.bookLotId;
+  delete pod.bookSaleId;
   pod.payout = 0;
 }
 
@@ -13902,6 +15192,7 @@ function updateStats() {
   renderPhase10Readout();
   renderBriefingArchive();
   renderWorldCargo();
+  renderCommodityShipment();
 }
 
 function getFlightPlanetMarker() {
@@ -13933,6 +15224,7 @@ function tryDockAtPlanetIndex(i, marker = state.planets[i]) {
   const checkpointBlock = getCheckpointDockRefusal(null, { planet: true });
   if (checkpointBlock) {
     applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext()));
+    refreshCommodityShipment();
     setLog(checkpointBlock);
     addWorldPop(marker.x, marker.y - popOffset, 'Clearance');
     return false;
@@ -13951,6 +15243,7 @@ function tryDockAtPlanetIndex(i, marker = state.planets[i]) {
   addWorldPop(marker.x, marker.y - popOffset, 'Docked', '#9cffb4');
   openPlanetMenu();
   applyWorldCargoEconomy(completeWorldCargo(ensureWorldCargoBook(), worldCargoContext()));
+  refreshCommodityShipment();
   updateStats();
   return true;
 }
@@ -14761,6 +16054,7 @@ function saveGame(slot = state.currentSaveSlot || 1) {
     solarSailorBook: serializeSolarSailorBook(ensureSolarSailorBook()),
     briefingArchive: serializeBriefingArchive(ensureBriefingArchive()),
     worldCargoBook: serializeWorldCargoBook(ensureWorldCargoBook()),
+    commodityShipmentBook: serializeCommodityShipmentBook(ensureCommodityShipmentBook()),
     ew91: serializeEw91Book(ensureEw91Book()),
     ew92: serializeEw92Book(ensureEw92Book()),
     ew93: serializeEw93Book(ensureEw93Book()),
@@ -14858,6 +16152,9 @@ function loadGame(slot = state.currentSaveSlot || 1) {
     discovery: state.dominionBook?.discovery,
   });
   state.worldCargoBook = restoreWorldCargoBook(s.worldCargoBook);
+  state.commodityShipmentBook = restoreCommodityShipmentBook(s.commodityShipmentBook, {
+    pods: state.cargoArray,
+  });
   state.factionRosterBook = restoreFactionRosterBook(s.factionRosterBook);
   state.solarSailorBook = restoreSolarSailorBook(s.solarSailorBook);
   state.ew91 = restoreEw91Book(s.ew91);
@@ -14974,6 +16271,7 @@ function loadGame(slot = state.currentSaveSlot || 1) {
   stopAllGameAudioLoops();
   playGameSound('shipLaunch', { cooldownKey: 'ship:load' });
   setLog(`${state.captainName} aboard ${state.shipName}. Game loaded from slot ${saveSlot}.`);
+  refreshCommodityShipment();
   updateStats();
 }
 
@@ -15349,6 +16647,7 @@ function hailSelectedShip() {
   }
   npc.hailSession = createShipHailSession(npc);
   applyWorldCargoEconomy(noteHailNotWorld(ensureWorldCargoBook(), worldCargoContext({ stationId: npc.id })));
+  refreshCommodityShipment();
   playGameSound('hail', { cooldownKey: `hail:${npc.id}` });
   setLog(`${getShipDisplayName(npc)} responds: ${npc.hailSession.line}`);
   rerenderTargetWindowNow();
@@ -15585,6 +16884,7 @@ function acceptPendingContract() {
   state.openContracts = [...getOpenContracts(), offer];
   state.activeContract = state.openContracts[0] || null;
   enrollAcceptedWorldCargo(offer, 'open');
+  refreshCommodityShipment();
   state.pendingContractOffer = null;
   playGameSound('contract', { cooldownKey: `contract:${offer.id}` });
   setLog(`Accepted contract: ${offer.tons} tons of ${offer.goods} to ${offer.targetName} for ${getContractTotal(offer)} latinum.`);
@@ -15618,18 +16918,28 @@ function buyMarketGood(slot = 0) {
     systemIndex: state.currentPlanet,
   });
   if (market) {
+    const stockBeforeBuy = market.stock;
+    const priceBeforeBuy = market.price;
+    const demandBeforeBuy = market.demand;
     const bought = applyShopBuy(book, {
       marketId: market.marketId,
       credits: state.latinum,
       good: market.good,
-    }, livePhase8Magnitudes());
+    }, {
+      ...livePhase8Magnitudes(),
+      priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
+      priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
+      priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
+    });
     if (!bought.allowed) {
-      setLog(bought.sayable || `Cannot buy ${offer.goods} here.`);
+      setLog(bought.logLine || bought.sayable || `Cannot buy ${offer.goods} here.`);
       updateStats();
       return bought;
     }
     if (!addCargoToPods(market.good, 1, undefined, 0)) {
-      market.stock += 1;
+      market.stock = stockBeforeBuy;
+      market.price = priceBeforeBuy;
+      market.demand = demandBeforeBuy;
       setLog('You have no more cargo space for this cargo.');
       updateStats();
       return { ok: false, reason: 'cargo-full' };
@@ -15683,10 +16993,15 @@ function sellMarketGood(slot = 0) {
     return;
   }
   if (market) {
-    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, livePhase8Magnitudes());
+    const sale = applyShopSell(book, { marketId: market.marketId, credits: state.latinum }, {
+      ...livePhase8Magnitudes(),
+      priceStep: COMMODITY_SHIPMENT_CONFIG.priceStep,
+      priceFloor: COMMODITY_SHIPMENT_CONFIG.priceFloor,
+      priceCap: COMMODITY_SHIPMENT_CONFIG.priceCap,
+    });
     if (!sale.allowed) {
       addCargoToPods(market.good, 1, undefined, 0);
-      setLog(sale.sayable || `Local seller will not buy ${market.good}.`);
+      setLog(sale.logLine || sale.sayable || `Local seller will not buy ${market.good}.`);
       updateStats();
       return sale;
     }
@@ -16175,6 +17490,7 @@ function handleTargetWindowAction(e, fromPointer = false) {
   if (board) {
     e.preventDefault();
     e.stopPropagation();
+    if (board.disabled || board.hasAttribute('disabled')) return true;
     const npc = getSelectedNpcTarget();
     const action = board.dataset.boardAction;
     if (action === 'board') issuePlayerBoardingOrder(npc);
@@ -16219,13 +17535,62 @@ document.getElementById('world-cargo')?.addEventListener('click', (event) => {
   const result = applyWorldCargoEconomy(dropWorldCargo(ensureWorldCargoBook(), worldCargoContext({
     contractId: drop.dataset.worldCargoDrop,
   })));
+  refreshCommodityShipment();
   setLog(result?.outcome || 'Drop recorded.');
   updateStats();
+});
+
+document.getElementById('commodity-shipment')?.addEventListener('click', (event) => {
+  const select = event.target.closest('[data-commodity-select]');
+  if (select) {
+    selectCommodityShipment(ensureCommodityShipmentBook(), select.dataset.commoditySelect);
+    renderCommodityShipment();
+    return;
+  }
+  const buy = event.target.closest('[data-commodity-buy]');
+  if (buy) {
+    event.preventDefault();
+    buyFromCommodityBook(buy.dataset.commodityBuy || '');
+    return;
+  }
+  const sell = event.target.closest('[data-commodity-sell]');
+  if (sell) {
+    event.preventDefault();
+    sellBackFromCommodityBook(sell.dataset.commoditySell || '');
+  }
 });
 
 document.getElementById('briefing-archive')?.addEventListener('click', (event) => {
   const host = document.getElementById('briefing-archive');
   if (!host) return;
+  const commoditySelect = event.target.closest('[data-commodity-select]');
+  if (commoditySelect) {
+    selectCommodityShipment(ensureCommodityShipmentBook(), commoditySelect.dataset.commoditySelect);
+    renderCommodityShipment();
+    return;
+  }
+  const commodityBuy = event.target.closest('[data-commodity-buy]');
+  if (commodityBuy) {
+    event.preventDefault();
+    buyFromCommodityBook(commodityBuy.dataset.commodityBuy || '');
+    renderCommodityShipment();
+    return;
+  }
+  const commoditySell = event.target.closest('[data-commodity-sell]');
+  if (commoditySell) {
+    event.preventDefault();
+    sellBackFromCommodityBook(commoditySell.dataset.commoditySell || '');
+    renderCommodityShipment();
+    return;
+  }
+  const bookToggle = event.target.closest('[data-commodity-book-toggle]');
+  if (bookToggle) {
+    event.preventDefault();
+    state.commodityShipmentOpen = !state.commodityShipmentOpen;
+    renderBriefingArchive();
+    renderCommodityShipment();
+    return;
+  }
   const view = event.target.closest('[data-briefing-view]');
   if (view) {
     event.preventDefault();
@@ -16956,6 +18321,26 @@ planetMenuEl?.addEventListener('click', (e) => {
     sellMarketGood(Number(sell.dataset.marketSell));
     return;
   }
+  const commoditySelect = e.target.closest('[data-commodity-select]');
+  if (commoditySelect) {
+    selectCommodityShipment(ensureCommodityShipmentBook(), commoditySelect.dataset.commoditySelect);
+    renderCommodityShipment();
+    return;
+  }
+  const commodityBuy = e.target.closest('[data-commodity-buy]');
+  if (commodityBuy) {
+    e.preventDefault();
+    buyFromCommodityBook(commodityBuy.dataset.commodityBuy || '');
+    renderCommodityShipment();
+    return;
+  }
+  const commoditySell = e.target.closest('[data-commodity-sell]');
+  if (commoditySell) {
+    e.preventDefault();
+    sellBackFromCommodityBook(commoditySell.dataset.commoditySell || '');
+    renderCommodityShipment();
+    return;
+  }
   const ship = e.target.closest('[data-ship-buy]');
   if (ship) {
     buyShip(Number(ship.dataset.shipBuy));
@@ -17010,6 +18395,12 @@ planetMenuEl?.addEventListener('click', (e) => {
 planetMenuEl?.addEventListener('wheel', (e) => {
   const panel = planetMenuEl.querySelector('.dock-panel');
   if (!panel || panel.scrollHeight <= panel.clientHeight) return;
+  const bookScroll = e.target?.closest?.('.commodity-book-scroll');
+  if (bookScroll && panel.contains(bookScroll) && bookScroll.scrollHeight > bookScroll.clientHeight + 1) {
+    const roomDown = bookScroll.scrollTop + bookScroll.clientHeight < bookScroll.scrollHeight - 1;
+    const roomUp = bookScroll.scrollTop > 0;
+    if ((e.deltaY > 0 && roomDown) || (e.deltaY < 0 && roomUp)) return;
+  }
   e.preventDefault();
   panel.scrollTop += e.deltaY;
   if (panel.dataset?.dockTab) state.dockPanelScrollByTab[panel.dataset.dockTab] = panel.scrollTop;
@@ -17492,6 +18883,7 @@ function tryDockAtStation(station) {
   state.combatTargetType = 'ship';
   openStationMenu(station);
   applyWorldCargoEconomy(noteStationNotWorld(ensureWorldCargoBook(), worldCargoContext({ stationId: station.id })));
+  refreshCommodityShipment();
   addWorldPop(screen.x, screen.y - 44, 'Docked', '#9cffb4');
   return true;
 }
@@ -17932,16 +19324,12 @@ function renderShipHailPanel(npc, distance) {
 function updateTargetWindow() {
   if (!targetWindowEl) return;
   if (!state.gameStarted || state.gameOver || state.warp.active || isWormholeTransitActive()) {
-    targetWindowEl.classList.add('hidden');
-    targetWindowEl.innerHTML = '';
-    targetWindowEl.dataset.renderKey = '';
+    dismissTargetWindow();
     return;
   }
   const target = getSelectedCombatTarget();
   if (!target || !playerDetectsTarget(target, state.combatTargetType)) {
-    targetWindowEl.classList.add('hidden');
-    targetWindowEl.innerHTML = '';
-    targetWindowEl.dataset.renderKey = '';
+    dismissTargetWindow();
     return;
   }
   ensureCombatTargetStats(target);
@@ -17988,10 +19376,11 @@ function updateTargetWindow() {
     state.cargo,
     state.latinum,
     ensureBoardingBook().lastRefuse?.reason || '',
-    snapshotAttempt(ensureBoardingBook()).outcome || '',
+    attemptForTarget(ensureBoardingBook(), target)?.outcome || '',
     (state.playerFleet || []).length,
   ].join(':');
   if (!targetWindowEl.classList.contains('hidden') && targetWindowEl.dataset.renderKey === renderKey && now - lastTargetWindowRenderAt < 120) {
+    placeTargetWindow(targetWindowEl);
     return;
   }
   lastTargetWindowRenderAt = now;
@@ -18017,6 +19406,7 @@ function updateTargetWindow() {
     </div>
     ${isStation || !view.showName ? '' : renderShipHailPanel(target, distance)}
     ${renderBoardingChrome(target, isStation)}`;
+  placeTargetWindow(targetWindowEl);
 }
 
 function damageCombatTarget(target, damage, source = 'player', color = '#74d6ff', impactPoint = null, meta = {}) {
@@ -22601,7 +23991,7 @@ function drawSystemStar(now = performance.now()) {
 
 function drawMinimap() {
   if (!minimapCanvas || !minimapCtx) return;
-  const visible = state.gameStarted && !state.warp.active && !isWormholeTransitActive();
+  const visible = state.gameStarted && !state.warp.active && !isWormholeTransitActive() && !state.planetMenuOpen;
   if (minimapPanelEl) minimapPanelEl.style.display = visible ? 'block' : 'none';
   minimapCanvas.style.display = visible ? 'block' : 'none';
   if (!visible) return;
@@ -23307,6 +24697,8 @@ function resetRunState() {
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
   state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -23454,6 +24846,8 @@ function restartInEscapePod() {
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
   state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
   state.ew93 = emptyEw93Book();
@@ -23537,6 +24931,8 @@ function startWithFaction(key, options = {}) {
   state.solarSailorBook = emptySolarSailorBook();
   state.briefingArchive = emptyBriefingArchive();
   state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
   state.utilityBook = emptyUtilityBook();
   state.ew91 = emptyEw91Book();
   state.ew92 = emptyEw92Book();
@@ -24251,6 +25647,12 @@ function installBm1ProbeHarness() {
     prepareArena: probePrepareArena,
     snapshot: probeSnapshot,
     spawnShip: probeSpawnShip,
+    screenOf(id) {
+      const ship = probeFindShip(id) || probeFindStation(id);
+      if (!ship) return null;
+      const point = worldToScreen(ship);
+      return { id: ship.id, x: point.x, y: point.y };
+    },
     spawnStation: probeSpawnStation,
     catalog: createCatalogProbeApi(),
     placePlayer: probePlacePlayer,
@@ -24498,6 +25900,7 @@ function installBm1ProbeHarness() {
     solarSailor: createSolarSailorProbeApi(),
     briefingArchive: createBriefingArchiveProbeApi(),
     worldCargo: createWorldCargoProbeApi(),
+    commodityShipment: createCommodityShipmentProbeApi(),
   };
 }
 
@@ -25892,6 +27295,241 @@ function briefingAuthorityFingerprint() {
   };
 }
 
+function createCommodityShipmentProbeApi() {
+  const standingNow = () => JSON.parse(JSON.stringify(state.factionStanding || {}));
+  return {
+    lock: () => COMMODITY_SHIPMENT_LOCKED_FROM_REMASTERED === true,
+    log: (line) => {
+      const text = String(line || '').trim();
+      if (text) setLog(text);
+      return state.log || '';
+    },
+    config: () => ({ ...COMMODITY_SHIPMENT_CONFIG }),
+    open: () => {
+      state.commodityShipmentOpen = true;
+      if (state.docked) {
+        state.planetMenuOpen = true;
+        state.dockMenuTab = 'market';
+        renderPlanetMenu();
+      }
+      renderCommodityShipment();
+      return true;
+    },
+    measureNoClip: (mustShow) => measureCommodityNoClip(mustShow),
+    doctrineFacts: () => commodityDoctrineFacts(),
+    clearCombatTarget: () => {
+      state.autoTarget = false;
+      state.combatTargetId = null;
+      state.combatTargetType = 'ship';
+      if (typeof rerenderTargetWindowNow === 'function') rerenderTargetWindowNow();
+      return state.combatTargetId == null;
+    },
+    close: () => {
+      state.commodityShipmentOpen = false;
+      renderCommodityShipment();
+      return true;
+    },
+    worldTradeScope: () => dominionTradeContextForMarket(),
+    index: () => commodityShipmentSnapshot(refreshCommodityShipment(), {
+      podDigest: JSON.stringify(state.cargoArray),
+      cargoCap: state.cargoCap,
+    }),
+    restore: (payload) => {
+      const beforePods = JSON.stringify(state.cargoArray);
+      const beforeLatinum = state.latinum;
+      state.commodityShipmentBook = restoreCommodityShipmentBook(payload, { pods: state.cargoArray });
+      return {
+        ...commodityShipmentSnapshot(state.commodityShipmentBook),
+        podsUnchanged: JSON.stringify(state.cargoArray) === beforePods,
+        latinumDelta: state.latinum - beforeLatinum,
+        bookInsideSystemStates: Boolean(state.systemStates?.[state.currentPlanet]?.commodityShipmentBook),
+      };
+    },
+    snapshot: () => commodityShipmentSnapshot(ensureCommodityShipmentBook(), {
+      podDigest: JSON.stringify(state.cargoArray),
+      cargoCap: state.cargoCap,
+      latinum: state.latinum,
+      standing: standingNow(),
+      saveSlotCount: SAVE_SLOT_COUNT,
+    }),
+    save: () => serializeCommodityShipmentBook(ensureCommodityShipmentBook()),
+    select: (id) => {
+      selectCommodityShipment(ensureCommodityShipmentBook(), id);
+      renderCommodityShipment();
+      return commodityShipmentSnapshot(state.commodityShipmentBook);
+    },
+    buy: (good, tons = 1, extras = {}) => {
+      const market = extras.market || findMarket(ensureMarketBook(), {
+        good,
+        marketId: extras.marketId,
+        systemIndex: state.currentPlanet,
+      });
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const result = buyCommodityLot(ensureCommodityShipmentBook(), {
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        cargoCap: extras.cargoCap ?? state.cargoCap,
+        credits: extras.credits ?? state.latinum,
+        tons,
+        strategicJumps: Number(ensureIncidentLedger().strategicJumps) || 0,
+        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: null },
+        contraband: extras.contraband === true,
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      if (result.paid) state.latinum = Math.max(0, state.latinum - result.paid);
+      recalcCargoFromPods();
+      renderCommodityShipment();
+      return { ...result, before, market: market ? { stock: market.stock, demand: market.demand, price: market.price } : null };
+    },
+    sellBack: (saleId, extras = {}) => {
+      const book = ensureCommodityShipmentBook();
+      const sale = book.sales?.[String(saleId)];
+      const market = extras.market || (sale ? findMarket(ensureMarketBook(), { good: sale.good, marketId: extras.marketId }) : null);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const result = sellBackBookLot(book, {
+        saleId,
+        market,
+        marketBook: ensureMarketBook(),
+        pods: state.cargoArray,
+        dominion: Object.prototype.hasOwnProperty.call(extras, 'dominion') ? extras.dominion : { scope: null },
+        config: COMMODITY_SHIPMENT_CONFIG,
+      });
+      if (result.paid) state.latinum += result.paid;
+      recalcCargoFromPods();
+      renderCommodityShipment();
+      return { ...result, before, market: market ? { stock: market.stock, demand: market.demand, price: market.price } : null };
+    },
+    setStanding: (faction, value) => {
+      const key = String(faction || 'neutral').trim().toLowerCase();
+      if (!state.factionStanding || typeof state.factionStanding !== 'object') state.factionStanding = {};
+      state.factionStanding[key] = Math.round(Number(value) || 0);
+      return state.factionStanding[key];
+    },
+    emptyHold: () => {
+      state.cargoArray = Array.from({ length: Math.max(10, state.cargoArray?.length || 0) }, () => ({
+        tons: 0, item: 'Nothing', destination: undefined, payout: 0,
+      }));
+      recalcCargoFromPods();
+      return state.cargo;
+    },
+    playBuy: (good) => {
+      const market = currentBookMarket(good);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const result = buyFromCommodityBook(good) || { ok: false, paid: 0, reason: 'not-docked', logLine: state.log, logBand: null };
+      const book = ensureCommodityShipmentBook();
+      const lot = result.lotId ? book.lots?.[result.lotId] : null;
+      return {
+        ok: result.ok === true,
+        paid: result.paid || 0,
+        reason: result.reason || null,
+        saleId: result.saleId ?? null,
+        lotId: result.lotId ?? null,
+        contraband: lot?.contraband === true,
+        salePresent: result.saleId != null && Boolean(book.sales?.[String(result.saleId)]),
+        podTons: lot ? state.cargoArray.find((pod) => String(pod.bookSaleId ?? '') === String(result.saleId))?.tons ?? 0 : 0,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: result.logLine || state.log || '',
+        log: state.log || '',
+        logBand: result.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+        systemName: state.planets[state.currentPlanet]?.name || '',
+        dominionScope: dominionTradeContextForMarket(market).scope,
+      };
+    },
+    setWorldName: (name) => {
+      const planet = state.planets?.[state.currentPlanet];
+      if (!planet) return null;
+      const previous = planet.name;
+      planet.name = name;
+      return previous;
+    },
+    playSell: (saleId) => {
+      const book = ensureCommodityShipmentBook();
+      const sale = book.sales?.[String(saleId)];
+      const market = sale ? currentBookMarket(sale.good) : null;
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const result = sellBackFromCommodityBook(saleId) || { ok: false, paid: 0, reason: 'not-docked', logLine: state.log, logBand: null };
+      const afterBook = ensureCommodityShipmentBook();
+      return {
+        ok: result.ok === true,
+        paid: result.paid || 0,
+        reason: result.reason || null,
+        salePresent: Boolean(afterBook.sales?.[String(saleId)]),
+        podTons: state.cargoArray.find((pod) => String(pod.bookSaleId ?? '') === String(saleId))?.tons ?? 0,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: result.logLine || state.log || '',
+        log: state.log || '',
+        logBand: result.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+      };
+    },
+    playShopBuy: (marketId) => {
+      const offers = currentMarketOffers();
+      const slot = offers.findIndex((row) => row.marketId === marketId);
+      const market = getMarket(ensureMarketBook(), marketId);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const bought = slot >= 0 ? buyMarketGood(slot) : { ok: false, reason: 'missing-offer' };
+      return {
+        ok: bought?.ok === true || bought?.allowed === true,
+        paid: latinumBefore - state.latinum,
+        reason: bought?.reason || null,
+        kind: bought?.kind || null,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: bought?.logLine || state.log || '',
+        log: state.log || '',
+        logBand: bought?.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        sayable: bought?.sayable || '',
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+        slot,
+      };
+    },
+    playShopSell: (marketId) => {
+      const offers = currentMarketOffers();
+      const slot = offers.findIndex((row) => row.marketId === marketId);
+      const market = getMarket(ensureMarketBook(), marketId);
+      const before = market ? { stock: market.stock, demand: market.demand, price: market.price } : null;
+      const witness = tradeWitness();
+      const latinumBefore = state.latinum;
+      const sold = slot >= 0 ? sellMarketGood(slot) : { ok: false, reason: 'missing-offer' };
+      return {
+        ok: sold?.ok === true || sold?.allowed === true,
+        paid: state.latinum - latinumBefore,
+        reason: sold?.reason || null,
+        kind: sold?.kind || null,
+        before,
+        after: market ? { stock: market.stock, demand: market.demand, price: market.price } : null,
+        latinumDelta: state.latinum - latinumBefore,
+        logLine: sold?.logLine || state.log || '',
+        log: state.log || '',
+        logBand: sold?.logBand ?? null,
+        band: classifyLogBand(state.log || ''),
+        identitySame: tradeWitness() === witness,
+        docked: state.docked === true,
+        slot,
+      };
+    },
+  };
+}
+
 function createWorldCargoProbeApi() {
   const failIfMissing = (helper, name) => {
     if (typeof helper !== 'function') return { ok: false, reason: `${name}-missing`, missing: true };
@@ -25982,6 +27620,10 @@ function createWorldCargoProbeApi() {
       state.dockedPlanetIndex = null;
       state.dockedStationId = null;
       closePlanetMenu();
+      renderBriefingArchive();
+      renderPhase10Readout();
+      renderWorldCargo();
+      renderCommodityShipment();
       return true;
     },
     serviceRange: () => {
@@ -26299,6 +27941,8 @@ function createBriefingArchiveProbeApi() {
       const archive = serializeBriefingArchive(ensureBriefingArchive());
       state.briefingArchive = emptyBriefingArchive();
       state.worldCargoBook = emptyWorldCargoBook();
+  state.commodityShipmentBook = emptyCommodityShipmentBook();
+  state.commodityShipmentOpen = false;
       saveGame(2);
       const slot2 = JSON.parse(localStorage.getItem('bm2_html_save_slot_2') || '{}');
       loadGame(2);
@@ -27362,6 +29006,7 @@ function createPhase8ProbeApi() {
   };
   return {
     snapshot,
+    loadGoodsPack: (pack) => loadGoodsPack(pack),
     injectMarket: (opts = {}) => {
       const missing = failIfMissing(injectMarket, 'injectMarket');
       if (missing) return missing;
@@ -27383,6 +29028,8 @@ function createPhase8ProbeApi() {
         sellerWillDeal: opts.sellerWillDeal,
         wartimeGood: opts.wartimeGood,
         marketId: opts.marketId,
+        premiumMultiplier: opts.premiumMultiplier,
+        contraband: opts.contraband === true,
       });
       if (!injected.ok) return injected;
       return { ok: true, market: injected.market, snapshot: snapshot() };
@@ -30074,10 +31721,20 @@ function createBoardingProbeApi() {
     selectTarget: (id) => {
       const npc = findNpcByBoardingId(id) || probeFindShip(id);
       if (!npc) return { ok: false, reason: 'selectTarget-missing-ship' };
+      refreshContactBookNow();
+      if (!playerDetectsNpc(npc)) return { ok: false, reason: 'selectTarget-not-detected' };
       state.combatTargetId = npc.id;
       state.combatTargetType = 'ship';
       if (typeof rerenderTargetWindowNow === 'function') rerenderTargetWindowNow();
-      return { ok: true, id: npc.id, snapshot: snapshot() };
+      const contact = findContact(ensureContactBook(), playerObserverKey(), subjectKeyOfNpc(npc));
+      return {
+        ok: true,
+        id: npc.id,
+        detected: true,
+        firingSolution: contact?.firingSolution === true,
+        source: contact?.source || null,
+        snapshot: snapshot(),
+      };
     },
   };
 }
@@ -30151,6 +31808,7 @@ function installPlayerSecurityProbe() {
     solarSailor: createSolarSailorProbeApi(),
     briefingArchive: createBriefingArchiveProbeApi(),
     worldCargo: createWorldCargoProbeApi(),
+    commodityShipment: createCommodityShipmentProbeApi(),
     catalog: createCatalogProbeApi(),
     setEmpireRoe,
     setHoldingRoe,

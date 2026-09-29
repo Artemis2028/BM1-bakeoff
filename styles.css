@@ -872,6 +872,25 @@ body.ui-theme-cardassian .planet-menu::before {
   overflow-x: hidden;
   overflow-y: auto;
   pointer-events: auto;
+  scrollbar-width: auto;
+  scrollbar-color: var(--lcars-amber) #141820;
+}
+.target-window.is-scrolling {
+  scrollbar-gutter: stable;
+}
+.target-window.is-scrolling::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  bottom: 10px;
+  width: 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center top 8px / 8px 42% no-repeat,
+    #141820;
 }
 .target-window.hidden {
   display: none;
@@ -915,10 +934,31 @@ body.ui-theme-cardassian .planet-menu::before {
   border: 4px solid var(--lcars-amber);
   border-radius: 14px 4px 14px 4px;
   box-shadow: inset 0 0 0 2px #000, 0 0 14px rgba(0, 0, 0, 0.6);
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
   font-size: 13px;
   line-height: 1.35;
+}
+.briefing-archive.is-scrolling {
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: var(--lcars-amber) #141820;
+}
+.briefing-archive.is-scrolling::before {
+  content: "";
+  position: sticky;
+  top: 8px;
+  width: 10px;
+  height: 96px;
+  margin-left: auto;
+  margin-bottom: -102px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center top 6px / 8px 64% no-repeat,
+    #141820;
 }
 .briefing-archive.hidden { display: none; }
 .world-cargo {
@@ -939,20 +979,218 @@ body.ui-theme-cardassian .planet-menu::before {
   border: 4px solid var(--lcars-orange);
   border-radius: 14px 4px 14px 4px;
   box-shadow: inset 0 0 0 2px #000, 0 0 14px rgba(0, 0, 0, 0.6);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--lcars-orange) #141820;
   pointer-events: auto;
   font-size: 13px;
   line-height: 1.35;
 }
+.world-cargo.is-scrolling::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  width: 10px;
+  height: 84px;
+  border-radius: 5px;
+  pointer-events: none;
+  z-index: 6;
+  background: var(--lcars-orange);
+  box-shadow: 0 0 0 2px #141820;
+}
 .world-cargo.hidden { display: none; }
-.world-cargo-contracts,
-.world-cargo-outcome {
+.commodity-shipment {
+  /* Parked host. The visible book is .commodity-book-section inside the dock market panel. */
+  display: none;
+}
+.briefing-archive.is-book-open {
+  height: calc(100vh - 78px - var(--bm1-dock-clear) - 16px);
+}
+.briefing-archive.is-book-open .briefing-archive-select {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  max-height: none;
+  overflow: visible;
+}
+.briefing-archive.is-book-open .briefing-archive-body {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
+.briefing-archive.is-book-open .briefing-line,
+.briefing-archive.is-book-open .briefing-jump,
+.briefing-archive.is-book-open .briefing-omitted,
+.briefing-archive.is-book-open .briefing-empty {
+  margin: 0;
+  line-height: 18px;
+  scroll-snap-align: start;
+}
+.briefing-archive.is-book-open > .commodity-book-section {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+}
+.commodity-book-frame {
+  min-width: 0;
+  min-height: 0;
+}
+.commodity-book-scroll {
+  min-width: 0;
+}
+.commodity-book-bar { display: none; }
+.commodity-book-actions {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.commodity-book-actions button { flex-shrink: 0; }
+.commodity-book-actions:empty { display: none; }
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 6px;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lcars-amber) #05070e;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-bar {
+  display: block;
+  flex: 0 0 10px;
+  align-self: stretch;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center top 8px / 8px 42% no-repeat,
+    #141820;
+}
+.briefing-archive.is-book-open .briefing-archive-body {
+  line-height: 18px;
+}
+.briefing-archive.is-book-open .briefing-archive-body.is-scrolled {
+  padding-right: 12px;
+  background:
+    linear-gradient(#141820, #141820) right center / 10px 100% no-repeat,
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) right 1px top 8px / 8px 42% no-repeat;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll::-webkit-scrollbar,
+.briefing-archive.is-book-open .briefing-archive-select::-webkit-scrollbar,
+.briefing-archive.is-book-open .briefing-archive-body::-webkit-scrollbar {
+  width: 10px;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll::-webkit-scrollbar-thumb,
+.briefing-archive.is-book-open .briefing-archive-select::-webkit-scrollbar-thumb,
+.briefing-archive.is-book-open .briefing-archive-body::-webkit-scrollbar-thumb {
+  background: var(--lcars-amber);
+  border-radius: 6px;
+}
+.briefing-archive.is-book-open > .commodity-book-section .commodity-book-scroll::-webkit-scrollbar-track,
+.briefing-archive.is-book-open .briefing-archive-select::-webkit-scrollbar-track,
+.briefing-archive.is-book-open .briefing-archive-body::-webkit-scrollbar-track {
+  background: #05070e;
+}
+.commodity-book-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  color: var(--lcars-text);
+  background: #05070e;
+  border: 4px solid var(--lcars-cyan);
+  border-radius: 14px 4px 14px 4px;
+  box-shadow: inset 0 0 0 2px #000;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.commodity-shipment-title {
+  flex: 0 0 auto;
+  margin: 0 0 2px;
+  padding: 0 2px 6px;
+  color: var(--lcars-cyan);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  border-bottom: 2px solid var(--lcars-cyan);
+}
+.commodity-shipment.hidden { display: none; }
+.commodity-entries,
+.shipment-records,
+.commodity-shipment-detail {
   overflow-x: hidden;
   overflow-y: auto;
   min-width: 0;
 }
-.world-cargo-contracts { flex: 0 1 auto; max-height: 48%; }
-.world-cargo-outcome { flex: 1 1 auto; min-height: 72px; }
+.commodity-entries { flex: 0 1 auto; max-height: 34%; }
+.shipment-records { flex: 0 1 auto; max-height: 34%; }
+.commodity-shipment-detail { flex: 1 1 auto; min-height: 72px; }
+.commodity-book-section .commodity-entries,
+.commodity-book-section .shipment-records,
+.commodity-book-section .commodity-shipment-detail {
+  max-height: none;
+  overflow: visible;
+}
+.commodity-book-section button,
+.commodity-shipment button {
+  white-space: normal;
+  text-align: left;
+  height: auto;
+  max-width: 100%;
+  min-height: 28px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow: visible;
+  text-overflow: unset;
+}
+.commodity-entry,
+.shipment-record,
+.commodity-shipment-line {
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: normal;
+  overflow-wrap: normal;
+  margin: 3px 0;
+}
+.commodity-entry,
+.shipment-record {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(110, 210, 230, 0.7);
+  border-left: 4px solid var(--lcars-cyan);
+  border-radius: 6px;
+  background: #0b1520;
+}
+.commodity-entry:last-child,
+.shipment-record:last-child {
+  margin-bottom: 0;
+}
+.world-cargo-contracts,
+.world-cargo-outcome {
+  overflow: visible;
+  min-width: 0;
+  max-height: none;
+  flex: 0 0 auto;
+}
 .world-cargo button {
   white-space: normal;
   text-align: left;
@@ -973,7 +1211,7 @@ body.ui-theme-cardassian .planet-menu::before {
   overflow: visible;
   text-overflow: unset;
   word-break: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   margin: 3px 0;
 }
 .briefing-archive-select,
@@ -982,16 +1220,62 @@ body.ui-theme-cardassian .planet-menu::before {
   overflow-y: auto;
   min-width: 0;
 }
+.briefing-archive-select.is-scrolling,
+.briefing-archive-body.is-scrolling {
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: var(--lcars-amber) #141820;
+}
+.briefing-archive-select.is-scrolling::before,
+.briefing-archive-body.is-scrolling::before {
+  content: "";
+  position: sticky;
+  top: 4px;
+  float: right;
+  width: 8px;
+  height: 48px;
+  margin: 0 0 -48px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center / 6px 70% no-repeat,
+    #141820;
+}
 .briefing-archive-select { flex: 0 1 auto; max-height: 42%; }
 .briefing-archive.is-briefing .briefing-archive-select { max-height: 108px; }
 .briefing-archive.is-archive .briefing-archive-select { flex: 1 1 auto; max-height: 62%; }
 .briefing-archive-body { flex: 1 1 auto; min-height: 72px; }
+.briefing-archive-select button,
+.briefing-folder button {
+  flex-shrink: 0;
+}
+.briefing-archive.is-book-open .briefing-archive-select,
+.briefing-archive.is-book-open.is-briefing .briefing-archive-select,
+.briefing-archive.is-book-open.is-archive .briefing-archive-select {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  max-height: none;
+  overflow: visible;
+}
+.briefing-archive.is-book-open .briefing-archive-body {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
 .briefing-archive-toolbar,
 .briefing-folder {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   align-items: flex-start;
+}
+.briefing-archive-toolbar [data-commodity-book-toggle].active {
+  background: var(--lcars-amber);
+  color: #000;
+  box-shadow: inset 0 0 0 2px #000;
 }
 .briefing-folder { margin-top: 6px; }
 .briefing-folder b,
@@ -1230,9 +1514,10 @@ body.ui-theme-cardassian .target-meter-track {
   top: 8px;
   z-index: 32;
   width: min(230px, calc(100vw - 36px));
-  max-height: 52px;
+  max-height: none;
   padding: 0;
   overflow: visible;
+  pointer-events: none;
   background: transparent;
   border-radius: 0;
   color: var(--lcars-text);
@@ -1260,6 +1545,7 @@ body.ui-theme-cardassian .target-meter-track {
   min-width: 0;
   min-height: 36px;
   padding: 7px 6px;
+  pointer-events: auto;
   background: var(--lcars-purple);
   font-size: 12px;
 }
@@ -1267,6 +1553,9 @@ body.ui-theme-cardassian .target-meter-track {
   background: var(--lcars-orange);
 }
 @media (min-width: 981px) {
+  .top-left-menu {
+    min-height: 66px;
+  }
   .top-left-tabs button[data-top-left-tab="settings"] {
     position: absolute;
     left: 0;
@@ -1470,7 +1759,7 @@ body.ui-theme-cardassian .target-meter-track {
   height: min(560px, calc(100vh - 328px));
   min-height: 250px;
   max-height: calc(100vh - 328px);
-  overflow: hidden;
+  overflow: visible;
   padding: 18px 14px 14px 92px;
   background: var(--lcars-panel);
   border: 0;
@@ -1530,7 +1819,7 @@ body.ui-theme-cardassian .target-meter-track {
   font-family: var(--bm2-display-font);
   font-size: 22px;
   font-weight: 700;
-  line-height: 1.02;
+  line-height: 1.25;
   color: var(--lcars-cream);
   text-transform: uppercase;
   letter-spacing: 0;
@@ -1579,8 +1868,70 @@ body.ui-theme-cardassian .target-meter-track {
   overflow-x: hidden;
   padding-right: 4px;
   overscroll-behavior: contain;
-  scrollbar-color: var(--lcars-orange) rgba(0, 0, 0, 0.45);
+  scrollbar-color: var(--lcars-orange) #141820;
   scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+.dock-panel.is-scrolling::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  width: 10px;
+  height: 84px;
+  border-radius: 5px;
+  pointer-events: none;
+  z-index: 6;
+  background: var(--lcars-orange);
+  box-shadow: 0 0 0 2px #141820;
+}
+.planet-menu .dock-panel > .commodity-book-section {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 0 4px;
+  padding: 6px 8px;
+  overflow: visible;
+}
+.planet-menu .dock-panel > .commodity-book-section .commodity-book-frame {
+  flex: 0 0 auto;
+  max-height: 36px;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+  overflow: hidden;
+}
+.planet-menu .dock-panel > .commodity-book-section .commodity-book-scroll {
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  max-height: 36px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lcars-amber) #05070e;
+}
+.planet-menu .dock-panel > .commodity-book-section .commodity-entries,
+.planet-menu .dock-panel > .commodity-book-section .shipment-records,
+.planet-menu .dock-panel > .commodity-book-section .commodity-shipment-detail {
+  flex: 0 0 auto;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
+.planet-menu .dock-panel > .commodity-book-section .commodity-book-bar {
+  display: block;
+  flex: 0 0 10px;
+  align-self: stretch;
+  min-height: 24px;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--lcars-amber), var(--lcars-amber)) center top 8px / 8px 42% no-repeat,
+    #141820;
 }
 .planet-menu.station-menu .dock-panel {
   top: 82px;
@@ -4209,7 +4560,7 @@ button:disabled {
     left: 12px;
     top: 8px;
     width: min(230px, calc(100vw - 24px));
-    max-height: 52px;
+    max-height: none;
   }
   #stats {
     left: 12px;

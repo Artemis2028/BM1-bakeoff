@@ -26,6 +26,7 @@
     "test:bajoran-solar-sailor": "node scripts/test-bajoran-solar-sailor.mjs",
     "test:briefing-archive": "node scripts/test-briefing-archive.mjs",
     "test:world-cargo": "node scripts/test-world-cargo-delivery.mjs",
+    "test:commodity-shipment": "node scripts/test-commodity-shipment.mjs",
     "test:utility": "node scripts/test-utility-inventory.mjs",
     "test:weapon-ledger": "node scripts/test-weapon-source-ledger.mjs",
     "test:empty-armable": "node scripts/test-empty-armable.mjs",
